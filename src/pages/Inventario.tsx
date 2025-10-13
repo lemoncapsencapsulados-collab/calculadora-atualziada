@@ -15,14 +15,34 @@ import { toast } from 'sonner';
 export default function Inventario() {
   const [insumos, setInsumos] = useState<Insumo[]>(getInsumos());
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [editingInsumo, setEditingInsumo] = useState<Insumo | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  const categories = useMemo(() => {
+    const cats = new Set(insumos.map(i => i.categoria).filter(Boolean));
+    return ['Todos', ...Array.from(cats).sort()];
+  }, [insumos]);
+
   const filteredInsumos = useMemo(() => {
-    return insumos.filter((insumo) =>
-      insumo.nome.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [insumos, searchTerm]);
+    return insumos
+      .filter((insumo) => {
+        const matchesSearch = insumo.nome.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = selectedCategory === 'Todos' || insumo.categoria === selectedCategory;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [insumos, searchTerm, selectedCategory]);
+
+  const categoryCount = useMemo(() => {
+    const counts: Record<string, number> = { 'Todos': insumos.length };
+    insumos.forEach(insumo => {
+      if (insumo.categoria) {
+        counts[insumo.categoria] = (counts[insumo.categoria] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [insumos]);
 
   const handleSave = (formData: FormData) => {
     const nome = formData.get('nome') as string;
@@ -31,6 +51,7 @@ export default function Inventario() {
     const densidade = formData.get('densidade') ? parseFloat(formData.get('densidade') as string) : undefined;
     const observacoes = formData.get('observacoes') as string;
     const fornecedor = formData.get('fornecedor') as string;
+    const categoria = formData.get('categoria') as string;
 
     if (!nome || !unidade_compra || isNaN(preco) || preco < 0) {
       toast.error('Preencha todos os campos obrigatórios corretamente');
@@ -55,6 +76,7 @@ export default function Inventario() {
         densidade,
         observacoes,
         fornecedor,
+        categoria,
       });
       toast.success('Insumo atualizado com sucesso');
     } else {
@@ -66,6 +88,7 @@ export default function Inventario() {
         densidade,
         observacoes,
         fornecedor,
+        categoria,
       };
       addInsumo(newInsumo);
       toast.success('Insumo adicionado com sucesso');
@@ -182,6 +205,30 @@ export default function Inventario() {
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="categoria">Categoria</Label>
+                  <Select name="categoria" defaultValue={editingInsumo?.categoria}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Vitaminas">Vitaminas</SelectItem>
+                      <SelectItem value="Aminoácidos">Aminoácidos</SelectItem>
+                      <SelectItem value="Minerais">Minerais</SelectItem>
+                      <SelectItem value="Substâncias Bioativas">Substâncias Bioativas</SelectItem>
+                      <SelectItem value="Fibra Alimentar">Fibra Alimentar</SelectItem>
+                      <SelectItem value="Ativos Emagrecedores">Ativos Emagrecedores</SelectItem>
+                      <SelectItem value="Óleos">Óleos</SelectItem>
+                      <SelectItem value="Suplemento Alimentar">Suplemento Alimentar</SelectItem>
+                      <SelectItem value="Suplemento Ergogênico">Suplemento Ergogênico</SelectItem>
+                      <SelectItem value="Aromas">Aromas</SelectItem>
+                      <SelectItem value="Sacarose">Sacarose</SelectItem>
+                      <SelectItem value="Enzimas">Enzimas</SelectItem>
+                      <SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="col-span-2">
                   <Label htmlFor="observacoes">Observações</Label>
                   <Textarea
@@ -214,7 +261,7 @@ export default function Inventario() {
             {filteredInsumos.length} de {insumos.length} insumo(s) encontrado(s)
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -223,6 +270,21 @@ export default function Inventario() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <Button
+                key={cat}
+                variant={selectedCategory === cat ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedCategory(cat)}
+                className="text-xs"
+              >
+                {cat}
+                <span className="ml-1.5 opacity-70">({categoryCount[cat] || 0})</span>
+              </Button>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -240,7 +302,14 @@ export default function Inventario() {
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground">{insumo.nome}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-semibold text-foreground">{insumo.nome}</h3>
+                      {insumo.categoria && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                          {insumo.categoria}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
                       <div>
                         <p className="text-muted-foreground">Preço</p>

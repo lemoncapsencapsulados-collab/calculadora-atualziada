@@ -8,6 +8,7 @@ export interface Insumo {
   densidade?: number; // g/mL - for mass↔volume conversions
   observacoes?: string;
   fornecedor?: string;
+  categoria?: string;
 }
 
 export interface Embalagem {
