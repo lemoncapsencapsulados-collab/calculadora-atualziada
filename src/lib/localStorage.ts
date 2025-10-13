@@ -251,3 +251,29 @@ function getDefaultEmbalagens(): Embalagem[] {
     { id: '5', descricao: 'Rótulo', preco_unitario: 0.28, qtd_por_pote: 1 },
   ];
 }
+
+// Calculator State Persistence
+interface CalculatorState {
+  cliente: string;
+  nomeFormula: string;
+  items: Array<{
+    id: string;
+    insumoNome: string;
+    quantidade: string;
+    unidade: string;
+  }>;
+  selectedEmbalagens: string[];
+}
+
+export function saveCalculatorState(state: CalculatorState): void {
+  localStorage.setItem('calculator-state', JSON.stringify(state));
+}
+
+export function getCalculatorState(): CalculatorState | null {
+  const stored = localStorage.getItem('calculator-state');
+  return stored ? JSON.parse(stored) : null;
+}
+
+export function clearCalculatorState(): void {
+  localStorage.removeItem('calculator-state');
+}

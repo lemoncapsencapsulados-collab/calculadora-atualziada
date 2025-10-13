@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2, Download, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getInsumos, getEmbalagens, addFormula } from '@/lib/localStorage';
+import { getInsumos, getEmbalagens, addFormula, saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Insumo, Embalagem, Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
@@ -25,9 +25,35 @@ export default function Calculator() {
     { id: '1', insumoNome: '', quantidade: '', unidade: 'mg' },
   ]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
+  const [insumos, setInsumos] = useState<Insumo[]>([]);
+  const [embalagens, setEmbalagens] = useState<Embalagem[]>([]);
 
-  const insumos = getInsumos();
-  const embalagens = getEmbalagens();
+  // Load saved state and fresh inventory data on mount
+  useEffect(() => {
+    // Load fresh inventory data
+    setInsumos(getInsumos());
+    setEmbalagens(getEmbalagens());
+
+    // Load saved calculator state
+    const savedState = getCalculatorState();
+    if (savedState) {
+      setCliente(savedState.cliente);
+      setNomeFormula(savedState.nomeFormula);
+      setItems(savedState.items as FormulaItemInput[]);
+      setSelectedEmbalagens(new Set(savedState.selectedEmbalagens));
+    }
+  }, []);
+
+  // Save state whenever it changes
+  useEffect(() => {
+    const state = {
+      cliente,
+      nomeFormula,
+      items,
+      selectedEmbalagens: Array.from(selectedEmbalagens),
+    };
+    saveCalculatorState(state);
+  }, [cliente, nomeFormula, items, selectedEmbalagens]);
 
   // Calculate costs
   const calculatedItems = useMemo(() => {
@@ -158,6 +184,7 @@ export default function Calculator() {
     setNomeFormula('');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
+    clearCalculatorState();
   };
 
   const handleClear = () => {
@@ -166,6 +193,7 @@ export default function Calculator() {
       setNomeFormula('');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
+      clearCalculatorState();
     }
   };
 
@@ -418,7 +446,7 @@ export default function Calculator() {
         </Button>
         <Button variant="outline" onClick={handleExport} disabled={custoTotal === 0}>
           <Download className="w-4 h-4 mr-2" />
-          Exportar CSV
+          Baixar Orçamento
         </Button>
         <Button onClick={handleSave} disabled={!cliente || custoTotal === 0}>
           <Save className="w-4 h-4 mr-2" />
