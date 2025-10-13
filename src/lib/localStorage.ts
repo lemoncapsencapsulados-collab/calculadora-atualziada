@@ -256,6 +256,7 @@ function getDefaultEmbalagens(): Embalagem[] {
 interface CalculatorState {
   cliente: string;
   nomeFormula: string;
+  qtdCapsulas: string;
   items: Array<{
     id: string;
     insumoNome: string;

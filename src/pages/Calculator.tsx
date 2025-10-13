@@ -25,6 +25,7 @@ export default function Calculator() {
     { id: '1', insumoNome: '', quantidade: '', unidade: 'mg' },
   ]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
+  const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   const [insumos, setInsumos] = useState<Insumo[]>([]);
   const [embalagens, setEmbalagens] = useState<Embalagem[]>([]);
 
@@ -39,6 +40,7 @@ export default function Calculator() {
     if (savedState) {
       setCliente(savedState.cliente);
       setNomeFormula(savedState.nomeFormula);
+      setQtdCapsulas(savedState.qtdCapsulas || '60');
       setItems(savedState.items as FormulaItemInput[]);
       setSelectedEmbalagens(new Set(savedState.selectedEmbalagens));
     }
@@ -49,11 +51,12 @@ export default function Calculator() {
     const state = {
       cliente,
       nomeFormula,
+      qtdCapsulas,
       items,
       selectedEmbalagens: Array.from(selectedEmbalagens),
     };
     saveCalculatorState(state);
-  }, [cliente, nomeFormula, items, selectedEmbalagens]);
+  }, [cliente, nomeFormula, qtdCapsulas, items, selectedEmbalagens]);
 
   // Calculate costs
   const calculatedItems = useMemo(() => {
@@ -101,7 +104,14 @@ export default function Calculator() {
     });
   }, [items, insumos]);
 
-  const totalMP = calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0);
+  const custoUnitarioMP = useMemo(() => {
+    return calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0);
+  }, [calculatedItems]);
+
+  const totalMP = useMemo(() => {
+    const qtd = parseFloat(qtdCapsulas) || 1;
+    return custoUnitarioMP * qtd;
+  }, [custoUnitarioMP, qtdCapsulas]);
 
   const totalEmbalagem = useMemo(() => {
     return Array.from(selectedEmbalagens).reduce((sum, embId) => {
@@ -168,6 +178,7 @@ export default function Calculator() {
       id: Date.now().toString(),
       cliente,
       nome_formula: nomeFormula || 'Fórmula sem nome',
+      qtd_capsulas: parseFloat(qtdCapsulas) || 60,
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,
@@ -182,6 +193,7 @@ export default function Calculator() {
     // Reset form
     setCliente('');
     setNomeFormula('');
+    setQtdCapsulas('60');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
     clearCalculatorState();
@@ -191,6 +203,7 @@ export default function Calculator() {
     if (confirm('Limpar todos os campos?')) {
       setCliente('');
       setNomeFormula('');
+      setQtdCapsulas('60');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
       clearCalculatorState();
@@ -199,17 +212,19 @@ export default function Calculator() {
 
   const handleExport = () => {
     // Simple CSV export
-    let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+    let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nQuantidade de Cápsulas: ${qtdCapsulas}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
     
-    csv += 'MATÉRIA-PRIMA\n';
-    csv += 'Insumo,Quantidade,Unidade,Custo\n';
+    csv += 'MATÉRIA-PRIMA (por cápsula)\n';
+    csv += 'Insumo,Quantidade,Unidade,Custo Unitário\n';
     calculatedItems.forEach((item) => {
       if (item && !item.error) {
         csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrencyDetailed(item.custo)}\n`;
       }
     });
     
-    csv += `\nTotal Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
+    csv += `\nCusto por cápsula:,${formatCurrencyDetailed(custoUnitarioMP)}\n`;
+    csv += `Quantidade de cápsulas:,${qtdCapsulas}\n`;
+    csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
     
     csv += 'EMBALAGEM\n';
     csv += 'Descrição,Quantidade,Custo\n';
@@ -265,6 +280,29 @@ export default function Calculator() {
                 placeholder="Opcional"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle>Configuração do Pote</CardTitle>
+          <CardDescription>Quantidade de cápsulas por pote</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="qtdCapsulas">Quantidade de Cápsulas *</Label>
+            <Input
+              id="qtdCapsulas"
+              type="number"
+              min="1"
+              value={qtdCapsulas}
+              onChange={(e) => setQtdCapsulas(e.target.value)}
+              placeholder="Ex: 60"
+            />
+            <p className="text-sm text-muted-foreground">
+              As quantidades informadas são por cápsula e serão multiplicadas por este valor
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -412,9 +450,22 @@ export default function Calculator() {
         <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardHeader>
             <CardTitle className="text-primary">Matéria-Prima</CardTitle>
+            <CardDescription>
+              Custo unitário × {qtdCapsulas || 1} cápsulas
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">{formatCurrency(totalMP)}</p>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Custo por cápsula:</span>
+              <span>{formatCurrencyDetailed(custoUnitarioMP)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Quantidade:</span>
+              <span>{qtdCapsulas || 1} cápsulas</span>
+            </div>
+            <div className="border-t pt-2">
+              <p className="text-3xl font-bold text-foreground">{formatCurrency(totalMP)}</p>
+            </div>
           </CardContent>
         </Card>
 

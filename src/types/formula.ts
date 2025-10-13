@@ -37,6 +37,7 @@ export interface Formula {
   id: string;
   cliente: string;
   nome_formula: string;
+  qtd_capsulas: number;
   itens: FormulaItem[];
   embalagens: EmbalagemItem[];
   total_mp: number;
