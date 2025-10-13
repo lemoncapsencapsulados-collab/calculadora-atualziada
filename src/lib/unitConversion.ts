@@ -138,6 +138,19 @@ export function formatCurrency(value: number): string {
 }
 
 /**
+ * Format currency in BRL with detailed precision (up to 8 decimal places)
+ * Used for small quantities where precision is critical
+ */
+export function formatCurrencyDetailed(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  }).format(value);
+}
+
+/**
  * Format unit for display
  */
 export function formatUnit(unit: UnitType): string {

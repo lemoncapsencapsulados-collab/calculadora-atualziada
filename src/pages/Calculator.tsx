@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { getInsumos, getEmbalagens, addFormula } from '@/lib/localStorage';
 import { Insumo, Embalagem, Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
-import { calcularCustoInsumo, formatCurrency, formatUnit } from '@/lib/unitConversion';
+import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 
 interface FormulaItemInput {
@@ -177,7 +177,7 @@ export default function Calculator() {
     csv += 'Insumo,Quantidade,Unidade,Custo\n';
     calculatedItems.forEach((item) => {
       if (item && !item.error) {
-        csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrency(item.custo)}\n`;
+        csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrencyDetailed(item.custo)}\n`;
       }
     });
     
@@ -320,7 +320,7 @@ export default function Calculator() {
                 )}
                 {calculated && !calculated.error && calculated.custo > 0 && (
                   <p className="text-sm text-primary font-medium">
-                    Custo: {formatCurrency(calculated.custo)}
+                    Custo: {formatCurrencyDetailed(calculated.custo)}
                   </p>
                 )}
               </div>
