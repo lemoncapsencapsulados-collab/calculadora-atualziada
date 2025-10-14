@@ -17,6 +17,7 @@ export interface Embalagem {
   descricao: string;
   preco_unitario: number;
   categoria?: string;
+  subcategoria?: string;
 }
 
 export interface FormulaItem {

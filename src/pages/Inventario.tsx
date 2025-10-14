@@ -151,6 +151,7 @@ export default function Inventario() {
     const descricao = formData.get('descricao') as string;
     const preco = parseFloat(formData.get('preco') as string);
     const categoria = formData.get('categoria') as string;
+    const subcategoria = formData.get('subcategoria') as string;
 
     if (!nome || !descricao || isNaN(preco) || preco < 0) {
       toast.error('Preencha todos os campos corretamente');
@@ -159,9 +160,9 @@ export default function Inventario() {
 
     try {
       if (editingEmbalagem) {
-        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco, categoria });
+        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco, categoria, subcategoria });
       } else {
-        await addEmbalagem({ nome, descricao, preco_unitario: preco, categoria });
+        await addEmbalagem({ nome, descricao, preco_unitario: preco, categoria, subcategoria });
       }
 
       setEmbalagemDialogOpen(false);
@@ -540,6 +541,8 @@ export default function Inventario() {
                         <SelectValue placeholder="Selecione (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="Potes PET">Potes PET</SelectItem>
+                        <SelectItem value="Tampas Plásticas">Tampas Plásticas</SelectItem>
                         <SelectItem value="Pote">Pote</SelectItem>
                         <SelectItem value="Tampa">Tampa</SelectItem>
                         <SelectItem value="Sachê">Sachê</SelectItem>
@@ -548,6 +551,16 @@ export default function Inventario() {
                         <SelectItem value="Acessórios">Acessórios</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="subcategoria">Subcategoria</Label>
+                    <Input
+                      id="subcategoria"
+                      name="subcategoria"
+                      defaultValue={editingEmbalagem?.subcategoria}
+                      placeholder="Ex: Quadrado 45 FR"
+                    />
                   </div>
 
                   <div className="flex justify-end gap-2 pt-4">
@@ -617,7 +630,12 @@ export default function Inventario() {
                       </span>
                     )}
                   </div>
-                  <CardDescription className="text-sm line-clamp-2">
+                  {embalagem.subcategoria && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {embalagem.subcategoria}
+                    </p>
+                  )}
+                  <CardDescription className="text-sm line-clamp-2 mt-1">
                     {embalagem.descricao}
                   </CardDescription>
                 </CardHeader>
