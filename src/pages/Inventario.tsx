@@ -33,6 +33,8 @@ export default function Inventario() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const [searchTermEmbalagens, setSearchTermEmbalagens] = useState('');
+  const [selectedCategoryEmbalagens, setSelectedCategoryEmbalagens] = useState<string>('Todos');
   const [editingInsumo, setEditingInsumo] = useState<any | null>(null);
   const [editingEmbalagem, setEditingEmbalagem] = useState<any | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -63,6 +65,36 @@ export default function Inventario() {
     });
     return counts;
   }, [insumos]);
+
+  const embalagemCategories = useMemo(() => {
+    const cats = new Set(embalagens.map(e => e.categoria).filter(Boolean));
+    return ['Todos', ...Array.from(cats).sort()];
+  }, [embalagens]);
+
+  const filteredEmbalagens = useMemo(() => {
+    return embalagens
+      .filter((embalagem) => {
+        const matchesSearch = embalagem.nome.toLowerCase().includes(searchTermEmbalagens.toLowerCase());
+        const matchesCategory = selectedCategoryEmbalagens === 'Todos' || embalagem.categoria === selectedCategoryEmbalagens;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (a.categoria && b.categoria && a.categoria !== b.categoria) {
+          return a.categoria.localeCompare(b.categoria);
+        }
+        return a.nome.localeCompare(b.nome);
+      });
+  }, [embalagens, searchTermEmbalagens, selectedCategoryEmbalagens]);
+
+  const embalagemCategoryCount = useMemo(() => {
+    const counts: Record<string, number> = { 'Todos': embalagens.length };
+    embalagens.forEach(embalagem => {
+      if (embalagem.categoria) {
+        counts[embalagem.categoria] = (counts[embalagem.categoria] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [embalagens]);
 
   const handleSaveInsumo = async (formData: FormData) => {
     const nome = formData.get('nome') as string;
@@ -118,6 +150,7 @@ export default function Inventario() {
     const nome = formData.get('nome') as string;
     const descricao = formData.get('descricao') as string;
     const preco = parseFloat(formData.get('preco') as string);
+    const categoria = formData.get('categoria') as string;
 
     if (!nome || !descricao || isNaN(preco) || preco < 0) {
       toast.error('Preencha todos os campos corretamente');
@@ -126,9 +159,9 @@ export default function Inventario() {
 
     try {
       if (editingEmbalagem) {
-        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco });
+        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco, categoria });
       } else {
-        await addEmbalagem({ nome, descricao, preco_unitario: preco });
+        await addEmbalagem({ nome, descricao, preco_unitario: preco, categoria });
       }
 
       setEmbalagemDialogOpen(false);
@@ -500,6 +533,23 @@ export default function Inventario() {
                     </p>
                   </div>
 
+                  <div>
+                    <Label htmlFor="categoria">Categoria</Label>
+                    <Select name="categoria" defaultValue={editingEmbalagem?.categoria}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pote">Pote</SelectItem>
+                        <SelectItem value="Tampa">Tampa</SelectItem>
+                        <SelectItem value="Sachê">Sachê</SelectItem>
+                        <SelectItem value="Frasco">Frasco</SelectItem>
+                        <SelectItem value="Sílica">Sílica</SelectItem>
+                        <SelectItem value="Acessórios">Acessórios</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => setEmbalagemDialogOpen(false)}>
                       Cancelar
@@ -513,11 +563,60 @@ export default function Inventario() {
             </Dialog>
           </div>
 
+          <Card className="shadow-md">
+            <CardHeader>
+              <CardTitle>Pesquisar Embalagens</CardTitle>
+              <CardDescription>
+                {filteredEmbalagens.length} de {embalagens.length} embalagem(ns) encontrada(s)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome da embalagem..."
+                  value={searchTermEmbalagens}
+                  onChange={(e) => setSearchTermEmbalagens(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {embalagemCategories.map((cat) => (
+                  <Button
+                    key={cat}
+                    variant={selectedCategoryEmbalagens === cat ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedCategoryEmbalagens(cat)}
+                    className="text-xs"
+                  >
+                    {cat}
+                    <span className="ml-1.5 opacity-70">({embalagemCategoryCount[cat] || 0})</span>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {embalagens.map((embalagem) => (
+            {filteredEmbalagens.length === 0 ? (
+              <Card className="col-span-full p-12 text-center shadow-sm">
+                <p className="text-muted-foreground">
+                  {searchTermEmbalagens ? 'Nenhuma embalagem encontrada' : 'Nenhuma embalagem cadastrada ainda'}
+                </p>
+              </Card>
+            ) : (
+              filteredEmbalagens.map((embalagem) => (
               <Card key={embalagem.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
-                  <CardTitle className="text-lg">{embalagem.nome}</CardTitle>
+                  <div className="flex items-center gap-2 mb-1">
+                    <CardTitle className="text-lg">{embalagem.nome}</CardTitle>
+                    {embalagem.categoria && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                        {embalagem.categoria}
+                      </span>
+                    )}
+                  </div>
                   <CardDescription className="text-sm line-clamp-2">
                     {embalagem.descricao}
                   </CardDescription>
@@ -554,14 +653,9 @@ export default function Inventario() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              ))
+            )}
           </div>
-
-          {embalagens.length === 0 && (
-            <Card className="p-12 text-center shadow-sm">
-              <p className="text-muted-foreground">Nenhuma embalagem cadastrada ainda</p>
-            </Card>
-          )}
             </>
           )}
         </TabsContent>
