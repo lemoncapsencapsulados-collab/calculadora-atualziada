@@ -296,6 +296,7 @@ interface CalculatorState {
     unidade: string;
   }>;
   selectedEmbalagens: string[];
+  selectedCapsula?: string | null;
 }
 
 export function saveCalculatorState(state: CalculatorState): void {

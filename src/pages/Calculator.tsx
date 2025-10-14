@@ -29,6 +29,7 @@ export default function Calculator() {
     { id: '1', insumoNome: '', quantidade: '', unidade: 'mg' },
   ]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
+  const [selectedCapsula, setSelectedCapsula] = useState<string | null>(null);
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   
   const { insumos, loading: loadingInsumos } = useInsumos();
@@ -43,6 +44,7 @@ export default function Calculator() {
       setQtdCapsulas(savedState.qtdCapsulas || '60');
       setItems(savedState.items as FormulaItemInput[]);
       setSelectedEmbalagens(new Set(savedState.selectedEmbalagens));
+      setSelectedCapsula(savedState.selectedCapsula || null);
     }
   }, []);
 
@@ -54,9 +56,10 @@ export default function Calculator() {
       qtdCapsulas,
       items,
       selectedEmbalagens: Array.from(selectedEmbalagens),
+      selectedCapsula,
     };
     saveCalculatorState(state);
-  }, [cliente, nomeFormula, qtdCapsulas, items, selectedEmbalagens]);
+  }, [cliente, nomeFormula, qtdCapsulas, items, selectedEmbalagens, selectedCapsula]);
 
   // Calculate costs
   const calculatedItems = useMemo(() => {
@@ -114,13 +117,20 @@ export default function Calculator() {
   }, [custoUnitarioMP, qtdCapsulas]);
 
   const custoCapsulas = useMemo(() => {
+    if (!selectedCapsula) return 0;
+    
+    const capsula = embalagens.find(e => e.id === selectedCapsula);
+    if (!capsula) return 0;
+    
     const qtd = parseFloat(qtdCapsulas) || 0;
-    return qtd * 0.03; // R$ 0,03 por cápsula zero
-  }, [qtdCapsulas]);
+    return capsula.preco_unitario * qtd;
+  }, [selectedCapsula, qtdCapsulas, embalagens]);
 
   const custoEmbalagensExtras = useMemo(() => {
     return Array.from(selectedEmbalagens).reduce((sum, embId) => {
       const emb = embalagens.find((e) => e.id === embId);
+      // Excluir cápsulas do cálculo de embalagens extras
+      if (emb && emb.categoria === 'Cápsulas') return sum;
       return sum + (emb ? emb.preco_unitario : 0);
     }, 0);
   }, [selectedEmbalagens, embalagens]);
@@ -191,6 +201,11 @@ export default function Calculator() {
       return;
     }
 
+    if (!selectedCapsula) {
+      toast.error('Selecione o tipo de cápsula');
+      return;
+    }
+
     const validItems = calculatedItems.filter(
       (item) => item && !item.error && item.custo > 0
     );
@@ -208,23 +223,29 @@ export default function Calculator() {
       custo_calculado: item!.custo,
     }));
 
-    const embalagemItems: EmbalagemItem[] = [
-      // Adicionar custo das cápsulas zero
-      {
-        embalagem_id: 'capsulas_zero',
-        descricao_snapshot: `Cápsulas 0 (${qtdCapsulas || 0} unidades)`,
+    const embalagemItems: EmbalagemItem[] = [];
+
+    // Adicionar cápsula selecionada
+    if (selectedCapsula) {
+      const capsula = embalagens.find(e => e.id === selectedCapsula)!;
+      embalagemItems.push({
+        embalagem_id: capsula.id,
+        descricao_snapshot: `${capsula.nome} (${qtdCapsulas || 0} unidades)`,
         custo_calculado: custoCapsulas,
-      },
-      // Adicionar embalagens selecionadas
-      ...Array.from(selectedEmbalagens).map((embId) => {
-        const emb = embalagens.find((e) => e.id === embId)!;
-        return {
+      });
+    }
+
+    // Adicionar outras embalagens (exceto cápsulas)
+    Array.from(selectedEmbalagens).forEach(embId => {
+      const emb = embalagens.find(e => e.id === embId);
+      if (emb && emb.categoria !== 'Cápsulas') {
+        embalagemItems.push({
           embalagem_id: emb.id,
           descricao_snapshot: `${emb.nome} - ${emb.descricao}`,
           custo_calculado: emb.preco_unitario,
-        };
-      }),
-    ];
+        });
+      }
+    });
 
     const formula: Formula = {
       id: Date.now().toString(),
@@ -248,6 +269,7 @@ export default function Calculator() {
     setQtdCapsulas('60');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
+    setSelectedCapsula(null);
     clearCalculatorState();
   };
 
@@ -258,6 +280,7 @@ export default function Calculator() {
       setQtdCapsulas('60');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
+      setSelectedCapsula(null);
       clearCalculatorState();
     }
   };
@@ -280,10 +303,19 @@ export default function Calculator() {
     
     csv += 'EMBALAGEM\n';
     csv += 'Item,Categoria,Subcategoria,Descrição,Custo\n';
-    csv += `Cápsulas 0,Cápsula,-,${qtdCapsulas || 0} unidades,${formatCurrency(custoCapsulas)}\n`;
+    
+    // Adicionar cápsula selecionada
+    if (selectedCapsula) {
+      const capsula = embalagens.find(e => e.id === selectedCapsula);
+      if (capsula) {
+        csv += `${capsula.nome},${capsula.categoria || 'Cápsulas'},${capsula.subcategoria || '-'},"${qtdCapsulas || 0} unidades",${formatCurrency(custoCapsulas)}\n`;
+      }
+    }
     
     // Group by categoria > subcategoria in export
-    Object.entries(embalagensPorCategoria).forEach(([categoria, subcategorias]) => {
+    Object.entries(embalagensPorCategoria)
+      .filter(([categoria]) => categoria !== 'Cápsulas')
+      .forEach(([categoria, subcategorias]) => {
       Object.entries(subcategorias).forEach(([subcategoria, itens]) => {
         itens.forEach((emb) => {
           if (selectedEmbalagens.has(emb.id)) {
@@ -294,7 +326,9 @@ export default function Calculator() {
     });
     
     csv += `\nSubtotais por Categoria/Subcategoria:\n`;
-    Object.entries(custosPorSubcategoria).forEach(([categoria, subcategorias]) => {
+    Object.entries(custosPorSubcategoria)
+      .filter(([categoria]) => categoria !== 'Cápsulas')
+      .forEach(([categoria, subcategorias]) => {
       csv += `\n${categoria}:\n`;
       Object.entries(subcategorias).forEach(([subcategoria, custo]) => {
         csv += `  ${subcategoria},${formatCurrency(custo)}\n`;
@@ -480,12 +514,71 @@ export default function Calculator() {
 
       <Card className="shadow-md">
         <CardHeader>
+          <CardTitle>Tipo de Cápsula</CardTitle>
+          <CardDescription>Selecione o tipo de cápsula para este pote</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {embalagens
+              .filter(emb => emb.categoria === 'Cápsulas')
+              .map((capsula) => (
+                <div
+                  key={capsula.id}
+                  className={`flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                    selectedCapsula === capsula.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                  }`}
+                  onClick={() => setSelectedCapsula(capsula.id)}
+                >
+                  <div className="flex-1">
+                    <Label className="font-medium cursor-pointer text-base">
+                      {capsula.nome}
+                    </Label>
+                    {capsula.subcategoria && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {capsula.subcategoria}
+                      </Badge>
+                    )}
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {capsula.descricao}
+                    </p>
+                    <div className="flex items-baseline gap-2 mt-2">
+                      <p className="text-sm font-semibold text-primary">
+                        {formatCurrency(capsula.preco_unitario)} / unidade
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        × {qtdCapsulas || 0} cápsulas = {formatCurrency(capsula.preco_unitario * (parseFloat(qtdCapsulas) || 0))}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedCapsula === capsula.id && (
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-xs">
+                      ✓
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+          
+          {!selectedCapsula && (
+            <p className="text-sm text-amber-600 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+              ⚠️ Selecione um tipo de cápsula para prosseguir
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-md">
+        <CardHeader>
           <CardTitle>Embalagem</CardTitle>
           <CardDescription>Selecione os itens de embalagem organizados por categoria</CardDescription>
         </CardHeader>
         <CardContent>
           <Accordion type="multiple" className="w-full">
-            {Object.entries(embalagensPorCategoria).map(([categoria, subcategorias]) => {
+            {Object.entries(embalagensPorCategoria)
+              .filter(([categoria]) => categoria !== 'Cápsulas')
+              .map(([categoria, subcategorias]) => {
               const totalSelecionadosCategoria = Object.values(subcategorias)
                 .flat()
                 .filter(emb => selectedEmbalagens.has(emb.id)).length;
@@ -597,12 +690,16 @@ export default function Calculator() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Cápsulas 0 ({qtdCapsulas || 0}x):</span>
-              <span>{formatCurrencyDetailed(custoCapsulas)}</span>
-            </div>
+            {selectedCapsula && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>{embalagens.find(e => e.id === selectedCapsula)?.nome} ({qtdCapsulas}x):</span>
+                <span>{formatCurrencyDetailed(custoCapsulas)}</span>
+              </div>
+            )}
             
-            {Object.entries(custosPorSubcategoria).map(([categoria, subcategorias]) => (
+            {Object.entries(custosPorSubcategoria)
+              .filter(([categoria]) => categoria !== 'Cápsulas')
+              .map(([categoria, subcategorias]) => (
               <div key={categoria} className="space-y-1">
                 <div className="text-xs font-semibold text-muted-foreground/80 pt-2">
                   {categoria}:
