@@ -6,8 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getInsumos, getEmbalagens, addFormula, saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
-import { Insumo, Embalagem, Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
+import { useInsumos } from '@/hooks/useInsumos';
+import { useEmbalagens } from '@/hooks/useEmbalagens';
+import { addFormula, saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
+import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 
@@ -26,16 +28,12 @@ export default function Calculator() {
   ]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
-  const [insumos, setInsumos] = useState<Insumo[]>([]);
-  const [embalagens, setEmbalagens] = useState<Embalagem[]>([]);
+  
+  const { insumos, loading: loadingInsumos } = useInsumos();
+  const { embalagens, loading: loadingEmbalagens } = useEmbalagens();
 
-  // Load saved state and fresh inventory data on mount
+  // Load saved calculator state on mount
   useEffect(() => {
-    // Load fresh inventory data
-    setInsumos(getInsumos());
-    setEmbalagens(getEmbalagens());
-
-    // Load saved calculator state
     const savedState = getCalculatorState();
     if (savedState) {
       setCliente(savedState.cliente);
@@ -248,12 +246,19 @@ export default function Calculator() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Calcular Fórmula</h1>
-        <p className="text-muted-foreground mt-1">
-          Calcule o custo de matéria-prima e embalagem
-        </p>
-      </div>
+      {(loadingInsumos || loadingEmbalagens) ? (
+        <Card className="p-12 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Carregando inventário...</p>
+        </Card>
+      ) : (
+        <>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Calcular Fórmula</h1>
+            <p className="text-muted-foreground mt-1">
+              Calcule o custo de matéria-prima e embalagem
+            </p>
+          </div>
 
       <Card className="shadow-md">
         <CardHeader>
@@ -502,6 +507,8 @@ export default function Calculator() {
           Salvar Cálculo
         </Button>
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -8,27 +8,36 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getInsumos, addInsumo, updateInsumo, deleteInsumo, getEmbalagens, addEmbalagem, updateEmbalagem, deleteEmbalagem, migrateEmbalagensData } from '@/lib/localStorage';
-import { Insumo, Embalagem, UnitType } from '@/types/formula';
+import { useInsumos } from '@/hooks/useInsumos';
+import { useEmbalagens } from '@/hooks/useEmbalagens';
+import { UnitType } from '@/types/formula';
 import { formatCurrency, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 
 export default function Inventario() {
-  const [insumos, setInsumos] = useState<Insumo[]>([]);
-  const [embalagens, setEmbalagens] = useState<Embalagem[]>([]);
+  const {
+    insumos,
+    loading: loadingInsumos,
+    addInsumo,
+    updateInsumo,
+    deleteInsumo,
+  } = useInsumos();
+
+  const {
+    embalagens,
+    loading: loadingEmbalagens,
+    addEmbalagem,
+    updateEmbalagem,
+    deleteEmbalagem,
+  } = useEmbalagens();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
-  const [editingInsumo, setEditingInsumo] = useState<Insumo | null>(null);
-  const [editingEmbalagem, setEditingEmbalagem] = useState<Embalagem | null>(null);
+  const [editingInsumo, setEditingInsumo] = useState<any | null>(null);
+  const [editingEmbalagem, setEditingEmbalagem] = useState<any | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [embalagemDialogOpen, setEmbalagemDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'insumos' | 'embalagens'>('insumos');
-
-  useEffect(() => {
-    migrateEmbalagensData();
-    setInsumos(getInsumos());
-    setEmbalagens(getEmbalagens());
-  }, []);
 
   const categories = useMemo(() => {
     const cats = new Set(insumos.map(i => i.categoria).filter(Boolean));
@@ -55,7 +64,7 @@ export default function Inventario() {
     return counts;
   }, [insumos]);
 
-  const handleSaveInsumo = (formData: FormData) => {
+  const handleSaveInsumo = async (formData: FormData) => {
     const nome = formData.get('nome') as string;
     const unidade_compra = formData.get('unidade_compra') as UnitType;
     const preco = parseFloat(formData.get('preco') as string);
@@ -69,55 +78,43 @@ export default function Inventario() {
       return;
     }
 
-    const exists = insumos.some(
-      (i) => i.nome.toLowerCase() === nome.toLowerCase() && i.id !== editingInsumo?.id
-    );
-    
-    if (exists) {
-      toast.error('Já existe um insumo com este nome');
-      return;
-    }
+    try {
+      if (editingInsumo) {
+        await updateInsumo(editingInsumo.id, {
+          nome,
+          unidade_compra,
+          preco_por_unidade_compra: preco,
+          densidade,
+          observacoes,
+          fornecedor,
+          categoria,
+        });
+      } else {
+        await addInsumo({
+          nome,
+          unidade_compra,
+          preco_por_unidade_compra: preco,
+          densidade,
+          observacoes,
+          fornecedor,
+          categoria,
+        });
+      }
 
-    if (editingInsumo) {
-      updateInsumo(editingInsumo.id, {
-        nome,
-        unidade_compra,
-        preco_por_unidade_compra: preco,
-        densidade,
-        observacoes,
-        fornecedor,
-        categoria,
-      });
-      toast.success('Insumo atualizado com sucesso');
-    } else {
-      const newInsumo: Insumo = {
-        id: Date.now().toString(),
-        nome,
-        unidade_compra,
-        preco_por_unidade_compra: preco,
-        densidade,
-        observacoes,
-        fornecedor,
-        categoria,
-      };
-      addInsumo(newInsumo);
-      toast.success('Insumo adicionado com sucesso');
+      setDialogOpen(false);
+      setEditingInsumo(null);
+    } catch (error) {
+      // Error já foi tratado no hook
     }
-
-    setInsumos(getInsumos());
-    setDialogOpen(false);
-    setEditingInsumo(null);
   };
 
-  const handleDeleteInsumo = (id: string) => {
+  const handleDeleteInsumo = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este insumo?')) {
-      deleteInsumo(id);
-      setInsumos(getInsumos());
-      toast.success('Insumo excluído com sucesso');
+      await deleteInsumo(id);
     }
   };
 
-  const handleSaveEmbalagem = (formData: FormData) => {
+  const handleSaveEmbalagem = async (formData: FormData) => {
     const nome = formData.get('nome') as string;
     const descricao = formData.get('descricao') as string;
     const preco = parseFloat(formData.get('preco') as string);
@@ -127,39 +124,23 @@ export default function Inventario() {
       return;
     }
 
-    const exists = embalagens.some(
-      (e) => e.nome.toLowerCase() === nome.toLowerCase() && e.id !== editingEmbalagem?.id
-    );
-    
-    if (exists) {
-      toast.error('Já existe uma embalagem com este nome');
-      return;
-    }
+    try {
+      if (editingEmbalagem) {
+        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco });
+      } else {
+        await addEmbalagem({ nome, descricao, preco_unitario: preco });
+      }
 
-    if (editingEmbalagem) {
-      updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco });
-      toast.success('Embalagem atualizada com sucesso');
-    } else {
-      const newEmbalagem: Embalagem = {
-        id: Date.now().toString(),
-        nome,
-        descricao,
-        preco_unitario: preco,
-      };
-      addEmbalagem(newEmbalagem);
-      toast.success('Embalagem adicionada com sucesso');
+      setEmbalagemDialogOpen(false);
+      setEditingEmbalagem(null);
+    } catch (error) {
+      // Error já foi tratado no hook
     }
-
-    setEmbalagens(getEmbalagens());
-    setEmbalagemDialogOpen(false);
-    setEditingEmbalagem(null);
   };
 
-  const handleDeleteEmbalagem = (id: string) => {
+  const handleDeleteEmbalagem = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta embalagem?')) {
-      deleteEmbalagem(id);
-      setEmbalagens(getEmbalagens());
-      toast.success('Embalagem excluída com sucesso');
+      await deleteEmbalagem(id);
     }
   };
 
@@ -183,10 +164,16 @@ export default function Inventario() {
         </TabsList>
 
         <TabsContent value="insumos" className="space-y-6 mt-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Cadastre a matéria-prima com preço por unidade de compra
-            </p>
+          {loadingInsumos ? (
+            <div className="flex items-center justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Cadastre a matéria-prima com preço por unidade de compra
+                </p>
             
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -434,13 +421,21 @@ export default function Inventario() {
               ))
             )}
           </div>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="embalagens" className="space-y-6 mt-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Cadastre o custo total do conjunto de embalagem (pote + rótulo + lacre, etc.)
-            </p>
+          {loadingEmbalagens ? (
+            <div className="flex items-center justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Cadastre o custo total do conjunto de embalagem (pote + rótulo + lacre, etc.)
+                </p>
             
             <Dialog open={embalagemDialogOpen} onOpenChange={setEmbalagemDialogOpen}>
               <DialogTrigger asChild>
@@ -566,6 +561,8 @@ export default function Inventario() {
             <Card className="p-12 text-center shadow-sm">
               <p className="text-muted-foreground">Nenhuma embalagem cadastrada ainda</p>
             </Card>
+          )}
+            </>
           )}
         </TabsContent>
       </Tabs>
