@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Download, Save, X } from 'lucide-react';
+import { Plus, Trash2, Download, Save, X, Package, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 import { useInsumos } from '@/hooks/useInsumos';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { addFormula, saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
@@ -127,6 +129,43 @@ export default function Calculator() {
 
   const custoTotal = totalMP + totalEmbalagem;
 
+  // Group embalagens by categoria > subcategoria
+  const embalagensPorCategoria = useMemo(() => {
+    const grupos: Record<string, Record<string, typeof embalagens>> = {};
+    
+    embalagens.forEach(emb => {
+      const cat = emb.categoria || 'Outras Embalagens';
+      const subcat = emb.subcategoria || 'Geral';
+      
+      if (!grupos[cat]) grupos[cat] = {};
+      if (!grupos[cat][subcat]) grupos[cat][subcat] = [];
+      
+      grupos[cat][subcat].push(emb);
+    });
+    
+    return grupos;
+  }, [embalagens]);
+
+  // Calculate costs by subcategoria
+  const custosPorSubcategoria = useMemo(() => {
+    const custos: Record<string, Record<string, number>> = {};
+    
+    Array.from(selectedEmbalagens).forEach(embId => {
+      const emb = embalagens.find(e => e.id === embId);
+      if (!emb) return;
+      
+      const cat = emb.categoria || 'Outras Embalagens';
+      const subcat = emb.subcategoria || 'Geral';
+      
+      if (!custos[cat]) custos[cat] = {};
+      if (!custos[cat][subcat]) custos[cat][subcat] = 0;
+      
+      custos[cat][subcat] += emb.preco_unitario;
+    });
+    
+    return custos;
+  }, [selectedEmbalagens, embalagens]);
+
   const addItem = () => {
     setItems([
       ...items,
@@ -240,13 +279,26 @@ export default function Calculator() {
     csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
     
     csv += 'EMBALAGEM\n';
-    csv += 'Item,Descrição,Custo\n';
-    csv += `Cápsulas 0,${qtdCapsulas || 0} unidades,${formatCurrency(custoCapsulas)}\n`;
-    Array.from(selectedEmbalagens).forEach((embId) => {
-      const emb = embalagens.find((e) => e.id === embId);
-      if (emb) {
-        csv += `${emb.nome},"${emb.descricao}",${formatCurrency(emb.preco_unitario)}\n`;
-      }
+    csv += 'Item,Categoria,Subcategoria,Descrição,Custo\n';
+    csv += `Cápsulas 0,Cápsula,-,${qtdCapsulas || 0} unidades,${formatCurrency(custoCapsulas)}\n`;
+    
+    // Group by categoria > subcategoria in export
+    Object.entries(embalagensPorCategoria).forEach(([categoria, subcategorias]) => {
+      Object.entries(subcategorias).forEach(([subcategoria, itens]) => {
+        itens.forEach((emb) => {
+          if (selectedEmbalagens.has(emb.id)) {
+            csv += `${emb.nome},${categoria},${subcategoria},"${emb.descricao}",${formatCurrency(emb.preco_unitario)}\n`;
+          }
+        });
+      });
+    });
+    
+    csv += `\nSubtotais por Categoria/Subcategoria:\n`;
+    Object.entries(custosPorSubcategoria).forEach(([categoria, subcategorias]) => {
+      csv += `\n${categoria}:\n`;
+      Object.entries(subcategorias).forEach(([subcategoria, custo]) => {
+        csv += `  ${subcategoria},${formatCurrency(custo)}\n`;
+      });
     });
     
     csv += `\nTotal Embalagem:,${formatCurrency(totalEmbalagem)}\n`;
@@ -429,40 +481,88 @@ export default function Calculator() {
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Embalagem</CardTitle>
-          <CardDescription>Selecione os itens de embalagem</CardDescription>
+          <CardDescription>Selecione os itens de embalagem organizados por categoria</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid md:grid-cols-2 gap-4">
-            {embalagens.map((emb) => (
-              <div
-                key={emb.id}
-                className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
-              >
-                <Checkbox
-                  id={`emb-${emb.id}`}
-                  checked={selectedEmbalagens.has(emb.id)}
-                  onCheckedChange={(checked) => {
-                    const newSet = new Set(selectedEmbalagens);
-                    if (checked) {
-                      newSet.add(emb.id);
-                    } else {
-                      newSet.delete(emb.id);
-                    }
-                    setSelectedEmbalagens(newSet);
-                  }}
-                />
-                <div className="flex-1">
-                  <Label htmlFor={`emb-${emb.id}`} className="font-medium cursor-pointer">
-                    {emb.nome}
-                  </Label>
-                  <p className="text-sm text-muted-foreground">{emb.descricao}</p>
-                  <p className="text-sm font-semibold text-primary mt-1">
-                    {formatCurrency(emb.preco_unitario)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Accordion type="multiple" className="w-full">
+            {Object.entries(embalagensPorCategoria).map(([categoria, subcategorias]) => {
+              const totalSelecionadosCategoria = Object.values(subcategorias)
+                .flat()
+                .filter(emb => selectedEmbalagens.has(emb.id)).length;
+              
+              return (
+                <AccordionItem key={categoria} value={categoria}>
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-2 w-full">
+                      <Package className="w-4 h-4 text-primary" />
+                      <span className="font-semibold">{categoria}</span>
+                      {totalSelecionadosCategoria > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {totalSelecionadosCategoria} selecionado{totalSelecionadosCategoria > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-2">
+                      {Object.entries(subcategorias).map(([subcategoria, itens]) => {
+                        const totalSelecionadosSubcat = itens.filter(emb => selectedEmbalagens.has(emb.id)).length;
+                        const custoSubcat = custosPorSubcategoria[categoria]?.[subcategoria] || 0;
+                        
+                        return (
+                          <div key={subcategoria} className="space-y-2">
+                            <div className="flex items-center gap-2 px-2">
+                              <Box className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-sm font-medium text-muted-foreground">
+                                {subcategoria}
+                              </span>
+                              {totalSelecionadosSubcat > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {totalSelecionadosSubcat} • {formatCurrency(custoSubcat)}
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            <div className="grid md:grid-cols-2 gap-3 pl-6">
+                              {itens.map((emb) => (
+                                <div
+                                  key={emb.id}
+                                  className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                                >
+                                  <Checkbox
+                                    id={`emb-${emb.id}`}
+                                    checked={selectedEmbalagens.has(emb.id)}
+                                    onCheckedChange={(checked) => {
+                                      const newSet = new Set(selectedEmbalagens);
+                                      if (checked) {
+                                        newSet.add(emb.id);
+                                      } else {
+                                        newSet.delete(emb.id);
+                                      }
+                                      setSelectedEmbalagens(newSet);
+                                    }}
+                                  />
+                                  <div className="flex-1">
+                                    <Label htmlFor={`emb-${emb.id}`} className="font-medium cursor-pointer text-sm">
+                                      {emb.nome}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground line-clamp-2">{emb.descricao}</p>
+                                    <p className="text-sm font-semibold text-primary mt-1">
+                                      {formatCurrency(emb.preco_unitario)}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
         </CardContent>
       </Card>
 
@@ -493,7 +593,7 @@ export default function Calculator() {
           <CardHeader>
             <CardTitle className="text-accent">Embalagem</CardTitle>
             <CardDescription>
-              Embalagens + Cápsulas
+              Cápsulas + Embalagens por categoria
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -501,12 +601,21 @@ export default function Calculator() {
               <span>Cápsulas 0 ({qtdCapsulas || 0}x):</span>
               <span>{formatCurrencyDetailed(custoCapsulas)}</span>
             </div>
-            {custoEmbalagensExtras > 0 && (
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Embalagens extras:</span>
-                <span>{formatCurrencyDetailed(custoEmbalagensExtras)}</span>
+            
+            {Object.entries(custosPorSubcategoria).map(([categoria, subcategorias]) => (
+              <div key={categoria} className="space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground/80 pt-2">
+                  {categoria}:
+                </div>
+                {Object.entries(subcategorias).map(([subcategoria, custo]) => (
+                  <div key={subcategoria} className="flex justify-between text-sm text-muted-foreground pl-3">
+                    <span className="text-xs">• {subcategoria}:</span>
+                    <span className="text-xs">{formatCurrencyDetailed(custo)}</span>
+                  </div>
+                ))}
               </div>
-            )}
+            ))}
+            
             <div className="border-t pt-2">
               <p className="text-3xl font-bold text-foreground">
                 {formatCurrency(totalEmbalagem)}
