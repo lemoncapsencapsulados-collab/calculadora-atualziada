@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       embalagens: {
         Row: {
+          categoria: string | null
           created_at: string | null
           descricao: string
           id: string
@@ -24,6 +25,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          categoria?: string | null
           created_at?: string | null
           descricao: string
           id?: string
@@ -32,6 +34,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          categoria?: string | null
           created_at?: string | null
           descricao?: string
           id?: string
