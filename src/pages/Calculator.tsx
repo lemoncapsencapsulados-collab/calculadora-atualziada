@@ -116,7 +116,7 @@ export default function Calculator() {
   const totalEmbalagem = useMemo(() => {
     return Array.from(selectedEmbalagens).reduce((sum, embId) => {
       const emb = embalagens.find((e) => e.id === embId);
-      return sum + (emb ? emb.preco_unitario * emb.qtd_por_pote : 0);
+      return sum + (emb ? emb.preco_unitario : 0);
     }, 0);
   }, [selectedEmbalagens, embalagens]);
 
@@ -168,9 +168,8 @@ export default function Calculator() {
       const emb = embalagens.find((e) => e.id === embId)!;
       return {
         embalagem_id: emb.id,
-        descricao_snapshot: emb.descricao,
-        qtd_por_pote: emb.qtd_por_pote,
-        custo_calculado: emb.preco_unitario * emb.qtd_por_pote,
+        descricao_snapshot: `${emb.nome} - ${emb.descricao}`,
+        custo_calculado: emb.preco_unitario,
       };
     });
 
@@ -227,11 +226,11 @@ export default function Calculator() {
     csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
     
     csv += 'EMBALAGEM\n';
-    csv += 'Descrição,Quantidade,Custo\n';
+    csv += 'Nome,Descrição,Custo\n';
     Array.from(selectedEmbalagens).forEach((embId) => {
       const emb = embalagens.find((e) => e.id === embId);
       if (emb) {
-        csv += `${emb.descricao},${emb.qtd_por_pote},${formatCurrency(emb.preco_unitario * emb.qtd_por_pote)}\n`;
+        csv += `${emb.nome},"${emb.descricao}",${formatCurrency(emb.preco_unitario)}\n`;
       }
     });
     
@@ -415,7 +414,7 @@ export default function Calculator() {
             {embalagens.map((emb) => (
               <div
                 key={emb.id}
-                className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-secondary/50 transition-colors"
+                className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
               >
                 <Checkbox
                   id={`emb-${emb.id}`}
@@ -430,16 +429,15 @@ export default function Calculator() {
                     setSelectedEmbalagens(newSet);
                   }}
                 />
-                <label
-                  htmlFor={`emb-${emb.id}`}
-                  className="flex-1 cursor-pointer select-none"
-                >
-                  <p className="font-medium">{emb.descricao}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {emb.qtd_por_pote}x {formatCurrency(emb.preco_unitario)} ={' '}
-                    {formatCurrency(emb.preco_unitario * emb.qtd_por_pote)}
+                <div className="flex-1">
+                  <Label htmlFor={`emb-${emb.id}`} className="font-medium cursor-pointer">
+                    {emb.nome}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">{emb.descricao}</p>
+                  <p className="text-sm font-semibold text-primary mt-1">
+                    {formatCurrency(emb.preco_unitario)}
                   </p>
-                </label>
+                </div>
               </div>
             ))}
           </div>

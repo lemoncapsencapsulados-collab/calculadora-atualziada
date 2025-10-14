@@ -241,15 +241,47 @@ function getDefaultInsumos(): Insumo[] {
   ];
 }
 
-// Default embalagens based on the requirements
+// Default embalagens
 function getDefaultEmbalagens(): Embalagem[] {
   return [
-    { id: '1', descricao: 'Sílica gel', preco_unitario: 0.04, qtd_por_pote: 1 },
-    { id: '2', descricao: 'Cápsula 0', preco_unitario: 1.14, qtd_por_pote: 60 },
-    { id: '3', descricao: 'Pote 170mL', preco_unitario: 1.05, qtd_por_pote: 1 },
-    { id: '4', descricao: 'Tampa', preco_unitario: 0.98, qtd_por_pote: 1 },
-    { id: '5', descricao: 'Rótulo', preco_unitario: 0.28, qtd_por_pote: 1 },
+    {
+      id: '1',
+      nome: 'Pote PET 120ml',
+      descricao: 'Pote PET 120ml + rótulo + lacre',
+      preco_unitario: 2.50,
+    },
+    {
+      id: '2',
+      nome: 'Pote Âmbar 100ml',
+      descricao: 'Pote âmbar 100ml + tampa + lacre de segurança',
+      preco_unitario: 3.20,
+    },
+    {
+      id: '3',
+      nome: 'Sachê Metalizado',
+      descricao: 'Sachê metalizado 10x15cm + lacre térmico',
+      preco_unitario: 0.80,
+    },
   ];
+}
+
+// Migrate existing embalagens data to new structure
+export function migrateEmbalagensData(): void {
+  const data = localStorage.getItem(STORAGE_KEYS.EMBALAGENS);
+  if (!data) return;
+
+  try {
+    const embalagens = JSON.parse(data) as any[];
+    const migrated = embalagens.map(emb => ({
+      id: emb.id,
+      nome: emb.nome || emb.descricao?.split('-')[0]?.trim() || emb.descricao || 'Embalagem',
+      descricao: emb.descricao || '',
+      preco_unitario: emb.preco_unitario || 0,
+    }));
+    saveEmbalagens(migrated);
+  } catch (error) {
+    console.error('Error migrating embalagens:', error);
+  }
 }
 
 // Calculator State Persistence

@@ -8,7 +8,6 @@ export function Navigation() {
   const links = [
     { to: '/', label: 'Calcular Fórmula', icon: Calculator },
     { to: '/inventario', label: 'Inventário', icon: Package },
-    { to: '/embalagens', label: 'Embalagens', icon: FlaskConical },
   ];
 
   return (

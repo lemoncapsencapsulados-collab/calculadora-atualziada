@@ -13,9 +13,9 @@ export interface Insumo {
 
 export interface Embalagem {
   id: string;
+  nome: string;
   descricao: string;
   preco_unitario: number;
-  qtd_por_pote: number;
 }
 
 export interface FormulaItem {
@@ -29,7 +29,6 @@ export interface FormulaItem {
 export interface EmbalagemItem {
   embalagem_id: string;
   descricao_snapshot: string;
-  qtd_por_pote: number;
   custo_calculado: number;
 }
 
