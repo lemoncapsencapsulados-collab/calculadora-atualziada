@@ -111,12 +111,19 @@ export default function Calculator() {
     return custoUnitarioMP * qtd;
   }, [custoUnitarioMP, qtdCapsulas]);
 
-  const totalEmbalagem = useMemo(() => {
+  const custoCapsulas = useMemo(() => {
+    const qtd = parseFloat(qtdCapsulas) || 0;
+    return qtd * 0.03; // R$ 0,03 por cápsula zero
+  }, [qtdCapsulas]);
+
+  const custoEmbalagensExtras = useMemo(() => {
     return Array.from(selectedEmbalagens).reduce((sum, embId) => {
       const emb = embalagens.find((e) => e.id === embId);
       return sum + (emb ? emb.preco_unitario : 0);
     }, 0);
   }, [selectedEmbalagens, embalagens]);
+
+  const totalEmbalagem = custoEmbalagensExtras + custoCapsulas;
 
   const custoTotal = totalMP + totalEmbalagem;
 
@@ -162,14 +169,23 @@ export default function Calculator() {
       custo_calculado: item!.custo,
     }));
 
-    const embalagemItems: EmbalagemItem[] = Array.from(selectedEmbalagens).map((embId) => {
-      const emb = embalagens.find((e) => e.id === embId)!;
-      return {
-        embalagem_id: emb.id,
-        descricao_snapshot: `${emb.nome} - ${emb.descricao}`,
-        custo_calculado: emb.preco_unitario,
-      };
-    });
+    const embalagemItems: EmbalagemItem[] = [
+      // Adicionar custo das cápsulas zero
+      {
+        embalagem_id: 'capsulas_zero',
+        descricao_snapshot: `Cápsulas 0 (${qtdCapsulas || 0} unidades)`,
+        custo_calculado: custoCapsulas,
+      },
+      // Adicionar embalagens selecionadas
+      ...Array.from(selectedEmbalagens).map((embId) => {
+        const emb = embalagens.find((e) => e.id === embId)!;
+        return {
+          embalagem_id: emb.id,
+          descricao_snapshot: `${emb.nome} - ${emb.descricao}`,
+          custo_calculado: emb.preco_unitario,
+        };
+      }),
+    ];
 
     const formula: Formula = {
       id: Date.now().toString(),
@@ -224,7 +240,8 @@ export default function Calculator() {
     csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
     
     csv += 'EMBALAGEM\n';
-    csv += 'Nome,Descrição,Custo\n';
+    csv += 'Item,Descrição,Custo\n';
+    csv += `Cápsulas 0,${qtdCapsulas || 0} unidades,${formatCurrency(custoCapsulas)}\n`;
     Array.from(selectedEmbalagens).forEach((embId) => {
       const emb = embalagens.find((e) => e.id === embId);
       if (emb) {
@@ -475,11 +492,26 @@ export default function Calculator() {
         <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
           <CardHeader>
             <CardTitle className="text-accent">Embalagem</CardTitle>
+            <CardDescription>
+              Embalagens + Cápsulas
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-foreground">
-              {formatCurrency(totalEmbalagem)}
-            </p>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Cápsulas 0 ({qtdCapsulas || 0}x):</span>
+              <span>{formatCurrencyDetailed(custoCapsulas)}</span>
+            </div>
+            {custoEmbalagensExtras > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Embalagens extras:</span>
+                <span>{formatCurrencyDetailed(custoEmbalagensExtras)}</span>
+              </div>
+            )}
+            <div className="border-t pt-2">
+              <p className="text-3xl font-bold text-foreground">
+                {formatCurrency(totalEmbalagem)}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
