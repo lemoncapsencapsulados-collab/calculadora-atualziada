@@ -288,8 +288,9 @@ export function migrateEmbalagensData(): void {
 interface CalculatorState {
   cliente: string;
   nomeFormula: string;
-  tipoProduto?: 'Encapsulados' | 'Pó' | 'Gummy';
+  tipoProduto?: 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido';
   qtdCapsulas: string;
+  unidadesPorDose?: string;
   items: Array<{
     id: string;
     insumoNome: string;

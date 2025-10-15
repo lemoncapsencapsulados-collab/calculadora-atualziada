@@ -38,8 +38,9 @@ export interface Formula {
   id: string;
   cliente: string;
   nome_formula: string;
-  tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy';
+  tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido';
   qtd_capsulas: number;
+  unidades_por_dose?: number;
   itens: FormulaItem[];
   embalagens: EmbalagemItem[];
   total_mp: number;

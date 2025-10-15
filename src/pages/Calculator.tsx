@@ -31,8 +31,9 @@ export default function Calculator() {
   ]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
   const [selectedCapsula, setSelectedCapsula] = useState<string | null>(null);
-  const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Pó' | 'Gummy'>('Encapsulados');
+  const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido'>('Encapsulados');
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
+  const [unidadesPorDose, setUnidadesPorDose] = useState<string>('2');
   
   const { insumos, loading: loadingInsumos } = useInsumos();
   const { embalagens, loading: loadingEmbalagens } = useEmbalagens();
@@ -46,6 +47,7 @@ export default function Calculator() {
       setNomeFormula(savedState.nomeFormula);
       setTipoProduto(savedState.tipoProduto || 'Encapsulados');
       setQtdCapsulas(savedState.qtdCapsulas || '60');
+      setUnidadesPorDose(savedState.unidadesPorDose || '2');
       setItems(savedState.items as FormulaItemInput[]);
       setSelectedEmbalagens(new Set(savedState.selectedEmbalagens));
       setSelectedCapsula(savedState.selectedCapsula || null);
@@ -64,6 +66,7 @@ export default function Calculator() {
         setNomeFormula(formula.nome_formula || '');
         setTipoProduto(formula.tipo_produto || 'Encapsulados');
         setQtdCapsulas(formula.qtd_capsulas?.toString() || '60');
+        setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
         
         // Preencher itens de matéria-prima
         if (formula.itens && Array.isArray(formula.itens)) {
@@ -114,16 +117,17 @@ export default function Calculator() {
       nomeFormula,
       tipoProduto,
       qtdCapsulas,
+      unidadesPorDose,
       items,
       selectedEmbalagens: Array.from(selectedEmbalagens),
       selectedCapsula,
     };
     saveCalculatorState(state);
-  }, [cliente, nomeFormula, tipoProduto, qtdCapsulas, items, selectedEmbalagens, selectedCapsula]);
+  }, [cliente, nomeFormula, tipoProduto, qtdCapsulas, unidadesPorDose, items, selectedEmbalagens, selectedCapsula]);
 
-  // Clear selectedCapsula when changing to Pó or Gummy
+  // Clear selectedCapsula when changing to Pó, Gummy or Líquido
   useEffect(() => {
-    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy') {
+    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') {
       setSelectedCapsula(null);
     }
   }, [tipoProduto]);
@@ -179,13 +183,22 @@ export default function Calculator() {
   }, [calculatedItems]);
 
   const totalMP = useMemo(() => {
-    const qtd = tipoProduto === 'Pó' ? 1 : (parseFloat(qtdCapsulas) || 1);
-    return custoUnitarioMP * qtd;
-  }, [custoUnitarioMP, qtdCapsulas, tipoProduto]);
+    const qtdTotal = parseFloat(qtdCapsulas) || 1;
+    const unidadesDose = parseFloat(unidadesPorDose) || 1;
+    
+    // Para Pó com quantidade fixa de 1, mantém comportamento antigo
+    if (tipoProduto === 'Pó' && qtdTotal === 1) {
+      return custoUnitarioMP * 1;
+    }
+    
+    // Para todos os outros casos (incluindo Pó com quantidade > 1)
+    const numDoses = qtdTotal / unidadesDose;
+    return custoUnitarioMP * numDoses;
+  }, [custoUnitarioMP, qtdCapsulas, unidadesPorDose, tipoProduto]);
 
   const custoCapsulas = useMemo(() => {
-    // Se for Pó ou Gummy, não há custo de cápsulas
-    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy') return 0;
+    // Se for Pó, Gummy ou Líquido, não há custo de cápsulas
+    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') return 0;
     
     if (!selectedCapsula) return 0;
     
@@ -322,6 +335,7 @@ export default function Calculator() {
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       qtd_capsulas: parseFloat(qtdCapsulas) || 60,
+      unidades_por_dose: parseFloat(unidadesPorDose) || 1,
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,
@@ -337,6 +351,7 @@ export default function Calculator() {
     setNomeFormula('');
     setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
+    setUnidadesPorDose('2');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
     setSelectedCapsula(null);
@@ -349,6 +364,7 @@ export default function Calculator() {
       setNomeFormula('');
       setTipoProduto('Encapsulados');
       setQtdCapsulas('60');
+      setUnidadesPorDose('2');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
       setSelectedCapsula(null);
@@ -358,7 +374,8 @@ export default function Calculator() {
 
   const handleExport = () => {
     const tipoProdutoLabel = tipoProduto === 'Pó' ? 'Pote' : 
-                           tipoProduto === 'Gummy' ? 'Gummies' : 'Cápsulas';
+                           tipoProduto === 'Gummy' ? 'Gummies' : 
+                           tipoProduto === 'Líquido' ? 'mL' : 'Cápsulas';
     const quantidadeLabel = tipoProduto === 'Pó' ? '1' : qtdCapsulas;
     
     let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nTipo: ${tipoProduto}\nQuantidade: ${quantidadeLabel} ${tipoProdutoLabel}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
@@ -488,6 +505,7 @@ export default function Calculator() {
                 <SelectItem value="Encapsulados">Encapsulados</SelectItem>
                 <SelectItem value="Pó">Pó</SelectItem>
                 <SelectItem value="Gummy">Gummy</SelectItem>
+                <SelectItem value="Líquido">Líquido</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -505,19 +523,64 @@ export default function Calculator() {
           ) : (
             <div className="space-y-2">
               <Label htmlFor="qtdCapsulas">
-                Quantidade de {tipoProduto === 'Gummy' ? 'Gummies' : 'Cápsulas'} *
+                Quantidade de {
+                  tipoProduto === 'Encapsulados' ? 'Cápsulas' :
+                  tipoProduto === 'Gummy' ? 'Gummies' :
+                  tipoProduto === 'Líquido' ? 'mL' :
+                  'Gramas'
+                } *
               </Label>
               <Input
                 id="qtdCapsulas"
                 type="number"
                 min="1"
+                step="0.1"
                 value={qtdCapsulas}
                 onChange={(e) => setQtdCapsulas(e.target.value)}
                 placeholder="Ex: 60"
               />
               <p className="text-sm text-muted-foreground">
-                As quantidades informadas são por {tipoProduto === 'Gummy' ? 'gummy' : 'cápsula'} e serão multiplicadas por este valor
+                As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses (quantidade total ÷ unidades por dose)
               </p>
+            </div>
+          )}
+          
+          {/* Campo de dosagem - visível para TODOS os tipos exceto Pó com qtd fixa */}
+          {!(tipoProduto === 'Pó' && qtdCapsulas === '1') && (
+            <div className="space-y-2">
+              <Label htmlFor="unidadesPorDose">
+                {tipoProduto === 'Encapsulados' && 'Cápsulas por Dose'}
+                {tipoProduto === 'Gummy' && 'Gummies por Dose'}
+                {tipoProduto === 'Líquido' && 'mL por Dose'}
+                {tipoProduto === 'Pó' && 'Gramas por Dose'}
+              </Label>
+              <Input
+                id="unidadesPorDose"
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={unidadesPorDose}
+                onChange={(e) => setUnidadesPorDose(e.target.value)}
+                placeholder={
+                  tipoProduto === 'Encapsulados' ? 'Ex: 2' :
+                  tipoProduto === 'Gummy' ? 'Ex: 1' :
+                  tipoProduto === 'Líquido' ? 'Ex: 5' :
+                  'Ex: 3'
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                {tipoProduto === 'Encapsulados' && 'Quantas cápsulas compõem uma dose? Ex: 2 cápsulas = 1 dose'}
+                {tipoProduto === 'Gummy' && 'Quantos gummies compõem uma dose? Ex: 1 gummy = 1 dose'}
+                {tipoProduto === 'Líquido' && 'Quantos mL compõem uma dose? Ex: 5 mL = 1 dose'}
+                {tipoProduto === 'Pó' && 'Quantas gramas compõem uma dose? Ex: 3g = 1 dose'}
+              </p>
+              
+              {/* Exibir cálculo do número de doses */}
+              <div className="p-2 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-950 dark:border-blue-800">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  📊 Número de doses: {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))}
+                </p>
+              </div>
             </div>
           )}
         </CardContent>
@@ -775,22 +838,33 @@ export default function Calculator() {
           <CardHeader>
             <CardTitle className="text-primary">Matéria-Prima</CardTitle>
             <CardDescription>
-              {tipoProduto === 'Pó' 
+              {tipoProduto === 'Pó' && qtdCapsulas === '1'
                 ? 'Custo para 1 pote' 
-                : `Custo unitário × ${qtdCapsulas || 1} ${tipoProduto === 'Gummy' ? 'gummies' : 'cápsulas'}`
+                : `Custo por dose × ${Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses`
               }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Custo por {tipoProduto === 'Pó' ? 'pote' : 'unidade'}:</span>
+              <span>Custo por dose:</span>
               <span>{formatCurrencyDetailed(custoUnitarioMP)}</span>
             </div>
-            {tipoProduto !== 'Pó' && (
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Quantidade:</span>
-                <span>{qtdCapsulas || 1} {tipoProduto === 'Gummy' ? 'gummies' : 'cápsulas'}</span>
-              </div>
+            {!(tipoProduto === 'Pó' && qtdCapsulas === '1') && (
+              <>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Unidades por dose:</span>
+                  <span>{unidadesPorDose} {
+                    tipoProduto === 'Encapsulados' ? 'cápsulas' :
+                    tipoProduto === 'Gummy' ? 'gummies' :
+                    tipoProduto === 'Líquido' ? 'mL' :
+                    'g'
+                  }</span>
+                </div>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Número de doses:</span>
+                  <span>{Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))}</span>
+                </div>
+              </>
             )}
             <div className="border-t pt-2">
               <p className="text-3xl font-bold text-foreground">{formatCurrency(totalMP)}</p>

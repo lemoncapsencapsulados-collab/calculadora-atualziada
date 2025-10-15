@@ -133,7 +133,7 @@ const Cotacoes = () => {
 
           {/* Filtros */}
           <div className="flex gap-2 flex-wrap">
-            {['Todos', 'Encapsulados', 'Pó', 'Gummy'].map((tipo) => (
+            {['Todos', 'Encapsulados', 'Pó', 'Gummy', 'Líquido'].map((tipo) => (
               <Button
                 key={tipo}
                 variant={filterTipo === tipo ? 'default' : 'outline'}
@@ -180,8 +180,18 @@ const Cotacoes = () => {
                               ? 'cápsulas'
                               : formula.tipo_produto === 'Gummy'
                               ? 'gummies'
+                              : formula.tipo_produto === 'Líquido'
+                              ? 'mL'
                               : 'pote(s)'}
                           </span>
+                          {formula.unidades_por_dose && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-sm text-muted-foreground">
+                                {Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses
+                              </span>
+                            </>
+                          )}
                           <span className="text-muted-foreground">•</span>
                           <span className="text-sm text-muted-foreground">
                             {format(new Date(formula.data), "dd/MM/yyyy", { locale: ptBR })}
@@ -196,6 +206,32 @@ const Cotacoes = () => {
 
                   <AccordionContent>
                     <CardContent className="space-y-6 pt-4">
+                      {/* Informações de Dosagem */}
+                      {formula.unidades_por_dose && (
+                        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                          <h4 className="font-semibold mb-3 text-blue-900 dark:text-blue-100">Informações de Dosagem</h4>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Unidades por dose:</p>
+                              <p className="font-medium">
+                                {formula.unidades_por_dose} {
+                                  formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
+                                  formula.tipo_produto === 'Gummy' ? 'gummies' :
+                                  formula.tipo_produto === 'Líquido' ? 'mL' :
+                                  'g'
+                                }
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Número de doses:</p>
+                              <p className="font-medium">
+                                {Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Matéria-Prima */}
                       <div>
                         <h4 className="font-semibold mb-2">Matéria-Prima</h4>
