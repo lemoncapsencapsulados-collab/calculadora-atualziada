@@ -64,9 +64,9 @@ export default function Calculator() {
     saveCalculatorState(state);
   }, [cliente, nomeFormula, tipoProduto, qtdCapsulas, items, selectedEmbalagens, selectedCapsula]);
 
-  // Clear selectedCapsula when changing to Pó
+  // Clear selectedCapsula when changing to Pó or Gummy
   useEffect(() => {
-    if (tipoProduto === 'Pó') {
+    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy') {
       setSelectedCapsula(null);
     }
   }, [tipoProduto]);
@@ -127,8 +127,8 @@ export default function Calculator() {
   }, [custoUnitarioMP, qtdCapsulas, tipoProduto]);
 
   const custoCapsulas = useMemo(() => {
-    // Se for Pó, não há custo de cápsulas
-    if (tipoProduto === 'Pó') return 0;
+    // Se for Pó ou Gummy, não há custo de cápsulas
+    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy') return 0;
     
     if (!selectedCapsula) return 0;
     
@@ -214,7 +214,7 @@ export default function Calculator() {
       return;
     }
 
-    if (tipoProduto !== 'Pó' && !selectedCapsula) {
+    if (tipoProduto === 'Encapsulados' && !selectedCapsula) {
       toast.error('Selecione o tipo de cápsula');
       return;
     }
@@ -238,8 +238,8 @@ export default function Calculator() {
 
     const embalagemItems: EmbalagemItem[] = [];
 
-    // Adicionar cápsula selecionada (SOMENTE se NÃO for Pó)
-    if (selectedCapsula && tipoProduto !== 'Pó') {
+    // Adicionar cápsula selecionada (SOMENTE para Encapsulados)
+    if (selectedCapsula && tipoProduto === 'Encapsulados') {
       const capsula = embalagens.find(e => e.id === selectedCapsula)!;
       embalagemItems.push({
         embalagem_id: capsula.id,
@@ -326,8 +326,8 @@ export default function Calculator() {
     csv += 'EMBALAGEM\n';
     csv += 'Item,Categoria,Subcategoria,Descrição,Custo\n';
     
-    // Adicionar cápsula selecionada (SOMENTE se NÃO for Pó)
-    if (selectedCapsula && tipoProduto !== 'Pó') {
+    // Adicionar cápsula selecionada (SOMENTE para Encapsulados)
+    if (selectedCapsula && tipoProduto === 'Encapsulados') {
       const capsula = embalagens.find(e => e.id === selectedCapsula);
       if (capsula) {
         csv += `${capsula.nome},${capsula.categoria || 'Cápsulas'},${capsula.subcategoria || '-'},"${qtdCapsulas || 0} unidades",${formatCurrency(custoCapsulas)}\n`;
@@ -565,7 +565,7 @@ export default function Calculator() {
         </CardContent>
       </Card>
 
-      {tipoProduto !== 'Pó' && (
+      {tipoProduto === 'Encapsulados' && (
         <Card className="shadow-md">
           <CardHeader>
             <CardTitle>Tipo de Cápsula</CardTitle>
@@ -746,11 +746,11 @@ export default function Calculator() {
           <CardHeader>
             <CardTitle className="text-accent">Embalagem</CardTitle>
             <CardDescription>
-              {tipoProduto === 'Pó' ? 'Embalagens por categoria' : 'Cápsulas + Embalagens por categoria'}
+              {tipoProduto === 'Encapsulados' ? 'Cápsulas + Embalagens por categoria' : 'Embalagens por categoria'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {selectedCapsula && tipoProduto !== 'Pó' && (
+            {selectedCapsula && tipoProduto === 'Encapsulados' && (
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{embalagens.find(e => e.id === selectedCapsula)?.nome} ({qtdCapsulas}x):</span>
                 <span>{formatCurrencyDetailed(custoCapsulas)}</span>
