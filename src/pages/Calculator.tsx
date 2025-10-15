@@ -30,6 +30,7 @@ export default function Calculator() {
   ]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
   const [selectedCapsula, setSelectedCapsula] = useState<string | null>(null);
+  const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Pó' | 'Gummy'>('Encapsulados');
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   
   const { insumos, loading: loadingInsumos } = useInsumos();
@@ -41,6 +42,7 @@ export default function Calculator() {
     if (savedState) {
       setCliente(savedState.cliente);
       setNomeFormula(savedState.nomeFormula);
+      setTipoProduto(savedState.tipoProduto || 'Encapsulados');
       setQtdCapsulas(savedState.qtdCapsulas || '60');
       setItems(savedState.items as FormulaItemInput[]);
       setSelectedEmbalagens(new Set(savedState.selectedEmbalagens));
@@ -53,13 +55,14 @@ export default function Calculator() {
     const state = {
       cliente,
       nomeFormula,
+      tipoProduto,
       qtdCapsulas,
       items,
       selectedEmbalagens: Array.from(selectedEmbalagens),
       selectedCapsula,
     };
     saveCalculatorState(state);
-  }, [cliente, nomeFormula, qtdCapsulas, items, selectedEmbalagens, selectedCapsula]);
+  }, [cliente, nomeFormula, tipoProduto, qtdCapsulas, items, selectedEmbalagens, selectedCapsula]);
 
   // Calculate costs
   const calculatedItems = useMemo(() => {
@@ -112,9 +115,9 @@ export default function Calculator() {
   }, [calculatedItems]);
 
   const totalMP = useMemo(() => {
-    const qtd = parseFloat(qtdCapsulas) || 1;
+    const qtd = tipoProduto === 'Pó' ? 1 : (parseFloat(qtdCapsulas) || 1);
     return custoUnitarioMP * qtd;
-  }, [custoUnitarioMP, qtdCapsulas]);
+  }, [custoUnitarioMP, qtdCapsulas, tipoProduto]);
 
   const custoCapsulas = useMemo(() => {
     if (!selectedCapsula) return 0;
@@ -122,9 +125,9 @@ export default function Calculator() {
     const capsula = embalagens.find(e => e.id === selectedCapsula);
     if (!capsula) return 0;
     
-    const qtd = parseFloat(qtdCapsulas) || 0;
+    const qtd = tipoProduto === 'Pó' ? 1 : (parseFloat(qtdCapsulas) || 0);
     return capsula.preco_unitario * qtd;
-  }, [selectedCapsula, qtdCapsulas, embalagens]);
+  }, [selectedCapsula, qtdCapsulas, tipoProduto, embalagens]);
 
   const custoEmbalagensExtras = useMemo(() => {
     return Array.from(selectedEmbalagens).reduce((sum, embId) => {
@@ -266,6 +269,7 @@ export default function Calculator() {
     // Reset form
     setCliente('');
     setNomeFormula('');
+    setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
@@ -277,6 +281,7 @@ export default function Calculator() {
     if (confirm('Limpar todos os campos?')) {
       setCliente('');
       setNomeFormula('');
+      setTipoProduto('Encapsulados');
       setQtdCapsulas('60');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
@@ -394,23 +399,54 @@ export default function Calculator() {
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Configuração do Pote</CardTitle>
-          <CardDescription>Quantidade de cápsulas por pote</CardDescription>
+          <CardDescription>Tipo de produto e quantidade</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="qtdCapsulas">Quantidade de Cápsulas *</Label>
-            <Input
-              id="qtdCapsulas"
-              type="number"
-              min="1"
-              value={qtdCapsulas}
-              onChange={(e) => setQtdCapsulas(e.target.value)}
-              placeholder="Ex: 60"
-            />
-            <p className="text-sm text-muted-foreground">
-              As quantidades informadas são por cápsula e serão multiplicadas por este valor
-            </p>
+            <Label htmlFor="tipoProduto">Tipo de Produto *</Label>
+            <Select
+              value={tipoProduto}
+              onValueChange={(value) => setTipoProduto(value as 'Encapsulados' | 'Pó' | 'Gummy')}
+            >
+              <SelectTrigger id="tipoProduto">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Encapsulados">Encapsulados</SelectItem>
+                <SelectItem value="Pó">Pó</SelectItem>
+                <SelectItem value="Gummy">Gummy</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {tipoProduto === 'Pó' ? (
+            <div className="space-y-2">
+              <Label>Quantidade</Label>
+              <div className="p-3 bg-muted rounded-md border">
+                <p className="text-sm font-medium">1 pote (quantidade fixa para pó)</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Produtos em pó são calculados como 1 unidade
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="qtdCapsulas">
+                Quantidade de {tipoProduto === 'Gummy' ? 'Gummies' : 'Cápsulas'} *
+              </Label>
+              <Input
+                id="qtdCapsulas"
+                type="number"
+                min="1"
+                value={qtdCapsulas}
+                onChange={(e) => setQtdCapsulas(e.target.value)}
+                placeholder="Ex: 60"
+              />
+              <p className="text-sm text-muted-foreground">
+                As quantidades informadas são por {tipoProduto === 'Gummy' ? 'gummy' : 'cápsula'} e serão multiplicadas por este valor
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
