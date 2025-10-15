@@ -47,6 +47,51 @@ export type Database = {
         }
         Relationships: []
       }
+      formulas: {
+        Row: {
+          cliente: string
+          created_at: string | null
+          custo_total: number
+          embalagens: Json
+          id: string
+          itens: Json
+          nome_formula: string
+          qtd_capsulas: number
+          tipo_produto: string
+          total_embalagem: number
+          total_mp: number
+          updated_at: string | null
+        }
+        Insert: {
+          cliente: string
+          created_at?: string | null
+          custo_total: number
+          embalagens: Json
+          id?: string
+          itens: Json
+          nome_formula: string
+          qtd_capsulas: number
+          tipo_produto: string
+          total_embalagem: number
+          total_mp: number
+          updated_at?: string | null
+        }
+        Update: {
+          cliente?: string
+          created_at?: string | null
+          custo_total?: number
+          embalagens?: Json
+          id?: string
+          itens?: Json
+          nome_formula?: string
+          qtd_capsulas?: number
+          tipo_produto?: string
+          total_embalagem?: number
+          total_mp?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       insumos: {
         Row: {
           categoria: string | null

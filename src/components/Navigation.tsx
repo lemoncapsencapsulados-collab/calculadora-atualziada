@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Calculator, FlaskConical } from 'lucide-react';
+import { Package, Calculator, FlaskConical, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function Navigation() {
@@ -7,6 +7,7 @@ export function Navigation() {
   
   const links = [
     { to: '/', label: 'Calcular Fórmula', icon: Calculator },
+    { to: '/cotacoes', label: 'Cotações Salvas', icon: FileText },
     { to: '/inventario', label: 'Inventário', icon: Package },
   ];
 

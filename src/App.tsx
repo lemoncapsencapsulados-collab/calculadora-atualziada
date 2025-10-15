@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import Index from "./pages/Index";
 import Inventario from "./pages/Inventario";
+import Cotacoes from "./pages/Cotacoes";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
@@ -58,6 +59,7 @@ const App = () => {
             <Navigation />
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/cotacoes" element={<Cotacoes />} />
               <Route path="/inventario" element={<Inventario />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

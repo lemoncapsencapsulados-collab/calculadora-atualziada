@@ -10,7 +10,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import { useInsumos } from '@/hooks/useInsumos';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
-import { addFormula, saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
+import { useFormulas } from '@/hooks/useFormulas';
+import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
@@ -35,6 +36,7 @@ export default function Calculator() {
   
   const { insumos, loading: loadingInsumos } = useInsumos();
   const { embalagens, loading: loadingEmbalagens } = useEmbalagens();
+  const { addFormula } = useFormulas();
 
   // Load saved calculator state on mount
   useEffect(() => {
@@ -49,6 +51,61 @@ export default function Calculator() {
       setSelectedCapsula(savedState.selectedCapsula || null);
     }
   }, []);
+
+  // Load formula from "Carregar no Calculador" if present
+  useEffect(() => {
+    const loadFormulaData = localStorage.getItem('loadFormula');
+    if (loadFormulaData) {
+      try {
+        const formula = JSON.parse(loadFormulaData);
+        
+        // Preencher campos básicos
+        setCliente(formula.cliente || '');
+        setNomeFormula(formula.nome_formula || '');
+        setTipoProduto(formula.tipo_produto || 'Encapsulados');
+        setQtdCapsulas(formula.qtd_capsulas?.toString() || '60');
+        
+        // Preencher itens de matéria-prima
+        if (formula.itens && Array.isArray(formula.itens)) {
+          const loadedItems: FormulaItemInput[] = formula.itens.map((item: any, index: number) => ({
+            id: (index + 1).toString(),
+            insumoNome: item.nome_insumo_snapshot || '',
+            quantidade: item.qtd_informada?.toString() || '',
+            unidade: item.unidade_informada || 'mg',
+          }));
+          setItems(loadedItems);
+        }
+        
+        // Preencher embalagens selecionadas
+        if (formula.embalagens && Array.isArray(formula.embalagens)) {
+          const embalagemIds = new Set<string>();
+          formula.embalagens.forEach((emb: any) => {
+            if (emb.embalagem_id) {
+              embalagemIds.add(emb.embalagem_id);
+            }
+          });
+          setSelectedEmbalagens(embalagemIds);
+          
+          // Encontrar cápsula se houver
+          const capsula = formula.embalagens.find((emb: any) => 
+            embalagens.some(e => e.id === emb.embalagem_id && e.categoria === 'Cápsulas')
+          );
+          if (capsula) {
+            setSelectedCapsula(capsula.embalagem_id);
+          }
+        }
+        
+        toast.success('Fórmula carregada no calculador!');
+        
+        // Limpar o item do localStorage após carregar
+        localStorage.removeItem('loadFormula');
+      } catch (error) {
+        console.error('Erro ao carregar fórmula:', error);
+        toast.error('Erro ao carregar fórmula');
+        localStorage.removeItem('loadFormula');
+      }
+    }
+  }, [embalagens]);
 
   // Save state whenever it changes
   useEffect(() => {
@@ -260,17 +317,16 @@ export default function Calculator() {
       }
     });
 
-    const formula: Formula = {
-      id: Date.now().toString(),
+    const formula: Omit<Formula, 'id' | 'data'> = {
       cliente,
       nome_formula: nomeFormula || 'Fórmula sem nome',
+      tipo_produto: tipoProduto,
       qtd_capsulas: parseFloat(qtdCapsulas) || 60,
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,
       total_embalagem: totalEmbalagem,
       custo_total: custoTotal,
-      data: new Date(),
     };
 
     addFormula(formula);

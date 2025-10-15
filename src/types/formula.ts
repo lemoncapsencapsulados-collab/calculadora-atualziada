@@ -38,6 +38,7 @@ export interface Formula {
   id: string;
   cliente: string;
   nome_formula: string;
+  tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy';
   qtd_capsulas: number;
   itens: FormulaItem[];
   embalagens: EmbalagemItem[];
