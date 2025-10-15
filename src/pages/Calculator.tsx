@@ -64,6 +64,13 @@ export default function Calculator() {
     saveCalculatorState(state);
   }, [cliente, nomeFormula, tipoProduto, qtdCapsulas, items, selectedEmbalagens, selectedCapsula]);
 
+  // Clear selectedCapsula when changing to Pó
+  useEffect(() => {
+    if (tipoProduto === 'Pó') {
+      setSelectedCapsula(null);
+    }
+  }, [tipoProduto]);
+
   // Calculate costs
   const calculatedItems = useMemo(() => {
     return items.map((item) => {
@@ -120,12 +127,15 @@ export default function Calculator() {
   }, [custoUnitarioMP, qtdCapsulas, tipoProduto]);
 
   const custoCapsulas = useMemo(() => {
+    // Se for Pó, não há custo de cápsulas
+    if (tipoProduto === 'Pó') return 0;
+    
     if (!selectedCapsula) return 0;
     
     const capsula = embalagens.find(e => e.id === selectedCapsula);
     if (!capsula) return 0;
     
-    const qtd = tipoProduto === 'Pó' ? 1 : (parseFloat(qtdCapsulas) || 0);
+    const qtd = parseFloat(qtdCapsulas) || 0;
     return capsula.preco_unitario * qtd;
   }, [selectedCapsula, qtdCapsulas, tipoProduto, embalagens]);
 
@@ -204,7 +214,7 @@ export default function Calculator() {
       return;
     }
 
-    if (!selectedCapsula) {
+    if (tipoProduto !== 'Pó' && !selectedCapsula) {
       toast.error('Selecione o tipo de cápsula');
       return;
     }
@@ -228,8 +238,8 @@ export default function Calculator() {
 
     const embalagemItems: EmbalagemItem[] = [];
 
-    // Adicionar cápsula selecionada
-    if (selectedCapsula) {
+    // Adicionar cápsula selecionada (SOMENTE se NÃO for Pó)
+    if (selectedCapsula && tipoProduto !== 'Pó') {
       const capsula = embalagens.find(e => e.id === selectedCapsula)!;
       embalagemItems.push({
         embalagem_id: capsula.id,
@@ -291,10 +301,13 @@ export default function Calculator() {
   };
 
   const handleExport = () => {
-    // Simple CSV export
-    let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nQuantidade de Cápsulas: ${qtdCapsulas}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+    const tipoProdutoLabel = tipoProduto === 'Pó' ? 'Pote' : 
+                           tipoProduto === 'Gummy' ? 'Gummies' : 'Cápsulas';
+    const quantidadeLabel = tipoProduto === 'Pó' ? '1' : qtdCapsulas;
     
-    csv += 'MATÉRIA-PRIMA (por cápsula)\n';
+    let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nTipo: ${tipoProduto}\nQuantidade: ${quantidadeLabel} ${tipoProdutoLabel}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+    
+    csv += `MATÉRIA-PRIMA (por ${tipoProduto === 'Pó' ? 'pote' : 'unidade'})\n`;
     csv += 'Insumo,Quantidade,Unidade,Custo Unitário\n';
     calculatedItems.forEach((item) => {
       if (item && !item.error) {
@@ -302,15 +315,19 @@ export default function Calculator() {
       }
     });
     
-    csv += `\nCusto por cápsula:,${formatCurrencyDetailed(custoUnitarioMP)}\n`;
-    csv += `Quantidade de cápsulas:,${qtdCapsulas}\n`;
+    csv += `\nCusto por ${tipoProduto === 'Pó' ? 'pote' : 'unidade'}:,${formatCurrencyDetailed(custoUnitarioMP)}\n`;
+    
+    if (tipoProduto !== 'Pó') {
+      csv += `Quantidade de ${tipoProdutoLabel}:,${qtdCapsulas}\n`;
+    }
+    
     csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
     
     csv += 'EMBALAGEM\n';
     csv += 'Item,Categoria,Subcategoria,Descrição,Custo\n';
     
-    // Adicionar cápsula selecionada
-    if (selectedCapsula) {
+    // Adicionar cápsula selecionada (SOMENTE se NÃO for Pó)
+    if (selectedCapsula && tipoProduto !== 'Pó') {
       const capsula = embalagens.find(e => e.id === selectedCapsula);
       if (capsula) {
         csv += `${capsula.nome},${capsula.categoria || 'Cápsulas'},${capsula.subcategoria || '-'},"${qtdCapsulas || 0} unidades",${formatCurrency(custoCapsulas)}\n`;
@@ -548,62 +565,64 @@ export default function Calculator() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle>Tipo de Cápsula</CardTitle>
-          <CardDescription>Selecione o tipo de cápsula para este pote</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {embalagens
-              .filter(emb => emb.categoria === 'Cápsulas')
-              .map((capsula) => (
-                <div
-                  key={capsula.id}
-                  className={`flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                    selectedCapsula === capsula.id
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                  }`}
-                  onClick={() => setSelectedCapsula(capsula.id)}
-                >
-                  <div className="flex-1">
-                    <Label className="font-medium cursor-pointer text-base">
-                      {capsula.nome}
-                    </Label>
-                    {capsula.subcategoria && (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        {capsula.subcategoria}
-                      </Badge>
+      {tipoProduto !== 'Pó' && (
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle>Tipo de Cápsula</CardTitle>
+            <CardDescription>Selecione o tipo de cápsula para este pote</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {embalagens
+                .filter(emb => emb.categoria === 'Cápsulas')
+                .map((capsula) => (
+                  <div
+                    key={capsula.id}
+                    className={`flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                      selectedCapsula === capsula.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                    }`}
+                    onClick={() => setSelectedCapsula(capsula.id)}
+                  >
+                    <div className="flex-1">
+                      <Label className="font-medium cursor-pointer text-base">
+                        {capsula.nome}
+                      </Label>
+                      {capsula.subcategoria && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          {capsula.subcategoria}
+                        </Badge>
+                      )}
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {capsula.descricao}
+                      </p>
+                      <div className="flex items-baseline gap-2 mt-2">
+                        <p className="text-sm font-semibold text-primary">
+                          {formatCurrency(capsula.preco_unitario)} / unidade
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          × {qtdCapsulas || 0} cápsulas = {formatCurrency(capsula.preco_unitario * (parseFloat(qtdCapsulas) || 0))}
+                        </p>
+                      </div>
+                    </div>
+                    {selectedCapsula === capsula.id && (
+                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-xs">
+                        ✓
+                      </div>
                     )}
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {capsula.descricao}
-                    </p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <p className="text-sm font-semibold text-primary">
-                        {formatCurrency(capsula.preco_unitario)} / unidade
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        × {qtdCapsulas || 0} cápsulas = {formatCurrency(capsula.preco_unitario * (parseFloat(qtdCapsulas) || 0))}
-                      </p>
-                    </div>
                   </div>
-                  {selectedCapsula === capsula.id && (
-                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-xs">
-                      ✓
-                    </div>
-                  )}
-                </div>
-              ))}
-          </div>
-          
-          {!selectedCapsula && (
-            <p className="text-sm text-amber-600 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-              ⚠️ Selecione um tipo de cápsula para prosseguir
-            </p>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+            </div>
+            
+            {!selectedCapsula && (
+              <p className="text-sm text-amber-600 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                ⚠️ Selecione um tipo de cápsula para prosseguir
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="shadow-md">
         <CardHeader>
@@ -700,18 +719,23 @@ export default function Calculator() {
           <CardHeader>
             <CardTitle className="text-primary">Matéria-Prima</CardTitle>
             <CardDescription>
-              Custo unitário × {qtdCapsulas || 1} cápsulas
+              {tipoProduto === 'Pó' 
+                ? 'Custo para 1 pote' 
+                : `Custo unitário × ${qtdCapsulas || 1} ${tipoProduto === 'Gummy' ? 'gummies' : 'cápsulas'}`
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Custo por cápsula:</span>
+              <span>Custo por {tipoProduto === 'Pó' ? 'pote' : 'unidade'}:</span>
               <span>{formatCurrencyDetailed(custoUnitarioMP)}</span>
             </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Quantidade:</span>
-              <span>{qtdCapsulas || 1} cápsulas</span>
-            </div>
+            {tipoProduto !== 'Pó' && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Quantidade:</span>
+                <span>{qtdCapsulas || 1} {tipoProduto === 'Gummy' ? 'gummies' : 'cápsulas'}</span>
+              </div>
+            )}
             <div className="border-t pt-2">
               <p className="text-3xl font-bold text-foreground">{formatCurrency(totalMP)}</p>
             </div>
@@ -722,11 +746,11 @@ export default function Calculator() {
           <CardHeader>
             <CardTitle className="text-accent">Embalagem</CardTitle>
             <CardDescription>
-              Cápsulas + Embalagens por categoria
+              {tipoProduto === 'Pó' ? 'Embalagens por categoria' : 'Cápsulas + Embalagens por categoria'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {selectedCapsula && (
+            {selectedCapsula && tipoProduto !== 'Pó' && (
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{embalagens.find(e => e.id === selectedCapsula)?.nome} ({qtdCapsulas}x):</span>
                 <span>{formatCurrencyDetailed(custoCapsulas)}</span>
