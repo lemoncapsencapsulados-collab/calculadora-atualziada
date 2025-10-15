@@ -218,7 +218,9 @@ export default function Calculator() {
     }, 0);
   }, [selectedEmbalagens, embalagens]);
 
-  const totalEmbalagem = custoEmbalagensExtras + custoCapsulas;
+  const custoRotulo = 2; // Custo fixo do rótulo
+
+  const totalEmbalagem = custoEmbalagensExtras + custoCapsulas + custoRotulo;
 
   const custoTotal = totalMP + totalEmbalagem;
 
@@ -902,6 +904,11 @@ export default function Calculator() {
                 ))}
               </div>
             ))}
+            
+            <div className="flex justify-between text-sm text-muted-foreground pt-2">
+              <span>Rótulo:</span>
+              <span>{formatCurrencyDetailed(custoRotulo)}</span>
+            </div>
             
             <div className="border-t pt-2">
               <p className="text-3xl font-bold text-foreground">
