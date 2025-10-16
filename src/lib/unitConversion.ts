@@ -146,7 +146,7 @@ export function formatCurrencyDetailed(value: number): string {
     style: 'currency',
     currency: 'BRL',
     minimumFractionDigits: 2,
-    maximumFractionDigits: 8,
+    maximumFractionDigits: 13,
   }).format(value);
 }
 
