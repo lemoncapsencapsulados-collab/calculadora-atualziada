@@ -76,8 +76,8 @@ export function filtrarEmbalagensPorTipo(
       nomeUpper.includes('(PÓ)');
     
     if (!temMarcacaoEspecifica) {
-      // Incluir se for de categoria relevante (Sílica, Sachê, etc)
-      const categoriasGerais = ['SÍLICA', 'SACHÊ', 'RÓTULO', 'LACRE'];
+      // Incluir se for de categoria relevante (Sílica, Rótulo, etc)
+      const categoriasGerais = ['SÍLICA', 'RÓTULO', 'LACRE'];
       return categoriasGerais.some(cat => categoriaUpper.includes(cat));
     }
     
