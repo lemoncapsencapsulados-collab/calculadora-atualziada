@@ -262,7 +262,7 @@ const Pedidos = () => {
                       onClick={() => gerarPDFOrdemProducao(pedido)}
                     >
                       <Download className="h-4 w-4 mr-1" />
-                      Baixar PDF
+                      Baixar Ordem de Produção
                     </Button>
                     
                     <AlertDialog>

@@ -1,12 +1,11 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Pedido, Formula } from '@/types/formula';
 
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF;
     lastAutoTable: { finalY: number };
   }
 }
@@ -106,7 +105,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
     `R$ ${item.custo_calculado.toFixed(2)}`,
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPosition,
     head: [['Insumo', 'Quantidade', 'Custo']],
     body: mpData,
@@ -118,7 +117,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
     margin: { left: 15, right: 15 },
   });
 
-  yPosition = doc.lastAutoTable.finalY + 10;
+  yPosition = (doc as any).lastAutoTable.finalY + 10;
 
   // EMBALAGENS
   doc.setFillColor(245, 245, 245);
@@ -133,7 +132,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
     `R$ ${item.custo_calculado.toFixed(2)}`,
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPosition,
     head: [['Item', 'Custo']],
     body: embData,
@@ -145,7 +144,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
     margin: { left: 15, right: 15 },
   });
 
-  yPosition = doc.lastAutoTable.finalY + 10;
+  yPosition = (doc as any).lastAutoTable.finalY + 10;
 
   // CUSTO TOTAL
   doc.setFillColor(41, 128, 185);
