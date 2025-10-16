@@ -76,8 +76,17 @@ export function filtrarEmbalagensPorTipo(
       nomeUpper.includes('(PÓ)');
     
     if (!temMarcacaoEspecifica) {
-      // Incluir se for de categoria relevante (Sílica, Rótulo, etc)
-      const categoriasGerais = ['SÍLICA', 'RÓTULO', 'LACRE'];
+      // Incluir categorias gerais baseadas no tipo de produto
+      let categoriasGerais: string[] = ['RÓTULO', 'LACRE'];
+      
+      // Adicionar categorias específicas por tipo
+      if (tipoProduto === 'Encapsulados') {
+        categoriasGerais.push('SÍLICA', 'CÁPSULA', 'CAPSULA');
+      } else if (tipoProduto === 'Gummy' || tipoProduto === 'Pó') {
+        categoriasGerais.push('SÍLICA');
+      }
+      // Líquido não usa Sílica nem Cápsula
+      
       return categoriasGerais.some(cat => categoriaUpper.includes(cat));
     }
     

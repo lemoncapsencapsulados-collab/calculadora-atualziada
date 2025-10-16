@@ -780,41 +780,6 @@ export default function Calculator() {
         </Card>
       )}
 
-      {/* Card de Embalagens Obrigatórias */}
-      {embalagensnObrigatoriasPreenchidas.some(obr => !obr.encontrada) && (
-        <Card className="shadow-md border-amber-200 bg-amber-50 dark:bg-amber-950/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-900 dark:text-amber-100">
-              <AlertCircle className="h-5 w-5" />
-              Embalagens Obrigatórias
-            </CardTitle>
-            <CardDescription className="text-amber-800 dark:text-amber-200">
-              Para produtos do tipo <strong>{tipoProduto}</strong>, os seguintes itens são obrigatórios:
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {embalagensnObrigatoriasPreenchidas.map((obr) => (
-                <div
-                  key={obr.categoria}
-                  className={`flex items-center gap-2 p-2 rounded-md ${
-                    obr.encontrada
-                      ? 'bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-100'
-                      : 'bg-amber-100 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100'
-                  }`}
-                >
-                  {obr.encontrada ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  )}
-                  <span className="text-sm font-medium">{obr.descricao}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card className="shadow-md">
         <CardHeader>
