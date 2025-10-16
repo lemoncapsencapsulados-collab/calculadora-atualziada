@@ -131,6 +131,59 @@ export type Database = {
         }
         Relationships: []
       }
+      pedidos: {
+        Row: {
+          created_at: string | null
+          data_entrega: string
+          data_pedido: string
+          formula_id: string
+          formula_snapshot: Json
+          id: string
+          numero_pedido: string
+          observacoes: string | null
+          quantidade_produto: number
+          status: string
+          unidade_produto: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_entrega: string
+          data_pedido: string
+          formula_id: string
+          formula_snapshot: Json
+          id?: string
+          numero_pedido: string
+          observacoes?: string | null
+          quantidade_produto: number
+          status?: string
+          unidade_produto: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_entrega?: string
+          data_pedido?: string
+          formula_id?: string
+          formula_snapshot?: Json
+          id?: string
+          numero_pedido?: string
+          observacoes?: string | null
+          quantidade_produto?: number
+          status?: string
+          unidade_produto?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_formula_id_fkey"
+            columns: ["formula_id"]
+            isOneToOne: false
+            referencedRelation: "formulas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

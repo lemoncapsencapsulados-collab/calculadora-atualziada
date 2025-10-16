@@ -20,12 +20,46 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { GerarPedidoDialog } from '@/components/GerarPedidoDialog';
+import { usePedidos } from '@/hooks/usePedidos';
+import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
+import { Pedido } from '@/types/formula';
 
 const Cotacoes = () => {
   const { formulas, loading, deleteFormula } = useFormulas();
+  const { createPedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('Todos');
   const navigate = useNavigate();
+
+  const handleGerarPedido = async (formula: any, dados: any) => {
+    const numeroPedido = `OP-${format(new Date(), 'yyyyMMddHHmmss')}`;
+    
+    const novoPedido: Omit<Pedido, 'id' | 'created_at' | 'updated_at'> = {
+      formula_id: formula.id,
+      numero_pedido: numeroPedido,
+      data_pedido: dados.data_pedido,
+      data_entrega: dados.data_entrega,
+      quantidade_produto: dados.quantidade_produto,
+      unidade_produto: dados.unidade_produto,
+      status: 'aguardando_producao',
+      formula_snapshot: formula,
+      observacoes: dados.observacoes,
+    };
+
+    try {
+      await createPedido(novoPedido);
+      
+      gerarPDFOrdemProducao({
+        ...novoPedido,
+        id: numeroPedido,
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as Pedido);
+    } catch (error) {
+      console.error('Erro ao gerar pedido:', error);
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -270,6 +304,10 @@ const Cotacoes = () => {
 
                       {/* Ações */}
                       <div className="flex gap-2 flex-wrap pt-4 border-t">
+                        <GerarPedidoDialog 
+                          formula={formula} 
+                          onConfirm={(dados) => handleGerarPedido(formula, dados)} 
+                        />
                         <Button
                           variant="outline"
                           size="sm"

@@ -48,3 +48,24 @@ export interface Formula {
   custo_total: number;
   data: Date;
 }
+
+export type StatusPedido = 
+  | 'aguardando_producao' 
+  | 'no_estoque' 
+  | 'enviado' 
+  | 'concluido';
+
+export interface Pedido {
+  id: string;
+  formula_id: string;
+  numero_pedido: string;
+  data_pedido: Date;
+  data_entrega: Date;
+  quantidade_produto: number;
+  unidade_produto: string;
+  observacoes?: string;
+  status: StatusPedido;
+  formula_snapshot: Formula;
+  created_at: Date;
+  updated_at: Date;
+}
