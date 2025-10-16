@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Download, Save, X, Package, Box, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Download, Save, X, Package, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +15,6 @@ import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@
 import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
-import {
-  filtrarEmbalagensPorTipo,
-  getEmbalagensnObrigatorias,
-  verificarEmbalagemObrigatoria,
-  formatarNomeEmbalagem,
-} from '@/lib/embalagemFilters';
 
 interface FormulaItemInput {
   id: string;
@@ -234,10 +228,7 @@ export default function Calculator() {
   const embalagensPorCategoria = useMemo(() => {
     const grupos: Record<string, Record<string, typeof embalagens>> = {};
     
-    // Filtrar embalagens relevantes para o tipo de produto
-    const embalagensFiltradas = filtrarEmbalagensPorTipo(embalagens, tipoProduto);
-    
-    embalagensFiltradas.forEach(emb => {
+    embalagens.forEach(emb => {
       const cat = emb.categoria || 'Outras Embalagens';
       const subcat = emb.subcategoria || 'Geral';
       
@@ -248,20 +239,7 @@ export default function Calculator() {
     });
     
     return grupos;
-  }, [embalagens, tipoProduto]);
-
-  // Check obrigatórias
-  const embalagensnObrigatorias = useMemo(
-    () => getEmbalagensnObrigatorias(tipoProduto),
-    [tipoProduto]
-  );
-
-  const embalagensnObrigatoriasPreenchidas = useMemo(() => {
-    return embalagensnObrigatorias.map(obr => ({
-      ...obr,
-      encontrada: verificarEmbalagemObrigatoria(obr.categoria, selectedEmbalagens, embalagens),
-    }));
-  }, [embalagensnObrigatorias, selectedEmbalagens, embalagens]);
+  }, [embalagens]);
 
   // Calculate costs by subcategoria
   const custosPorSubcategoria = useMemo(() => {
@@ -310,19 +288,6 @@ export default function Calculator() {
 
     if (tipoProduto === 'Encapsulados' && !selectedCapsula) {
       toast.error('Selecione o tipo de cápsula');
-      return;
-    }
-
-    // Validar embalagens obrigatórias
-    const obrigatoriasNaoPreenchidas = embalagensnObrigatoriasPreenchidas
-      .filter(obr => !obr.encontrada)
-      .map(obr => obr.descricao);
-    
-    if (obrigatoriasNaoPreenchidas.length > 0) {
-      toast.error(
-        `Selecione as embalagens obrigatórias: ${obrigatoriasNaoPreenchidas.join(', ')}`,
-        { duration: 5000 }
-      );
       return;
     }
 
@@ -780,7 +745,6 @@ export default function Calculator() {
         </Card>
       )}
 
-
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Embalagem</CardTitle>
@@ -846,12 +810,12 @@ export default function Calculator() {
                                       }
                                       setSelectedEmbalagens(newSet);
                                     }}
-                                   />
-                                   <div className="flex-1">
-                                     <Label htmlFor={`emb-${emb.id}`} className="font-medium cursor-pointer text-sm">
-                                       {formatarNomeEmbalagem(emb, tipoProduto)}
-                                     </Label>
-                                     <p className="text-xs text-muted-foreground line-clamp-2">{emb.descricao}</p>
+                                  />
+                                  <div className="flex-1">
+                                    <Label htmlFor={`emb-${emb.id}`} className="font-medium cursor-pointer text-sm">
+                                      {emb.nome}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground line-clamp-2">{emb.descricao}</p>
                                     <p className="text-sm font-semibold text-primary mt-1">
                                       {formatCurrency(emb.preco_unitario)}
                                     </p>
