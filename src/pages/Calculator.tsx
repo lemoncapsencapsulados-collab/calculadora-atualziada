@@ -17,7 +17,7 @@ import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit
 import { toast } from 'sonner';
 
 // Capacidade padrão de uma cápsula em gramas
-const CAPACIDADE_CAPSULA_GRAMAS = 0,5;
+const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
 
 interface FormulaItemInput {
   id: string;
