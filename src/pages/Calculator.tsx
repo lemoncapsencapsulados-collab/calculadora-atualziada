@@ -16,6 +16,9 @@ import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 
+// Capacidade padrão de uma cápsula em gramas
+const CAPACIDADE_CAPSULA_GRAMAS = 1;
+
 interface FormulaItemInput {
   id: string;
   insumoNome: string;
@@ -192,9 +195,83 @@ export default function Calculator() {
     });
   }, [items, insumos]);
 
+  // Calcula quantidade de Amido de Milho necessário (somente para Encapsulados)
+  const calcularExcipiente = useMemo(() => {
+    // Excipiente só é usado em Encapsulados
+    if (tipoProduto !== 'Encapsulados') {
+      return { quantidade: 0, unidade: 'g' as UnitType, custo: 0 };
+    }
+    
+    const unidadesDose = parseFloat(unidadesPorDose) || 1;
+    
+    // Somar todos os insumos da dose (converter tudo para gramas)
+    const totalInsumosDose = calculatedItems.reduce((sum, item) => {
+      if (!item || !item.quantidade) return sum;
+      
+      const qtd = parseFloat(item.quantidade);
+      const unidade = item.unidade;
+      
+      // Converter para gramas
+      let qtdEmGramas = 0;
+      switch (unidade) {
+        case 'kg':
+          qtdEmGramas = qtd * 1000;
+          break;
+        case 'g':
+          qtdEmGramas = qtd;
+          break;
+        case 'mg':
+          qtdEmGramas = qtd / 1000;
+          break;
+        case 'mcg':
+          qtdEmGramas = qtd / 1_000_000;
+          break;
+        default:
+          qtdEmGramas = 0; // Volume/UI não conta para peso
+      }
+      
+      return sum + qtdEmGramas;
+    }, 0);
+    
+    // Capacidade total da dose (cápsulas por dose × 1g cada)
+    const capacidadeTotalDose = unidadesDose * CAPACIDADE_CAPSULA_GRAMAS;
+    
+    // Diferença é quanto de excipiente precisamos
+    const diferencaGramas = Math.max(0, capacidadeTotalDose - totalInsumosDose);
+    
+    // Buscar o Amido de Milho no banco
+    const amidoMilho = insumos.find(
+      i => i.nome.toLowerCase().includes('amido') && i.nome.toLowerCase().includes('milho')
+    );
+    
+    if (!amidoMilho || diferencaGramas === 0) {
+      return { quantidade: 0, unidade: 'g' as UnitType, custo: 0 };
+    }
+    
+    // Calcular custo do excipiente POR DOSE
+    const formulaItemExcipiente: FormulaItem = {
+      insumo_id: amidoMilho.id,
+      nome_insumo_snapshot: amidoMilho.nome,
+      qtd_informada: diferencaGramas,
+      unidade_informada: 'g',
+      custo_calculado: 0,
+    };
+    
+    const custoExcipiente = calcularCustoInsumo(formulaItemExcipiente, amidoMilho);
+    
+    return {
+      quantidade: diferencaGramas,
+      unidade: 'g' as UnitType,
+      custo: custoExcipiente,
+      insumo: amidoMilho,
+    };
+  }, [calculatedItems, tipoProduto, unidadesPorDose, insumos]);
+
   const custoUnitarioMP = useMemo(() => {
-    return calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0);
-  }, [calculatedItems]);
+    const custoInsumos = calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0);
+    const custoExcipiente = calcularExcipiente.custo;
+    return custoInsumos + custoExcipiente;
+  }, [calculatedItems, calcularExcipiente]);
 
   const totalMP = useMemo(() => {
     const qtdTotal = parseFloat(qtdCapsulas) || 1;
@@ -316,6 +393,17 @@ export default function Calculator() {
       unidade_informada: item!.unidade,
       custo_calculado: item!.custo,
     }));
+
+    // Adicionar excipiente se houver
+    if (tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && calcularExcipiente.insumo) {
+      formulaItems.push({
+        insumo_id: calcularExcipiente.insumo.id,
+        nome_insumo_snapshot: `${calcularExcipiente.insumo.nome} (Excipiente)`,
+        qtd_informada: calcularExcipiente.quantidade,
+        unidade_informada: calcularExcipiente.unidade,
+        custo_calculado: calcularExcipiente.custo,
+      });
+    }
 
     const embalagemItems: EmbalagemItem[] = [];
 
@@ -694,6 +782,64 @@ export default function Calculator() {
         </CardContent>
       </Card>
 
+      {/* Card informativo do Excipiente (Amido de Milho) - só para Encapsulados */}
+      {tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && (
+        <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-blue-600" />
+              Excipiente (Amido de Milho)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Completamento automático da capacidade da cápsula
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Quantidade por dose:</p>
+                <p className="font-medium">{calcularExcipiente.quantidade.toFixed(3)}g</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Custo por dose:</p>
+                <p className="font-medium text-blue-600">{formatCurrency(calcularExcipiente.custo)}</p>
+              </div>
+            </div>
+            
+            <div className="p-2 bg-white dark:bg-slate-900 rounded border text-xs space-y-1">
+              <p className="text-muted-foreground">
+                <strong>Cálculo:</strong>
+              </p>
+              <p>
+                • Capacidade da dose: {parseFloat(unidadesPorDose) || 0} cápsulas × 1g = {parseFloat(unidadesPorDose) || 0}g
+              </p>
+              <p>
+                • Total de insumos: {calculatedItems.reduce((sum, item) => {
+                  if (!item || !item.quantidade) return sum;
+                  const qtd = parseFloat(item.quantidade);
+                  const unidade = item.unidade;
+                  let qtdEmGramas = 0;
+                  switch (unidade) {
+                    case 'kg': qtdEmGramas = qtd * 1000; break;
+                    case 'g': qtdEmGramas = qtd; break;
+                    case 'mg': qtdEmGramas = qtd / 1000; break;
+                    case 'mcg': qtdEmGramas = qtd / 1_000_000; break;
+                  }
+                  return sum + qtdEmGramas;
+                }, 0).toFixed(3)}g
+              </p>
+              <p className="text-blue-700 dark:text-blue-300 font-medium">
+                • Amido necessário: {calcularExcipiente.quantidade.toFixed(3)}g
+              </p>
+            </div>
+            
+            <p className="text-xs text-muted-foreground italic">
+              ℹ️ Este valor já está incluído no custo total de matéria-prima
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {tipoProduto === 'Encapsulados' && (
         <Card className="shadow-md">
           <CardHeader>
@@ -852,6 +998,11 @@ export default function Calculator() {
                 ? `${Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses × ${formatCurrency(custoUnitarioMP)}/dose`
                 : `Custo unitário: ${formatCurrency(custoUnitarioMP)}/dose × ${Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses`
               }
+              {tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && (
+                <span className="block text-xs text-blue-600 mt-1">
+                  (inclui {formatCurrency(calcularExcipiente.custo)}/dose de Amido de Milho)
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
