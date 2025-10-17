@@ -42,22 +42,6 @@ export default function Calculator() {
   const { embalagens, loading: loadingEmbalagens } = useEmbalagens();
   const { addFormula } = useFormulas();
 
-  // Load saved calculator state on mount
-  useEffect(() => {
-    const savedState = getCalculatorState();
-    if (savedState) {
-      setCliente(savedState.cliente);
-      setNomeFormula(savedState.nomeFormula);
-      setTipoProduto(savedState.tipoProduto || 'Encapsulados');
-      const defaultQtd = savedState.tipoProduto === 'Pó' ? '300' : '60';
-      setQtdCapsulas(savedState.qtdCapsulas || defaultQtd);
-      setUnidadesPorDose(savedState.unidadesPorDose || '2');
-      setItems(savedState.items as FormulaItemInput[]);
-      setSelectedEmbalagens(new Set(savedState.selectedEmbalagens));
-      setSelectedCapsula(savedState.selectedCapsula || null);
-    }
-  }, []);
-
   // Load formula from "Carregar no Calculador" if present
   useEffect(() => {
     const loadFormulaData = localStorage.getItem('loadFormula');
@@ -113,21 +97,6 @@ export default function Calculator() {
       }
     }
   }, [embalagens]);
-
-  // Save state whenever it changes
-  useEffect(() => {
-    const state = {
-      cliente,
-      nomeFormula,
-      tipoProduto,
-      qtdCapsulas,
-      unidadesPorDose,
-      items,
-      selectedEmbalagens: Array.from(selectedEmbalagens),
-      selectedCapsula,
-    };
-    saveCalculatorState(state);
-  }, [cliente, nomeFormula, tipoProduto, qtdCapsulas, unidadesPorDose, items, selectedEmbalagens, selectedCapsula]);
 
   // Clear selectedCapsula when changing to Pó, Gummy or Líquido
   useEffect(() => {
@@ -206,7 +175,7 @@ export default function Calculator() {
     
     // Somar todos os insumos da dose (converter tudo para gramas)
     const totalInsumosDose = calculatedItems.reduce((sum, item) => {
-      if (!item || !item.quantidade) return sum;
+      if (!item || !item.quantidade || !item.insumo || item.error) return sum;
       
       const qtd = parseFloat(item.quantidade);
       const unidade = item.unidade;
@@ -244,7 +213,25 @@ export default function Calculator() {
       i => i.nome.toLowerCase().includes('amido') && i.nome.toLowerCase().includes('milho')
     );
     
-    if (!amidoMilho || diferencaGramas === 0) {
+    // Debug logs
+    console.log('🔍 DEBUG Excipiente:', {
+      tipoProduto,
+      unidadesDose,
+      totalInsumosDose: totalInsumosDose.toFixed(3),
+      capacidadeTotalDose,
+      diferencaGramas: diferencaGramas.toFixed(3),
+      amidoEncontrado: !!amidoMilho,
+      nomeAmido: amidoMilho?.nome,
+      totalItensCalculados: calculatedItems.filter(i => i && !i.error).length
+    });
+    
+    if (!amidoMilho) {
+      console.warn('⚠️ Amido de Milho não encontrado no inventário!');
+      return { quantidade: 0, unidade: 'g' as UnitType, custo: 0 };
+    }
+    
+    if (diferencaGramas === 0) {
+      console.log('ℹ️ Não há diferença para completar (cápsula já está cheia)');
       return { quantidade: 0, unidade: 'g' as UnitType, custo: 0 };
     }
     
