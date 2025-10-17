@@ -226,7 +226,7 @@ export default function Calculator() {
       porcaoGramas: porcaoGramas.toFixed(3),
       totalInsumosDose: totalInsumosDose.toFixed(3),
       capacidadeTotalDose: capacidadeTotalDose.toFixed(3),
-      capacidadeRealCapsulas: (unidadesDose * 1).toFixed(3) + 'g',
+      capacidadeRealCapsulas: (unidadesDose * CAPACIDADE_CAPSULA_GRAMAS).toFixed(3) + 'g',
       diferencaGramas: diferencaGramas.toFixed(3),
       amidoEncontrado: !!amidoMilho,
       nomeAmido: amidoMilho?.nome,
@@ -710,9 +710,9 @@ export default function Calculator() {
                   <p>• Porção: {porcaoProduto}mg</p>
                   <p>• Dose: {unidadesPorDose} cápsula(s)</p>
                   <p>• Fórmula por cápsula: {(parseFloat(porcaoProduto) / parseFloat(unidadesPorDose)).toFixed(1)}mg</p>
-                  <p>• Capacidade da cápsula: 1000mg (fixo)</p>
+                  <p>• Capacidade da cápsula: 500mg (0.5g)</p>
                   <p className="text-blue-700 font-medium dark:text-blue-300">
-                    • Excipiente por cápsula: {(1000 - (parseFloat(porcaoProduto) / parseFloat(unidadesPorDose))).toFixed(1)}mg
+                    • Excipiente por cápsula: {(500 - (parseFloat(porcaoProduto) / parseFloat(unidadesPorDose))).toFixed(1)}mg
                   </p>
                 </div>
               )}
@@ -852,10 +852,10 @@ export default function Calculator() {
                   <p>• Porção informada: {porcaoProduto}mg ({(parseFloat(porcaoProduto) / 1000).toFixed(3)}g)</p>
                   <p>• Dose: {unidadesPorDose} cápsula(s)</p>
                   <p>• Fórmula por cápsula: {(parseFloat(porcaoProduto) / parseFloat(unidadesPorDose)).toFixed(1)}mg</p>
-                  <p>• Capacidade real: {unidadesPorDose}g (1g × {unidadesPorDose} cápsulas)</p>
+                  <p>• Capacidade real: {(parseFloat(unidadesPorDose) * CAPACIDADE_CAPSULA_GRAMAS).toFixed(1)}g ({CAPACIDADE_CAPSULA_GRAMAS}g × {unidadesPorDose} cápsulas)</p>
                 </>
               ) : (
-                <p>• Usando capacidade total: {(parseFloat(unidadesPorDose) || 0)}g</p>
+                <p>• Usando capacidade total: {(parseFloat(unidadesPorDose) * CAPACIDADE_CAPSULA_GRAMAS || 0).toFixed(1)}g</p>
               )}
               <p>
                 • Total de insumos: {calculatedItems.reduce((sum, item) => {
