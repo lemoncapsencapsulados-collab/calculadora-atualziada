@@ -41,7 +41,6 @@ export interface Formula {
   tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido';
   qtd_capsulas: number;
   unidades_por_dose?: number;
-  porcao_produto?: number; // porção do produto em mg
   itens: FormulaItem[];
   embalagens: EmbalagemItem[];
   total_mp: number;

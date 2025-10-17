@@ -17,7 +17,7 @@ import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit
 import { toast } from 'sonner';
 
 // Capacidade padrão de uma cápsula em gramas
-const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
+const CAPACIDADE_CAPSULA_GRAMAS = 1;
 
 interface FormulaItemInput {
   id: string;
@@ -37,7 +37,6 @@ export default function Calculator() {
   const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido'>('Encapsulados');
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   const [unidadesPorDose, setUnidadesPorDose] = useState<string>('2');
-  const [porcaoProduto, setPorcaoProduto] = useState<string>(''); // em mg
   
   const { insumos, loading: loadingInsumos } = useInsumos();
   const { embalagens, loading: loadingEmbalagens } = useEmbalagens();
@@ -56,7 +55,6 @@ export default function Calculator() {
         setTipoProduto(formula.tipo_produto || 'Encapsulados');
         setQtdCapsulas(formula.qtd_capsulas?.toString() || '60');
         setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
-        setPorcaoProduto(formula.porcao_produto?.toString() || '');
         
         // Preencher itens de matéria-prima
         if (formula.itens && Array.isArray(formula.itens)) {
@@ -204,11 +202,8 @@ export default function Calculator() {
       return sum + qtdEmGramas;
     }, 0);
     
-    // Se o usuário informou a porção, usar ela; senão, usar capacidade total das cápsulas
-    const porcaoGramas = parseFloat(porcaoProduto) / 1000 || 0;
-    const capacidadeTotalDose = porcaoGramas > 0 
-      ? porcaoGramas 
-      : unidadesDose * CAPACIDADE_CAPSULA_GRAMAS; // fallback para comportamento anterior
+    // Capacidade total da dose (cápsulas por dose × 1g cada)
+    const capacidadeTotalDose = unidadesDose * CAPACIDADE_CAPSULA_GRAMAS;
     
     // Diferença é quanto de excipiente precisamos
     const diferencaGramas = Math.max(0, capacidadeTotalDose - totalInsumosDose);
@@ -222,11 +217,8 @@ export default function Calculator() {
     console.log('🔍 DEBUG Excipiente:', {
       tipoProduto,
       unidadesDose,
-      porcaoProdutoInformada: porcaoProduto ? porcaoProduto + 'mg' : 'não informada',
-      porcaoGramas: porcaoGramas.toFixed(3),
       totalInsumosDose: totalInsumosDose.toFixed(3),
-      capacidadeTotalDose: capacidadeTotalDose.toFixed(3),
-      capacidadeRealCapsulas: (unidadesDose * CAPACIDADE_CAPSULA_GRAMAS).toFixed(3) + 'g',
+      capacidadeTotalDose,
       diferencaGramas: diferencaGramas.toFixed(3),
       amidoEncontrado: !!amidoMilho,
       nomeAmido: amidoMilho?.nome,
@@ -372,11 +364,6 @@ export default function Calculator() {
       return;
     }
 
-    if (tipoProduto === 'Encapsulados' && !porcaoProduto) {
-      toast.error('Por favor, informe a porção do produto!');
-      return;
-    }
-
     const validItems = calculatedItems.filter(
       (item) => item && !item.error && item.custo > 0
     );
@@ -435,7 +422,6 @@ export default function Calculator() {
       tipo_produto: tipoProduto,
       qtd_capsulas: parseFloat(qtdCapsulas) || 60,
       unidades_por_dose: parseFloat(unidadesPorDose) || 1,
-      porcao_produto: parseFloat(porcaoProduto) || undefined,
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,
@@ -452,7 +438,6 @@ export default function Calculator() {
     setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
     setUnidadesPorDose('2');
-    setPorcaoProduto('');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
     setSelectedCapsula(null);
@@ -466,7 +451,6 @@ export default function Calculator() {
       setTipoProduto('Encapsulados');
       setQtdCapsulas('60');
       setUnidadesPorDose('2');
-      setPorcaoProduto('');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
       setSelectedCapsula(null);
@@ -684,40 +668,6 @@ export default function Calculator() {
               </div>
             </div>
           )}
-
-          {/* Campo: Porção do Produto - APENAS para Encapsulados */}
-          {tipoProduto === 'Encapsulados' && unidadesPorDose && (
-            <div className="space-y-2">
-              <Label htmlFor="porcaoProduto">
-                Porção do Produto (mg) *
-              </Label>
-              <Input
-                id="porcaoProduto"
-                type="number"
-                min="1"
-                step="1"
-                value={porcaoProduto}
-                onChange={(e) => setPorcaoProduto(e.target.value)}
-                placeholder="Ex: 900 (quantidade total da dose)"
-              />
-              <p className="text-sm text-muted-foreground">
-                💡 Informe a quantidade total de produto que compõe a dose.
-                Exemplo: Se a dose é 2 cápsulas com 900mg de fórmula total, informe 900.
-              </p>
-              {porcaoProduto && unidadesPorDose && (
-                <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs space-y-1 dark:bg-blue-950/20 dark:border-blue-800">
-                  <p className="font-medium text-blue-900 dark:text-blue-100">📊 Análise da Dose:</p>
-                  <p>• Porção: {porcaoProduto}mg</p>
-                  <p>• Dose: {unidadesPorDose} cápsula(s)</p>
-                  <p>• Fórmula por cápsula: {(parseFloat(porcaoProduto) / parseFloat(unidadesPorDose)).toFixed(1)}mg</p>
-                  <p>• Capacidade da cápsula: 500mg (0.5g)</p>
-                  <p className="text-blue-700 font-medium dark:text-blue-300">
-                    • Excipiente por cápsula: {(500 - (parseFloat(porcaoProduto) / parseFloat(unidadesPorDose))).toFixed(1)}mg
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -845,21 +795,14 @@ export default function Calculator() {
             
             <div className="p-2 bg-white dark:bg-slate-900 rounded border text-xs space-y-1">
               <p className="text-muted-foreground">
-                <strong>Cálculo do Excipiente:</strong>
+                <strong>Cálculo:</strong>
               </p>
-              {porcaoProduto ? (
-                <>
-                  <p>• Porção informada: {porcaoProduto}mg ({(parseFloat(porcaoProduto) / 1000).toFixed(3)}g)</p>
-                  <p>• Dose: {unidadesPorDose} cápsula(s)</p>
-                  <p>• Fórmula por cápsula: {(parseFloat(porcaoProduto) / parseFloat(unidadesPorDose)).toFixed(1)}mg</p>
-                  <p>• Capacidade real: {(parseFloat(unidadesPorDose) * CAPACIDADE_CAPSULA_GRAMAS).toFixed(1)}g ({CAPACIDADE_CAPSULA_GRAMAS}g × {unidadesPorDose} cápsulas)</p>
-                </>
-              ) : (
-                <p>• Usando capacidade total: {(parseFloat(unidadesPorDose) * CAPACIDADE_CAPSULA_GRAMAS || 0).toFixed(1)}g</p>
-              )}
+              <p>
+                • Capacidade da dose: {parseFloat(unidadesPorDose) || 0} cápsulas × 1g = {parseFloat(unidadesPorDose) || 0}g
+              </p>
               <p>
                 • Total de insumos: {calculatedItems.reduce((sum, item) => {
-                  if (!item || !item.quantidade || !item.insumo || item.error) return sum;
+                  if (!item || !item.quantidade) return sum;
                   const qtd = parseFloat(item.quantidade);
                   const unidade = item.unidade;
                   let qtdEmGramas = 0;
@@ -873,10 +816,7 @@ export default function Calculator() {
                 }, 0).toFixed(3)}g
               </p>
               <p className="text-blue-700 dark:text-blue-300 font-medium">
-                • Amido necessário (total): {calcularExcipiente.quantidade.toFixed(3)}g
-              </p>
-              <p className="text-blue-700 dark:text-blue-300">
-                • Amido por cápsula: {(calcularExcipiente.quantidade / parseFloat(unidadesPorDose)).toFixed(3)}g
+                • Amido necessário: {calcularExcipiente.quantidade.toFixed(3)}g
               </p>
             </div>
             
