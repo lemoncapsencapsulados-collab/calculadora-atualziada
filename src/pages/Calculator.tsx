@@ -834,6 +834,17 @@ export default function Calculator() {
             <CardDescription>Selecione o tipo de cápsula para este pote</CardDescription>
           </CardHeader>
           <CardContent>
+            {(() => {
+              const capsulas = embalagens.filter(emb => emb.categoria === 'Cápsulas');
+              console.log('🔍 DEBUG Cápsulas:', {
+                tipoProduto,
+                totalEmbalagens: embalagens.length,
+                totalCapsulas: capsulas.length,
+                capsulasEncontradas: capsulas.map(c => ({ nome: c.nome, categoria: c.categoria }))
+              });
+              return null;
+            })()}
+            
             <div className="space-y-3">
               {embalagens
                 .filter(emb => emb.categoria === 'Cápsulas')
@@ -877,7 +888,18 @@ export default function Calculator() {
                 ))}
             </div>
             
-            {!selectedCapsula && (
+            {embalagens.filter(emb => emb.categoria === 'Cápsulas').length === 0 && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-800">
+                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                  ⚠️ Nenhuma cápsula cadastrada no inventário
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Cadastre cápsulas na seção de Inventário com categoria "Cápsulas"
+                </p>
+              </div>
+            )}
+            
+            {embalagens.filter(emb => emb.categoria === 'Cápsulas').length > 0 && !selectedCapsula && (
               <p className="text-sm text-amber-600 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                 ⚠️ Selecione um tipo de cápsula para prosseguir
               </p>
