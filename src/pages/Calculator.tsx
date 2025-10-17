@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Download, Save, X, Package, Box } from 'lucide-react';
+import { Plus, Trash2, Download, Save, X, Package, Box, Scale, Pill, Wheat, AlertTriangle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,8 +16,8 @@ import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 
-// Capacidade padrão de uma cápsula em gramas
-const CAPACIDADE_CAPSULA_GRAMAS = 1;
+// Capacidade padrão de uma cápsula em gramas (0.5g = 500mg)
+const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
 
 interface FormulaItemInput {
   id: string;
@@ -163,6 +163,48 @@ export default function Calculator() {
       }
     });
   }, [items, insumos]);
+
+  // Calcula totais de insumos em MG (para Encapsulados)
+  const totaisInsumosMG = useMemo(() => {
+    if (tipoProduto !== 'Encapsulados') return { totalMG: 0, itensMG: [] };
+    
+    const itensMG = calculatedItems.map((item) => {
+      if (!item || !item.quantidade || !item.insumo || item.error) return null;
+      
+      const qtd = parseFloat(item.quantidade);
+      const unidade = item.unidade;
+      
+      // Converter para MG
+      let qtdEmMG = 0;
+      switch (unidade) {
+        case 'kg':
+          qtdEmMG = qtd * 1_000_000;
+          break;
+        case 'g':
+          qtdEmMG = qtd * 1000;
+          break;
+        case 'mg':
+          qtdEmMG = qtd;
+          break;
+        case 'mcg':
+          qtdEmMG = qtd / 1000;
+          break;
+        default:
+          qtdEmMG = 0; // Volume/UI não conta para peso
+      }
+      
+      return {
+        nome: item.insumoNome,
+        qtdMG: qtdEmMG,
+        qtdOriginal: qtd,
+        unidadeOriginal: unidade,
+      };
+    }).filter(Boolean);
+    
+    const totalMG = itensMG.reduce((sum, item) => sum + (item?.qtdMG || 0), 0);
+    
+    return { totalMG, itensMG };
+  }, [calculatedItems, tipoProduto]);
 
   // Calcula quantidade de Amido de Milho necessário (somente para Encapsulados)
   const calcularExcipiente = useMemo(() => {
@@ -769,60 +811,272 @@ export default function Calculator() {
         </CardContent>
       </Card>
 
-      {/* Card informativo do Excipiente (Amido de Milho) - só para Encapsulados */}
+      {/* NOVA SEÇÃO: Análise da Composição da Dose - só para Encapsulados */}
+      {tipoProduto === 'Encapsulados' && totaisInsumosMG.totalMG > 0 && (
+        <Card className="shadow-md border-l-4 border-l-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" />
+              📊 Análise da Composição da Dose
+            </CardTitle>
+            <CardDescription>
+              Breakdown detalhado dos insumos e cálculo do excipiente necessário
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Lista de insumos convertidos para MG */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Insumos da Fórmula (por dose):</p>
+              <div className="space-y-1 pl-3">
+                {totaisInsumosMG.itensMG.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      • {item.nome}:
+                    </span>
+                    <span className="font-medium">
+                      {item.qtdMG.toFixed(2)}mg ({item.qtdOriginal}{item.unidadeOriginal})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Total de insumos */}
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-950/20 dark:border-green-800">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-green-900 dark:text-green-100">
+                  ⚖️ Total de Insumos:
+                </span>
+                <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                  {totaisInsumosMG.totalMG.toFixed(2)}mg ({(totaisInsumosMG.totalMG / 1000).toFixed(3)}g)
+                </span>
+              </div>
+            </div>
+
+            {/* Capacidade da dose */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/20 dark:border-blue-800">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  💊 Capacidade da Dose:
+                </span>
+                <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                  {parseFloat(unidadesPorDose) || 0} cápsulas × 500mg = {((parseFloat(unidadesPorDose) || 0) * 500).toFixed(0)}mg
+                </span>
+              </div>
+            </div>
+
+            {/* Excipiente necessário */}
+            {calcularExcipiente.quantidade > 0 ? (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg dark:bg-orange-950/20 dark:border-orange-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
+                    <Wheat className="h-4 w-4" />
+                    Excipiente Necessário (Amido de Milho):
+                  </span>
+                  <span className="text-lg font-bold text-orange-700 dark:text-orange-300">
+                    {(calcularExcipiente.quantidade * 1000).toFixed(2)}mg ({calcularExcipiente.quantidade.toFixed(3)}g)
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Cálculo: {((parseFloat(unidadesPorDose) || 0) * 500).toFixed(0)}mg - {totaisInsumosMG.totalMG.toFixed(2)}mg = {(calcularExcipiente.quantidade * 1000).toFixed(2)}mg
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-800">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      Cápsula quase cheia ou completa
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      Os insumos estão preenchendo toda ou quase toda a capacidade da cápsula ({((totaisInsumosMG.totalMG / ((parseFloat(unidadesPorDose) || 1) * 500)) * 100).toFixed(1)}% preenchido)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Alerta se exceder capacidade */}
+            {totaisInsumosMG.totalMG > ((parseFloat(unidadesPorDose) || 1) * 500) && (
+              <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg dark:bg-red-950/20 dark:border-red-800 animate-pulse">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-red-900 dark:text-red-100">
+                      ⚠️ ATENÇÃO: Capacidade excedida!
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                      A quantidade de insumos ({totaisInsumosMG.totalMG.toFixed(2)}mg) excede a capacidade total da dose ({((parseFloat(unidadesPorDose) || 1) * 500).toFixed(0)}mg).
+                      Considere aumentar o número de cápsulas por dose ou reduzir as quantidades.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card Visual: Composição da Cápsula - só para Encapsulados */}
+      {tipoProduto === 'Encapsulados' && totaisInsumosMG.totalMG > 0 && (
+        <Card className="shadow-md border-l-4 border-l-purple-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Pill className="h-5 w-5 text-purple-600" />
+              💊 Visualização da Composição da Cápsula
+            </CardTitle>
+            <CardDescription>
+              Percentual de preenchimento da dose
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(() => {
+              const capacidadeTotalMG = (parseFloat(unidadesPorDose) || 1) * 500;
+              const totalInsumosMG = totaisInsumosMG.totalMG;
+              const excipienteMG = calcularExcipiente.quantidade * 1000;
+              
+              const percInsumos = Math.min((totalInsumosMG / capacidadeTotalMG) * 100, 100);
+              const percExcipiente = Math.min((excipienteMG / capacidadeTotalMG) * 100, 100 - percInsumos);
+              const percVazio = Math.max(100 - percInsumos - percExcipiente, 0);
+              
+              return (
+                <>
+                  {/* Barra de progresso visual */}
+                  <div className="space-y-2">
+                    <div className="w-full h-8 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden flex">
+                      {percInsumos > 0 && (
+                        <div
+                          className="bg-gradient-to-r from-green-500 to-green-600 flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                          style={{ width: `${percInsumos}%` }}
+                        >
+                          {percInsumos >= 10 && `${percInsumos.toFixed(1)}%`}
+                        </div>
+                      )}
+                      {percExcipiente > 0 && (
+                        <div
+                          className="bg-gradient-to-r from-orange-400 to-orange-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                          style={{ width: `${percExcipiente}%` }}
+                        >
+                          {percExcipiente >= 10 && `${percExcipiente.toFixed(1)}%`}
+                        </div>
+                      )}
+                      {percVazio > 0 && (
+                        <div
+                          className="bg-gray-300 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-400 text-xs font-medium"
+                          style={{ width: `${percVazio}%` }}
+                        >
+                          {percVazio >= 10 && `${percVazio.toFixed(1)}%`}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Legenda */}
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-green-600 rounded"></div>
+                        <div>
+                          <p className="font-semibold">Insumos Ativos</p>
+                          <p className="text-muted-foreground">{percInsumos.toFixed(1)}% • {totalInsumosMG.toFixed(1)}mg</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gradient-to-r from-orange-400 to-orange-500 rounded"></div>
+                        <div>
+                          <p className="font-semibold">Excipiente</p>
+                          <p className="text-muted-foreground">{percExcipiente.toFixed(1)}% • {excipienteMG.toFixed(1)}mg</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                        <div>
+                          <p className="font-semibold">Vazio</p>
+                          <p className="text-muted-foreground">{percVazio.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info adicional */}
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <div className="text-xs text-muted-foreground">
+                        <p className="font-medium mb-1">Capacidade por cápsula: 500mg (0.5g)</p>
+                        <p>
+                          Dose total: {parseFloat(unidadesPorDose) || 0} cápsula(s) = {capacidadeTotalMG}mg de capacidade
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card informativo do Excipiente (Amido de Milho) - MELHORADO - só para Encapsulados */}
       {tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && (
-        <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 shadow-md">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-300 dark:from-blue-950/20 dark:to-blue-900/10 dark:border-blue-800 shadow-md">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Package className="h-4 w-4 text-blue-600" />
-              Excipiente (Amido de Milho)
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wheat className="h-5 w-5 text-blue-600" />
+              🔬 Detalhamento do Excipiente (Amido de Milho)
             </CardTitle>
             <CardDescription className="text-xs">
               Completamento automático da capacidade da cápsula
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">Quantidade por dose:</p>
-                <p className="font-medium">{calcularExcipiente.quantidade.toFixed(3)}g</p>
+          <CardContent className="space-y-3">
+            {/* Por Dose */}
+            <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-2">📦 Por Dose:</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">Quantidade:</p>
+                  <p className="font-bold text-blue-700 dark:text-blue-300">
+                    {(calcularExcipiente.quantidade * 1000).toFixed(2)}mg ({calcularExcipiente.quantidade.toFixed(3)}g)
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Custo:</p>
+                  <p className="font-bold text-blue-700 dark:text-blue-300">{formatCurrency(calcularExcipiente.custo)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Custo por dose:</p>
-                <p className="font-medium text-blue-600">{formatCurrency(calcularExcipiente.custo)}</p>
+            </div>
+
+            {/* Por Pote Total */}
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg border border-blue-300 dark:border-blue-700">
+              <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-2">🏺 Por Pote Total:</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">Quantidade total:</p>
+                  <p className="font-bold text-blue-800 dark:text-blue-200">
+                    {(calcularExcipiente.quantidade * 1000 * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))).toFixed(2)}mg
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(calcularExcipiente.quantidade * 1000).toFixed(2)}mg × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Custo total:</p>
+                  <p className="font-bold text-blue-800 dark:text-blue-200">
+                    {formatCurrency(calcularExcipiente.custo * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(calcularExcipiente.custo)} × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses
+                  </p>
+                </div>
               </div>
             </div>
             
-            <div className="p-2 bg-white dark:bg-slate-900 rounded border text-xs space-y-1">
-              <p className="text-muted-foreground">
-                <strong>Cálculo:</strong>
-              </p>
-              <p>
-                • Capacidade da dose: {parseFloat(unidadesPorDose) || 0} cápsulas × 1g = {parseFloat(unidadesPorDose) || 0}g
-              </p>
-              <p>
-                • Total de insumos: {calculatedItems.reduce((sum, item) => {
-                  if (!item || !item.quantidade) return sum;
-                  const qtd = parseFloat(item.quantidade);
-                  const unidade = item.unidade;
-                  let qtdEmGramas = 0;
-                  switch (unidade) {
-                    case 'kg': qtdEmGramas = qtd * 1000; break;
-                    case 'g': qtdEmGramas = qtd; break;
-                    case 'mg': qtdEmGramas = qtd / 1000; break;
-                    case 'mcg': qtdEmGramas = qtd / 1_000_000; break;
-                  }
-                  return sum + qtdEmGramas;
-                }, 0).toFixed(3)}g
-              </p>
-              <p className="text-blue-700 dark:text-blue-300 font-medium">
-                • Amido necessário: {calcularExcipiente.quantidade.toFixed(3)}g
+            <div className="p-2 bg-white dark:bg-slate-900 rounded border text-xs">
+              <p className="text-muted-foreground italic flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Este valor já está incluído no custo total de matéria-prima
               </p>
             </div>
-            
-            <p className="text-xs text-muted-foreground italic">
-              ℹ️ Este valor já está incluído no custo total de matéria-prima
-            </p>
           </CardContent>
         </Card>
       )}
@@ -999,41 +1253,79 @@ export default function Calculator() {
       </Card>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-primary">Matéria-Prima</CardTitle>
-            <CardDescription>
-              {tipoProduto === 'Pó' 
-                ? `${Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses × ${formatCurrency(custoUnitarioMP)}/dose`
-                : `Custo unitário: ${formatCurrency(custoUnitarioMP)}/dose × ${Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses`
-              }
-              {tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && (
-                <span className="block text-xs text-blue-600 mt-1">
-                  (inclui {formatCurrency(calcularExcipiente.custo)}/dose de Amido de Milho)
-                </span>
-              )}
+            <CardTitle className="text-primary flex items-center gap-2">
+              <Scale className="h-5 w-5" />
+              Matéria-Prima
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Breakdown detalhado de insumos e excipiente
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Custo por dose:</span>
-              <span>{formatCurrencyDetailed(custoUnitarioMP)}</span>
+          <CardContent className="space-y-3">
+            {/* Custo dos Insumos (sem excipiente) */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-primary/80">💊 Custo dos Insumos (sem excipiente):</p>
+              <div className="pl-3 space-y-0.5">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Por dose:</span>
+                  <span className="font-medium">
+                    {formatCurrencyDetailed(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Total ({Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses):</span>
+                  <span className="font-medium">
+                    {formatCurrency(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0) * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Unidades por dose:</span>
-              <span>{unidadesPorDose} {
+
+            {/* Custo do Excipiente */}
+            {tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">🌾 Custo do Excipiente:</p>
+                <div className="pl-3 space-y-0.5">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Por dose:</span>
+                    <span className="font-medium text-blue-600">
+                      {formatCurrencyDetailed(calcularExcipiente.custo)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Total ({Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses):</span>
+                    <span className="font-medium text-blue-600">
+                      {formatCurrency(calcularExcipiente.custo * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t-2 border-primary/30 pt-2 mt-3">
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-foreground uppercase">💰 Total Matéria-Prima:</p>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Por dose:</span>
+                  <span className="font-semibold">{formatCurrencyDetailed(custoUnitarioMP)}</span>
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="text-xs text-muted-foreground">Total pote:</span>
+                  <p className="text-3xl font-bold text-primary">{formatCurrency(totalMP)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-muted-foreground pt-1">
+              <p>• {unidadesPorDose} {
                 tipoProduto === 'Encapsulados' ? 'cápsulas' :
                 tipoProduto === 'Gummy' ? 'gummies' :
                 tipoProduto === 'Líquido' ? 'mL' :
                 'g'
-              }</span>
-            </div>
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Número de doses:</span>
-              <span>{Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))}</span>
-            </div>
-            <div className="border-t pt-2">
-              <p className="text-3xl font-bold text-foreground">{formatCurrency(totalMP)}</p>
+              } por dose</p>
+              <p>• {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses no pote</p>
             </div>
           </CardContent>
         </Card>
