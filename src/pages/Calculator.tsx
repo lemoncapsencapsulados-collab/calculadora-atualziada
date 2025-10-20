@@ -164,9 +164,9 @@ export default function Calculator() {
     });
   }, [items, insumos]);
 
-  // Calcula totais de insumos em MG (para Encapsulados)
+  // Calcula totais de insumos em MG (para Encapsulados e Pó)
   const totaisInsumosMG = useMemo(() => {
-    if (tipoProduto !== 'Encapsulados') return { totalMG: 0, itensMG: [] };
+    if (tipoProduto !== 'Encapsulados' && tipoProduto !== 'Pó') return { totalMG: 0, itensMG: [] };
     
     const itensMG = calculatedItems.map((item) => {
       if (!item || !item.quantidade || !item.insumo || item.error) return null;
@@ -810,6 +810,81 @@ export default function Calculator() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* NOVA SEÇÃO: Análise da Composição do Pó - só para Pó */}
+      {tipoProduto === 'Pó' && totaisInsumosMG.totalMG > 0 && (
+        <Card className="shadow-md border-l-4 border-l-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5 text-primary" />
+              📊 Análise da Composição do Pó
+            </CardTitle>
+            <CardDescription>
+              Breakdown detalhado dos insumos em miligramas (mg)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Lista de insumos convertidos para MG */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Insumos da Fórmula (por dose diária):</p>
+              <div className="space-y-1 pl-3">
+                {totaisInsumosMG.itensMG.map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      • {item.nome}:
+                    </span>
+                    <span className="font-medium">
+                      {item.qtdMG.toFixed(2)}mg ({item.qtdOriginal}{item.unidadeOriginal})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Total de insumos por dose */}
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-950/20 dark:border-green-800">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-green-900 dark:text-green-100">
+                  ⚖️ Total por Dose Diária:
+                </span>
+                <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                  {totaisInsumosMG.totalMG.toFixed(2)}mg ({(totaisInsumosMG.totalMG / 1000).toFixed(3)}g)
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Dose diária: {unidadesPorDose}g de pó
+              </p>
+            </div>
+
+            {/* Total do pote */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/20 dark:border-blue-800">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  🏺 Total no Pote:
+                </span>
+                <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                  {(totaisInsumosMG.totalMG * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))).toFixed(2)}mg
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses = {qtdCapsulas}g total
+              </p>
+            </div>
+
+            <div className="p-3 bg-muted rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <div className="text-xs text-muted-foreground">
+                  <p className="font-medium mb-1">Composição do pó</p>
+                  <p>
+                    O pote contém {qtdCapsulas}g de pó, dividido em {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses de {unidadesPorDose}g cada
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* NOVA SEÇÃO: Análise da Composição da Dose - só para Encapsulados */}
       {tipoProduto === 'Encapsulados' && totaisInsumosMG.totalMG > 0 && (
