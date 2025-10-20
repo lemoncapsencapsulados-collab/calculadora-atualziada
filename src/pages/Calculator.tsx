@@ -791,9 +791,21 @@ export default function Calculator() {
                   <p className="text-sm text-destructive font-medium">{calculated.error}</p>
                 )}
                 {calculated && !calculated.error && calculated.custo > 0 && (
-                  <p className="text-sm text-primary font-medium">
-                    Custo: {formatCurrencyDetailed(calculated.custo)}
-                  </p>
+                  <div className="text-sm space-y-1">
+                    <p className="text-primary font-medium">
+                      Custo: {formatCurrencyDetailed(calculated.custo)}
+                    </p>
+                    
+                    {/* Conversões de unidades para Pó */}
+                    {tipoProduto === 'Pó' && (
+                      <p className="text-muted-foreground text-xs">
+                        Por dose: {item.quantidade}{item.unidade}
+                        {item.unidade === 'mg' && ` = ${(parseFloat(item.quantidade) / 1000).toFixed(3)}g = ${(parseFloat(item.quantidade) / 1_000_000).toFixed(6)}kg`}
+                        {item.unidade === 'g' && ` = ${(parseFloat(item.quantidade) * 1000).toFixed(2)}mg = ${(parseFloat(item.quantidade) / 1000).toFixed(6)}kg`}
+                        {item.unidade === 'kg' && ` = ${(parseFloat(item.quantidade) * 1_000_000).toFixed(2)}mg = ${(parseFloat(item.quantidade) * 1000).toFixed(3)}g`}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             );
@@ -810,6 +822,45 @@ export default function Calculator() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* NOVA SEÇÃO: Conversões Rápidas - só para Pó */}
+      {tipoProduto === 'Pó' && parseFloat(qtdCapsulas) > 0 && parseFloat(unidadesPorDose) > 0 && (
+        <Card className="shadow-md border-l-4 border-l-orange-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🔄 Conversões Rápidas
+            </CardTitle>
+            <CardDescription>
+              Visualize as quantidades em diferentes unidades
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Quantidade total do pote */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">Quantidade total (pote)</p>
+                <p className="font-bold text-lg">{qtdCapsulas}mg</p>
+                <p className="text-sm text-primary">{(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g</p>
+                <p className="text-sm text-primary">{(parseFloat(qtdCapsulas) / 1_000_000).toFixed(6)}kg</p>
+              </div>
+              
+              {/* Dose diária */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">Dose diária</p>
+                <p className="font-bold text-lg">{unidadesPorDose}mg</p>
+                <p className="text-sm text-primary">{(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g</p>
+                <p className="text-sm text-primary">{(parseFloat(unidadesPorDose) / 1_000_000).toFixed(6)}kg</p>
+              </div>
+            </div>
+            
+            <div className="pt-2 border-t">
+              <p className="text-sm text-muted-foreground text-center">
+                Número de doses no pote: <span className="font-bold text-primary">{Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))}</span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* NOVA SEÇÃO: Análise da Composição do Pó - só para Pó */}
       {tipoProduto === 'Pó' && totaisInsumosMG.totalMG > 0 && (
@@ -848,11 +899,11 @@ export default function Calculator() {
                   ⚖️ Total por Dose Diária:
                 </span>
                 <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                  {totaisInsumosMG.totalMG.toFixed(2)}mg ({(totaisInsumosMG.totalMG / 1000).toFixed(3)}g)
+                  {totaisInsumosMG.totalMG.toFixed(2)}mg ({(totaisInsumosMG.totalMG / 1000).toFixed(3)}g | {(totaisInsumosMG.totalMG / 1_000_000).toFixed(6)}kg)
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Dose diária: {unidadesPorDose}g de pó
+                Dose diária: {(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g ({unidadesPorDose}mg de pó)
               </p>
             </div>
 
@@ -863,11 +914,15 @@ export default function Calculator() {
                   🏺 Total no Pote:
                 </span>
                 <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                  {(totaisInsumosMG.totalMG * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))).toFixed(2)}mg
+                  {(() => {
+                    const numeroDoses = Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1));
+                    const totalInsumosPote = totaisInsumosMG.totalMG * numeroDoses;
+                    return `${totalInsumosPote.toFixed(2)}mg (${(totalInsumosPote / 1000).toFixed(3)}g | ${(totalInsumosPote / 1_000_000).toFixed(6)}kg)`;
+                  })()}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses = {qtdCapsulas}g total
+                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses = Total de insumos no pote
               </p>
             </div>
 
@@ -877,7 +932,8 @@ export default function Calculator() {
                 <div className="text-xs text-muted-foreground">
                   <p className="font-medium mb-1">Composição do pó</p>
                   <p>
-                    O pote contém {qtdCapsulas}g de pó, dividido em {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses de {unidadesPorDose}g cada
+                    O pote contém {(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g ({qtdCapsulas}mg) de pó total, 
+                    dividido em {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses de {(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g ({unidadesPorDose}mg) cada
                   </p>
                 </div>
               </div>
