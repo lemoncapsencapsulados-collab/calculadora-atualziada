@@ -643,25 +643,25 @@ export default function Calculator() {
               {tipoProduto === 'Encapsulados' && 'Quantidade de Cápsulas *'}
               {tipoProduto === 'Gummy' && 'Quantidade de Gummies *'}
               {tipoProduto === 'Líquido' && 'Quantidade em mL *'}
-              {tipoProduto === 'Pó' && 'Quantidade Total de Pó (gramas) *'}
+              {tipoProduto === 'Pó' && 'Quantidade Total de Pó (mg) *'}
             </Label>
             <Input
               id="qtdCapsulas"
               type="number"
               min="1"
-              step={tipoProduto === 'Pó' ? '1' : '0.1'}
+              step={tipoProduto === 'Pó' ? '100' : '0.1'}
               value={qtdCapsulas}
               onChange={(e) => setQtdCapsulas(e.target.value)}
               placeholder={
                 tipoProduto === 'Encapsulados' ? 'Ex: 60' :
                 tipoProduto === 'Gummy' ? 'Ex: 30' :
                 tipoProduto === 'Líquido' ? 'Ex: 100' :
-                'Ex: 300'
+                'Ex: 300000'
               }
             />
             <p className="text-sm text-muted-foreground">
               {tipoProduto === 'Pó' 
-                ? 'Informe a quantidade total de pó no produto (ex: 300 gramas)'
+                ? 'Informe a quantidade total de pó no produto em miligramas (ex: 300000mg = 300g)'
                 : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'
               }
             </p>
@@ -674,7 +674,7 @@ export default function Calculator() {
                 {tipoProduto === 'Encapsulados' && 'Cápsulas por Dose *'}
                 {tipoProduto === 'Gummy' && 'Gummies por Dose *'}
                 {tipoProduto === 'Líquido' && 'mL por Dose *'}
-                {tipoProduto === 'Pó' && 'Gramas por Dose (Dose Diária) *'}
+                {tipoProduto === 'Pó' && 'Miligramas por Dose (Dose Diária) *'}
               </Label>
               <Input
                 id="unidadesPorDose"
@@ -687,14 +687,14 @@ export default function Calculator() {
                   tipoProduto === 'Encapsulados' ? 'Ex: 2' :
                   tipoProduto === 'Gummy' ? 'Ex: 1' :
                   tipoProduto === 'Líquido' ? 'Ex: 5' :
-                  'Ex: 3'
+                  'Ex: 3000'
                 }
               />
               <p className="text-sm text-muted-foreground">
                 {tipoProduto === 'Encapsulados' && 'Quantas cápsulas compõem uma dose? Ex: 2 cápsulas = 1 dose'}
                 {tipoProduto === 'Gummy' && 'Quantos gummies compõem uma dose? Ex: 1 gummy = 1 dose'}
                 {tipoProduto === 'Líquido' && 'Quantos mL compõem uma dose? Ex: 5 mL = 1 dose'}
-                {tipoProduto === 'Pó' && 'Quantas gramas por dose diária? Ex: 3g por dose (essa é a dose base da sua tabela de MP)'}
+                {tipoProduto === 'Pó' && 'Quantos miligramas por dose diária? Ex: 3000mg por dose (essa é a dose base da sua tabela de MP)'}
               </p>
               
               {/* Exibir cálculo do número de doses */}
