@@ -37,6 +37,7 @@ export default function Calculator() {
   const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido'>('Encapsulados');
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   const [unidadesPorDose, setUnidadesPorDose] = useState<string>('2');
+  const [unidadePo, setUnidadePo] = useState<'mg' | 'g'>('mg'); // Unidade de medida para produtos em Pó
   
   const { insumos, loading: loadingInsumos } = useInsumos();
   const { embalagens, loading: loadingEmbalagens } = useEmbalagens();
@@ -117,6 +118,19 @@ export default function Calculator() {
       }
     }
   }, [tipoProduto]);
+
+  // Converter valores para mg quando necessário (produtos em Pó)
+  const qtdCapsulasEmMG = useMemo(() => {
+    if (tipoProduto !== 'Pó') return parseFloat(qtdCapsulas) || 0;
+    const valor = parseFloat(qtdCapsulas) || 0;
+    return unidadePo === 'g' ? valor * 1000 : valor;
+  }, [qtdCapsulas, tipoProduto, unidadePo]);
+
+  const unidadesPorDoseEmMG = useMemo(() => {
+    if (tipoProduto !== 'Pó') return parseFloat(unidadesPorDose) || 0;
+    const valor = parseFloat(unidadesPorDose) || 0;
+    return unidadePo === 'g' ? valor * 1000 : valor;
+  }, [unidadesPorDose, tipoProduto, unidadePo]);
 
   // Calculate costs
   const calculatedItems = useMemo(() => {
@@ -303,13 +317,13 @@ export default function Calculator() {
   }, [calculatedItems, calcularExcipiente]);
 
   const totalMP = useMemo(() => {
-    const qtdTotal = parseFloat(qtdCapsulas) || 1;
-    const unidadesDose = parseFloat(unidadesPorDose) || 1;
+    const qtdTotal = tipoProduto === 'Pó' ? qtdCapsulasEmMG : (parseFloat(qtdCapsulas) || 1);
+    const unidadesDose = tipoProduto === 'Pó' ? unidadesPorDoseEmMG : (parseFloat(unidadesPorDose) || 1);
     
     // Calcula número de doses e multiplica pelo custo unitário por dose
     const numDoses = qtdTotal / unidadesDose;
     return custoUnitarioMP * numDoses;
-  }, [custoUnitarioMP, qtdCapsulas, unidadesPorDose]);
+  }, [custoUnitarioMP, qtdCapsulas, unidadesPorDose, tipoProduto, qtdCapsulasEmMG, unidadesPorDoseEmMG]);
 
   const custoCapsulas = useMemo(() => {
     // Se for Pó, Gummy ou Líquido, não há custo de cápsulas
@@ -333,7 +347,7 @@ export default function Calculator() {
     }, 0);
   }, [selectedEmbalagens, embalagens]);
 
-  const custoRotulo = 2; // Custo fixo do rótulo
+  const custoRotulo = 0.5; // Custo fixo do rótulo
 
   const totalEmbalagem = custoEmbalagensExtras + custoCapsulas + custoRotulo;
 
@@ -462,8 +476,8 @@ export default function Calculator() {
       cliente,
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
-      qtd_capsulas: parseFloat(qtdCapsulas) || 60,
-      unidades_por_dose: parseFloat(unidadesPorDose) || 1,
+      qtd_capsulas: tipoProduto === 'Pó' ? qtdCapsulasEmMG : (parseFloat(qtdCapsulas) || 60),
+      unidades_por_dose: tipoProduto === 'Pó' ? unidadesPorDoseEmMG : (parseFloat(unidadesPorDose) || 1),
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,
@@ -480,6 +494,7 @@ export default function Calculator() {
     setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
     setUnidadesPorDose('2');
+    setUnidadePo('mg');
     setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
     setSelectedEmbalagens(new Set());
     setSelectedCapsula(null);
@@ -493,6 +508,7 @@ export default function Calculator() {
       setTipoProduto('Encapsulados');
       setQtdCapsulas('60');
       setUnidadesPorDose('2');
+      setUnidadePo('mg');
       setItems([{ id: Date.now().toString(), insumoNome: '', quantidade: '', unidade: 'mg' }]);
       setSelectedEmbalagens(new Set());
       setSelectedCapsula(null);
@@ -638,30 +654,54 @@ export default function Calculator() {
             </Select>
           </div>
 
+          {/* Seletor de unidade para produtos em Pó */}
+          {tipoProduto === 'Pó' && (
+            <div className="space-y-2">
+              <Label htmlFor="unidadePo">Unidade de Medida *</Label>
+              <Select
+                value={unidadePo}
+                onValueChange={(value) => setUnidadePo(value as 'mg' | 'g')}
+              >
+                <SelectTrigger id="unidadePo">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mg">Miligramas (mg)</SelectItem>
+                  <SelectItem value="g">Gramas (g)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Escolha a unidade de medida para os campos de quantidade abaixo
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="qtdCapsulas">
               {tipoProduto === 'Encapsulados' && 'Quantidade de Cápsulas *'}
               {tipoProduto === 'Gummy' && 'Quantidade de Gummies *'}
               {tipoProduto === 'Líquido' && 'Quantidade em mL *'}
-              {tipoProduto === 'Pó' && 'Quantidade Total de Pó (mg) *'}
+              {tipoProduto === 'Pó' && `Quantidade Total de Pó (${unidadePo}) *`}
             </Label>
             <Input
               id="qtdCapsulas"
               type="number"
               min="1"
-              step={tipoProduto === 'Pó' ? '100' : '0.1'}
+              step={tipoProduto === 'Pó' ? (unidadePo === 'mg' ? '100' : '1') : '0.1'}
               value={qtdCapsulas}
               onChange={(e) => setQtdCapsulas(e.target.value)}
               placeholder={
                 tipoProduto === 'Encapsulados' ? 'Ex: 60' :
                 tipoProduto === 'Gummy' ? 'Ex: 30' :
                 tipoProduto === 'Líquido' ? 'Ex: 100' :
-                'Ex: 300000'
+                unidadePo === 'mg' ? 'Ex: 300000' : 'Ex: 300'
               }
             />
             <p className="text-sm text-muted-foreground">
               {tipoProduto === 'Pó' 
-                ? 'Informe a quantidade total de pó no produto em miligramas (ex: 300000mg = 300g)'
+                ? unidadePo === 'mg' 
+                  ? 'Informe a quantidade total de pó no produto em miligramas (ex: 300000mg = 300g)'
+                  : 'Informe a quantidade total de pó no produto em gramas (ex: 300g = 300000mg)'
                 : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'
               }
             </p>
@@ -674,37 +714,38 @@ export default function Calculator() {
                 {tipoProduto === 'Encapsulados' && 'Cápsulas por Dose *'}
                 {tipoProduto === 'Gummy' && 'Gummies por Dose *'}
                 {tipoProduto === 'Líquido' && 'mL por Dose *'}
-                {tipoProduto === 'Pó' && 'Miligramas por Dose (Dose Diária) *'}
+                {tipoProduto === 'Pó' && `${unidadePo === 'mg' ? 'Miligramas' : 'Gramas'} por Dose (Dose Diária) *`}
               </Label>
               <Input
                 id="unidadesPorDose"
                 type="number"
                 min="0.1"
-                step="0.1"
+                step={tipoProduto === 'Pó' && unidadePo === 'g' ? '0.1' : '1'}
                 value={unidadesPorDose}
                 onChange={(e) => setUnidadesPorDose(e.target.value)}
                 placeholder={
                   tipoProduto === 'Encapsulados' ? 'Ex: 2' :
                   tipoProduto === 'Gummy' ? 'Ex: 1' :
                   tipoProduto === 'Líquido' ? 'Ex: 5' :
-                  'Ex: 3000'
+                  unidadePo === 'mg' ? 'Ex: 3000' : 'Ex: 3'
                 }
               />
               <p className="text-sm text-muted-foreground">
                 {tipoProduto === 'Encapsulados' && 'Quantas cápsulas compõem uma dose? Ex: 2 cápsulas = 1 dose'}
                 {tipoProduto === 'Gummy' && 'Quantos gummies compõem uma dose? Ex: 1 gummy = 1 dose'}
                 {tipoProduto === 'Líquido' && 'Quantos mL compõem uma dose? Ex: 5 mL = 1 dose'}
-                {tipoProduto === 'Pó' && 'Quantos miligramas por dose diária? Ex: 3000mg por dose (essa é a dose base da sua tabela de MP)'}
+                {tipoProduto === 'Pó' && unidadePo === 'mg' && 'Quantos miligramas por dose diária? Ex: 3000mg por dose (essa é a dose base da sua tabela de MP)'}
+                {tipoProduto === 'Pó' && unidadePo === 'g' && 'Quantas gramas por dose diária? Ex: 3g por dose (essa é a dose base da sua tabela de MP)'}
               </p>
               
               {/* Exibir cálculo do número de doses */}
               <div className="p-2 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-950 dark:border-blue-800">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  📊 Número de doses: {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))}
+                  📊 Número de doses: {Math.floor((tipoProduto === 'Pó' ? qtdCapsulasEmMG : (parseFloat(qtdCapsulas) || 0)) / (tipoProduto === 'Pó' ? unidadesPorDoseEmMG : (parseFloat(unidadesPorDose) || 1)))}
                 </p>
                 {tipoProduto === 'Pó' && (
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    O custo de matéria-prima será: custo por dose × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses
+                    O custo de matéria-prima será: custo por dose × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses
                   </p>
                 )}
               </div>
@@ -839,23 +880,47 @@ export default function Calculator() {
               {/* Quantidade total do pote */}
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground mb-2">Quantidade total (pote)</p>
-                <p className="font-bold text-lg">{qtdCapsulas}mg</p>
-                <p className="text-sm text-primary">{(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g</p>
-                <p className="text-sm text-primary">{(parseFloat(qtdCapsulas) / 1_000_000).toFixed(6)}kg</p>
+                <p className="font-bold text-lg">
+                  {qtdCapsulas}{unidadePo}
+                </p>
+                <p className="text-sm text-primary">
+                  {unidadePo === 'mg' 
+                    ? `${(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g`
+                    : `${(parseFloat(qtdCapsulas) * 1000).toFixed(0)}mg`
+                  }
+                </p>
+                <p className="text-sm text-primary">
+                  {unidadePo === 'mg'
+                    ? `${(parseFloat(qtdCapsulas) / 1_000_000).toFixed(6)}kg`
+                    : `${(parseFloat(qtdCapsulas) / 1000).toFixed(6)}kg`
+                  }
+                </p>
               </div>
               
               {/* Dose diária */}
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground mb-2">Dose diária</p>
-                <p className="font-bold text-lg">{unidadesPorDose}mg</p>
-                <p className="text-sm text-primary">{(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g</p>
-                <p className="text-sm text-primary">{(parseFloat(unidadesPorDose) / 1_000_000).toFixed(6)}kg</p>
+                <p className="font-bold text-lg">
+                  {unidadesPorDose}{unidadePo}
+                </p>
+                <p className="text-sm text-primary">
+                  {unidadePo === 'mg'
+                    ? `${(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g`
+                    : `${(parseFloat(unidadesPorDose) * 1000).toFixed(0)}mg`
+                  }
+                </p>
+                <p className="text-sm text-primary">
+                  {unidadePo === 'mg'
+                    ? `${(parseFloat(unidadesPorDose) / 1_000_000).toFixed(6)}kg`
+                    : `${(parseFloat(unidadesPorDose) / 1000).toFixed(6)}kg`
+                  }
+                </p>
               </div>
             </div>
             
             <div className="pt-2 border-t">
               <p className="text-sm text-muted-foreground text-center">
-                Número de doses no pote: <span className="font-bold text-primary">{Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))}</span>
+                Número de doses no pote: <span className="font-bold text-primary">{Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))}</span>
               </p>
             </div>
           </CardContent>
@@ -903,7 +968,7 @@ export default function Calculator() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Dose diária: {(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g ({unidadesPorDose}mg de pó)
+                Dose diária: {(unidadesPorDoseEmMG / 1000).toFixed(2)}g ({unidadesPorDoseEmMG.toFixed(0)}mg de pó)
               </p>
             </div>
 
@@ -915,14 +980,14 @@ export default function Calculator() {
                 </span>
                 <span className="text-lg font-bold text-blue-700 dark:text-blue-300">
                   {(() => {
-                    const numeroDoses = Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1));
+                    const numeroDoses = Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1));
                     const totalInsumosPote = totaisInsumosMG.totalMG * numeroDoses;
                     return `${totalInsumosPote.toFixed(2)}mg (${(totalInsumosPote / 1000).toFixed(3)}g | ${(totalInsumosPote / 1_000_000).toFixed(6)}kg)`;
                   })()}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses = Total de insumos no pote
+                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses = Total de insumos no pote
               </p>
             </div>
 
@@ -932,8 +997,8 @@ export default function Calculator() {
                 <div className="text-xs text-muted-foreground">
                   <p className="font-medium mb-1">Composição do pó</p>
                   <p>
-                    O pote contém {(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g ({qtdCapsulas}mg) de pó total, 
-                    dividido em {Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses de {(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g ({unidadesPorDose}mg) cada
+                    O pote contém {(qtdCapsulasEmMG / 1000).toFixed(2)}g ({qtdCapsulasEmMG.toFixed(0)}mg) de pó total, 
+                    dividido em {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses de {(unidadesPorDoseEmMG / 1000).toFixed(2)}g ({unidadesPorDoseEmMG.toFixed(0)}mg) cada
                   </p>
                 </div>
               </div>
