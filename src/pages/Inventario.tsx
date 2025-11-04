@@ -13,6 +13,7 @@ import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { UnitType } from '@/types/formula';
 import { formatCurrency, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
+import ImportInsumosDialog from '@/components/ImportInsumosDialog';
 
 export default function Inventario() {
   const {
@@ -208,18 +209,21 @@ export default function Inventario() {
                 <p className="text-sm text-muted-foreground">
                   Cadastre a matéria-prima com preço por unidade de compra
                 </p>
-            
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
-                  onClick={() => setEditingInsumo(null)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Insumo
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+                
+                <div className="flex gap-2">
+                  <ImportInsumosDialog />
+                  
+                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+                        onClick={() => setEditingInsumo(null)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar Insumo
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>
                     {editingInsumo ? 'Editar Insumo' : 'Adicionar Novo Insumo'}
@@ -346,7 +350,8 @@ export default function Inventario() {
                 </form>
               </DialogContent>
             </Dialog>
-          </div>
+                </div>
+              </div>
 
           <Card className="shadow-md">
             <CardHeader>
