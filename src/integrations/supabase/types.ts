@@ -100,6 +100,7 @@ export type Database = {
           fornecedor: string | null
           id: string
           nome: string
+          normalized_name: string | null
           observacoes: string | null
           preco_compra: number
           unidade_compra: string
@@ -112,6 +113,7 @@ export type Database = {
           fornecedor?: string | null
           id?: string
           nome: string
+          normalized_name?: string | null
           observacoes?: string | null
           preco_compra: number
           unidade_compra: string
@@ -124,6 +126,7 @@ export type Database = {
           fornecedor?: string | null
           id?: string
           nome?: string
+          normalized_name?: string | null
           observacoes?: string | null
           preco_compra?: number
           unidade_compra?: string
@@ -189,7 +192,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      normalize_insumo_name: { Args: { input_name: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
