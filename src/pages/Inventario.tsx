@@ -259,10 +259,10 @@ export default function Inventario() {
                               id="preco"
                               name="preco"
                               type="number"
-                              step="0.001"
+                              step="0.000001"
                               min="0"
                               defaultValue={editingInsumo?.preco_por_unidade_compra}
-                              placeholder="0.000"
+                              placeholder="0.000000"
                               required
                             />
                           </div>
