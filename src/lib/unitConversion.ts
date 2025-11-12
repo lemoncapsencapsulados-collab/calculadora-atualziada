@@ -1,4 +1,4 @@
-import { UnitType, Insumo, FormulaItem } from '@/types/formula';
+import { UnitType, Insumo, FormulaItem } from "@/types/formula";
 
 /**
  * Convert value to base unit (g for mass, mL for volume)
@@ -6,26 +6,26 @@ import { UnitType, Insumo, FormulaItem } from '@/types/formula';
 function toBase(value: number, unit: UnitType): number {
   switch (unit) {
     // Mass conversions → g
-    case 'kg':
+    case "kg":
       return value * 1000;
-    case 'g':
+    case "g":
       return value;
-    case 'mg':
+    case "mg":
       return value / 1000;
-    case 'mcg':
+    case "mcg":
       return value / 1_000_000;
-    
+
     // Volume conversions → mL
-    case 'L':
+    case "L":
       return value * 1000;
-    case 'mL':
+    case "mL":
       return value;
-    
+
     // No conversion needed
-    case 'UI':
-    case 'unidade':
+    case "UI":
+    case "unidade":
       return value;
-    
+
     default:
       throw new Error(`Unidade '${unit}' não suportada.`);
   }
@@ -35,14 +35,14 @@ function toBase(value: number, unit: UnitType): number {
  * Check if unit is a mass unit
  */
 function isMassUnit(unit: UnitType): boolean {
-  return ['kg', 'g', 'mg', 'mcg'].includes(unit);
+  return ["kg", "g", "mg", "mcg"].includes(unit);
 }
 
 /**
  * Check if unit is a volume unit
  */
 function isVolumeUnit(unit: UnitType): boolean {
-  return ['L', 'mL'].includes(unit);
+  return ["L", "mL"].includes(unit);
 }
 
 /**
@@ -53,10 +53,10 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
   const { unidade_compra, preco_por_unidade_compra, densidade } = insumo;
 
   // Handle UI and unidade specially (no conversion needed)
-  if (unidade_compra === 'UI' || unidade_compra === 'unidade') {
+  if (unidade_compra === "UI" || unidade_compra === "unidade") {
     if (unidade_informada !== unidade_compra) {
       throw new Error(
-        `Para insumo comprado em ${unidade_compra}, a quantidade deve ser informada em ${unidade_compra}.`
+        `Para insumo comprado em ${unidade_compra}, a quantidade deve ser informada em ${unidade_compra}.`,
       );
     }
     return qtd_informada * preco_por_unidade_compra;
@@ -74,7 +74,7 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
       // Volume → mass conversion (requires density)
       if (!densidade) {
         throw new Error(
-          `Para converter ${unidade_informada}→${unidade_compra}, informe a densidade (g/mL) do insumo '${insumo.nome}'.`
+          `Para converter ${unidade_informada}→${unidade_compra}, informe a densidade (g/mL) do insumo '${insumo.nome}'.`,
         );
       }
       const quantidadeEmML = toBase(qtd_informada, unidade_informada);
@@ -85,9 +85,10 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
     }
 
     // Convert purchase unit to kg if needed
-    const precoEmKg = unidade_compra === 'kg' 
-      ? preco_por_unidade_compra 
-      : preco_por_unidade_compra * (unidade_compra === 'g' ? 1000 : 1_000_000);
+    const precoEmKg =
+      unidade_compra === "kg"
+        ? preco_por_unidade_compra
+        : preco_por_unidade_compra * (unidade_compra === "g" ? 1000 : 1_000_000);
 
     return quantidadeEmKg * precoEmKg;
   }
@@ -104,7 +105,7 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
       // Mass → volume conversion (requires density)
       if (!densidade) {
         throw new Error(
-          `Para converter ${unidade_informada}→${unidade_compra}, informe a densidade (g/mL) do insumo '${insumo.nome}'.`
+          `Para converter ${unidade_informada}→${unidade_compra}, informe a densidade (g/mL) do insumo '${insumo.nome}'.`,
         );
       }
       const quantidadeEmG = toBase(qtd_informada, unidade_informada);
@@ -115,9 +116,7 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
     }
 
     // Convert purchase unit to L if needed
-    const precoEmL = unidade_compra === 'L' 
-      ? preco_por_unidade_compra 
-      : preco_por_unidade_compra * 1000;
+    const precoEmL = unidade_compra === "L" ? preco_por_unidade_compra : preco_por_unidade_compra * 1000;
 
     return quantidadeEmL * precoEmL;
   }
@@ -129,11 +128,11 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
  * Format currency in BRL
  */
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 13,
   }).format(value);
 }
 
@@ -142,9 +141,9 @@ export function formatCurrency(value: number): string {
  * Used for small quantities where precision is critical
  */
 export function formatCurrencyDetailed(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
     minimumFractionDigits: 2,
     maximumFractionDigits: 13,
   }).format(value);
@@ -155,14 +154,14 @@ export function formatCurrencyDetailed(value: number): string {
  */
 export function formatUnit(unit: UnitType): string {
   const unitMap: Record<UnitType, string> = {
-    mcg: 'mcg',
-    mg: 'mg',
-    g: 'g',
-    kg: 'kg',
-    mL: 'mL',
-    L: 'L',
-    UI: 'UI',
-    unidade: 'un',
+    mcg: "mcg",
+    mg: "mg",
+    g: "g",
+    kg: "kg",
+    mL: "mL",
+    L: "L",
+    UI: "UI",
+    unidade: "un",
   };
   return unitMap[unit] || unit;
 }
