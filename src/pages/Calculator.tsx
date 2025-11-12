@@ -405,21 +405,7 @@ export default function Calculator() {
 
   const updateItem = (id: string, field: keyof FormulaItemInput, value: string) => {
     setItems(
-      items.map((item) => {
-        if (item.id !== id) return item;
-        
-        const updatedItem = { ...item, [field]: value };
-        
-        // Se estamos atualizando o nome do insumo, ajustar automaticamente a unidade para UI/unidade se necessário
-        if (field === 'insumoNome' && value) {
-          const insumo = insumos.find(i => i.nome.toLowerCase() === value.toLowerCase());
-          if (insumo && (insumo.unidade_compra === 'UI' || insumo.unidade_compra === 'unidade')) {
-            updatedItem.unidade = insumo.unidade_compra;
-          }
-        }
-        
-        return updatedItem;
-      })
+      items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
