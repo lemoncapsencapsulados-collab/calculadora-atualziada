@@ -296,6 +296,7 @@ export type Database = {
           irpj_csll_valor: number
           margem_lucro_percentual: number
           margem_lucro_valor: number
+          margem_seguranca: number
           markup_bruto: number
           observacoes: string | null
           pis_cofins_credito: number
@@ -329,6 +330,7 @@ export type Database = {
           irpj_csll_valor: number
           margem_lucro_percentual: number
           margem_lucro_valor: number
+          margem_seguranca?: number
           markup_bruto: number
           observacoes?: string | null
           pis_cofins_credito: number
@@ -362,6 +364,7 @@ export type Database = {
           irpj_csll_valor?: number
           margem_lucro_percentual?: number
           margem_lucro_valor?: number
+          margem_seguranca?: number
           markup_bruto?: number
           observacoes?: string | null
           pis_cofins_credito?: number
