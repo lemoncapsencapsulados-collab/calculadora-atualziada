@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Package, FlaskConical } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { UnitType } from "@/types/formula";
 import { formatCurrency, formatUnit } from "@/lib/unitConversion";
 import { toast } from "sonner";
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
+import ImportInventoryDialog from "@/components/ImportInventoryDialog";
 
 export default function Inventario() {
   const { insumos, loading: loadingInsumos, addInsumo, updateInsumo, deleteInsumo } = useInsumos();
@@ -29,6 +30,7 @@ export default function Inventario() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [embalagemDialogOpen, setEmbalagemDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"insumos" | "embalagens">("insumos");
+  const [importInventoryOpen, setImportInventoryOpen] = useState(false);
 
   const categories = useMemo(() => {
     const cats = new Set(insumos.map((i) => i.categoria).filter(Boolean));
@@ -200,6 +202,14 @@ export default function Inventario() {
                 </p>
 
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setImportInventoryOpen(true)}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar Completo
+                  </Button>
+
                   <ImportInsumosDialog />
 
                   <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -662,6 +672,8 @@ export default function Inventario() {
           )}
         </TabsContent>
       </Tabs>
+
+      <ImportInventoryDialog open={importInventoryOpen} onOpenChange={setImportInventoryOpen} />
     </div>
   );
 }
