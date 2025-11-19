@@ -49,6 +49,7 @@ export interface Precificacao {
   
   subtotal_custos_diretos: number;
   subtotal_custos_indiretos: number;
+  margem_seguranca: number;
   total_custos_producao: number;
   
   // Impostos
@@ -91,6 +92,7 @@ export interface PrecificacaoCalculada {
   
   subtotalCustosDiretos: number;
   subtotalCustosIndiretos: number;
+  margemSeguranca: number;
   totalCustosProducao: number;
   
   // Impostos detalhados

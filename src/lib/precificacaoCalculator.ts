@@ -33,25 +33,31 @@ export function calcularPrecificacaoPorPreco(
     custosIndiretos.depreciacao + 
     custosIndiretos.administrativo;
 
-  // 3. Total Custos de Produção
-  const totalCustosProducao = subtotalCustosDiretos + subtotalCustosIndiretos;
+  // 3. Total Custos de Produção Base
+  const totalCustosProducaoBase = subtotalCustosDiretos + subtotalCustosIndiretos;
+  
+  // 4. Margem de Segurança (20% sobre custos base)
+  const margemSeguranca = totalCustosProducaoBase * 0.20;
+  
+  // 5. Total Custos de Produção COM Margem de Segurança
+  const totalCustosProducao = totalCustosProducaoBase + margemSeguranca;
 
-  // 4. Cálculo de ICMS
+  // 6. Cálculo de ICMS
   const icmsCreditoNF = (subtotalCustosDiretos * config.icms_credito_nf) / 100;
   const icmsSaida = (precoVenda * config.icms_saida) / 100;
   const icmsCreditoProdeic = (icmsSaida * config.credito_prodeic) / 100;
   const fundebFundes = (icmsSaida * config.fundeb_fundes) / 100;
   const icmsRecolher = icmsSaida - icmsCreditoNF - icmsCreditoProdeic + fundebFundes;
 
-  // 5. Cálculo de PIS/COFINS
+  // 7. Cálculo de PIS/COFINS
   const pisCOFINSSaida = (precoVenda * config.pis_cofins_saida) / 100;
   const pisCOFINSCredito = (subtotalCustosDiretos * config.pis_cofins_credito) / 100;
   const pisCOFINSRecolher = pisCOFINSSaida - pisCOFINSCredito;
 
-  // 6. Cálculo de IPI
+  // 8. Cálculo de IPI
   const ipiValor = (precoVenda * config.ipi_saida) / 100;
 
-  // 7. Base de Cálculo IRPJ e CSLL
+  // 9. Base de Cálculo IRPJ e CSLL
   const baseCalculoIRPJCSLL = 
     precoVenda - 
     totalCustosProducao - 
@@ -59,17 +65,17 @@ export function calcularPrecificacaoPorPreco(
     pisCOFINSRecolher - 
     ipiValor;
 
-  // 8. Cálculo IRPJ e CSLL
+  // 10. Cálculo IRPJ e CSLL
   const irpjCsllValor = (baseCalculoIRPJCSLL * config.irpj_csll) / 100;
 
-  // 9. Total de Impostos
+  // 11. Total de Impostos
   const totalImpostos = icmsRecolher + pisCOFINSRecolher + ipiValor + irpjCsllValor;
 
-  // 10. Margem de Lucro
+  // 12. Margem de Lucro
   const margemLucroValor = precoVenda - totalCustosProducao - totalImpostos;
   const margemLucroPercentual = (margemLucroValor / precoVenda) * 100;
 
-  // 11. Markup Bruto
+  // 13. Markup Bruto
   const markupBruto = ((precoVenda - totalCustosProducao) / totalCustosProducao) * 100;
 
   return {
@@ -82,6 +88,7 @@ export function calcularPrecificacaoPorPreco(
     
     subtotalCustosDiretos,
     subtotalCustosIndiretos,
+    margemSeguranca,
     totalCustosProducao,
     
     icmsCreditoNF,
