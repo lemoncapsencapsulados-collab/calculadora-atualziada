@@ -153,6 +153,7 @@ export default function Precificacao() {
         custo_administrativo: resultado.custoAdministrativo,
         subtotal_custos_diretos: resultado.subtotalCustosDiretos,
         subtotal_custos_indiretos: resultado.subtotalCustosIndiretos,
+        margem_seguranca: resultado.margemSeguranca,
         total_custos_producao: resultado.totalCustosProducao,
         icms_credito_nf: resultado.icmsCreditoNF,
         icms_saida: resultado.icmsSaida,
@@ -394,10 +395,10 @@ export default function Precificacao() {
 
           {/* Total Custos de Produção */}
           <Card className="border-primary/50">
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Total Custos de Produção</p>
-                <p className="text-3xl font-bold text-primary">
+            <CardContent className="pt-6 space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground text-center">Custos Base (Diretos + Indiretos)</p>
+                <p className="text-xl font-semibold text-center">
                   R${' '}
                   {(
                     Number(formulaSelecionada.total_mp) +
@@ -406,6 +407,36 @@ export default function Precificacao() {
                     custosIndiretos.energia +
                     custosIndiretos.depreciacao +
                     custosIndiretos.administrativo
+                  ).toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="space-y-2 pt-2 border-t">
+                <p className="text-sm text-muted-foreground text-center">+ Margem de Segurança (20%)</p>
+                <p className="text-lg font-semibold text-orange-600 text-center">
+                  R${' '}
+                  {(
+                    (Number(formulaSelecionada.total_mp) +
+                    Number(formulaSelecionada.total_embalagem) +
+                    custosIndiretos.maoObraDireta +
+                    custosIndiretos.energia +
+                    custosIndiretos.depreciacao +
+                    custosIndiretos.administrativo) * 0.20
+                  ).toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="text-center pt-2 border-t">
+                <p className="text-sm text-muted-foreground mb-2">= Total Custos de Produção</p>
+                <p className="text-3xl font-bold text-primary">
+                  R${' '}
+                  {(
+                    (Number(formulaSelecionada.total_mp) +
+                    Number(formulaSelecionada.total_embalagem) +
+                    custosIndiretos.maoObraDireta +
+                    custosIndiretos.energia +
+                    custosIndiretos.depreciacao +
+                    custosIndiretos.administrativo) * 1.20
                   ).toFixed(2)}
                 </p>
               </div>
