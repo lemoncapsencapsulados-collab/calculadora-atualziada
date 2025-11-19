@@ -588,7 +588,7 @@ export default function Calculator() {
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Configuração do Pote</CardTitle>
-          <CardDescription>Tipo de produto e quantidade POR DOSE.    </CardDescription>
+          <CardDescription>Tipo de produto e quantidades do frasco,              </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -669,7 +669,7 @@ export default function Calculator() {
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Itens da Fórmula</CardTitle>
-          <CardDescription>Adicione os insumos e quantidades</CardDescription>
+          <CardDescription>Adicione os insumos e quantidades POR DOSE!  </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {items.map((item, index) => {
