@@ -193,7 +193,6 @@ export type Database = {
     }
     Functions: {
       normalize_insumo_name: { Args: { input_name: string }; Returns: string }
-      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
