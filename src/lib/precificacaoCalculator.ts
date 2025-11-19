@@ -1,0 +1,198 @@
+import { ConfiguracaoCustos, PrecificacaoCalculada } from '@/types/precificacao';
+
+interface CustosBase {
+  custoMateriaPrima: number;
+  custoEmbalagem: number;
+}
+
+interface CustosIndiretos {
+  maoObraDireta: number;
+  energia: number;
+  depreciacao: number;
+  administrativo: number;
+}
+
+/**
+ * Calcula a precificação completa baseada no preço de venda desejado
+ */
+export function calcularPrecificacaoPorPreco(
+  custosBase: CustosBase,
+  custosIndiretos: CustosIndiretos,
+  precoVenda: number,
+  config: ConfiguracaoCustos
+): PrecificacaoCalculada {
+  // 1. Custos Diretos
+  const subtotalCustosDiretos = 
+    custosBase.custoMateriaPrima + 
+    custosBase.custoEmbalagem + 
+    custosIndiretos.maoObraDireta;
+
+  // 2. Custos Indiretos
+  const subtotalCustosIndiretos = 
+    custosIndiretos.energia + 
+    custosIndiretos.depreciacao + 
+    custosIndiretos.administrativo;
+
+  // 3. Total Custos de Produção
+  const totalCustosProducao = subtotalCustosDiretos + subtotalCustosIndiretos;
+
+  // 4. Cálculo de ICMS
+  const icmsCreditoNF = (subtotalCustosDiretos * config.icms_credito_nf) / 100;
+  const icmsSaida = (precoVenda * config.icms_saida) / 100;
+  const icmsCreditoProdeic = (icmsSaida * config.credito_prodeic) / 100;
+  const fundebFundes = (icmsSaida * config.fundeb_fundes) / 100;
+  const icmsRecolher = icmsSaida - icmsCreditoNF - icmsCreditoProdeic + fundebFundes;
+
+  // 5. Cálculo de PIS/COFINS
+  const pisCOFINSSaida = (precoVenda * config.pis_cofins_saida) / 100;
+  const pisCOFINSCredito = (subtotalCustosDiretos * config.pis_cofins_credito) / 100;
+  const pisCOFINSRecolher = pisCOFINSSaida - pisCOFINSCredito;
+
+  // 6. Cálculo de IPI
+  const ipiValor = (precoVenda * config.ipi_saida) / 100;
+
+  // 7. Base de Cálculo IRPJ e CSLL
+  const baseCalculoIRPJCSLL = 
+    precoVenda - 
+    totalCustosProducao - 
+    icmsRecolher - 
+    pisCOFINSRecolher - 
+    ipiValor;
+
+  // 8. Cálculo IRPJ e CSLL
+  const irpjCsllValor = (baseCalculoIRPJCSLL * config.irpj_csll) / 100;
+
+  // 9. Total de Impostos
+  const totalImpostos = icmsRecolher + pisCOFINSRecolher + ipiValor + irpjCsllValor;
+
+  // 10. Margem de Lucro
+  const margemLucroValor = precoVenda - totalCustosProducao - totalImpostos;
+  const margemLucroPercentual = (margemLucroValor / precoVenda) * 100;
+
+  // 11. Markup Bruto
+  const markupBruto = ((precoVenda - totalCustosProducao) / totalCustosProducao) * 100;
+
+  return {
+    custoMateriaPrima: custosBase.custoMateriaPrima,
+    custoEmbalagem: custosBase.custoEmbalagem,
+    custoMaoObraDireta: custosIndiretos.maoObraDireta,
+    custoEnergia: custosIndiretos.energia,
+    custoDepreciacao: custosIndiretos.depreciacao,
+    custoAdministrativo: custosIndiretos.administrativo,
+    
+    subtotalCustosDiretos,
+    subtotalCustosIndiretos,
+    totalCustosProducao,
+    
+    icmsCreditoNF,
+    icmsSaida,
+    icmsCreditoProdeic,
+    fundebFundes,
+    icmsRecolher,
+    
+    pisCOFINSSaida,
+    pisCOFINSCredito,
+    pisCOFINSRecolher,
+    
+    ipiValor,
+    
+    baseCalculoIRPJCSLL,
+    irpjCsllValor,
+    
+    totalImpostos,
+    
+    precoVenda,
+    markupBruto,
+    margemLucroPercentual,
+    margemLucroValor,
+  };
+}
+
+/**
+ * Calcula a precificação completa baseada no markup bruto desejado
+ * Usa iteração para encontrar o preço de venda que resulta no markup desejado
+ */
+export function calcularPrecificacaoPorMarkup(
+  custosBase: CustosBase,
+  custosIndiretos: CustosIndiretos,
+  markupBrutoDesejado: number,
+  config: ConfiguracaoCustos
+): PrecificacaoCalculada {
+  // Calcula total de custos primeiro
+  const totalCustosProducao = 
+    custosBase.custoMateriaPrima + 
+    custosBase.custoEmbalagem + 
+    custosIndiretos.maoObraDireta +
+    custosIndiretos.energia + 
+    custosIndiretos.depreciacao + 
+    custosIndiretos.administrativo;
+
+  // Estimativa inicial de preço usando markup simples
+  let precoVenda = totalCustosProducao * (1 + markupBrutoDesejado / 100);
+  
+  // Iteração para encontrar o preço correto (considerando impostos)
+  // Máximo de 50 iterações para convergir
+  for (let i = 0; i < 50; i++) {
+    const resultado = calcularPrecificacaoPorPreco(
+      custosBase,
+      custosIndiretos,
+      precoVenda,
+      config
+    );
+    
+    const diferencaMarkup = Math.abs(resultado.markupBruto - markupBrutoDesejado);
+    
+    // Se a diferença for menor que 0.01%, encontramos o preço correto
+    if (diferencaMarkup < 0.01) {
+      return resultado;
+    }
+    
+    // Ajusta o preço para próxima iteração
+    if (resultado.markupBruto < markupBrutoDesejado) {
+      precoVenda *= 1.01; // Aumenta 1%
+    } else {
+      precoVenda *= 0.99; // Diminui 1%
+    }
+  }
+  
+  // Retorna o último cálculo mesmo se não convergiu perfeitamente
+  return calcularPrecificacaoPorPreco(
+    custosBase,
+    custosIndiretos,
+    precoVenda,
+    config
+  );
+}
+
+/**
+ * Valida se a margem está dentro dos limites aceitáveis
+ */
+export function validarMargem(
+  margemCalculada: number,
+  margemIdeal: number,
+  margemMinima: number
+): {
+  status: 'ideal' | 'aceitavel' | 'baixa';
+  mensagem: string;
+  color: string;
+} {
+  if (margemCalculada >= margemIdeal) {
+    return {
+      status: 'ideal',
+      mensagem: `Excelente! Margem acima do ideal (${margemIdeal}%)`,
+      color: 'text-green-600',
+    };
+  } else if (margemCalculada >= margemMinima) {
+    return {
+      status: 'aceitavel',
+      mensagem: `Margem aceitável. Ideal seria ${margemIdeal}%`,
+      color: 'text-yellow-600',
+    };
+  } else {
+    return {
+      status: 'baixa',
+      mensagem: `⚠️ Margem abaixo do mínimo! Mínimo: ${margemMinima}%`,
+      color: 'text-red-600',
+    };
+  }
+}

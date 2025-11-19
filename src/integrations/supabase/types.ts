@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      configuracao_custos: {
+        Row: {
+          ativa: boolean | null
+          created_at: string | null
+          credito_prodeic: number | null
+          depreciacao_maquinas: number | null
+          despesas_administrativas: number | null
+          energia_eletrica: number | null
+          fundeb_fundes: number | null
+          icms_credito_nf: number | null
+          icms_saida: number | null
+          id: string
+          ipi_saida: number | null
+          irpj_csll: number | null
+          mao_obra_direta: number | null
+          nome: string
+          pis_cofins_credito: number | null
+          pis_cofins_saida: number | null
+          senha_protecao: string
+          updated_at: string | null
+        }
+        Insert: {
+          ativa?: boolean | null
+          created_at?: string | null
+          credito_prodeic?: number | null
+          depreciacao_maquinas?: number | null
+          despesas_administrativas?: number | null
+          energia_eletrica?: number | null
+          fundeb_fundes?: number | null
+          icms_credito_nf?: number | null
+          icms_saida?: number | null
+          id?: string
+          ipi_saida?: number | null
+          irpj_csll?: number | null
+          mao_obra_direta?: number | null
+          nome: string
+          pis_cofins_credito?: number | null
+          pis_cofins_saida?: number | null
+          senha_protecao?: string
+          updated_at?: string | null
+        }
+        Update: {
+          ativa?: boolean | null
+          created_at?: string | null
+          credito_prodeic?: number | null
+          depreciacao_maquinas?: number | null
+          despesas_administrativas?: number | null
+          energia_eletrica?: number | null
+          fundeb_fundes?: number | null
+          icms_credito_nf?: number | null
+          icms_saida?: number | null
+          id?: string
+          ipi_saida?: number | null
+          irpj_csll?: number | null
+          mao_obra_direta?: number | null
+          nome?: string
+          pis_cofins_credito?: number | null
+          pis_cofins_saida?: number | null
+          senha_protecao?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       embalagens: {
         Row: {
           categoria: string | null
@@ -134,6 +197,30 @@ export type Database = {
         }
         Relationships: []
       }
+      margens_lucro: {
+        Row: {
+          created_at: string | null
+          id: string
+          margem_ideal: number
+          margem_minima: number
+          tipo_produto: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          margem_ideal: number
+          margem_minima: number
+          tipo_produto: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          margem_ideal?: number
+          margem_minima?: number
+          tipo_produto?: string
+        }
+        Relationships: []
+      }
       pedidos: {
         Row: {
           created_at: string | null
@@ -180,6 +267,123 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pedidos_formula_id_fkey"
+            columns: ["formula_id"]
+            isOneToOne: false
+            referencedRelation: "formulas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      precificacoes: {
+        Row: {
+          base_calculo_irpj_csll: number
+          configuracao_custos_id: string | null
+          created_at: string | null
+          custo_administrativo: number
+          custo_depreciacao: number
+          custo_embalagem: number
+          custo_energia: number
+          custo_mao_obra_direta: number
+          custo_materia_prima: number
+          formula_id: string | null
+          fundeb_fundes: number
+          icms_credito_nf: number
+          icms_credito_prodeic: number
+          icms_recolher: number
+          icms_saida: number
+          id: string
+          ipi_valor: number
+          irpj_csll_valor: number
+          margem_lucro_percentual: number
+          margem_lucro_valor: number
+          markup_bruto: number
+          observacoes: string | null
+          pis_cofins_credito: number
+          pis_cofins_recolher: number
+          pis_cofins_saida: number
+          preco_venda: number
+          subtotal_custos_diretos: number
+          subtotal_custos_indiretos: number
+          total_custos_producao: number
+          total_impostos: number
+          updated_at: string | null
+        }
+        Insert: {
+          base_calculo_irpj_csll: number
+          configuracao_custos_id?: string | null
+          created_at?: string | null
+          custo_administrativo: number
+          custo_depreciacao: number
+          custo_embalagem: number
+          custo_energia: number
+          custo_mao_obra_direta: number
+          custo_materia_prima: number
+          formula_id?: string | null
+          fundeb_fundes: number
+          icms_credito_nf: number
+          icms_credito_prodeic: number
+          icms_recolher: number
+          icms_saida: number
+          id?: string
+          ipi_valor: number
+          irpj_csll_valor: number
+          margem_lucro_percentual: number
+          margem_lucro_valor: number
+          markup_bruto: number
+          observacoes?: string | null
+          pis_cofins_credito: number
+          pis_cofins_recolher: number
+          pis_cofins_saida: number
+          preco_venda: number
+          subtotal_custos_diretos: number
+          subtotal_custos_indiretos: number
+          total_custos_producao: number
+          total_impostos: number
+          updated_at?: string | null
+        }
+        Update: {
+          base_calculo_irpj_csll?: number
+          configuracao_custos_id?: string | null
+          created_at?: string | null
+          custo_administrativo?: number
+          custo_depreciacao?: number
+          custo_embalagem?: number
+          custo_energia?: number
+          custo_mao_obra_direta?: number
+          custo_materia_prima?: number
+          formula_id?: string | null
+          fundeb_fundes?: number
+          icms_credito_nf?: number
+          icms_credito_prodeic?: number
+          icms_recolher?: number
+          icms_saida?: number
+          id?: string
+          ipi_valor?: number
+          irpj_csll_valor?: number
+          margem_lucro_percentual?: number
+          margem_lucro_valor?: number
+          markup_bruto?: number
+          observacoes?: string | null
+          pis_cofins_credito?: number
+          pis_cofins_recolher?: number
+          pis_cofins_saida?: number
+          preco_venda?: number
+          subtotal_custos_diretos?: number
+          subtotal_custos_indiretos?: number
+          total_custos_producao?: number
+          total_impostos?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "precificacoes_configuracao_custos_id_fkey"
+            columns: ["configuracao_custos_id"]
+            isOneToOne: false
+            referencedRelation: "configuracao_custos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "precificacoes_formula_id_fkey"
             columns: ["formula_id"]
             isOneToOne: false
             referencedRelation: "formulas"
