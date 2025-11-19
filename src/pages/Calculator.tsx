@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import InsumoAutocomplete from '@/components/InsumoAutocomplete';
+import EmbalagensHierarchy from '@/components/EmbalagensHierarchy';
 import { useInsumos } from '@/hooks/useInsumos';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { useFormulas } from '@/hooks/useFormulas';
@@ -678,10 +680,14 @@ export default function Calculator() {
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-5">
                     <Label>Insumo</Label>
-                    <Input value={item.insumoNome} onChange={e => updateItem(item.id, 'insumoNome', e.target.value)} placeholder="Digite o nome do insumo..." list={`insumos-list-${item.id}`} />
-                    <datalist id={`insumos-list-${item.id}`}>
-                      {insumos.map(insumo => <option key={insumo.id} value={insumo.nome} />)}
-                    </datalist>
+                    <InsumoAutocomplete
+                      insumos={insumos}
+                      value={item.insumoNome}
+                      onSelect={(insumo) => {
+                        updateItem(item.id, 'insumoNome', insumo.nome);
+                      }}
+                      placeholder="Selecione o insumo..."
+                    />
                   </div>
 
                   <div className="col-span-3">
@@ -1174,64 +1180,20 @@ export default function Calculator() {
           <CardDescription>Selecione os itens de embalagem organizados por categoria</CardDescription>
         </CardHeader>
         <CardContent>
-          <Accordion type="multiple" className="w-full">
-            {Object.entries(embalagensPorCategoria).filter(([categoria]) => categoria !== 'Cápsulas').map(([categoria, subcategorias]) => {
-              const totalSelecionadosCategoria = Object.values(subcategorias).flat().filter(emb => selectedEmbalagens.has(emb.id)).length;
-              return <AccordionItem key={categoria} value={categoria}>
-                  <AccordionTrigger className="hover:no-underline">
-                    <div className="flex items-center gap-2 w-full">
-                      <Package className="w-4 h-4 text-primary" />
-                      <span className="font-semibold">{categoria}</span>
-                      {totalSelecionadosCategoria > 0 && <Badge variant="secondary" className="ml-2">
-                          {totalSelecionadosCategoria} selecionado{totalSelecionadosCategoria > 1 ? 's' : ''}
-                        </Badge>}
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      {Object.entries(subcategorias).map(([subcategoria, itens]) => {
-                      const totalSelecionadosSubcat = itens.filter(emb => selectedEmbalagens.has(emb.id)).length;
-                      const custoSubcat = custosPorSubcategoria[categoria]?.[subcategoria] || 0;
-                      return <div key={subcategoria} className="space-y-2">
-                            <div className="flex items-center gap-2 px-2">
-                              <Box className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-sm font-medium text-muted-foreground">
-                                {subcategoria}
-                              </span>
-                              {totalSelecionadosSubcat > 0 && <Badge variant="outline" className="text-xs">
-                                  {totalSelecionadosSubcat} • {formatCurrency(custoSubcat)}
-                                </Badge>}
-                            </div>
-                            
-                            <div className="grid md:grid-cols-2 gap-3 pl-6">
-                              {itens.map(emb => <div key={emb.id} className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
-                                  <Checkbox id={`emb-${emb.id}`} checked={selectedEmbalagens.has(emb.id)} onCheckedChange={checked => {
-                              const newSet = new Set(selectedEmbalagens);
-                              if (checked) {
-                                newSet.add(emb.id);
-                              } else {
-                                newSet.delete(emb.id);
-                              }
-                              setSelectedEmbalagens(newSet);
-                            }} />
-                                  <div className="flex-1">
-                                    <Label htmlFor={`emb-${emb.id}`} className="font-medium cursor-pointer text-sm">
-                                      {emb.nome}
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground line-clamp-2">{emb.descricao}</p>
-                                    <p className="text-sm font-semibold text-primary mt-1">
-                                      {formatCurrency(emb.preco_unitario)}
-                                    </p>
-                                  </div>
-                                </div>)}
-                            </div>
-                          </div>;
-                    })}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>;
-            })}
-          </Accordion>
+          <EmbalagensHierarchy
+            embalagens={embalagens}
+            selectedIds={selectedEmbalagens}
+            onToggle={(id) => {
+              const newSet = new Set(selectedEmbalagens);
+              if (newSet.has(id)) {
+                newSet.delete(id);
+              } else {
+                newSet.add(id);
+              }
+              setSelectedEmbalagens(newSet);
+            }}
+            excludeCategoria="Cápsulas"
+          />
         </CardContent>
       </Card>
 
