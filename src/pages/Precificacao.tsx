@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Lock, Unlock, Save, FileDown, Settings } from 'lucide-react';
@@ -421,20 +420,24 @@ export default function Precificacao() {
             <CardContent className="space-y-4">
               <div className="space-y-4">
                 <Label>Método de Cálculo</Label>
-                <RadioGroup value={metodoCalculo} onValueChange={(value: any) => setMetodoCalculo(value)}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="preco" id="preco" />
-                    <Label htmlFor="preco" className="cursor-pointer">
-                      Informar Preço de Venda Desejado (R$)
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="markup" id="markup" />
-                    <Label htmlFor="markup" className="cursor-pointer">
-                      Informar Markup Bruto (%)
-                    </Label>
-                  </div>
-                </RadioGroup>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={metodoCalculo === 'preco' ? 'default' : 'outline'}
+                    onClick={() => setMetodoCalculo('preco')}
+                    className="flex-1"
+                  >
+                    Preço de Venda (R$)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={metodoCalculo === 'markup' ? 'default' : 'outline'}
+                    onClick={() => setMetodoCalculo('markup')}
+                    className="flex-1"
+                  >
+                    Markup Bruto (%)
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">
