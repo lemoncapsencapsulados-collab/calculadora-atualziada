@@ -15,8 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Lock, Unlock, Save, FileDown, Settings } from 'lucide-react';
+import { Lock, Unlock, Save, FileDown, Settings, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { gerarPropostaPDF } from '@/lib/propostaGenerator';
 
 export default function Precificacao() {
   const { formulas, loading: isLoadingFormulas } = useFormulas();
@@ -33,6 +34,7 @@ export default function Precificacao() {
   const [quantidadeFrascos, setQuantidadeFrascos] = useState('');
   const [temServicosExtras, setTemServicosExtras] = useState(false);
   const [valorServicosExtras, setValorServicosExtras] = useState('');
+  const [gerandoPDF, setGerandoPDF] = useState(false);
 
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
@@ -653,29 +655,48 @@ export default function Precificacao() {
 
             <div className="flex gap-2">
               <Button 
-                onClick={() => {
+                onClick={async () => {
                   if (!quantidadeFrascos || !formulaSelecionada || !resultado) {
                     toast.error('Preencha todos os campos obrigatórios');
                     return;
                   }
                   
-                  const { gerarPropostaPDF } = require('@/lib/propostaGenerator');
-                  gerarPropostaPDF({
-                    formula: formulaSelecionada,
-                    precoUnitario: resultado.precoVenda,
-                    quantidadeFrascos: parseInt(quantidadeFrascos),
-                    valorServicosExtras: temServicosExtras ? parseFloat(valorServicosExtras) || 0 : 0,
-                  });
+                  setGerandoPDF(true);
                   
-                  setPropostaDialog(false);
-                  setQuantidadeFrascos('');
-                  setTemServicosExtras(false);
-                  setValorServicosExtras('');
-                  toast.success('Proposta gerada com sucesso!');
+                  try {
+                    // Pequeno delay para mostrar o loading
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    await gerarPropostaPDF({
+                      formula: formulaSelecionada,
+                      precoUnitario: resultado.precoVenda,
+                      quantidadeFrascos: parseInt(quantidadeFrascos),
+                      valorServicosExtras: temServicosExtras ? parseFloat(valorServicosExtras) || 0 : 0,
+                    });
+                    
+                    setPropostaDialog(false);
+                    setQuantidadeFrascos('');
+                    setTemServicosExtras(false);
+                    setValorServicosExtras('');
+                    toast.success('Proposta gerada com sucesso!');
+                  } catch (error) {
+                    toast.error('Erro ao gerar proposta');
+                    console.error(error);
+                  } finally {
+                    setGerandoPDF(false);
+                  }
                 }} 
                 className="flex-1"
+                disabled={gerandoPDF}
               >
-                Gerar PDF
+                {gerandoPDF ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Gerando PDF...
+                  </>
+                ) : (
+                  'Gerar PDF'
+                )}
               </Button>
               <Button 
                 variant="outline" 
