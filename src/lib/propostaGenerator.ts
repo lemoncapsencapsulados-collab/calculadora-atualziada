@@ -197,26 +197,26 @@ export async function gerarPropostaPDF(data: PropostaData) {
 
   // OBSERVAÇÕES E RODAPÉ
   const finalPageHeight = doc.internal.pageSize.getHeight();
-  yPosition = finalPageHeight - 40;
+  yPosition = finalPageHeight - 35;
 
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
   doc.line(15, yPosition, pageWidth - 15, yPosition);
-  yPosition += 5;
+  yPosition += 6;
 
   doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(100, 100, 100);
   doc.text('Esta proposta tem validade de 30 dias a partir da data de emissão.', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 4;
+  yPosition += 5;
   doc.text('Valores sujeitos a alteração mediante aprovação e início da produção.', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 6;
+  yPosition += 8;
 
   // RODAPÉ
   doc.setDrawColor(21, 87, 36);
   doc.setLineWidth(0.5);
   doc.line(15, yPosition, pageWidth - 15, yPosition);
-  yPosition += 4;
+  yPosition += 5;
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
