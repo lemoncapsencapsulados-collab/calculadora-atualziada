@@ -17,41 +17,44 @@ interface PropostaData {
   valorServicosExtras: number;
 }
 
-export function gerarPropostaPDF(data: PropostaData) {
+export async function gerarPropostaPDF(data: PropostaData) {
   const { formula, precoUnitario, quantidadeFrascos, valorServicosExtras } = data;
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  let yPosition = 20;
+  let yPosition = 15;
 
-  // CABEÇALHO
-  doc.setFontSize(24);
+  // CABEÇALHO COM LOGO/MARCA
+  doc.setFillColor(21, 87, 36); // Verde escuro
+  doc.rect(0, 0, pageWidth, 45, 'F');
+  
+  doc.setFontSize(32);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(41, 128, 185);
+  doc.setTextColor(255, 255, 255);
+  doc.text('LEMON CAPS', pageWidth / 2, 20, { align: 'center' });
+  
+  yPosition = 30;
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'normal');
   doc.text('PROPOSTA COMERCIAL', pageWidth / 2, yPosition, { align: 'center' });
   
-  yPosition += 10;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
+  yPosition = 38;
+  doc.setFontSize(9);
   doc.text(format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), pageWidth / 2, yPosition, { align: 'center' });
 
-  yPosition += 8;
-  doc.setDrawColor(41, 128, 185);
-  doc.setLineWidth(0.5);
-  doc.line(15, yPosition, pageWidth - 15, yPosition);
-  yPosition += 12;
+  yPosition = 55;
 
   // INFORMAÇÕES DO PRODUTO
-  doc.setFillColor(245, 245, 245);
+  doc.setFillColor(240, 247, 242); // Verde muito claro
   doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text('PRODUTO', 17, yPosition);
+  doc.setTextColor(21, 87, 36); // Verde escuro
+  doc.text('INFORMAÇÕES DO PRODUTO', 17, yPosition);
   yPosition += 10;
 
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(60, 60, 60);
   
   const infoProduto = [
     ['Nome:', formula.nome_formula],
@@ -62,19 +65,22 @@ export function gerarPropostaPDF(data: PropostaData) {
 
   infoProduto.forEach(([label, value]) => {
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(21, 87, 36);
     doc.text(label, 17, yPosition);
     doc.setFont('helvetica', 'normal');
-    doc.text(String(value), 70, yPosition);
+    doc.setTextColor(60, 60, 60);
+    doc.text(String(value), 65, yPosition);
     yPosition += 6;
   });
 
-  yPosition += 8;
+  yPosition += 6;
 
   // FÓRMULA (COMPOSIÇÃO)
-  doc.setFillColor(245, 245, 245);
+  doc.setFillColor(240, 247, 242);
   doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(21, 87, 36);
   doc.text('COMPOSIÇÃO DA FÓRMULA', 17, yPosition);
   yPosition += 8;
 
@@ -93,15 +99,16 @@ export function gerarPropostaPDF(data: PropostaData) {
     startY: yPosition,
     head: [['Ingrediente', 'Quantidade por Unidade', 'Concentração']],
     body: formulaData,
-    theme: 'striped',
+    theme: 'plain',
     headStyles: { 
-      fillColor: [41, 128, 185], 
+      fillColor: [21, 87, 36], // Verde escuro
       textColor: 255, 
       fontStyle: 'bold', 
-      fontSize: 10,
+      fontSize: 9,
       halign: 'center'
     },
-    styles: { fontSize: 9, cellPadding: 3 },
+    styles: { fontSize: 9, cellPadding: 2.5, textColor: [60, 60, 60] },
+    alternateRowStyles: { fillColor: [250, 252, 250] },
     columnStyles: {
       0: { cellWidth: 80 },
       1: { cellWidth: 50, halign: 'center' },
@@ -110,14 +117,15 @@ export function gerarPropostaPDF(data: PropostaData) {
     margin: { left: 15, right: 15 },
   });
 
-  yPosition = doc.lastAutoTable.finalY + 15;
+  yPosition = doc.lastAutoTable.finalY + 12;
 
   // VALORES
-  doc.setFillColor(245, 245, 245);
+  doc.setFillColor(240, 247, 242);
   doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
-  doc.setFontSize(14);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('VALORES', 17, yPosition);
+  doc.setTextColor(21, 87, 36);
+  doc.text('VALORES DA PROPOSTA', 17, yPosition);
   yPosition += 10;
 
   const valorFrascos = precoUnitario * quantidadeFrascos;
@@ -138,11 +146,12 @@ export function gerarPropostaPDF(data: PropostaData) {
     body: valoresData,
     theme: 'plain',
     styles: { 
-      fontSize: 11, 
-      cellPadding: 4,
+      fontSize: 10, 
+      cellPadding: 3,
+      textColor: [60, 60, 60]
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 100 },
+      0: { fontStyle: 'bold', cellWidth: 100, textColor: [21, 87, 36] },
       1: { halign: 'right', cellWidth: 70 },
     },
     margin: { left: 15, right: 15 },
@@ -151,64 +160,68 @@ export function gerarPropostaPDF(data: PropostaData) {
   yPosition = doc.lastAutoTable.finalY + 5;
 
   // VALOR TOTAL (DESTAQUE)
-  doc.setFillColor(41, 128, 185);
-  doc.rect(15, yPosition, pageWidth - 30, 15, 'F');
+  doc.setFillColor(21, 87, 36); // Verde escuro
+  doc.rect(15, yPosition, pageWidth - 30, 14, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('VALOR TOTAL DA PROPOSTA:', 20, yPosition + 10);
-  doc.text(`R$ ${valorTotal.toFixed(2)}`, pageWidth - 20, yPosition + 10, { align: 'right' });
-  doc.setTextColor(0, 0, 0);
+  doc.text('VALOR TOTAL DA PROPOSTA:', 20, yPosition + 9);
+  doc.setFontSize(16);
+  doc.text(`R$ ${valorTotal.toFixed(2)}`, pageWidth - 20, yPosition + 9, { align: 'right' });
+  doc.setTextColor(60, 60, 60);
 
-  yPosition += 20;
+  yPosition += 18;
 
   // INFORMAÇÕES ADICIONAIS
   if (formula.unidades_por_dose) {
     yPosition += 5;
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(21, 87, 36);
     doc.text('INFORMAÇÕES DE DOSAGEM', 17, yPosition);
     yPosition += 6;
     
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
     const unidadeTexto = formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
                          formula.tipo_produto === 'Gummy' ? 'gummies' :
                          formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
     
     doc.text(`• Dose recomendada: ${formula.unidades_por_dose} ${unidadeTexto}`, 17, yPosition);
-    yPosition += 5;
+    yPosition += 4.5;
     doc.text(`• Doses por frasco: ${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses`, 17, yPosition);
-    yPosition += 5;
+    yPosition += 4.5;
     doc.text(`• Total de doses na proposta: ${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)} doses`, 17, yPosition);
   }
 
   // OBSERVAÇÕES
   const finalPageHeight = doc.internal.pageSize.getHeight();
-  yPosition = finalPageHeight - 40;
+  yPosition = finalPageHeight - 35;
 
-  doc.setDrawColor(220, 220, 220);
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
   doc.line(15, yPosition, pageWidth - 15, yPosition);
-  yPosition += 6;
+  yPosition += 5;
 
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(100, 100, 100);
   doc.text('Esta proposta tem validade de 30 dias a partir da data de emissão.', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 5;
+  yPosition += 4;
   doc.text('Valores sujeitos a alteração mediante aprovação e início da produção.', pageWidth / 2, yPosition, { align: 'center' });
 
   // RODAPÉ
-  yPosition = finalPageHeight - 20;
-  doc.setDrawColor(200, 200, 200);
-  doc.line(15, yPosition, pageWidth - 15, yPosition);
+  yPosition = finalPageHeight - 18;
+  doc.setFillColor(21, 87, 36);
+  doc.rect(0, yPosition - 3, pageWidth, 3, 'F');
   
-  doc.setFontSize(8);
-  doc.setTextColor(128, 128, 128);
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 100);
   doc.text(
-    `Proposta gerada em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+    `Lemon Caps - Proposta gerada em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
     pageWidth / 2,
-    yPosition + 6,
+    yPosition + 4,
     { align: 'center' }
   );
 
