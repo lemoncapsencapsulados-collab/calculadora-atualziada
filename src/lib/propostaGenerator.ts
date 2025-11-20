@@ -197,7 +197,7 @@ export async function gerarPropostaPDF(data: PropostaData) {
 
   // OBSERVAÇÕES E RODAPÉ
   const finalPageHeight = doc.internal.pageSize.getHeight();
-  yPosition = finalPageHeight - 30;
+  yPosition = finalPageHeight - 40;
 
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
