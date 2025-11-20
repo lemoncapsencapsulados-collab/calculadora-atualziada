@@ -195,9 +195,9 @@ export async function gerarPropostaPDF(data: PropostaData) {
     doc.text(`• Total de doses na proposta: ${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)} doses`, 17, yPosition);
   }
 
-  // OBSERVAÇÕES
+  // OBSERVAÇÕES E RODAPÉ
   const finalPageHeight = doc.internal.pageSize.getHeight();
-  yPosition = finalPageHeight - 35;
+  yPosition = finalPageHeight - 30;
 
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
@@ -210,18 +210,21 @@ export async function gerarPropostaPDF(data: PropostaData) {
   doc.text('Esta proposta tem validade de 30 dias a partir da data de emissão.', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 4;
   doc.text('Valores sujeitos a alteração mediante aprovação e início da produção.', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 6;
 
   // RODAPÉ
-  yPosition = finalPageHeight - 18;
-  doc.setFillColor(21, 87, 36);
-  doc.rect(0, yPosition - 3, pageWidth, 3, 'F');
+  doc.setDrawColor(21, 87, 36);
+  doc.setLineWidth(0.5);
+  doc.line(15, yPosition, pageWidth - 15, yPosition);
+  yPosition += 4;
   
-  doc.setFontSize(7);
-  doc.setTextColor(100, 100, 100);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(21, 87, 36);
   doc.text(
     `Lemon Caps - Proposta gerada em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
     pageWidth / 2,
-    yPosition + 4,
+    yPosition,
     { align: 'center' }
   );
 
