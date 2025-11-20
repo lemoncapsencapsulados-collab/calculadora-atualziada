@@ -5,7 +5,6 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Formula } from '@/types/formula';
 import {
   calcularPrecificacaoPorPreco,
-  calcularPrecificacaoPorMarkup,
   validarMargem,
 } from '@/lib/precificacaoCalculator';
 import { PrecificacaoCalculada } from '@/types/precificacao';
@@ -26,9 +25,14 @@ export default function Precificacao() {
 
   // Estados principais
   const [formulaSelecionada, setFormulaSelecionada] = useState<Formula | null>(null);
-  const [metodoCalculo, setMetodoCalculo] = useState<'preco' | 'markup'>('markup');
   const [valorInput, setValorInput] = useState('');
   const [observacoes, setObservacoes] = useState('');
+  
+  // Estados para dialog de proposta
+  const [propostaDialog, setPropostaDialog] = useState(false);
+  const [quantidadeFrascos, setQuantidadeFrascos] = useState('');
+  const [temServicosExtras, setTemServicosExtras] = useState(false);
+  const [valorServicosExtras, setValorServicosExtras] = useState('');
 
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
@@ -78,17 +82,13 @@ export default function Precificacao() {
     };
 
     try {
-      const calc =
-        metodoCalculo === 'preco'
-          ? calcularPrecificacaoPorPreco(custosBase, custosIndiretos, valor, configuracaoAtiva)
-          : calcularPrecificacaoPorMarkup(custosBase, custosIndiretos, valor, configuracaoAtiva);
-
+      const calc = calcularPrecificacaoPorPreco(custosBase, custosIndiretos, valor, configuracaoAtiva);
       setResultado(calc);
     } catch (error) {
       console.error('Erro ao calcular:', error);
       setResultado(null);
     }
-  }, [formulaSelecionada, configuracaoAtiva, custosIndiretos, valorInput, metodoCalculo]);
+  }, [formulaSelecionada, configuracaoAtiva, custosIndiretos, valorInput]);
 
   const handleDesbloquear = () => {
     setSenhaDialog(true);
@@ -449,36 +449,14 @@ export default function Precificacao() {
               <CardTitle>💰 Cálculo de Precificação</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <Label>Método de Cálculo</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={metodoCalculo === 'preco' ? 'default' : 'outline'}
-                    onClick={() => setMetodoCalculo('preco')}
-                    className="flex-1"
-                  >
-                    Preço de Venda (R$)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={metodoCalculo === 'markup' ? 'default' : 'outline'}
-                    onClick={() => setMetodoCalculo('markup')}
-                    className="flex-1"
-                  >
-                    Markup Bruto (%)
-                  </Button>
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label>{metodoCalculo === 'preco' ? 'Preço de Venda (R$)' : 'Markup Bruto (%)'}</Label>
+                <Label>Preço de Venda (R$)</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={valorInput}
                   onChange={(e) => setValorInput(e.target.value)}
-                  placeholder={metodoCalculo === 'preco' ? '0.00' : '0.00'}
+                  placeholder="0.00"
                 />
               </div>
             </CardContent>
@@ -554,10 +532,10 @@ export default function Precificacao() {
                         {((resultado.totalImpostos / resultado.precoVenda) * 100).toFixed(1)}%
                       </p>
                     </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Lucro Líquido</p>
-                      <p className="font-bold">R$ {resultado.margemLucroValor.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{resultado.margemLucroPercentual.toFixed(1)}%</p>
+                    <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-500 rounded-lg">
+                      <p className="text-sm font-medium text-green-700 mb-2">💰 Margem de Lucro</p>
+                      <p className="text-3xl font-bold text-green-600">{resultado.margemLucroPercentual.toFixed(1)}%</p>
+                      <p className="text-sm font-semibold text-green-700 mt-1">R$ {resultado.margemLucroValor.toFixed(2)}</p>
                     </div>
                   </div>
 
@@ -587,9 +565,9 @@ export default function Precificacao() {
                       <Save className="w-4 h-4 mr-2" />
                       Salvar Precificação
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button variant="outline" className="flex-1" onClick={() => setPropostaDialog(true)}>
                       <FileDown className="w-4 h-4 mr-2" />
-                      Exportar PDF
+                      Gerar Proposta
                     </Button>
                   </div>
                 </CardContent>
@@ -621,6 +599,94 @@ export default function Precificacao() {
                 Confirmar
               </Button>
               <Button variant="outline" onClick={() => setSenhaDialog(false)} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Gerar Proposta */}
+      <Dialog open={propostaDialog} onOpenChange={setPropostaDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar Proposta Comercial</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Quantidade de Frascos</Label>
+              <Input
+                type="number"
+                value={quantidadeFrascos}
+                onChange={(e) => setQuantidadeFrascos(e.target.value)}
+                placeholder="Ex: 100"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="servicos-extras"
+                  checked={temServicosExtras}
+                  onChange={(e) => setTemServicosExtras(e.target.checked)}
+                  className="rounded"
+                />
+                <Label htmlFor="servicos-extras" className="cursor-pointer">
+                  Algum outro serviço adquirido? (Ex: pacote de brand, etc)
+                </Label>
+              </div>
+              
+              {temServicosExtras && (
+                <div className="space-y-2 pl-6">
+                  <Label>Valor dos Serviços Extras (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={valorServicosExtras}
+                    onChange={(e) => setValorServicosExtras(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => {
+                  if (!quantidadeFrascos || !formulaSelecionada || !resultado) {
+                    toast.error('Preencha todos os campos obrigatórios');
+                    return;
+                  }
+                  
+                  const { gerarPropostaPDF } = require('@/lib/propostaGenerator');
+                  gerarPropostaPDF({
+                    formula: formulaSelecionada,
+                    precoUnitario: resultado.precoVenda,
+                    quantidadeFrascos: parseInt(quantidadeFrascos),
+                    valorServicosExtras: temServicosExtras ? parseFloat(valorServicosExtras) || 0 : 0,
+                  });
+                  
+                  setPropostaDialog(false);
+                  setQuantidadeFrascos('');
+                  setTemServicosExtras(false);
+                  setValorServicosExtras('');
+                  toast.success('Proposta gerada com sucesso!');
+                }} 
+                className="flex-1"
+              >
+                Gerar PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPropostaDialog(false);
+                  setQuantidadeFrascos('');
+                  setTemServicosExtras(false);
+                  setValorServicosExtras('');
+                }} 
+                className="flex-1"
+              >
                 Cancelar
               </Button>
             </div>
