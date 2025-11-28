@@ -26,7 +26,7 @@ export default function Precificacao() {
 
   // Estados principais
   const [formulaSelecionada, setFormulaSelecionada] = useState<Formula | null>(null);
-  const [valorInput, setValorInput] = useState('');
+  const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
   
   // Estados para dialog de proposta
