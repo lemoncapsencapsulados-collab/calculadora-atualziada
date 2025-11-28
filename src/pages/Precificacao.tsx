@@ -455,7 +455,7 @@ export default function Precificacao() {
             </Card>
           </div>
 
-          {/* Precificação */}
+          {/* Cálculo de Precificação */}
           <Card>
             <CardHeader>
               <CardTitle>💰 Cálculo de Precificação</CardTitle>
@@ -474,9 +474,10 @@ export default function Precificacao() {
             </CardContent>
           </Card>
 
-          {/* Resultado */}
+          {/* Resultado - Impostos e Precificação Final lado a lado */}
           {resultado && (
-            <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Impostos Calculados */}
               <Card>
                 <CardHeader>
                   <CardTitle>📝 Impostos Calculados</CardTitle>
@@ -519,6 +520,7 @@ export default function Precificacao() {
                 </CardContent>
               </Card>
 
+              {/* Precificação Final */}
               <Card className={validacaoMargem?.status === 'baixa' ? 'border-red-500' : validacaoMargem?.status === 'aceitavel' ? 'border-yellow-500' : 'border-green-500'}>
                 <CardHeader>
                   <CardTitle>✅ Precificação Final</CardTitle>
@@ -584,7 +586,7 @@ export default function Precificacao() {
                   </div>
                 </CardContent>
               </Card>
-            </>
+            </div>
           )}
         </>
       )}
