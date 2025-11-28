@@ -256,151 +256,155 @@ export default function Precificacao() {
 
       {formulaSelecionada && (
         <>
-          {/* Custos Diretos */}
-          <Card>
-            <CardHeader>
-              <CardTitle>💊 Custos Diretos (por unidade)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Matéria-Prima</Label>
-                  <Input
-                    value={`R$ ${Number(formulaSelecionada.total_mp).toFixed(2)}`}
-                    disabled
-                    className="bg-muted"
-                  />
+          {/* Custos Diretos e Indiretos - Lado a Lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Custos Diretos */}
+            <Card>
+              <CardHeader>
+                <CardTitle>💊 Custos Diretos (por unidade)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Matéria-Prima</Label>
+                    <Input
+                      value={`R$ ${Number(formulaSelecionada.total_mp).toFixed(2)}`}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Embalagem</Label>
+                    <Input
+                      value={`R$ ${Number(formulaSelecionada.total_embalagem).toFixed(2)}`}
+                      disabled
+                      className="bg-muted"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Embalagem</Label>
-                  <Input
-                    value={`R$ ${Number(formulaSelecionada.total_embalagem).toFixed(2)}`}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Mão de Obra Direta</Label>
+                    {camposBloqueados ? (
+                      <Lock className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <Unlock className="w-4 h-4 text-green-600" />
+                    )}
+                  </div>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={custosIndiretos.maoObraDireta}
+                    onChange={(e) =>
+                      setCustosIndiretos({ ...custosIndiretos, maoObraDireta: parseFloat(e.target.value) || 0 })
+                    }
+                    disabled={camposBloqueados}
+                  />
+                </div>
+
+                <div className="p-3 bg-primary/5 rounded-lg">
+                  <p className="text-sm font-medium">
+                    Subtotal Diretos: R${' '}
+                    {(
+                      Number(formulaSelecionada.total_mp) +
+                      Number(formulaSelecionada.total_embalagem) +
+                      custosIndiretos.maoObraDireta
+                    ).toFixed(2)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Custos Indiretos */}
+            <Card>
+              <CardHeader>
                 <div className="flex items-center justify-between">
-                  <Label>Mão de Obra Direta</Label>
+                  <CardTitle>🏭 Custos Indiretos (por unidade)</CardTitle>
                   {camposBloqueados ? (
-                    <Lock className="w-4 h-4 text-muted-foreground" />
+                    <Button variant="outline" size="sm" onClick={handleDesbloquear}>
+                      <Lock className="w-4 h-4 mr-2" />
+                      Desbloquear
+                    </Button>
                   ) : (
-                    <Unlock className="w-4 h-4 text-green-600" />
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="salvar-permanente"
+                          checked={salvarPermanente}
+                          onChange={(e) => setSalvarPermanente(e.target.checked)}
+                          className="rounded"
+                        />
+                        <Label htmlFor="salvar-permanente" className="text-sm cursor-pointer">
+                          Salvar
+                        </Label>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={handleBloquear}>
+                        <Unlock className="w-4 h-4 mr-2" />
+                        Bloquear
+                      </Button>
+                    </div>
                   )}
                 </div>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={custosIndiretos.maoObraDireta}
-                  onChange={(e) =>
-                    setCustosIndiretos({ ...custosIndiretos, maoObraDireta: parseFloat(e.target.value) || 0 })
-                  }
-                  disabled={camposBloqueados}
-                />
-              </div>
-
-              <div className="p-3 bg-primary/5 rounded-lg">
-                <p className="text-sm font-medium">
-                  Subtotal Diretos: R${' '}
-                  {(
-                    Number(formulaSelecionada.total_mp) +
-                    Number(formulaSelecionada.total_embalagem) +
-                    custosIndiretos.maoObraDireta
-                  ).toFixed(2)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Custos Indiretos */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>🏭 Custos Indiretos (por unidade)</CardTitle>
-                {camposBloqueados ? (
-                  <Button variant="outline" size="sm" onClick={handleDesbloquear}>
-                    <Lock className="w-4 h-4 mr-2" />
-                    Desbloquear para Editar
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="salvar-permanente"
-                        checked={salvarPermanente}
-                        onChange={(e) => setSalvarPermanente(e.target.checked)}
-                        className="rounded"
-                      />
-                      <Label htmlFor="salvar-permanente" className="text-sm cursor-pointer">
-                        Salvar permanentemente
-                      </Label>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={handleBloquear}>
-                      <Unlock className="w-4 h-4 mr-2" />
-                      Bloquear
-                    </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Energia Elétrica</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={custosIndiretos.energia}
+                      onChange={(e) =>
+                        setCustosIndiretos({ ...custosIndiretos, energia: parseFloat(e.target.value) || 0 })
+                      }
+                      disabled={camposBloqueados}
+                    />
                   </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Energia Elétrica</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={custosIndiretos.energia}
-                    onChange={(e) =>
-                      setCustosIndiretos({ ...custosIndiretos, energia: parseFloat(e.target.value) || 0 })
-                    }
-                    disabled={camposBloqueados}
-                  />
+                  <div className="space-y-2">
+                    <Label>Depreciação de Máquinas</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={custosIndiretos.depreciacao}
+                      onChange={(e) =>
+                        setCustosIndiretos({ ...custosIndiretos, depreciacao: parseFloat(e.target.value) || 0 })
+                      }
+                      disabled={camposBloqueados}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Despesas Administrativas</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={custosIndiretos.administrativo}
+                      onChange={(e) =>
+                        setCustosIndiretos({ ...custosIndiretos, administrativo: parseFloat(e.target.value) || 0 })
+                      }
+                      disabled={camposBloqueados}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Depreciação de Máquinas</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={custosIndiretos.depreciacao}
-                    onChange={(e) =>
-                      setCustosIndiretos({ ...custosIndiretos, depreciacao: parseFloat(e.target.value) || 0 })
-                    }
-                    disabled={camposBloqueados}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Despesas Administrativas</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={custosIndiretos.administrativo}
-                    onChange={(e) =>
-                      setCustosIndiretos({ ...custosIndiretos, administrativo: parseFloat(e.target.value) || 0 })
-                    }
-                    disabled={camposBloqueados}
-                  />
-                </div>
-              </div>
 
-              <div className="p-3 bg-primary/5 rounded-lg">
-                <p className="text-sm font-medium">
-                  Subtotal Indiretos: R${' '}
-                  {(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="p-3 bg-primary/5 rounded-lg">
+                  <p className="text-sm font-medium">
+                    Subtotal Indiretos: R${' '}
+                    {(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Total Custos de Produção */}
-          <Card className="border-primary/50">
-            <CardContent className="pt-6 space-y-4">
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground text-center">Custos Base (Diretos + Indiretos)</p>
-                <p className="text-xl font-semibold text-center">
+          {/* Custos Base, Margem e Total - Lado a Lado */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-sm text-muted-foreground mb-2">Custos Base</p>
+                <p className="text-sm text-muted-foreground text-xs mb-1">(Diretos + Indiretos)</p>
+                <p className="text-2xl font-semibold">
                   R${' '}
                   {(
                     Number(formulaSelecionada.total_mp) +
@@ -411,11 +415,14 @@ export default function Precificacao() {
                     custosIndiretos.administrativo
                   ).toFixed(2)}
                 </p>
-              </div>
-              
-              <div className="space-y-2 pt-2 border-t">
-                <p className="text-sm text-muted-foreground text-center">+ Margem de Segurança (20%)</p>
-                <p className="text-lg font-semibold text-orange-600 text-center">
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-sm text-muted-foreground mb-2">Margem de Segurança</p>
+                <p className="text-sm text-muted-foreground text-xs mb-1">(20%)</p>
+                <p className="text-2xl font-semibold text-orange-600">
                   R${' '}
                   {(
                     (Number(formulaSelecionada.total_mp) +
@@ -426,11 +433,14 @@ export default function Precificacao() {
                     custosIndiretos.administrativo) * 0.20
                   ).toFixed(2)}
                 </p>
-              </div>
-              
-              <div className="text-center pt-2 border-t">
-                <p className="text-sm text-muted-foreground mb-2">= Total Custos de Produção</p>
-                <p className="text-3xl font-bold text-primary">
+              </CardContent>
+            </Card>
+
+            <Card className="border-primary/50">
+              <CardContent className="pt-6 text-center">
+                <p className="text-sm text-muted-foreground mb-2">Total Custos de Produção</p>
+                <p className="text-sm text-muted-foreground text-xs mb-1">(Base + Margem)</p>
+                <p className="text-2xl font-bold text-primary">
                   R${' '}
                   {(
                     (Number(formulaSelecionada.total_mp) +
@@ -441,9 +451,9 @@ export default function Precificacao() {
                     custosIndiretos.administrativo) * 1.20
                   ).toFixed(2)}
                 </p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Precificação */}
           <Card>
