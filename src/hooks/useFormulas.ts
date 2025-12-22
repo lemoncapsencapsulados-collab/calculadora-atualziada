@@ -85,10 +85,41 @@ export function useFormulas() {
     },
   });
 
+  // Atualizar fórmula
+  const updateFormula = useMutation({
+    mutationFn: async (formula: Formula) => {
+      const { error } = await supabase
+        .from('formulas')
+        .update({
+          cliente: formula.cliente,
+          nome_formula: formula.nome_formula,
+          tipo_produto: formula.tipo_produto,
+          qtd_capsulas: formula.qtd_capsulas,
+          itens: formula.itens as any,
+          embalagens: formula.embalagens as any,
+          total_mp: formula.total_mp,
+          total_embalagem: formula.total_embalagem,
+          custo_total: formula.custo_total,
+        })
+        .eq('id', formula.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['formulas'] });
+      toast.success('Fórmula atualizada com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Erro ao atualizar fórmula:', error);
+      toast.error('Erro ao atualizar fórmula');
+    },
+  });
+
   return {
     formulas,
     loading: isLoading,
     addFormula: addFormula.mutate,
     deleteFormula: deleteFormula.mutate,
+    updateFormula: updateFormula.mutate,
   };
 }
