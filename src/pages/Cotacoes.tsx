@@ -23,10 +23,11 @@ import {
 import { GerarPedidoDialog } from '@/components/GerarPedidoDialog';
 import { usePedidos } from '@/hooks/usePedidos';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
-import { Pedido } from '@/types/formula';
+import { Pedido, Formula } from '@/types/formula';
+import { VerFormulaDialog } from '@/components/VerFormulaDialog';
 
 const Cotacoes = () => {
-  const { formulas, loading, deleteFormula } = useFormulas();
+  const { formulas, loading, deleteFormula, updateFormula } = useFormulas();
   const { createPedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('Todos');
@@ -304,6 +305,10 @@ const Cotacoes = () => {
 
                       {/* Ações */}
                       <div className="flex gap-2 flex-wrap pt-4 border-t">
+                        <VerFormulaDialog 
+                          formula={formula as Formula} 
+                          onUpdateFormula={updateFormula}
+                        />
                         <GerarPedidoDialog 
                           formula={formula} 
                           onConfirm={(dados) => handleGerarPedido(formula, dados)} 
