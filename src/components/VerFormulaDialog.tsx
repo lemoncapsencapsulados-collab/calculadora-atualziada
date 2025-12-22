@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Eye, Copy, Check, Edit, Download, Save, X } from 'lucide-react';
+import { Eye, Copy, Check, Edit, Download, Save, X, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 import { Formula, FormulaItem, UnitType } from '@/types/formula';
 import html2canvas from 'html2canvas';
@@ -92,6 +92,22 @@ export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogP
       toast.success('PNG baixado!');
     } catch (err) {
       toast.error('Erro ao gerar PNG');
+    }
+  };
+
+  const handleCopyFullFormula = async () => {
+    const formulaText = formula.itens
+      .map(item => {
+        const converted = convertToMg(item.qtd_informada, item.unidade_informada);
+        return `${item.nome_insumo_snapshot} - ${converted.display}`;
+      })
+      .join('\n');
+    
+    try {
+      await navigator.clipboard.writeText(formulaText);
+      toast.success('Fórmula completa copiada!');
+    } catch (err) {
+      toast.error('Erro ao copiar');
     }
   };
 
@@ -207,9 +223,13 @@ export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogP
             </>
           ) : (
             <>
+              <Button variant="secondary" onClick={handleCopyFullFormula} className="flex-1">
+                <ClipboardList className="h-4 w-4 mr-2" />
+                Copiar Fórmula
+              </Button>
               <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
                 <Edit className="h-4 w-4 mr-2" />
-                Editar Fórmula
+                Editar
               </Button>
               <Button onClick={handleDownloadPng} className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
