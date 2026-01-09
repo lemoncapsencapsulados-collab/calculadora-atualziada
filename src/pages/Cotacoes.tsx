@@ -357,9 +357,9 @@ const Cotacoes = () => {
                             <>
                               <span className="text-muted-foreground">•</span>
                               <span className="text-sm text-muted-foreground">
-                                {formula.tipo_produto === 'Pó'
+                                {formula.unidades_por_dose && formula.unidades_por_dose > 0
                                   ? `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses`
-                                  : `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses`
+                                  : '0 doses'
                                 }
                               </span>
                             </>
@@ -404,7 +404,7 @@ const Cotacoes = () => {
                             <div>
                               <p className="text-muted-foreground">Número de doses:</p>
                               <p className="font-medium">
-                                {Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses
+                                {formula.unidades_por_dose && formula.unidades_por_dose > 0 ? Math.floor(formula.qtd_capsulas / formula.unidades_por_dose) : 0} doses
                               </p>
                             </div>
                           </div>
