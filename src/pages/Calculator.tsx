@@ -65,8 +65,17 @@ export default function Calculator() {
         setCliente(formula.cliente || '');
         setNomeFormula(formula.nome_formula || '');
         setTipoProduto(formula.tipo_produto || 'Encapsulados');
-        setQtdCapsulas(formula.qtd_capsulas?.toString() || '60');
-        setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
+        
+        // Para Pó, converter de volta para a unidade original se necessário
+        if (formula.tipo_produto === 'Pó' && formula.unidade_po === 'g') {
+          setUnidadePo('g');
+          setQtdCapsulas((formula.qtd_capsulas / 1000).toString());
+          setUnidadesPorDose((formula.unidades_por_dose / 1000).toString());
+        } else {
+          setUnidadePo(formula.unidade_po || 'mg');
+          setQtdCapsulas(formula.qtd_capsulas?.toString() || '60');
+          setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
+        }
 
         // Preencher itens de matéria-prima
         if (formula.itens && Array.isArray(formula.itens)) {
@@ -457,6 +466,7 @@ export default function Calculator() {
       tipo_produto: tipoProduto,
       qtd_capsulas: tipoProduto === 'Pó' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
       unidades_por_dose: tipoProduto === 'Pó' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1,
+      unidade_po: tipoProduto === 'Pó' ? unidadePo : undefined,
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,

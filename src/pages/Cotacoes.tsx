@@ -210,14 +210,15 @@ const Cotacoes = () => {
                             {formula.tipo_produto}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
-                            {formula.qtd_capsulas}{' '}
-                            {formula.tipo_produto === 'Encapsulados'
-                              ? 'cápsulas'
+                            {formula.tipo_produto === 'Pó' 
+                              ? `${formula.unidade_po === 'g' ? (formula.qtd_capsulas / 1000).toFixed(0) : formula.qtd_capsulas} ${formula.unidade_po || 'mg'}`
+                              : formula.tipo_produto === 'Encapsulados'
+                              ? `${formula.qtd_capsulas} cápsulas`
                               : formula.tipo_produto === 'Gummy'
-                              ? 'gummies'
+                              ? `${formula.qtd_capsulas} gummies`
                               : formula.tipo_produto === 'Líquido'
-                              ? 'mL'
-                              : 'pote(s)'}
+                              ? `${formula.qtd_capsulas} mL`
+                              : `${formula.qtd_capsulas} pote(s)`}
                           </span>
                           {formula.unidades_por_dose && (
                             <>
@@ -249,11 +250,17 @@ const Cotacoes = () => {
                             <div>
                               <p className="text-muted-foreground">Unidades por dose:</p>
                               <p className="font-medium">
-                                {formula.unidades_por_dose} {
-                                  formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
-                                  formula.tipo_produto === 'Gummy' ? 'gummies' :
-                                  formula.tipo_produto === 'Líquido' ? 'mL' :
-                                  'g'
+                                {formula.tipo_produto === 'Pó' && formula.unidade_po === 'g'
+                                  ? `${(formula.unidades_por_dose / 1000).toFixed(1)} g`
+                                  : formula.tipo_produto === 'Pó'
+                                  ? `${formula.unidades_por_dose} mg`
+                                  : formula.tipo_produto === 'Encapsulados' 
+                                  ? `${formula.unidades_por_dose} cápsulas`
+                                  : formula.tipo_produto === 'Gummy' 
+                                  ? `${formula.unidades_por_dose} gummies`
+                                  : formula.tipo_produto === 'Líquido' 
+                                  ? `${formula.unidades_por_dose} mL`
+                                  : `${formula.unidades_por_dose} g`
                                 }
                               </p>
                             </div>
