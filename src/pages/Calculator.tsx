@@ -457,7 +457,6 @@ export default function Calculator() {
       tipo_produto: tipoProduto,
       qtd_capsulas: tipoProduto === 'Pó' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
       unidades_por_dose: tipoProduto === 'Pó' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1,
-      unidade_po: tipoProduto === 'Pó' ? unidadePo : undefined,
       itens: formulaItems,
       embalagens: embalagemItems,
       total_mp: totalMP,

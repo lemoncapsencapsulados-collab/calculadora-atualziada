@@ -123,8 +123,6 @@ export type Database = {
           tipo_produto: string
           total_embalagem: number
           total_mp: number
-          unidade_po: string | null
-          unidades_por_dose: number | null
           updated_at: string | null
         }
         Insert: {
@@ -139,8 +137,6 @@ export type Database = {
           tipo_produto: string
           total_embalagem: number
           total_mp: number
-          unidade_po?: string | null
-          unidades_por_dose?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -155,8 +151,6 @@ export type Database = {
           tipo_produto?: string
           total_embalagem?: number
           total_mp?: number
-          unidade_po?: string | null
-          unidades_por_dose?: number | null
           updated_at?: string | null
         }
         Relationships: []

@@ -41,7 +41,6 @@ export interface Formula {
   tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido';
   qtd_capsulas: number;
   unidades_por_dose?: number;
-  unidade_po?: 'mg' | 'g';
   itens: FormulaItem[];
   embalagens: EmbalagemItem[];
   total_mp: number;

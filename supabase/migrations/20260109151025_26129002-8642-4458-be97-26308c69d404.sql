@@ -1,1 +1,0 @@
-ALTER TABLE formulas ADD COLUMN IF NOT EXISTS unidade_po TEXT DEFAULT 'mg';
