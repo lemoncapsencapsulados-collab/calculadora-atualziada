@@ -15,10 +15,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Lock, Unlock, Save, FileDown, Settings, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { gerarPropostaPDF } from '@/lib/propostaGenerator';
-
 export default function Precificacao() {
   const { formulas, loading: isLoadingFormulas } = useFormulas();
   const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
@@ -28,6 +28,7 @@ export default function Precificacao() {
   const [formulaSelecionada, setFormulaSelecionada] = useState<Formula | null>(null);
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Estados para dialog de proposta
   const [propostaDialog, setPropostaDialog] = useState(false);
@@ -185,6 +186,22 @@ export default function Precificacao() {
     ? validarMargem(resultado.margemLucroPercentual, margemProduto.margem_ideal, margemProduto.margem_minima)
     : null;
 
+  // Filtrar fórmulas pelo termo de pesquisa
+  const formulasFiltradas = formulas?.filter(formula => {
+    const termo = searchTerm.toLowerCase().trim();
+    if (!termo) return true;
+    return (
+      formula.nome_formula.toLowerCase().includes(termo) ||
+      formula.cliente.toLowerCase().includes(termo)
+    );
+  }) || [];
+
+  const handleSelectFormula = (formula: Formula) => {
+    setFormulaSelecionada(formula);
+    setValorInput('');
+    setObservacoes('');
+  };
+
   if (isLoadingFormulas) {
     return (
       <div className="container mx-auto p-6">
@@ -249,6 +266,68 @@ export default function Precificacao() {
                 <p className="text-sm text-muted-foreground">Quantidade</p>
                 <p className="font-medium">{formulaSelecionada.qtd_capsulas} unidades</p>
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Todas as Fórmulas */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            Todas as Fórmulas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Campo de Pesquisa */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Pesquisar por nome da fórmula ou cliente..."
+              className="pl-10"
+            />
+          </div>
+
+          {/* Grid de Fórmulas */}
+          {formulasFiltradas.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              {searchTerm ? 'Nenhuma fórmula encontrada.' : 'Nenhuma fórmula cadastrada.'}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {formulasFiltradas.map((formula) => {
+                const custoTotal = Number(formula.total_mp) + Number(formula.total_embalagem);
+                const isSelected = formulaSelecionada?.id === formula.id;
+                
+                return (
+                  <Card
+                    key={formula.id}
+                    className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/50 ${
+                      isSelected ? 'border-primary bg-primary/5 shadow-md' : ''
+                    }`}
+                    onClick={() => handleSelectFormula(formula)}
+                  >
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-foreground line-clamp-2">{formula.nome_formula}</h3>
+                        <Badge variant="secondary" className="shrink-0 text-xs">
+                          {formula.tipo_produto}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{formula.cliente}</p>
+                      <p className="text-lg font-bold text-primary">
+                        R$ {custoTotal.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>
