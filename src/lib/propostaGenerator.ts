@@ -17,6 +17,13 @@ interface PropostaData {
   valorServicosExtras: number;
 }
 
+const formatarMoeda = (valor: number): string => {
+  return valor.toLocaleString('pt-BR', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+};
+
 export async function gerarPropostaPDF(data: PropostaData) {
   const { formula, precoUnitario, quantidadeFrascos, valorServicosExtras } = data;
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -132,13 +139,13 @@ export async function gerarPropostaPDF(data: PropostaData) {
   const valorTotal = valorFrascos + valorServicosExtras;
 
   const valoresData: [string, string][] = [
-    ['Preço Unitário (por frasco)', `R$ ${precoUnitario.toFixed(2)}`],
+    ['Preço Unitário (por frasco)', `R$ ${formatarMoeda(precoUnitario)}`],
     ['Quantidade de Frascos', `${quantidadeFrascos} unidades`],
-    ['Subtotal Produto', `R$ ${valorFrascos.toFixed(2)}`],
+    ['Subtotal Produto', `R$ ${formatarMoeda(valorFrascos)}`],
   ];
 
   if (valorServicosExtras > 0) {
-    valoresData.push(['Serviços Extras', `R$ ${valorServicosExtras.toFixed(2)}`]);
+    valoresData.push(['Serviços Extras', `R$ ${formatarMoeda(valorServicosExtras)}`]);
   }
 
   autoTable(doc, {
@@ -167,7 +174,7 @@ export async function gerarPropostaPDF(data: PropostaData) {
   doc.setFont('helvetica', 'bold');
   doc.text('VALOR TOTAL DA PROPOSTA:', 20, yPosition + 9);
   doc.setFontSize(16);
-  doc.text(`R$ ${valorTotal.toFixed(2)}`, pageWidth - 20, yPosition + 9, { align: 'right' });
+  doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - 20, yPosition + 9, { align: 'right' });
   doc.setTextColor(60, 60, 60);
 
   yPosition += 18;
