@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFormulas } from '@/hooks/useFormulas';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
@@ -53,6 +53,9 @@ export default function Precificacao() {
 
   // Estado de cálculo
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
+
+  // Ref para scroll automático
+  const precificacaoRef = useRef<HTMLDivElement>(null);
 
   // Carregar custos da configuração ativa
   useEffect(() => {
@@ -200,6 +203,14 @@ export default function Precificacao() {
     setFormulaSelecionada(formula);
     setValorInput('');
     setObservacoes('');
+    
+    // Scroll suave para a seção de precificação
+    setTimeout(() => {
+      precificacaoRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 100);
   };
 
   if (isLoadingFormulas) {
@@ -334,9 +345,9 @@ export default function Precificacao() {
       </Card>
 
       {formulaSelecionada && (
-        <>
+        <div ref={precificacaoRef}>
           {/* Custos Diretos e Indiretos - Lado a Lado */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Custos Diretos */}
             <Card>
               <CardHeader>
@@ -667,7 +678,7 @@ export default function Precificacao() {
               </Card>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Dialog de Senha */}
