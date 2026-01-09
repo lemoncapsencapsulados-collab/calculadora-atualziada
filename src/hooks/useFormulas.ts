@@ -21,14 +21,16 @@ export function useFormulas() {
         id: f.id,
         cliente: f.cliente,
         nome_formula: f.nome_formula,
-        tipo_produto: f.tipo_produto as 'Encapsulados' | 'Pó' | 'Gummy',
+        tipo_produto: f.tipo_produto as 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido',
         qtd_capsulas: f.qtd_capsulas,
+        unidades_por_dose: (f as any).unidades_por_dose,
+        unidade_po: (f as any).unidade_po as 'mg' | 'g' | undefined,
         itens: f.itens as any,
         embalagens: f.embalagens as any,
         total_mp: f.total_mp,
         total_embalagem: f.total_embalagem,
         custo_total: f.custo_total,
-        data: new Date(f.created_at),
+        data: new Date(f.created_at!),
       })) as Formula[];
     },
   });
@@ -43,12 +45,14 @@ export function useFormulas() {
           nome_formula: formula.nome_formula,
           tipo_produto: formula.tipo_produto,
           qtd_capsulas: formula.qtd_capsulas,
+          unidades_por_dose: formula.unidades_por_dose,
+          unidade_po: formula.unidade_po,
           itens: formula.itens as any,
           embalagens: formula.embalagens as any,
           total_mp: formula.total_mp,
           total_embalagem: formula.total_embalagem,
           custo_total: formula.custo_total,
-        }])
+        }] as any)
         .select()
         .single();
 
@@ -95,12 +99,14 @@ export function useFormulas() {
           nome_formula: formula.nome_formula,
           tipo_produto: formula.tipo_produto,
           qtd_capsulas: formula.qtd_capsulas,
+          unidades_por_dose: formula.unidades_por_dose,
+          unidade_po: formula.unidade_po,
           itens: formula.itens as any,
           embalagens: formula.embalagens as any,
           total_mp: formula.total_mp,
           total_embalagem: formula.total_embalagem,
           custo_total: formula.custo_total,
-        })
+        } as any)
         .eq('id', formula.id);
 
       if (error) throw error;
