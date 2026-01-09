@@ -54,8 +54,9 @@ export default function Precificacao() {
   // Estado de cálculo
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
 
-  // Ref para scroll automático
+  // Refs para scroll automático
   const precificacaoRef = useRef<HTMLDivElement>(null);
+  const margemRef = useRef<HTMLDivElement>(null);
 
   // Carregar custos da configuração ativa
   useEffect(() => {
@@ -233,54 +234,6 @@ export default function Precificacao() {
         </Button>
       </div>
 
-      {/* Seleção de Fórmula */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Selecionar Fórmula</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Fórmula para Precificar</Label>
-            <Select
-              value={formulaSelecionada?.id || ''}
-              onValueChange={(value) => {
-                const formula = formulas?.find((f) => f.id === value);
-                setFormulaSelecionada(formula || null);
-                setValorInput('');
-                setObservacoes('');
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma fórmula salva" />
-              </SelectTrigger>
-              <SelectContent>
-                {formulas?.map((formula) => (
-                  <SelectItem key={formula.id} value={formula.id}>
-                    {formula.nome_formula} - {formula.cliente} ({formula.tipo_produto})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {formulaSelecionada && (
-            <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
-              <div>
-                <p className="text-sm text-muted-foreground">Cliente</p>
-                <p className="font-medium">{formulaSelecionada.cliente}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Tipo</p>
-                <p className="font-medium">{formulaSelecionada.tipo_produto}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Quantidade</p>
-                <p className="font-medium">{formulaSelecionada.qtd_capsulas} unidades</p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Todas as Fórmulas */}
       <Card>
@@ -557,7 +510,18 @@ export default function Precificacao() {
                   type="number"
                   step="0.01"
                   value={valorInput}
-                  onChange={(e) => setValorInput(e.target.value)}
+                  onChange={(e) => {
+                    setValorInput(e.target.value);
+                    // Scroll suave para a seção de margem quando digitar o preço
+                    if (e.target.value) {
+                      setTimeout(() => {
+                        margemRef.current?.scrollIntoView({ 
+                          behavior: 'smooth', 
+                          block: 'center' 
+                        });
+                      }, 300);
+                    }
+                  }}
                   placeholder="0.00"
                 />
               </div>
@@ -566,7 +530,7 @@ export default function Precificacao() {
 
           {/* Resultado - Impostos e Precificação Final lado a lado */}
           {resultado && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div ref={margemRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Impostos Calculados */}
               <Card>
                 <CardHeader>
