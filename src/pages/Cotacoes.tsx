@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useFormulas } from '@/hooks/useFormulas';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Search, FileText, Trash2, Download, Calculator as CalcIcon, DollarSign, TrendingUp, Package, Lightbulb } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, FileText, Trash2, Download, Calculator as CalcIcon, DollarSign, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -25,10 +26,11 @@ import {
 import { GerarPedidoDialog } from '@/components/GerarPedidoDialog';
 import { usePedidos } from '@/hooks/usePedidos';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
+import { gerarPropostaPDF } from '@/lib/propostaGenerator';
 import { Pedido, Formula } from '@/types/formula';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
 import { calcularPrecificacaoPorPreco } from '@/lib/precificacaoCalculator';
-import { PrecificacaoCalculada, ConfiguracaoCustos } from '@/types/precificacao';
+import { PrecificacaoCalculada } from '@/types/precificacao';
 import { toast } from 'sonner';
 
 const Cotacoes = () => {
@@ -43,7 +45,9 @@ const Cotacoes = () => {
   const [formulaParaPrecificar, setFormulaParaPrecificar] = useState<Formula | null>(null);
   const [precoVendaInput, setPrecoVendaInput] = useState('');
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
-  const precificacaoRef = useRef<HTMLDivElement>(null);
+  const [precificacaoDialog, setPrecificacaoDialog] = useState(false);
+  const [quantidadeFrascos, setQuantidadeFrascos] = useState('');
+  const [gerandoPDF, setGerandoPDF] = useState(false);
 
   // Configuração ativa
   const configAtiva = useMemo(() => {
@@ -177,14 +181,38 @@ const Cotacoes = () => {
     setFormulaParaPrecificar(formula);
     setPrecoVendaInput('');
     setResultado(null);
+    setQuantidadeFrascos('');
+    setPrecificacaoDialog(true);
+  };
+
+  // Gerar proposta PDF
+  const handleGerarProposta = async () => {
+    if (!quantidadeFrascos || !formulaParaPrecificar || !resultado) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
     
-    // Scroll suave para a seção de precificação
-    setTimeout(() => {
-      precificacaoRef.current?.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
+    setGerandoPDF(true);
+    
+    try {
+      await gerarPropostaPDF({
+        formula: formulaParaPrecificar,
+        precoUnitario: resultado.precoVenda,
+        quantidadeFrascos: parseInt(quantidadeFrascos),
+        valorServicosExtras: 0,
       });
-    }, 200);
+      
+      setPrecificacaoDialog(false);
+      setQuantidadeFrascos('');
+      setPrecoVendaInput('');
+      setResultado(null);
+      toast.success('Proposta gerada com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao gerar proposta');
+      console.error(error);
+    } finally {
+      setGerandoPDF(false);
+    }
   };
 
   // Calcular precificação quando o preço de venda muda
@@ -446,10 +474,6 @@ const Cotacoes = () => {
                           <CalcIcon className="h-4 w-4 mr-2" />
                           Carregar no Calculador
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleExport(formula)}>
-                          <Download className="h-4 w-4 mr-2" />
-                          Exportar CSV
-                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="destructive" size="sm">
@@ -483,202 +507,104 @@ const Cotacoes = () => {
         )}
       </div>
 
-      {/* Seção de Precificação */}
-      {formulaParaPrecificar && configAtiva && (
-        <div ref={precificacaoRef} className="space-y-6 pt-6">
-          <div className="border-t pt-6">
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              <DollarSign className="h-6 w-6" />
-              Precificação: {formulaParaPrecificar.cliente} - {formulaParaPrecificar.nome_formula}
-            </h2>
-          </div>
+      {/* Dialog de Precificação Final */}
+      <Dialog open={precificacaoDialog} onOpenChange={setPrecificacaoDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Precificação Final
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Informações da Fórmula */}
+            {formulaParaPrecificar && (
+              <div className="bg-muted p-3 rounded-lg">
+                <p className="font-medium">{formulaParaPrecificar.nome_formula}</p>
+                <p className="text-sm text-muted-foreground">{formulaParaPrecificar.cliente}</p>
+                <p className="text-sm">Custo Base: {formatCurrency(formulaParaPrecificar.custo_total)}</p>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Custos Diretos */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Package className="h-5 w-5" />
-                  Custos Diretos (por unidade)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Matéria-Prima</span>
-                  <span className="font-medium">{formatCurrency(formulaParaPrecificar.total_mp)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Embalagem</span>
-                  <span className="font-medium">{formatCurrency(formulaParaPrecificar.total_embalagem)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Mão de Obra Direta</span>
-                  <span className="font-medium">{formatCurrency(configAtiva.mao_obra_direta)}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t font-semibold">
-                  <span>Subtotal Custos Diretos</span>
-                  <span>{formatCurrency(
-                    formulaParaPrecificar.total_mp + 
-                    formulaParaPrecificar.total_embalagem + 
-                    configAtiva.mao_obra_direta
-                  )}</span>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Sugestão de Preço */}
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <p className="text-sm text-muted-foreground">Sugestão de Preço (~30% margem)</p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{formatCurrency(precoSugerido)}</p>
+            </div>
 
-            {/* Custos Indiretos */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Custos Indiretos (por unidade)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Energia Elétrica</span>
-                  <span className="font-medium">{formatCurrency(configAtiva.energia_eletrica)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Depreciação Máquinas</span>
-                  <span className="font-medium">{formatCurrency(configAtiva.depreciacao_maquinas)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Despesas Administrativas</span>
-                  <span className="font-medium">{formatCurrency(configAtiva.despesas_administrativas)}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t font-semibold">
-                  <span>Subtotal Custos Indiretos</span>
-                  <span>{formatCurrency(
-                    configAtiva.energia_eletrica + 
-                    configAtiva.depreciacao_maquinas + 
-                    configAtiva.despesas_administrativas
-                  )}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            {/* Campo Preço de Venda */}
+            <div className="space-y-2">
+              <Label>Preço de Venda Desejado (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={precoVendaInput}
+                onChange={(e) => setPrecoVendaInput(e.target.value)}
+                placeholder="Digite o preço de venda"
+              />
+              <Button onClick={calcularPrecificacao} size="sm" className="w-full">
+                Calcular Margem
+              </Button>
+            </div>
 
-          {/* Cálculo de Precificação */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalcIcon className="h-5 w-5" />
-                Cálculo de Precificação
-              </CardTitle>
-              <CardDescription>
-                Defina o preço de venda desejado para calcular a margem de lucro
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Sugestão de Preço */}
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-blue-900 dark:text-blue-100">Sugestão de Preço</span>
-                </div>
-                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                  {formatCurrency(precoSugerido)}
+            {/* Resultado da Margem */}
+            {resultado && (
+              <div className={`p-4 rounded-lg text-center ${
+                resultado.margemLucroPercentual >= 25 
+                  ? 'bg-green-100 dark:bg-green-950' 
+                  : resultado.margemLucroPercentual >= 15 
+                    ? 'bg-yellow-100 dark:bg-yellow-950'
+                    : 'bg-red-100 dark:bg-red-950'
+              }`}>
+                <p className="text-sm text-muted-foreground">Margem de Lucro</p>
+                <p className={`text-3xl font-bold ${
+                  resultado.margemLucroPercentual >= 25 
+                    ? 'text-green-600' 
+                    : resultado.margemLucroPercentual >= 15 
+                      ? 'text-yellow-600'
+                      : 'text-red-600'
+                }`}>
+                  {resultado.margemLucroPercentual.toFixed(1)}%
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Baseado em ~30% de margem de lucro líquida
+                <p className="text-sm font-medium">
+                  {formatCurrency(resultado.margemLucroValor)} por unidade
                 </p>
               </div>
+            )}
 
-              <div className="flex gap-4 items-end">
-                <div className="flex-1">
-                  <Label htmlFor="precoVenda">Preço de Venda Desejado (R$)</Label>
-                  <Input
-                    id="precoVenda"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={precoVendaInput}
-                    onChange={(e) => setPrecoVendaInput(e.target.value)}
-                    placeholder="Digite o preço de venda"
-                    className="mt-1"
-                  />
-                </div>
-                <Button onClick={calcularPrecificacao}>
-                  Calcular Margem
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Quantidade de Potes */}
+            <div className="space-y-2">
+              <Label>Quantidade de Potes/Frascos</Label>
+              <Input
+                type="number"
+                value={quantidadeFrascos}
+                onChange={(e) => setQuantidadeFrascos(e.target.value)}
+                placeholder="Ex: 100"
+              />
+            </div>
 
-          {/* Precificação Final */}
-          {resultado && (
-            <Card className="border-2 border-primary">
-              <CardHeader className="bg-primary/5">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <DollarSign className="h-6 w-6" />
-                  Precificação Final
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Preço de Venda</p>
-                    <p className="text-3xl font-bold text-primary">
-                      {formatCurrency(resultado.precoVenda)}
-                    </p>
-                  </div>
-                  <div className={`text-center p-4 rounded-lg ${
-                    resultado.margemLucroPercentual >= 25 
-                      ? 'bg-green-100 dark:bg-green-950' 
-                      : resultado.margemLucroPercentual >= 15 
-                        ? 'bg-yellow-100 dark:bg-yellow-950'
-                        : 'bg-red-100 dark:bg-red-950'
-                  }`}>
-                    <p className="text-sm text-muted-foreground mb-1">Margem de Lucro</p>
-                    <p className={`text-3xl font-bold ${
-                      resultado.margemLucroPercentual >= 25 
-                        ? 'text-green-600' 
-                        : resultado.margemLucroPercentual >= 15 
-                          ? 'text-yellow-600'
-                          : 'text-red-600'
-                    }`}>
-                      {resultado.margemLucroPercentual.toFixed(1)}%
-                    </p>
-                    <p className="text-sm font-medium mt-1">
-                      {formatCurrency(resultado.margemLucroValor)} por unidade
-                    </p>
-                  </div>
-                  <div className="text-center p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Markup Bruto</p>
-                    <p className="text-3xl font-bold">
-                      {resultado.markupBruto.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-
-                {/* Detalhamento */}
-                <div className="mt-6 pt-6 border-t space-y-3">
-                  <h4 className="font-semibold">Resumo dos Custos e Impostos</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Total Custos Produção</p>
-                      <p className="font-medium">{formatCurrency(resultado.totalCustosProducao)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Total Impostos</p>
-                      <p className="font-medium">{formatCurrency(resultado.totalImpostos)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Margem Segurança (20%)</p>
-                      <p className="font-medium">{formatCurrency(resultado.margemSeguranca)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Lucro Líquido</p>
-                      <p className="font-medium text-green-600">{formatCurrency(resultado.margemLucroValor)}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+            {/* Botão Baixar Orçamento */}
+            <Button 
+              onClick={handleGerarProposta}
+              className="w-full"
+              disabled={!resultado || !quantidadeFrascos || gerandoPDF}
+            >
+              {gerandoPDF ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Gerando PDF...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar Orçamento
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
