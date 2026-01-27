@@ -1,264 +1,276 @@
 
-## Plano: Criar Funcionalidade "Adicionar Dose Copiada" com Parsing Inteligente
+
+## Plano: Adicionar Upload de Imagem com OCR/IA ao Popup "Importar Dose Copiada"
 
 ### Objetivo
-Implementar botão "Adicionar Dose copiada" que abre um popup onde o usuário pode colar texto de insumos (de foto, PDF ou qualquer fonte), mesmo quando estão todos em uma linha só.
+Adicionar funcionalidade de anexar imagem/foto ao popup existente de "Importar Dose Copiada", onde a imagem sera processada automaticamente usando IA (Lovable AI com modelo Gemini) para extrair os insumos e quantidades, que serao exibidos na previa e importados para a formula.
 
-### Desafio Principal
-O texto pode vir em diferentes formatos:
-1. **Com quebras de linha** (fácil):
-   ```
-   Vitamina C 500mg
-   Zinco 15 mg
-   ```
+### Fluxo do Usuario
 
-2. **Tudo em uma linha** (mais complexo):
-   ```
-   Vitamina C 500 mg Zinco 15 mg Magnésio 200 mg
-   ```
+1. Usuario clica em "Adicionar Dose copiada"
+2. Popup abre com duas opcoes:
+   - Colar texto (funcionalidade atual)
+   - Anexar imagem (nova funcionalidade)
+3. Ao anexar imagem:
+   - Imagem aparece como preview
+   - Sistema envia para edge function com Lovable AI
+   - IA extrai os insumos e quantidades
+   - Resultado e parseado e exibido na previa (igual ao texto)
+4. Usuario clica "IMPORTAR DOSE" para adicionar a formula
 
-### Solução de Parsing
+### Arquitetura Tecnica
 
-A lógica usará regex para encontrar padrões de "quantidade + unidade" e dividir o texto a partir desses pontos.
-
-**Regex principal:**
 ```
-(\d+(?:[.,]\d+)?)\s*(mcg|mg|g|kg|mL|L|UI)\b
+[Frontend: ImportarDoseDialog]
+         |
+         | (imagem base64)
+         v
+[Edge Function: extract-dose-from-image]
+         |
+         | (Lovable AI Gateway)
+         v
+[Gemini 2.5 Flash - Vision]
+         |
+         | (texto extraido)
+         v
+[Frontend: parseTextoInsumos()]
+         |
+         v
+[Preview dos itens]
 ```
 
-**Algoritmo:**
-1. Encontrar todas as ocorrências de "número + unidade" no texto
-2. Para cada ocorrência, extrair o texto ANTES como nome do insumo
-3. Limpar caracteres especiais do nome (parênteses, traços, etc.)
-4. Buscar correspondência no banco de insumos
+### Componentes a Modificar/Criar
 
-**Exemplo de processamento:**
+| Arquivo | Acao |
+|---------|------|
+| `src/components/ImportarDoseDialog.tsx` | Adicionar upload de imagem e integracao |
+| `supabase/functions/extract-dose-from-image/index.ts` | Nova edge function para OCR com IA |
+| `supabase/config.toml` | Adicionar configuracao da nova funcao |
+
+---
+
+### Detalhes da Implementacao
+
+#### 1. Nova Edge Function: `extract-dose-from-image`
+
+A funcao recebe uma imagem em base64 e usa o Lovable AI Gateway com modelo Gemini 2.5 Flash (que suporta imagens) para extrair os insumos.
+
+**Prompt para a IA:**
 ```
-Input: "Colágeno hidrolisado (peptídeos de colágeno) 300 mg Zinco bisglicinato 15 mg"
+Analise esta imagem de uma formula ou lista de suplementos.
+Extraia TODOS os ingredientes/insumos com suas quantidades.
 
-Passo 1: Encontrar "300 mg" na posição 45
-         Nome antes: "Colágeno hidrolisado (peptídeos de colágeno)"
+Formato de saida (uma linha por ingrediente):
+NomeDoInsumo QuantidadeUnidade
 
-Passo 2: Encontrar "15 mg" na posição 75
-         Nome antes: "Zinco bisglicinato"
+Exemplo:
+Vitamina C 500mg
+Zinco bisglicinato 15mg
+Colageno hidrolisado 300mg
 
-Resultado:
-  - Colágeno hidrolisado → 300 mg
-  - Zinco bisglicinato → 15 mg
+IMPORTANTE:
+- Mantenha o nome completo do insumo
+- Inclua a quantidade e unidade (mg, mcg, g, UI, etc)
+- Se houver informacoes entre parenteses, mantenha-as
+- Retorne APENAS a lista, sem explicacoes
+```
+
+**Estrutura da Edge Function:**
+```typescript
+// Recebe: { image: string (base64) }
+// Retorna: { texto: string, success: boolean }
+
+const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { 
+        role: "user", 
+        content: [
+          { type: "text", text: "Extraia os insumos e quantidades desta imagem:" },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
+        ]
+      }
+    ],
+  }),
+});
+```
+
+#### 2. Alteracoes no ImportarDoseDialog.tsx
+
+**Novos states:**
+```typescript
+const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+const [processandoImagem, setProcessandoImagem] = useState(false);
+const [erroImagem, setErroImagem] = useState<string | null>(null);
+```
+
+**Novo elemento de UI - Botao de upload:**
+```tsx
+<div className="flex gap-2 mb-4">
+  <Button
+    type="button"
+    variant="outline"
+    onClick={() => fileInputRef.current?.click()}
+    disabled={processandoImagem}
+  >
+    <ImageIcon className="h-4 w-4 mr-2" />
+    Anexar Imagem
+  </Button>
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept="image/*"
+    className="hidden"
+    onChange={handleImageUpload}
+  />
+</div>
+```
+
+**Funcao de processamento da imagem:**
+```typescript
+const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  // Mostrar preview
+  const reader = new FileReader();
+  reader.onload = (e) => setImagemPreview(e.target?.result as string);
+  reader.readAsDataURL(file);
+
+  // Enviar para edge function
+  setProcessandoImagem(true);
+  setErroImagem(null);
+
+  try {
+    // Converter para base64
+    const base64 = await fileToBase64(file);
+    
+    const response = await supabase.functions.invoke('extract-dose-from-image', {
+      body: { image: base64 }
+    });
+
+    if (response.error) throw new Error(response.error.message);
+    
+    // Usar o texto extraido no campo de texto existente
+    setTexto(response.data.texto);
+  } catch (error) {
+    setErroImagem('Erro ao processar imagem. Tente novamente.');
+    console.error(error);
+  } finally {
+    setProcessandoImagem(false);
+  }
+};
+```
+
+**Preview da imagem no dialog:**
+```tsx
+{imagemPreview && (
+  <div className="relative">
+    <img 
+      src={imagemPreview} 
+      alt="Preview" 
+      className="max-h-32 rounded-md border"
+    />
+    <Button
+      size="icon"
+      variant="destructive"
+      className="absolute top-1 right-1 h-6 w-6"
+      onClick={() => {
+        setImagemPreview(null);
+        setTexto('');
+      }}
+    >
+      <X className="h-3 w-3" />
+    </Button>
+  </div>
+)}
+```
+
+**Indicador de processamento:**
+```tsx
+{processandoImagem && (
+  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+    <span className="text-sm text-blue-800">
+      Processando imagem com IA...
+    </span>
+  </div>
+)}
 ```
 
 ---
 
-### Estrutura do Componente
+### Interface Visual Atualizada
 
-```text
+```
 +--------------------------------------------------+
 |           Importar Dose Copiada              [X] |
 +--------------------------------------------------+
 |                                                  |
-| Cole o texto com os insumos e quantidades.       |
-| Pode ser uma linha só ou com quebras.            |
+| Cole o texto ou anexe uma imagem com os insumos. |
+|                                                  |
+| [ Anexar Imagem ]                                |
+|                                                  |
+| +----------------------------------------------+ |
+| |  [Preview da imagem se anexada]              | |
+| +----------------------------------------------+ |
+|                                                  |
+| OU cole o texto abaixo:                          |
 |                                                  |
 | +----------------------------------------------+ |
 | |                                              | |
-| | [Área de texto para colar]                   | |
+| | [Textarea - preenchido automaticamente       | |
+| |  se imagem foi processada]                   | |
 | |                                              | |
 | +----------------------------------------------+ |
 |                                                  |
-| Prévia dos insumos reconhecidos:                 |
+| [Processando imagem com IA...] <- se processando |
+|                                                  |
+| Previa dos insumos reconhecidos:                 |
 | +----------------------------------------------+ |
-| | ✓ Colágeno hidrolisado - 300 mg              | |
-| | ✓ Zinco bisglicinato - 15 mg                 | |
-| | ⚠ Vitamina XYZ - 100 mg (não encontrado)     | |
+| | ✓ Colageno hidrolisado - 300 mg              | |
+| | ✓ Vitamina C - 500 mg                        | |
 | +----------------------------------------------+ |
 |                                                  |
-|              [ IMPORTAR DOSE ]                   |
+|  [Limpar]                    [Cancelar] [IMPORTAR DOSE] |
 +--------------------------------------------------+
 ```
 
 ---
 
-### Arquivos a Criar/Modificar
+### Configuracao do Lovable AI
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/ImportarDoseDialog.tsx` | Criar novo componente |
-| `src/pages/Calculator.tsx` | Adicionar botão e integração |
+O projeto precisara habilitar o Lovable AI para usar o gateway de IA. Isso sera feito automaticamente ao criar a edge function, e o `LOVABLE_API_KEY` estara disponivel como secret.
 
----
-
-### Detalhes Técnicos
-
-#### 1. ImportarDoseDialog.tsx
-
-**Interface:**
-```typescript
-interface ParsedItem {
-  nomeOriginal: string;      // Nome como veio no texto
-  nomeEncontrado?: string;   // Nome do insumo no banco (se encontrado)
-  quantidade: number;
-  unidade: string;
-  encontrado: boolean;
-  insumoMatch?: Insumo;
-}
-```
-
-**Função de parsing inteligente:**
-```typescript
-function parseTextoInsumos(texto: string, insumos: Insumo[]): ParsedItem[] {
-  // Regex para encontrar quantidade + unidade
-  const regex = /(\d+(?:[.,]\d+)?)\s*(mcg|mg|g|kg|mL|L|UI)/gi;
-  const matches = [...texto.matchAll(regex)];
-  
-  const resultados: ParsedItem[] = [];
-  let ultimaPosicao = 0;
-  
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    const posicaoMatch = match.index!;
-    
-    // Texto entre a última posição e esta quantidade = nome do insumo
-    let nomeInsumo = texto.substring(ultimaPosicao, posicaoMatch).trim();
-    
-    // Limpar caracteres especiais do final
-    nomeInsumo = nomeInsumo.replace(/[-–—:]\s*$/, '').trim();
-    
-    if (nomeInsumo) {
-      const quantidade = parseFloat(match[1].replace(',', '.'));
-      const unidade = match[2].toLowerCase();
-      
-      // Buscar no banco
-      const insumoMatch = buscarInsumo(nomeInsumo, insumos);
-      
-      resultados.push({
-        nomeOriginal: nomeInsumo,
-        nomeEncontrado: insumoMatch?.nome,
-        quantidade,
-        unidade,
-        encontrado: !!insumoMatch,
-        insumoMatch
-      });
-    }
-    
-    // Atualizar posição para após "quantidade unidade"
-    ultimaPosicao = posicaoMatch + match[0].length;
-  }
-  
-  return resultados;
-}
-```
-
-**Busca flexível de insumos:**
-```typescript
-function buscarInsumo(nome: string, insumos: Insumo[]): Insumo | undefined {
-  const nomeNormalizado = nome.toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/[()®™–—-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  
-  // 1. Busca exata
-  let match = insumos.find(i => 
-    i.nome.toLowerCase() === nomeNormalizado
-  );
-  if (match) return match;
-  
-  // 2. Busca por inclusão
-  match = insumos.find(i => 
-    i.nome.toLowerCase().includes(nomeNormalizado) ||
-    nomeNormalizado.includes(i.nome.toLowerCase())
-  );
-  if (match) return match;
-  
-  // 3. Busca por primeira palavra principal
-  const palavras = nomeNormalizado.split(' ').filter(p => p.length > 3);
-  for (const palavra of palavras) {
-    match = insumos.find(i => 
-      i.nome.toLowerCase().includes(palavra)
-    );
-    if (match) return match;
-  }
-  
-  return undefined;
-}
-```
+**Modelo escolhido:** `google/gemini-2.5-flash`
+- Suporta imagens (multimodal)
+- Rapido e eficiente
+- Bom custo-beneficio para OCR
 
 ---
 
-#### 2. Integração no Calculator.tsx
+### Tratamento de Erros
 
-**Adicionar imports:**
-```typescript
-import { ClipboardPaste } from 'lucide-react';
-import ImportarDoseDialog from '@/components/ImportarDoseDialog';
-```
-
-**Adicionar state:**
-```typescript
-const [importDialogOpen, setImportDialogOpen] = useState(false);
-```
-
-**Adicionar botão** (acima de "Insumo"):
-```tsx
-<Button 
-  type="button" 
-  variant="outline" 
-  onClick={() => setImportDialogOpen(true)}
-  className="mb-4"
->
-  <ClipboardPaste className="w-4 h-4 mr-2" />
-  Adicionar Dose copiada
-</Button>
-```
-
-**Função de importação:**
-```typescript
-const handleImportarDose = (parsedItems: ParsedItem[]) => {
-  const novosItens = parsedItems.map((item, index) => ({
-    id: Date.now().toString() + index,
-    insumoNome: item.nomeEncontrado || item.nomeOriginal,
-    quantidade: item.quantidade.toString(),
-    unidade: item.unidade as UnitType
-  }));
-  
-  setItems(prev => {
-    // Remove itens vazios
-    const semVazios = prev.filter(i => i.insumoNome.trim() !== '');
-    return [...semVazios, ...novosItens];
-  });
-  
-  setImportDialogOpen(false);
-  toast.success(`${parsedItems.length} insumos importados!`);
-};
-```
+1. **Imagem muito grande:** Validar tamanho antes de enviar (max 10MB)
+2. **Formato nao suportado:** Aceitar apenas image/jpeg, image/png, image/webp
+3. **Falha na IA:** Mostrar mensagem amigavel e permitir retry
+4. **Timeout:** Configurar timeout adequado (30s)
+5. **Rate limit (429):** Mostrar toast pedindo para aguardar
 
 ---
 
-### Exemplo de Uso
+### Passos de Implementacao
 
-**Usuário cola:**
-```
-Colágeno hidrolisado (peptídeos de colágeno) 300 mg Metilsulfonilmetano (MSM) 150 mg Ácido ascórbico (Vitamina C) 60 mg D-Biotina 45 mcg
-```
+1. Habilitar Lovable AI no projeto (o `LOVABLE_API_KEY` sera provisionado automaticamente)
+2. Criar edge function `extract-dose-from-image`
+3. Atualizar `config.toml` com a nova funcao
+4. Modificar `ImportarDoseDialog.tsx` para adicionar upload de imagem
+5. Testar com diferentes tipos de imagens (foto, screenshot, PDF convertido)
 
-**Sistema reconhece:**
-| Insumo | Quantidade | Status |
-|--------|------------|--------|
-| Colágeno hidrolisado | 300 mg | ✓ Encontrado |
-| Metilsulfonilmetano (MSM) | 150 mg | ✓ Encontrado |
-| Ácido ascórbico (Vitamina C) | 60 mg | ✓ Encontrado |
-| D-Biotina | 45 mcg | ✓ Encontrado |
-
-**Usuário clica "IMPORTAR DOSE"** → Itens são adicionados à fórmula
-
----
-
-### Interface Visual do Dialog
-
-O componente terá:
-- Textarea grande para colar o texto
-- Parsing em tempo real conforme digita/cola
-- Lista de prévia mostrando o que foi reconhecido
-- Ícones visuais: ✓ verde (encontrado) ou ⚠ amarelo (não encontrado)
-- Botão "IMPORTAR DOSE" habilitado apenas quando há itens válidos
-- Botão para limpar e tentar novamente
