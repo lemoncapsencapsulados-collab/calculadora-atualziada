@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { ClipboardPaste, Check, AlertTriangle, Trash2 } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { ClipboardPaste, Check, AlertTriangle, Trash2, Image as ImageIcon, Loader2, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Insumo, UnitType } from '@/types/formula';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface ParsedItem {
   nomeOriginal: string;
@@ -143,6 +145,21 @@ function parseTextoInsumos(texto: string, insumos: Insumo[]): ParsedItem[] {
   return resultados;
 }
 
+// Converte arquivo para base64 (sem o prefixo data:...)
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove o prefixo "data:image/...;base64,"
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ImportarDoseDialog({
   open,
   onOpenChange,
@@ -150,6 +167,10 @@ export default function ImportarDoseDialog({
   onImport
 }: ImportarDoseDialogProps) {
   const [texto, setTexto] = useState('');
+  const [imagemPreview, setImagemPreview] = useState<string | null>(null);
+  const [processandoImagem, setProcessandoImagem] = useState(false);
+  const [erroImagem, setErroImagem] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Parse em tempo real
   const parsedItems = useMemo(() => {
@@ -158,21 +179,97 @@ export default function ImportarDoseDialog({
   
   const itensEncontrados = parsedItems.filter(i => i.encontrado);
   const itensNaoEncontrados = parsedItems.filter(i => !i.encontrado);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamanho (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo: 10MB');
+      return;
+    }
+
+    // Validar tipo
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Formato não suportado. Use JPEG, PNG ou WebP.');
+      return;
+    }
+
+    // Mostrar preview
+    const reader = new FileReader();
+    reader.onload = (e) => setImagemPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // Enviar para edge function
+    setProcessandoImagem(true);
+    setErroImagem(null);
+
+    try {
+      const base64 = await fileToBase64(file);
+      
+      console.log('Sending image to edge function, size:', base64.length);
+      
+      const { data, error } = await supabase.functions.invoke('extract-dose-from-image', {
+        body: { image: base64 }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Erro ao processar imagem');
+      }
+      
+      if (!data?.success) {
+        throw new Error(data?.error || 'Erro ao extrair texto da imagem');
+      }
+      
+      // Usar o texto extraído no campo de texto existente
+      setTexto(data.texto);
+      toast.success('Imagem processada com sucesso!');
+      
+    } catch (error) {
+      console.error('Error processing image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar imagem';
+      setErroImagem(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setProcessandoImagem(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagemPreview(null);
+    setTexto('');
+    setErroImagem(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
   
   const handleImport = () => {
     if (parsedItems.length > 0) {
       onImport(parsedItems);
-      setTexto('');
+      handleClear();
       onOpenChange(false);
     }
   };
   
   const handleClear = () => {
     setTexto('');
+    setImagemPreview(null);
+    setErroImagem(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
   
   const handleClose = () => {
-    setTexto('');
+    handleClear();
     onOpenChange(false);
   };
   
@@ -185,27 +282,102 @@ export default function ImportarDoseDialog({
             Importar Dose Copiada
           </DialogTitle>
           <DialogDescription>
-            Cole o texto com os insumos e suas quantidades. Pode ser uma linha contínua ou com quebras de linha.
+            Cole o texto ou anexe uma imagem com os insumos e quantidades.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 flex-1 overflow-hidden">
-          {/* Instruções */}
-          <div className="p-3 bg-muted rounded-lg text-sm">
-            <p className="font-medium mb-1">Formatos aceitos:</p>
-            <ul className="text-muted-foreground space-y-1 text-xs">
-              <li>• Vitamina C 500mg</li>
-              <li>• Zinco bisglicinato - 15 mg</li>
-              <li>• Colágeno hidrolisado (peptídeos) 300 mg Vitamina B6 5 mg...</li>
-            </ul>
+          {/* Botão de upload de imagem */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={processandoImagem}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Anexar Imagem
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+            <span className="text-xs text-muted-foreground self-center">
+              JPEG, PNG ou WebP (máx. 10MB)
+            </span>
           </div>
+
+          {/* Preview da imagem */}
+          {imagemPreview && (
+            <div className="relative inline-block">
+              <img 
+                src={imagemPreview} 
+                alt="Preview da imagem" 
+                className="max-h-32 rounded-md border object-contain"
+              />
+              <Button
+                size="icon"
+                variant="destructive"
+                className="absolute -top-2 -right-2 h-6 w-6"
+                onClick={handleRemoveImage}
+                disabled={processandoImagem}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
+          {/* Indicador de processamento */}
+          {processandoImagem && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
+              <span className="text-sm text-blue-800 dark:text-blue-200">
+                Processando imagem com IA...
+              </span>
+            </div>
+          )}
+
+          {/* Erro de imagem */}
+          {erroImagem && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <span className="text-sm text-red-800 dark:text-red-200">
+                {erroImagem}
+              </span>
+            </div>
+          )}
+
+          {/* Separador */}
+          {imagemPreview && (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-muted" />
+              <span className="text-xs text-muted-foreground">OU cole o texto abaixo</span>
+              <div className="flex-1 border-t border-muted" />
+            </div>
+          )}
+
+          {/* Instruções */}
+          {!imagemPreview && (
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <p className="font-medium mb-1">Formatos aceitos:</p>
+              <ul className="text-muted-foreground space-y-1 text-xs">
+                <li>• Vitamina C 500mg</li>
+                <li>• Zinco bisglicinato - 15 mg</li>
+                <li>• Colágeno hidrolisado (peptídeos) 300 mg Vitamina B6 5 mg...</li>
+              </ul>
+            </div>
+          )}
           
           {/* Área de texto */}
           <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder="Cole aqui a lista de insumos e quantidades..."
-            className="min-h-[120px] font-mono text-sm"
+            className="min-h-[100px] font-mono text-sm"
+            disabled={processandoImagem}
           />
           
           {/* Prévia dos itens reconhecidos */}
@@ -231,7 +403,7 @@ export default function ImportarDoseDialog({
                 </div>
               </div>
               
-              <ScrollArea className="h-[200px] border rounded-md p-3">
+              <ScrollArea className="h-[180px] border rounded-md p-3">
                 <div className="space-y-2">
                   {parsedItems.map((item, index) => (
                     <div
@@ -276,12 +448,13 @@ export default function ImportarDoseDialog({
         </div>
         
         <DialogFooter className="flex gap-2 sm:gap-2">
-          {texto && (
+          {(texto || imagemPreview) && (
             <Button
               type="button"
               variant="outline"
               onClick={handleClear}
               className="mr-auto"
+              disabled={processandoImagem}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Limpar
@@ -291,13 +464,14 @@ export default function ImportarDoseDialog({
             type="button"
             variant="ghost"
             onClick={handleClose}
+            disabled={processandoImagem}
           >
             Cancelar
           </Button>
           <Button
             type="button"
             onClick={handleImport}
-            disabled={parsedItems.length === 0}
+            disabled={parsedItems.length === 0 || processandoImagem}
           >
             <ClipboardPaste className="h-4 w-4 mr-2" />
             IMPORTAR DOSE
