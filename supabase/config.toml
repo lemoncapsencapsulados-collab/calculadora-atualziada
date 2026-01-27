@@ -1,1 +1,10 @@
 project_id = "nawhpweyisawxaymmusg"
+
+[functions.import-insumos]
+verify_jwt = false
+
+[functions.import-inventory]
+verify_jwt = false
+
+[functions.extract-dose-from-image]
+verify_jwt = false
