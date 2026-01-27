@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Download, Save, X, Package, Box, Scale, Pill, Wheat, AlertTriangle, Info } from 'lucide-react';
+import { Plus, Trash2, Download, Save, X, Package, Box, Scale, Pill, Wheat, AlertTriangle, Info, ClipboardPaste } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +10,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import EmbalagensHierarchy from '@/components/EmbalagensHierarchy';
+import ImportarDoseDialog from '@/components/ImportarDoseDialog';
 import { useInsumos } from '@/hooks/useInsumos';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { useFormulas } from '@/hooks/useFormulas';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
-import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
+import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 
@@ -41,6 +42,7 @@ export default function Calculator() {
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   const [unidadesPorDose, setUnidadesPorDose] = useState<string>('2');
   const [unidadePo, setUnidadePo] = useState<'mg' | 'g'>('mg'); // Unidade de medida para produtos em Pó
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const {
     insumos,
@@ -405,6 +407,33 @@ export default function Calculator() {
       [field]: value
     } : item));
   };
+
+  // Interface para itens parseados do dialog de importação
+  interface ParsedItem {
+    nomeOriginal: string;
+    nomeEncontrado?: string;
+    quantidade: number;
+    unidade: string;
+    encontrado: boolean;
+    insumoMatch?: Insumo;
+  }
+
+  const handleImportarDose = (parsedItems: ParsedItem[]) => {
+    const novosItens: FormulaItemInput[] = parsedItems.map((item, index) => ({
+      id: Date.now().toString() + index,
+      insumoNome: item.nomeEncontrado || item.nomeOriginal,
+      quantidade: item.quantidade.toString(),
+      unidade: item.unidade as UnitType
+    }));
+    
+    setItems(prev => {
+      // Remove itens vazios
+      const semVazios = prev.filter(i => i.insumoNome.trim() !== '');
+      return [...semVazios, ...novosItens];
+    });
+    
+    toast.success(`${parsedItems.length} insumo${parsedItems.length !== 1 ? 's' : ''} importado${parsedItems.length !== 1 ? 's' : ''}!`);
+  };
   const handleSave = () => {
     if (!cliente.trim()) {
       toast.error('Informe o nome do cliente');
@@ -684,6 +713,17 @@ export default function Calculator() {
           <CardDescription>Adicione os insumos e quantidades POR DOSE!  </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Botão para importar dose copiada */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportDialogOpen(true)}
+            className="w-full border-dashed"
+          >
+            <ClipboardPaste className="w-4 h-4 mr-2" />
+            Adicionar Dose copiada
+          </Button>
+
           {items.map((item, index) => {
             const calculated = calculatedItems[index];
             return <div key={item.id} className="space-y-2">
@@ -1339,5 +1379,13 @@ export default function Calculator() {
         </Button>
       </div>
       </>}
+
+      {/* Dialog para importar dose copiada */}
+      <ImportarDoseDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        insumos={insumos}
+        onImport={handleImportarDose}
+      />
     </div>;
 }
