@@ -12,18 +12,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { gerarPropostaPDF } from '@/lib/propostaGenerator';
+import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
+
 export default function Precificacao() {
   const { formulas, loading: isLoadingFormulas } = useFormulas();
   const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
   const { salvarPrecificacao } = usePrecificacao();
 
+  // Estado da aba ativa
+  const [abaAtiva, setAbaAtiva] = useState('nova');
+  
   // Estados principais
   const [formulaSelecionada, setFormulaSelecionada] = useState<Formula | null>(null);
   const [valorInput, setValorInput] = useState('30');
@@ -180,6 +185,12 @@ export default function Precificacao() {
         margem_lucro_valor: resultado.margemLucroValor,
         observacoes,
       });
+      
+      // Redirecionar para aba de precificações salvas
+      setFormulaSelecionada(null);
+      setValorInput('30');
+      setObservacoes('');
+      setAbaAtiva('salvas');
     } catch (error) {
       console.error('Erro ao salvar:', error);
     }
@@ -234,9 +245,22 @@ export default function Precificacao() {
         </Button>
       </div>
 
-
-      {/* Todas as Fórmulas */}
-      <Card>
+      {/* Sistema de Abas */}
+      <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="nova" className="flex items-center gap-2">
+            <Calculator className="w-4 h-4" />
+            Nova Precificação
+          </TabsTrigger>
+          <TabsTrigger value="salvas" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Precificações Salvas
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="nova" className="space-y-6 mt-6">
+          {/* Todas as Fórmulas */}
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="w-5 h-5" />
@@ -644,6 +668,15 @@ export default function Precificacao() {
           )}
         </div>
       )}
+        </TabsContent>
+        
+        <TabsContent value="salvas" className="mt-6">
+          <PrecificacoesSalvas 
+            configuracaoAtiva={configuracaoAtiva}
+            margens={margens}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog de Senha */}
       <Dialog open={senhaDialog} onOpenChange={setSenhaDialog}>
