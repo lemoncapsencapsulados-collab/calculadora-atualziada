@@ -58,6 +58,29 @@ export function usePrecificacao() {
     },
   });
 
+  // Atualizar precificação existente
+  const atualizarPrecificacao = useMutation({
+    mutationFn: async (precificacao: Partial<Precificacao> & { id: string }) => {
+      const { id, ...updateData } = precificacao;
+      const { data, error } = await supabase
+        .from('precificacoes')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+      toast.success('Precificação atualizada com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao atualizar precificação: ' + error.message);
+    },
+  });
+
   // Deletar precificação
   const deletarPrecificacao = useMutation({
     mutationFn: async (id: string) => {
@@ -82,6 +105,7 @@ export function usePrecificacao() {
     isLoading,
     buscarPorFormula,
     salvarPrecificacao,
+    atualizarPrecificacao,
     deletarPrecificacao,
   };
 }
