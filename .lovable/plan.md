@@ -1,276 +1,513 @@
 
 
-## Plano: Adicionar Upload de Imagem com OCR/IA ao Popup "Importar Dose Copiada"
+## Plano: Sistema de Precificacoes Salvas com Edicao e Recalculo em Tempo Real
 
 ### Objetivo
-Adicionar funcionalidade de anexar imagem/foto ao popup existente de "Importar Dose Copiada", onde a imagem sera processada automaticamente usando IA (Lovable AI com modelo Gemini) para extrair os insumos e quantidades, que serao exibidos na previa e importados para a formula.
+Criar uma sub-pagina "Precificacoes Salvas" dentro da pagina de Precificacao Final que:
+1. Mostra automaticamente apos salvar uma precificacao
+2. Lista todas as precificacoes salvas de forma organizada
+3. Permite editar o preco de venda e ver os calculos atualizados em tempo real
+4. Permite editar custo por formula ou custo total
+5. Exibe margem de lucro em porcentagem E em dinheiro (R$)
 
-### Fluxo do Usuario
+### Arquitetura
 
-1. Usuario clica em "Adicionar Dose copiada"
-2. Popup abre com duas opcoes:
-   - Colar texto (funcionalidade atual)
-   - Anexar imagem (nova funcionalidade)
-3. Ao anexar imagem:
-   - Imagem aparece como preview
-   - Sistema envia para edge function com Lovable AI
-   - IA extrai os insumos e quantidades
-   - Resultado e parseado e exibido na previa (igual ao texto)
-4. Usuario clica "IMPORTAR DOSE" para adicionar a formula
-
-### Arquitetura Tecnica
+A pagina de Precificacao sera dividida em duas abas usando Tabs:
+1. **Nova Precificacao** - Tela atual de calculo
+2. **Precificacoes Salvas** - Lista com edicao inline
 
 ```
-[Frontend: ImportarDoseDialog]
-         |
-         | (imagem base64)
-         v
-[Edge Function: extract-dose-from-image]
-         |
-         | (Lovable AI Gateway)
-         v
-[Gemini 2.5 Flash - Vision]
-         |
-         | (texto extraido)
-         v
-[Frontend: parseTextoInsumos()]
-         |
-         v
-[Preview dos itens]
++--------------------------------------------------+
+|  [Nova Precificacao]  [Precificacoes Salvas]     |
++--------------------------------------------------+
+|                                                  |
+|  Lista de precificacoes salvas...                |
+|                                                  |
++--------------------------------------------------+
 ```
+
+---
 
 ### Componentes a Modificar/Criar
 
 | Arquivo | Acao |
 |---------|------|
-| `src/components/ImportarDoseDialog.tsx` | Adicionar upload de imagem e integracao |
-| `supabase/functions/extract-dose-from-image/index.ts` | Nova edge function para OCR com IA |
-| `supabase/config.toml` | Adicionar configuracao da nova funcao |
+| `src/pages/Precificacao.tsx` | Adicionar sistema de abas e redirecionar apos salvar |
+| `src/components/PrecificacoesSalvas.tsx` | Novo componente para listar e editar precificacoes |
+| `src/components/EditarPrecificacaoDialog.tsx` | Dialog para edicao de precificacao com recalculo |
+| `src/hooks/usePrecificacao.ts` | Adicionar mutation para atualizar precificacao |
 
 ---
 
 ### Detalhes da Implementacao
 
-#### 1. Nova Edge Function: `extract-dose-from-image`
+#### 1. Modificar usePrecificacao.ts
 
-A funcao recebe uma imagem em base64 e usa o Lovable AI Gateway com modelo Gemini 2.5 Flash (que suporta imagens) para extrair os insumos.
+Adicionar funcao para atualizar precificacao existente:
 
-**Prompt para a IA:**
-```
-Analise esta imagem de uma formula ou lista de suplementos.
-Extraia TODOS os ingredientes/insumos com suas quantidades.
-
-Formato de saida (uma linha por ingrediente):
-NomeDoInsumo QuantidadeUnidade
-
-Exemplo:
-Vitamina C 500mg
-Zinco bisglicinato 15mg
-Colageno hidrolisado 300mg
-
-IMPORTANTE:
-- Mantenha o nome completo do insumo
-- Inclua a quantidade e unidade (mg, mcg, g, UI, etc)
-- Se houver informacoes entre parenteses, mantenha-as
-- Retorne APENAS a lista, sem explicacoes
-```
-
-**Estrutura da Edge Function:**
 ```typescript
-// Recebe: { image: string (base64) }
-// Retorna: { texto: string, success: boolean }
+// Atualizar precificacao existente
+const atualizarPrecificacao = useMutation({
+  mutationFn: async (precificacao: Partial<Precificacao> & { id: string }) => {
+    const { data, error } = await supabase
+      .from('precificacoes')
+      .update(precificacao)
+      .eq('id', precificacao.id)
+      .select()
+      .single();
 
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "Content-Type": "application/json",
+    if (error) throw error;
+    return data;
   },
-  body: JSON.stringify({
-    model: "google/gemini-2.5-flash",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { 
-        role: "user", 
-        content: [
-          { type: "text", text: "Extraia os insumos e quantidades desta imagem:" },
-          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
-        ]
-      }
-    ],
-  }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+    toast.success('Precificacao atualizada com sucesso!');
+  },
 });
 ```
 
-#### 2. Alteracoes no ImportarDoseDialog.tsx
+#### 2. Modificar Precificacao.tsx
 
-**Novos states:**
+Adicionar sistema de abas:
+
 ```typescript
-const [imagemPreview, setImagemPreview] = useState<string | null>(null);
-const [processandoImagem, setProcessandoImagem] = useState(false);
-const [erroImagem, setErroImagem] = useState<string | null>(null);
-```
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 
-**Novo elemento de UI - Botao de upload:**
-```tsx
-<div className="flex gap-2 mb-4">
-  <Button
-    type="button"
-    variant="outline"
-    onClick={() => fileInputRef.current?.click()}
-    disabled={processandoImagem}
-  >
-    <ImageIcon className="h-4 w-4 mr-2" />
-    Anexar Imagem
-  </Button>
-  <input
-    ref={fileInputRef}
-    type="file"
-    accept="image/*"
-    className="hidden"
-    onChange={handleImageUpload}
-  />
-</div>
-```
+// Estado para controlar aba ativa
+const [abaAtiva, setAbaAtiva] = useState('nova');
 
-**Funcao de processamento da imagem:**
-```typescript
-const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  // Mostrar preview
-  const reader = new FileReader();
-  reader.onload = (e) => setImagemPreview(e.target?.result as string);
-  reader.readAsDataURL(file);
-
-  // Enviar para edge function
-  setProcessandoImagem(true);
-  setErroImagem(null);
-
-  try {
-    // Converter para base64
-    const base64 = await fileToBase64(file);
-    
-    const response = await supabase.functions.invoke('extract-dose-from-image', {
-      body: { image: base64 }
-    });
-
-    if (response.error) throw new Error(response.error.message);
-    
-    // Usar o texto extraido no campo de texto existente
-    setTexto(response.data.texto);
-  } catch (error) {
-    setErroImagem('Erro ao processar imagem. Tente novamente.');
-    console.error(error);
-  } finally {
-    setProcessandoImagem(false);
-  }
+// Apos salvar, mudar para aba de precificacoes salvas
+const handleSalvar = async () => {
+  // ... codigo existente ...
+  await salvarPrecificacao.mutateAsync({...});
+  
+  // Redirecionar para aba de precificacoes salvas
+  setAbaAtiva('salvas');
+  setFormulaSelecionada(null);
+  toast.success('Precificacao salva! Redirecionando...');
 };
 ```
 
-**Preview da imagem no dialog:**
+Interface com Tabs:
+
 ```tsx
-{imagemPreview && (
-  <div className="relative">
-    <img 
-      src={imagemPreview} 
-      alt="Preview" 
-      className="max-h-32 rounded-md border"
+<Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
+  <TabsList className="grid w-full max-w-md grid-cols-2">
+    <TabsTrigger value="nova">
+      <Calculator className="w-4 h-4 mr-2" />
+      Nova Precificacao
+    </TabsTrigger>
+    <TabsTrigger value="salvas">
+      <FileText className="w-4 h-4 mr-2" />
+      Precificacoes Salvas
+    </TabsTrigger>
+  </TabsList>
+  
+  <TabsContent value="nova">
+    {/* Conteudo atual da pagina */}
+  </TabsContent>
+  
+  <TabsContent value="salvas">
+    <PrecificacoesSalvas 
+      configuracaoAtiva={configuracaoAtiva}
+      margens={margens}
     />
-    <Button
-      size="icon"
-      variant="destructive"
-      className="absolute top-1 right-1 h-6 w-6"
-      onClick={() => {
-        setImagemPreview(null);
-        setTexto('');
-      }}
-    >
-      <X className="h-3 w-3" />
-    </Button>
-  </div>
-)}
+  </TabsContent>
+</Tabs>
 ```
 
-**Indicador de processamento:**
-```tsx
-{processandoImagem && (
-  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
-    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-    <span className="text-sm text-blue-800">
-      Processando imagem com IA...
-    </span>
-  </div>
-)}
-```
+#### 3. Novo Componente: PrecificacoesSalvas.tsx
 
----
-
-### Interface Visual Atualizada
+Lista organizada com cards expansiveis:
 
 ```
 +--------------------------------------------------+
-|           Importar Dose Copiada              [X] |
+| Precificacoes Salvas                             |
++--------------------------------------------------+
+| [Pesquisar por cliente ou formula...]            |
 +--------------------------------------------------+
 |                                                  |
-| Cole o texto ou anexe uma imagem com os insumos. |
-|                                                  |
-| [ Anexar Imagem ]                                |
-|                                                  |
 | +----------------------------------------------+ |
-| |  [Preview da imagem se anexada]              | |
-| +----------------------------------------------+ |
-|                                                  |
-| OU cole o texto abaixo:                          |
-|                                                  |
-| +----------------------------------------------+ |
+| | Cliente: Farmacia XYZ                        | |
+| | Formula: Vitamina C 1000mg                   | |
+| | Tipo: Encapsulados                           | |
+| | Data: 15/01/2025                             | |
 | |                                              | |
-| | [Textarea - preenchido automaticamente       | |
-| |  se imagem foi processada]                   | |
+| | Preco Venda: R$ 45,00                        | |
+| | Custo Producao: R$ 18,00                     | |
+| | Margem: 35,2% (R$ 15,84)                     | |
 | |                                              | |
+| | [Editar] [Excluir]                           | |
 | +----------------------------------------------+ |
 |                                                  |
-| [Processando imagem com IA...] <- se processando |
-|                                                  |
-| Previa dos insumos reconhecidos:                 |
 | +----------------------------------------------+ |
-| | ✓ Colageno hidrolisado - 300 mg              | |
-| | ✓ Vitamina C - 500 mg                        | |
+| | Cliente: Lab ABC                             | |
+| | ...                                          | |
 | +----------------------------------------------+ |
 |                                                  |
-|  [Limpar]                    [Cancelar] [IMPORTAR DOSE] |
 +--------------------------------------------------+
+```
+
+Estrutura do componente:
+
+```typescript
+interface PrecificacoesSalvasProps {
+  configuracaoAtiva: ConfiguracaoCustos | null;
+  margens: MargemLucro[] | null;
+}
+
+export default function PrecificacoesSalvas({ 
+  configuracaoAtiva, 
+  margens 
+}: PrecificacoesSalvasProps) {
+  const { precificacoes, isLoading, deletarPrecificacao } = usePrecificacao();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editandoPrecificacao, setEditandoPrecificacao] = useState<any>(null);
+
+  // Filtrar precificacoes
+  const precificacoesFiltradas = precificacoes?.filter(p => {
+    const termo = searchTerm.toLowerCase();
+    return (
+      p.formulas?.nome_formula?.toLowerCase().includes(termo) ||
+      p.formulas?.cliente?.toLowerCase().includes(termo)
+    );
+  }) || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Busca */}
+      <Input 
+        placeholder="Pesquisar por cliente ou formula..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+      
+      {/* Lista de precificacoes */}
+      {precificacoesFiltradas.map(precificacao => (
+        <Card key={precificacao.id}>
+          <CardContent className="p-4">
+            {/* Informacoes da precificacao */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="font-semibold">{precificacao.formulas?.nome_formula}</p>
+                <p className="text-sm text-muted-foreground">
+                  {precificacao.formulas?.cliente}
+                </p>
+                <Badge>{precificacao.formulas?.tipo_produto}</Badge>
+              </div>
+              
+              {/* Valores principais destacados */}
+              <div className="text-right">
+                <p className="text-2xl font-bold text-primary">
+                  R$ {precificacao.preco_venda.toFixed(2)}
+                </p>
+                <div className="flex items-center justify-end gap-2 mt-2">
+                  <span className="text-lg font-semibold text-green-600">
+                    {precificacao.margem_lucro_percentual.toFixed(1)}%
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    (R$ {precificacao.margem_lucro_valor.toFixed(2)})
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Acoes */}
+            <div className="flex gap-2 mt-4">
+              <Button onClick={() => setEditandoPrecificacao(precificacao)}>
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+              <Button variant="destructive" onClick={() => deletarPrecificacao.mutate(precificacao.id)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* Dialog de edicao */}
+      {editandoPrecificacao && (
+        <EditarPrecificacaoDialog
+          precificacao={editandoPrecificacao}
+          configuracaoAtiva={configuracaoAtiva}
+          margens={margens}
+          onClose={() => setEditandoPrecificacao(null)}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+#### 4. Novo Componente: EditarPrecificacaoDialog.tsx
+
+Dialog com edicao e recalculo em tempo real:
+
+```
++--------------------------------------------------+
+|          Editar Precificacao                 [X] |
++--------------------------------------------------+
+|                                                  |
+| Formula: Vitamina C 1000mg                       |
+| Cliente: Farmacia XYZ                            |
+|                                                  |
+| +----------------------------------------------+ |
+| |               CUSTOS BASE                    | |
+| +----------------------------------------------+ |
+| | Custo Materia-Prima:    R$ [____8.50____]    | |
+| | Custo Embalagem:        R$ [____2.30____]    | |
+| | ---                                          | |
+| | Custo Formula (Diretos): R$ 10.80            | |
+| +----------------------------------------------+ |
+|                                                  |
+| +----------------------------------------------+ |
+| |               PRECO DE VENDA                 | |
+| +----------------------------------------------+ |
+| | Preco de Venda (R$):    [______45.00______]  | |
+| +----------------------------------------------+ |
+|                                                  |
+| +----------------------------------------------+ |
+| |         RESULTADO (recalculado)              | |
+| +----------------------------------------------+ |
+| | Custo Total Producao:   R$ 12.96             | |
+| | Total Impostos:         R$ 13.20             | |
+| |                                              | |
+| | +------------------------------------------+ | |
+| | |       MARGEM DE LUCRO                    | | |
+| | |  +------------------------------------+  | | |
+| | |  |   35.2%         R$ 15.84           |  | | |
+| | |  +------------------------------------+  | | |
+| | +------------------------------------------+ | |
+| |                                              | |
+| | [Status: Excelente! Acima do ideal]          | |
+| +----------------------------------------------+ |
+|                                                  |
+|           [Cancelar]    [Salvar Alteracoes]      |
++--------------------------------------------------+
+```
+
+Funcionalidades do dialog:
+
+```typescript
+interface EditarPrecificacaoDialogProps {
+  precificacao: PrecificacaoComFormula;
+  configuracaoAtiva: ConfiguracaoCustos | null;
+  margens: MargemLucro[] | null;
+  onClose: () => void;
+}
+
+export default function EditarPrecificacaoDialog({
+  precificacao,
+  configuracaoAtiva,
+  margens,
+  onClose
+}: EditarPrecificacaoDialogProps) {
+  const { atualizarPrecificacao } = usePrecificacao();
+  
+  // Estados editaveis
+  const [precoVenda, setPrecoVenda] = useState(precificacao.preco_venda.toString());
+  const [custoMP, setCustoMP] = useState(precificacao.custo_materia_prima.toString());
+  const [custoEmbalagem, setCustoEmbalagem] = useState(precificacao.custo_embalagem.toString());
+  
+  // Recalculo em tempo real
+  const resultado = useMemo(() => {
+    if (!configuracaoAtiva) return null;
+    
+    const preco = parseFloat(precoVenda) || 0;
+    const mp = parseFloat(custoMP) || 0;
+    const emb = parseFloat(custoEmbalagem) || 0;
+    
+    const custosBase = {
+      custoMateriaPrima: mp,
+      custoEmbalagem: emb,
+    };
+    
+    const custosIndiretos = {
+      maoObraDireta: precificacao.custo_mao_obra_direta,
+      energia: precificacao.custo_energia,
+      depreciacao: precificacao.custo_depreciacao,
+      administrativo: precificacao.custo_administrativo,
+    };
+    
+    return calcularPrecificacaoPorPreco(custosBase, custosIndiretos, preco, configuracaoAtiva);
+  }, [precoVenda, custoMP, custoEmbalagem, configuracaoAtiva, precificacao]);
+
+  // Validacao de margem
+  const validacaoMargem = useMemo(() => {
+    if (!resultado || !margens) return null;
+    const margem = margens.find(m => m.tipo_produto === precificacao.formulas?.tipo_produto);
+    if (!margem) return null;
+    return validarMargem(resultado.margemLucroPercentual, margem.margem_ideal, margem.margem_minima);
+  }, [resultado, margens, precificacao]);
+
+  const handleSalvar = async () => {
+    if (!resultado) return;
+    
+    await atualizarPrecificacao.mutateAsync({
+      id: precificacao.id,
+      custo_materia_prima: resultado.custoMateriaPrima,
+      custo_embalagem: resultado.custoEmbalagem,
+      // ... todos os campos recalculados
+      preco_venda: resultado.precoVenda,
+      margem_lucro_percentual: resultado.margemLucroPercentual,
+      margem_lucro_valor: resultado.margemLucroValor,
+    });
+    
+    onClose();
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
+        {/* Cabecalho */}
+        <DialogHeader>
+          <DialogTitle>Editar Precificacao</DialogTitle>
+        </DialogHeader>
+        
+        {/* Informacoes da formula */}
+        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          <div>
+            <p className="font-semibold">{precificacao.formulas?.nome_formula}</p>
+            <p className="text-sm text-muted-foreground">{precificacao.formulas?.cliente}</p>
+          </div>
+          <Badge>{precificacao.formulas?.tipo_produto}</Badge>
+        </div>
+        
+        {/* Campos editaveis */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Custo Materia-Prima (R$)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={custoMP}
+              onChange={(e) => setCustoMP(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Custo Embalagem (R$)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={custoEmbalagem}
+              onChange={(e) => setCustoEmbalagem(e.target.value)}
+            />
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Preco de Venda (R$)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={precoVenda}
+            onChange={(e) => setPrecoVenda(e.target.value)}
+          />
+        </div>
+        
+        {/* Resultado recalculado */}
+        {resultado && (
+          <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Custo Total Producao</p>
+                <p className="font-semibold">R$ {resultado.totalCustosProducao.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Total Impostos</p>
+                <p className="font-semibold">R$ {resultado.totalImpostos.toFixed(2)}</p>
+              </div>
+            </div>
+            
+            {/* Destaque da margem */}
+            <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-500 rounded-lg text-center">
+              <p className="text-sm font-medium text-green-700 mb-2">Margem de Lucro</p>
+              <div className="flex items-center justify-center gap-4">
+                <span className="text-3xl font-bold text-green-600">
+                  {resultado.margemLucroPercentual.toFixed(1)}%
+                </span>
+                <span className="text-xl font-semibold text-green-700">
+                  R$ {resultado.margemLucroValor.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            
+            {/* Validacao */}
+            {validacaoMargem && (
+              <p className={`text-sm font-medium ${validacaoMargem.color}`}>
+                {validacaoMargem.mensagem}
+              </p>
+            )}
+          </div>
+        )}
+        
+        {/* Acoes */}
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSalvar} disabled={!resultado}>
+            <Save className="w-4 h-4 mr-2" />
+            Salvar Alteracoes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 ```
 
 ---
 
-### Configuracao do Lovable AI
+### Fluxo do Usuario
 
-O projeto precisara habilitar o Lovable AI para usar o gateway de IA. Isso sera feito automaticamente ao criar a edge function, e o `LOVABLE_API_KEY` estara disponivel como secret.
-
-**Modelo escolhido:** `google/gemini-2.5-flash`
-- Suporta imagens (multimodal)
-- Rapido e eficiente
-- Bom custo-beneficio para OCR
-
----
-
-### Tratamento de Erros
-
-1. **Imagem muito grande:** Validar tamanho antes de enviar (max 10MB)
-2. **Formato nao suportado:** Aceitar apenas image/jpeg, image/png, image/webp
-3. **Falha na IA:** Mostrar mensagem amigavel e permitir retry
-4. **Timeout:** Configurar timeout adequado (30s)
-5. **Rate limit (429):** Mostrar toast pedindo para aguardar
+1. Usuario vai para "Precificacao Final"
+2. Seleciona uma formula e insere o preco de venda
+3. Clica em "Salvar Precificacao"
+4. Sistema redireciona automaticamente para aba "Precificacoes Salvas"
+5. Usuario ve a lista de todas as precificacoes salvas
+6. Pode clicar em "Editar" em qualquer precificacao
+7. Dialog abre com campos editaveis (preco, custo MP, custo embalagem)
+8. Conforme edita, os calculos sao atualizados em tempo real
+9. Margem aparece sempre em % e R$ de forma destacada
+10. Ao salvar, a precificacao e atualizada no banco
 
 ---
 
-### Passos de Implementacao
+### Campos Editaveis no Dialog
 
-1. Habilitar Lovable AI no projeto (o `LOVABLE_API_KEY` sera provisionado automaticamente)
-2. Criar edge function `extract-dose-from-image`
-3. Atualizar `config.toml` com a nova funcao
-4. Modificar `ImportarDoseDialog.tsx` para adicionar upload de imagem
-5. Testar com diferentes tipos de imagens (foto, screenshot, PDF convertido)
+| Campo | Editavel | Afeta Calculo |
+|-------|----------|---------------|
+| Preco de Venda | Sim | Sim |
+| Custo Materia-Prima | Sim | Sim |
+| Custo Embalagem | Sim | Sim |
+| Custos Indiretos | Nao (usa valores originais) | - |
+| Impostos | Nao (recalculados automaticamente) | - |
+| Margem | Nao (resultado do calculo) | - |
+
+---
+
+### Exibicao da Margem
+
+A margem sera sempre exibida de duas formas:
+1. **Percentual**: 35.2%
+2. **Valor**: R$ 15.84
+
+Em destaque visual com cores:
+- Verde: Margem acima do ideal
+- Amarelo: Margem aceitavel (entre minima e ideal)
+- Vermelho: Margem abaixo da minima
+
+---
+
+### Arquivos a Criar
+
+1. `src/components/PrecificacoesSalvas.tsx` - Componente de listagem
+2. `src/components/EditarPrecificacaoDialog.tsx` - Dialog de edicao
+
+### Arquivos a Modificar
+
+1. `src/pages/Precificacao.tsx` - Adicionar Tabs e redirecionar apos salvar
+2. `src/hooks/usePrecificacao.ts` - Adicionar mutation de atualizacao
 
