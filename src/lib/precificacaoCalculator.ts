@@ -172,7 +172,80 @@ export function calcularPrecificacaoPorMarkup(
 }
 
 /**
- * Valida se a margem está dentro dos limites aceitáveis
+ * Configuração de margens por tipo de produto
+ * Regras atualizadas conforme especificação
+ */
+interface MargemConfig {
+  minima: number;
+  idealInicio: number;
+  idealFim: number;
+}
+
+const MARGENS_CONFIG: Record<string, MargemConfig> = {
+  'Gummy': { minima: 25, idealInicio: 25.01, idealFim: 32 },
+  'Pó': { minima: 18, idealInicio: 20, idealFim: 25 },
+  'Encapsulados': { minima: 15, idealInicio: 18, idealFim: 23 },
+  'Líquido': { minima: 15, idealInicio: 18, idealFim: 23 },
+};
+
+export interface ValidacaoMargemResult {
+  status: 'baixa' | 'aceitavel' | 'ideal' | 'excelente';
+  mensagem: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}
+
+/**
+ * Valida a margem de lucro por tipo de produto com 4 níveis:
+ * - baixa (vermelho): abaixo do mínimo
+ * - aceitavel (amarelo): entre mínimo e início do ideal
+ * - ideal (verde): dentro da faixa ideal
+ * - excelente (dourado): acima do ideal
+ */
+export function validarMargemPorTipo(
+  margemCalculada: number,
+  tipoProduto: string
+): ValidacaoMargemResult {
+  const config = MARGENS_CONFIG[tipoProduto] || MARGENS_CONFIG['Encapsulados'];
+  
+  if (margemCalculada < config.minima) {
+    return {
+      status: 'baixa',
+      mensagem: `⚠️ Margem abaixo do mínimo! Mínimo: ${config.minima}%`,
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-500',
+    };
+  } else if (margemCalculada < config.idealInicio) {
+    return {
+      status: 'aceitavel',
+      mensagem: `Margem aceitável. Ideal: ${config.idealInicio}% a ${config.idealFim}%`,
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-500',
+    };
+  } else if (margemCalculada <= config.idealFim) {
+    return {
+      status: 'ideal',
+      mensagem: `✅ Excelente! Margem ideal atingida!`,
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-500',
+    };
+  } else {
+    return {
+      status: 'excelente',
+      mensagem: 'VOCÊ VAI FAZER A LEMON RICA',
+      color: 'text-amber-600',
+      bgColor: 'gold-shimmer',
+      borderColor: 'border-amber-500',
+    };
+  }
+}
+
+/**
+ * Valida se a margem está dentro dos limites aceitáveis (função legada mantida para compatibilidade)
  */
 export function validarMargem(
   margemCalculada: number,
