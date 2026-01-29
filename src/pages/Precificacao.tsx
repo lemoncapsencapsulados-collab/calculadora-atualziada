@@ -5,7 +5,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Formula } from '@/types/formula';
 import {
   calcularPrecificacaoPorPreco,
-  validarMargem,
+  validarMargemPorTipo,
 } from '@/lib/precificacaoCalculator';
 import { PrecificacaoCalculada } from '@/types/precificacao';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText } from 'lucide-react';
+import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { gerarPropostaPDF } from '@/lib/propostaGenerator';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
@@ -196,9 +196,9 @@ export default function Precificacao() {
     }
   };
 
-  const margemProduto = margens?.find((m) => m.tipo_produto === formulaSelecionada?.tipo_produto);
-  const validacaoMargem = resultado && margemProduto
-    ? validarMargem(resultado.margemLucroPercentual, margemProduto.margem_ideal, margemProduto.margem_minima)
+  // Validação de margem usando a nova função por tipo
+  const validacaoMargem = resultado && formulaSelecionada
+    ? validarMargemPorTipo(resultado.margemLucroPercentual, formulaSelecionada.tipo_produto)
     : null;
 
   // Filtrar fórmulas pelo termo de pesquisa
@@ -624,21 +624,46 @@ export default function Precificacao() {
                         {((resultado.totalImpostos / resultado.precoVenda) * 100).toFixed(1)}%
                       </p>
                     </div>
-                    <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-500 rounded-lg">
-                      <p className="text-sm font-medium text-green-700 mb-2">💰 Margem de Lucro</p>
-                      <p className="text-3xl font-bold text-green-600">{resultado.margemLucroPercentual.toFixed(1)}%</p>
-                      <p className="text-sm font-semibold text-green-700 mt-1">R$ {resultado.margemLucroValor.toFixed(2)}</p>
+                    
+                    {/* Bloco de Margem com cores dinâmicas e celebração */}
+                    <div className={`relative text-center p-6 rounded-lg border-2 overflow-hidden
+                      ${validacaoMargem?.borderColor || 'border-muted'}
+                      ${validacaoMargem?.status === 'excelente' ? 'gold-shimmer' : validacaoMargem?.bgColor || 'bg-muted'}
+                    `}>
+                      {/* Estrelinhas de celebração quando excelente */}
+                      {validacaoMargem?.status === 'excelente' && (
+                        <>
+                          <Sparkles className="absolute top-2 left-2 w-5 h-5 text-amber-400 sparkle" />
+                          <Sparkles className="absolute top-3 right-3 w-4 h-4 text-yellow-400 sparkle sparkle-delay-1" />
+                          <Sparkles className="absolute bottom-3 left-3 w-4 h-4 text-amber-300 sparkle sparkle-delay-2" />
+                          <Star className="absolute bottom-2 right-2 w-5 h-5 text-yellow-500 sparkle sparkle-delay-3" />
+                          <Star className="absolute top-1/2 left-1 w-3 h-3 text-amber-400 sparkle sparkle-delay-4" />
+                        </>
+                      )}
+                      
+                      <p className={`text-sm font-medium mb-2 ${validacaoMargem?.color || 'text-foreground'}`}>
+                        💰 Margem de Lucro
+                      </p>
+                      <p className={`text-3xl font-bold ${validacaoMargem?.color || 'text-foreground'}`}>
+                        {resultado.margemLucroPercentual.toFixed(1)}%
+                      </p>
+                      <p className={`text-sm font-semibold mt-1 ${validacaoMargem?.color || 'text-foreground'}`}>
+                        R$ {resultado.margemLucroValor.toFixed(2)}
+                      </p>
+                      
+                      {/* Mensagem de celebração */}
+                      {validacaoMargem?.status === 'excelente' && (
+                        <p className="mt-3 text-lg font-bold text-amber-700 animate-pulse">
+                          VOCÊ VAI FAZER A LEMON RICA
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {validacaoMargem && (
-                    <div className={`p-4 rounded-lg ${validacaoMargem.status === 'baixa' ? 'bg-red-50' : validacaoMargem.status === 'aceitavel' ? 'bg-yellow-50' : 'bg-green-50'}`}>
+                  {/* Mensagem de validação */}
+                  {validacaoMargem && validacaoMargem.status !== 'excelente' && (
+                    <div className={`p-4 rounded-lg ${validacaoMargem.bgColor}`}>
                       <p className={`font-medium ${validacaoMargem.color}`}>{validacaoMargem.mensagem}</p>
-                      {margemProduto && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Ideal: {margemProduto.margem_ideal}% | Mínima: {margemProduto.margem_minima}%
-                        </p>
-                      )}
                     </div>
                   )}
 

@@ -141,3 +141,58 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Animação de brilho dourado para celebração "LEMON RICA" */
+@keyframes gold-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f59e0b 0%,
+    #fcd34d 25%,
+    #fef3c7 50%,
+    #fcd34d 75%,
+    #f59e0b 100%
+  );
+  background-size: 200% auto;
+  animation: gold-shimmer 3s linear infinite;
+}
+
+/* Animação de estrelinhas */
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(180deg);
+  }
+}
+
+.sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.sparkle-delay-1 {
+  animation-delay: 0.2s;
+}
+
+.sparkle-delay-2 {
+  animation-delay: 0.4s;
+}
+
+.sparkle-delay-3 {
+  animation-delay: 0.6s;
+}
+
+.sparkle-delay-4 {
+  animation-delay: 0.8s;
+}
