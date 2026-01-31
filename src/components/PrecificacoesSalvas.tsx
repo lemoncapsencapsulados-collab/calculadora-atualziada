@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { ConfiguracaoCustos, MargemLucro } from '@/types/precificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
@@ -6,10 +7,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Pencil, Trash2, Calendar, Package, Sparkles } from 'lucide-react';
+import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
+import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,10 +55,12 @@ export default function PrecificacoesSalvas({
   configuracaoAtiva, 
   margens 
 }: PrecificacoesSalvasProps) {
+  const navigate = useNavigate();
   const { precificacoes, isLoading, deletarPrecificacao } = usePrecificacao();
   const [searchTerm, setSearchTerm] = useState('');
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
+  const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
 
   // Filtrar precificações
   const precificacoesFiltradas = (precificacoes as PrecificacaoComFormula[] | undefined)?.filter(p => {
@@ -103,15 +107,21 @@ export default function PrecificacoesSalvas({
 
   return (
     <div className="space-y-6">
-      {/* Campo de Busca */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input 
-          placeholder="Pesquisar por cliente ou fórmula..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Header com Busca e Botão Gerar Orçamento */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Pesquisar por cliente ou fórmula..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Button onClick={() => setShowGerarOrcamento(true)}>
+          <FileText className="w-4 h-4 mr-2" />
+          Gerar Orçamento
+        </Button>
       </div>
 
       {/* Lista de Precificações */}
@@ -231,6 +241,13 @@ export default function PrecificacoesSalvas({
           configuracaoAtiva={configuracaoAtiva}
           margens={margens}
           onClose={() => setEditandoPrecificacao(null)}
+        />
+      )}
+
+      {/* Dialog de Gerar Orçamento */}
+      {showGerarOrcamento && (
+        <GerarOrcamentoDialog
+          onClose={() => setShowGerarOrcamento(false)}
         />
       )}
 

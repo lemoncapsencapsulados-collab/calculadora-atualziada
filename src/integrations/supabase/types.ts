@@ -227,6 +227,54 @@ export type Database = {
         }
         Relationships: []
       }
+      orcamentos: {
+        Row: {
+          created_at: string | null
+          id: string
+          itens_producao: Json
+          nome_cliente: string
+          numero_orcamento: string
+          observacoes: string | null
+          servicos_marca: Json
+          status: string
+          subtotal_producao: number
+          subtotal_servicos: number
+          updated_at: string | null
+          validade_dias: number
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          itens_producao?: Json
+          nome_cliente: string
+          numero_orcamento: string
+          observacoes?: string | null
+          servicos_marca?: Json
+          status?: string
+          subtotal_producao?: number
+          subtotal_servicos?: number
+          updated_at?: string | null
+          validade_dias?: number
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          itens_producao?: Json
+          nome_cliente?: string
+          numero_orcamento?: string
+          observacoes?: string | null
+          servicos_marca?: Json
+          status?: string
+          subtotal_producao?: number
+          subtotal_servicos?: number
+          updated_at?: string | null
+          validade_dias?: number
+          valor_total?: number
+        }
+        Relationships: []
+      }
       pedidos: {
         Row: {
           created_at: string | null
