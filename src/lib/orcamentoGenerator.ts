@@ -24,7 +24,8 @@ function formatCurrency(value: number): string {
   });
 }
 
-export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> {
+// Função interna que cria o documento PDF
+async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -424,7 +425,19 @@ export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> 
     doc.restoreGraphicsState();
   }
 
-  // Salvar PDF
+  return doc;
+}
+
+// Para preview (retorna blob)
+export async function generateOrcamentoPDFBlob(orcamento: Orcamento): Promise<Blob> {
+  const doc = await createOrcamentoPDF(orcamento);
+  return doc.output('blob');
+}
+
+// Para download (salva arquivo)
+export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> {
+  const doc = await createOrcamentoPDF(orcamento);
+  
   const nomeArquivo = orcamento.consultor_responsavel 
     ? `${orcamento.consultor_responsavel.replace(/\s+/g, '-')}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`
     : `${orcamento.numero_orcamento}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`;
