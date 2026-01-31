@@ -23,7 +23,8 @@ import {
   Package, 
   Palette,
   Check,
-  X
+  X,
+  UserCircle
 } from 'lucide-react';
 
 interface GerarOrcamentoDialogProps {
@@ -43,6 +44,7 @@ export default function GerarOrcamentoDialog({
   
   // Step 1: Informações básicas
   const [nomeCliente, setNomeCliente] = useState('');
+  const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
   const [observacoes, setObservacoes] = useState('');
   
@@ -62,6 +64,7 @@ export default function GerarOrcamentoDialog({
   useEffect(() => {
     if (orcamentoExistente) {
       setNomeCliente(orcamentoExistente.nome_cliente);
+      setConsultorResponsavel(orcamentoExistente.consultor_responsavel || '');
       setValidadeDias(orcamentoExistente.validade_dias);
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
@@ -160,6 +163,7 @@ export default function GerarOrcamentoDialog({
           id: orcamentoExistente.id,
           updates: {
             nome_cliente: nomeCliente,
+            consultor_responsavel: consultorResponsavel,
             validade_dias: validadeDias,
             observacoes,
             itens_producao: itensProducao,
@@ -174,6 +178,7 @@ export default function GerarOrcamentoDialog({
         const novoOrcamento: OrcamentoInsert = {
           numero_orcamento: numeroOrcamento,
           nome_cliente: nomeCliente,
+          consultor_responsavel: consultorResponsavel,
           validade_dias: validadeDias,
           observacoes,
           itens_producao: itensProducao,
@@ -196,7 +201,7 @@ export default function GerarOrcamentoDialog({
   };
 
   const canGoNext = () => {
-    if (step === 1) return nomeCliente.trim().length > 0;
+    if (step === 1) return nomeCliente.trim().length > 0 && consultorResponsavel.trim().length > 0;
     return true;
   };
 
@@ -218,6 +223,19 @@ export default function GerarOrcamentoDialog({
           {/* STEP 1: Informações Básicas */}
           {step === 1 && (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="consultor" className="flex items-center gap-2">
+                  <UserCircle className="w-4 h-4" />
+                  Consultor Responsável *
+                </Label>
+                <Input
+                  id="consultor"
+                  value={consultorResponsavel}
+                  onChange={(e) => setConsultorResponsavel(e.target.value)}
+                  placeholder="Nome do consultor responsável"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="cliente">Nome do Cliente *</Label>
                 <Input
@@ -580,9 +598,15 @@ export default function GerarOrcamentoDialog({
               
               <Card>
                 <CardContent className="p-4 space-y-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Cliente</p>
-                    <p className="font-semibold text-lg">{nomeCliente}</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Consultor Responsável</p>
+                      <p className="font-semibold">{consultorResponsavel}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Cliente</p>
+                      <p className="font-semibold">{nomeCliente}</p>
+                    </div>
                   </div>
 
                   {itensProducao.length > 0 && (

@@ -229,7 +229,10 @@ export type Database = {
       }
       orcamentos: {
         Row: {
+          consultor_responsavel: string | null
           created_at: string | null
+          dados_cliente: Json | null
+          detalhamento_frete: Json | null
           id: string
           itens_producao: Json
           nome_cliente: string
@@ -244,7 +247,10 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          consultor_responsavel?: string | null
           created_at?: string | null
+          dados_cliente?: Json | null
+          detalhamento_frete?: Json | null
           id?: string
           itens_producao?: Json
           nome_cliente: string
@@ -259,7 +265,10 @@ export type Database = {
           valor_total?: number
         }
         Update: {
+          consultor_responsavel?: string | null
           created_at?: string | null
+          dados_cliente?: Json | null
+          detalhamento_frete?: Json | null
           id?: string
           itens_producao?: Json
           nome_cliente?: string

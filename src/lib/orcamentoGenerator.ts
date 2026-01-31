@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Orcamento } from '@/types/orcamento';
+import { Orcamento, TABELA_FRETE, TipoProdutoFrete } from '@/types/orcamento';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -68,35 +68,85 @@ export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> 
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('ORÇAMENTO COMERCIAL', pageWidth - margin, 22, { align: 'right' });
+  doc.text('ORÇAMENTO COMERCIAL', pageWidth - margin, 18, { align: 'right' });
 
-  // Número e Data
+  // Consultor e Data
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(orcamento.numero_orcamento, pageWidth - margin, 32, { align: 'right' });
+  if (orcamento.consultor_responsavel) {
+    doc.text(`Consultor: ${orcamento.consultor_responsavel}`, pageWidth - margin, 28, { align: 'right' });
+  }
+  doc.text(orcamento.numero_orcamento, pageWidth - margin, 36, { align: 'right' });
   doc.text(
     format(new Date(orcamento.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }),
     pageWidth - margin, 
-    40, 
+    44, 
     { align: 'right' }
   );
 
-  yPos = 60;
+  yPos = 58;
 
-  // ========== INFORMAÇÕES DO CLIENTE ==========
-  doc.setFillColor(...COLORS.lightGray);
-  doc.rect(margin, yPos, pageWidth - 2 * margin, 18, 'F');
+  // ========== DADOS DO CLIENTE ==========
+  const dadosCliente = orcamento.dados_cliente;
+  const hasClienteData = dadosCliente && (
+    dadosCliente.nome_completo || dadosCliente.email || dadosCliente.telefone || 
+    dadosCliente.cpf || dadosCliente.cnpj || dadosCliente.razao_social
+  );
 
-  doc.setTextColor(...COLORS.textDark);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('CLIENTE:', margin + 5, yPos + 8);
-  
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text(orcamento.nome_cliente, margin + 5, yPos + 15);
+  if (hasClienteData) {
+    // Título da seção
+    doc.setFillColor(...COLORS.mediumGreen);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+    doc.setTextColor(...COLORS.lemonYellow);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DADOS DO CLIENTE', margin + 5, yPos + 5.5);
+    yPos += 12;
 
-  yPos += 28;
+    doc.setTextColor(...COLORS.textDark);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    const clienteInfo: string[] = [];
+    if (dadosCliente.nome_completo) clienteInfo.push(`Nome: ${dadosCliente.nome_completo}`);
+    if (dadosCliente.email || dadosCliente.telefone) {
+      const contato = [dadosCliente.email, dadosCliente.telefone].filter(Boolean).join(' | Tel: ');
+      clienteInfo.push(`Email: ${contato}`);
+    }
+    if (dadosCliente.cpf) clienteInfo.push(`CPF: ${dadosCliente.cpf}`);
+    if (dadosCliente.cnpj) clienteInfo.push(`CNPJ: ${dadosCliente.cnpj}`);
+    if (dadosCliente.razao_social) clienteInfo.push(`Razão Social: ${dadosCliente.razao_social}`);
+    if (dadosCliente.endereco_cnpj) {
+      const endereco = [
+        dadosCliente.endereco_cnpj,
+        dadosCliente.cidade && dadosCliente.estado ? `${dadosCliente.cidade}/${dadosCliente.estado}` : null
+      ].filter(Boolean).join(' - ');
+      clienteInfo.push(`Endereço: ${endereco}`);
+    }
+    if (dadosCliente.cep_cnpj) clienteInfo.push(`CEP: ${dadosCliente.cep_cnpj}`);
+
+    clienteInfo.forEach(info => {
+      doc.text(info, margin + 5, yPos);
+      yPos += 5;
+    });
+
+    yPos += 5;
+  } else {
+    // Apenas nome do cliente
+    doc.setFillColor(...COLORS.lightGray);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 18, 'F');
+
+    doc.setTextColor(...COLORS.textDark);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('CLIENTE:', margin + 5, yPos + 8);
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(orcamento.nome_cliente, margin + 5, yPos + 15);
+
+    yPos += 25;
+  }
 
   // ========== SEÇÃO: CUSTOS DE PRODUÇÃO ==========
   if (orcamento.itens_producao && orcamento.itens_producao.length > 0) {
@@ -214,6 +264,40 @@ export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> 
     yPos = (doc as any).lastAutoTable.finalY + 10;
   }
 
+  // ========== SEÇÃO: DETALHAMENTO DE FRETE ==========
+  const frete = orcamento.detalhamento_frete;
+  if (frete && (frete.frete_lemon_caps !== undefined || (frete.planos_customizados && frete.planos_customizados.length > 0))) {
+    // Título da seção
+    doc.setFillColor(...COLORS.mediumGreen);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+    doc.setTextColor(...COLORS.lemonYellow);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DETALHAMENTO DE FRETE', margin + 5, yPos + 5.5);
+    yPos += 12;
+
+    doc.setTextColor(...COLORS.textDark);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    doc.text(`Frete via Lemon Caps: ${frete.frete_lemon_caps ? 'SIM' : 'NÃO'}`, margin + 5, yPos);
+    yPos += 5;
+
+    if (frete.frete_lemon_caps && frete.usa_tabela_tradicional) {
+      doc.text('Tabela Aplicada: Tradicional (valores padrão)', margin + 5, yPos);
+      yPos += 8;
+    } else if (frete.planos_customizados && frete.planos_customizados.length > 0) {
+      doc.text('Planos Personalizados:', margin + 5, yPos);
+      yPos += 5;
+
+      frete.planos_customizados.forEach(plano => {
+        doc.text(`• ${plano.tipo_produto} - ${plano.plano}: ${formatCurrency(plano.valor)}`, margin + 10, yPos);
+        yPos += 4;
+      });
+      yPos += 4;
+    }
+  }
+
   // ========== VALOR TOTAL ==========
   yPos += 5;
   
@@ -310,5 +394,9 @@ export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> 
   }
 
   // Salvar PDF
-  doc.save(`${orcamento.numero_orcamento}-${orcamento.nome_cliente.replace(/\s+/g, '-')}.pdf`);
+  const nomeArquivo = orcamento.consultor_responsavel 
+    ? `${orcamento.consultor_responsavel.replace(/\s+/g, '-')}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`
+    : `${orcamento.numero_orcamento}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`;
+  
+  doc.save(`${nomeArquivo}.pdf`);
 }
