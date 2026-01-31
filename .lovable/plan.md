@@ -1,420 +1,335 @@
 
-## Plano: Sistema Completo de Geracao de Orcamentos
+
+## Plano: Melhorias no Sistema de Orcamentos
 
 ### Objetivo
-Criar um sistema completo de geracao de orcamentos que permite:
-1. Selecionar multiplas precificacoes salvas para um mesmo cliente
-2. Adicionar produtos avulsos (sem precificacao salva)
-3. Incluir servicos de Criacao de Marca Propria (planos customizaveis)
-4. Salvar, editar e baixar orcamentos em PDF com identidade visual Lemon Caps
+Adicionar ao sistema de orcamentos:
+1. Campo de consultor responsavel (substitui numero do orcamento na exibicao)
+2. Destaque verde para orcamentos aprovados
+3. Popup "Informacoes do Cliente" com preenchimento automatico via CNPJ
+4. Popup "Detalhamento de Frete" com tabelas de precos e opcoes customizadas
+5. Inclusao dessas informacoes no PDF final
 
 ---
 
-### Estrutura do Orcamento
+### 1. Alteracoes no Banco de Dados
 
-```text
-+--------------------------------------------------+
-|              ORCAMENTO LEMON CAPS                |
-+--------------------------------------------------+
-|                                                  |
-|  CLIENTE: [Nome do Cliente]                      |
-|                                                  |
-|  ================================================|
-|  CUSTOS DE PRODUCAO                              |
-|  ================================================|
-|  1. Vitamina C 500mg (Encapsulados)  R$ 45,00    |
-|  2. Omega 3 (Gummy)                  R$ 38,00    |
-|  3. Produto Avulso XYZ               R$ 25,00    |
-|  ------------------------------------------------|
-|  Subtotal Producao:                  R$ 108,00   |
-|                                                  |
-|  ================================================|
-|  SERVICO DE CRIACAO DE MARCA PROPRIA             |
-|  ================================================|
-|  • Plano Premium                     R$ 5.000,00 |
-|  • Design de Rotulagem               R$ 1.500,00 |
-|  ------------------------------------------------|
-|  Subtotal Servicos:                  R$ 6.500,00 |
-|                                                  |
-|  ================================================|
-|  TOTAL DO ORCAMENTO:                R$ 6.608,00  |
-|  ================================================|
-+--------------------------------------------------+
+Adicionar novas colunas na tabela `orcamentos`:
+
+```sql
+ALTER TABLE orcamentos ADD COLUMN consultor_responsavel TEXT;
+ALTER TABLE orcamentos ADD COLUMN dados_cliente JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE orcamentos ADD COLUMN detalhamento_frete JSONB DEFAULT '{}'::jsonb;
 ```
 
----
-
-### Nova Tabela no Banco de Dados
-
-Tabela: `orcamentos`
-
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid | PK |
-| nome_cliente | text | Nome do cliente do orcamento |
-| numero_orcamento | text | Numero sequencial (ORC-001) |
-| itens_producao | jsonb | Array de produtos (precificacoes + avulsos) |
-| servicos_marca | jsonb | Array de planos/servicos de criacao de marca |
-| subtotal_producao | numeric | Soma dos custos de producao |
-| subtotal_servicos | numeric | Soma dos servicos de marca |
-| valor_total | numeric | Total geral do orcamento |
-| observacoes | text | Observacoes gerais |
-| validade_dias | integer | Dias de validade (default 30) |
-| status | text | rascunho, enviado, aprovado, recusado |
-| created_at | timestamp | Data de criacao |
-| updated_at | timestamp | Data de atualizacao |
-
-Estrutura JSONB de `itens_producao`:
+Estrutura de `dados_cliente`:
 ```json
-[
-  {
-    "tipo": "precificacao",
-    "precificacao_id": "uuid",
-    "nome_produto": "Vitamina C 500mg",
-    "segmento": "Encapsulados",
-    "preco_unitario": 45.00,
-    "quantidade": 100,
-    "subtotal": 4500.00
-  },
-  {
-    "tipo": "avulso",
-    "nome_produto": "Produto XYZ",
-    "segmento": "Gummy",
-    "preco_unitario": 25.00,
-    "quantidade": 50,
-    "subtotal": 1250.00
-  }
-]
+{
+  "nome_completo": "Joao da Silva",
+  "email": "joao@empresa.com",
+  "telefone": "11999998888",
+  "cpf": "123.456.789-00",
+  "cnpj": "12.345.678/0001-00",
+  "razao_social": "Empresa LTDA",
+  "endereco_cnpj": "Rua ABC, 123",
+  "cep_cnpj": "01234-000",
+  "cidade": "Sao Paulo",
+  "estado": "SP"
+}
 ```
 
-Estrutura JSONB de `servicos_marca`:
+Estrutura de `detalhamento_frete`:
 ```json
-[
-  {
-    "nome_plano": "Plano Premium",
-    "descricao": "Desenvolvimento completo de marca",
-    "valor": 5000.00
-  }
-]
+{
+  "frete_lemon_caps": true,
+  "usa_tabela_tradicional": true,
+  "planos_customizados": [
+    {
+      "tipo_produto": "Soluvel",
+      "plano": "2 POTES",
+      "valor": 56.00
+    }
+  ]
+}
 ```
 
 ---
 
-### Arquivos a Criar
+### 2. Tabelas de Frete Padrao (Constantes no Codigo)
+
+```typescript
+const TABELA_FRETE = {
+  'Encapsulados': [
+    { plano: 'Ate 5 POTES', valor: 34.80 },
+    { plano: '6 a 9 POTES', valor: 47.60 },
+    { plano: '10 a 12 POTES', valor: 54.60 },
+    { plano: '12+ POTES', valor: null, customizado: true }
+  ],
+  'Liquido': [
+    { plano: 'Ate 5 POTES', valor: 34.80 },
+    { plano: '6 a 9 POTES', valor: 47.60 },
+    { plano: '10 a 12 POTES', valor: 54.60 },
+    { plano: '12+ POTES', valor: null, customizado: true }
+  ],
+  'Po': [
+    { plano: '1 POTE', valor: 48.50 },
+    { plano: '2 POTES', valor: 51.50 },
+    { plano: '3 a 5 POTES', valor: 54.40 },
+    { plano: '6 a 7 POTES', valor: 62.90 },
+    { plano: '8 a 10 POTES', valor: 65.90 },
+    { plano: '10+ POTES', valor: null, customizado: true }
+  ],
+  'Gummy': [
+    { plano: '1 POTE', valor: 48.70 },
+    { plano: '2 a 3 POTES', valor: 50.20 },
+    { plano: '4 a 7 POTES', valor: 54.50 },
+    { plano: '8 a 10 POTES', valor: 63.40 },
+    { plano: '10 a 12 POTES', valor: 67.10 },
+    { plano: '12+ POTES', valor: null, customizado: true }
+  ]
+};
+```
+
+---
+
+### 3. Novos Componentes a Criar
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/pages/Orcamentos.tsx` | Pagina principal de orcamentos gerados |
-| `src/components/GerarOrcamentoDialog.tsx` | Dialog para criar/editar orcamento |
-| `src/components/SelecionarPrecificacoesDialog.tsx` | Dialog para selecionar precificacoes |
-| `src/components/AdicionarProdutoAvulsoDialog.tsx` | Dialog para adicionar produto manual |
-| `src/components/AdicionarServicoMarcaDialog.tsx` | Dialog para adicionar servico de marca |
-| `src/hooks/useOrcamentos.ts` | Hook para CRUD de orcamentos |
-| `src/lib/orcamentoGenerator.ts` | Gerador de PDF do orcamento |
-| `src/types/orcamento.ts` | Tipos TypeScript |
+| `src/components/InformacoesClienteDialog.tsx` | Popup para dados do cliente com consulta CNPJ |
+| `src/components/DetalhamentoFreteDialog.tsx` | Popup para configurar frete |
 
-### Arquivos a Modificar
+---
+
+### 4. Arquivos a Modificar
 
 | Arquivo | Modificacao |
 |---------|-------------|
-| `src/components/PrecificacoesSalvas.tsx` | Adicionar botao "Gerar Orcamento" |
-| `src/components/Navigation.tsx` | Adicionar link para "Orcamentos Gerados" |
-| `src/App.tsx` | Adicionar rota /orcamentos |
+| `src/types/orcamento.ts` | Adicionar tipos para DadosCliente e DetalhamentoFrete |
+| `src/hooks/useOrcamentos.ts` | Incluir novos campos nas operacoes CRUD |
+| `src/pages/Orcamentos.tsx` | Destaque verde, botoes de cliente/frete, mostrar consultor |
+| `src/components/GerarOrcamentoDialog.tsx` | Adicionar campo de consultor no passo 1 |
+| `src/lib/orcamentoGenerator.ts` | Adicionar secoes de cliente e frete no PDF |
 
 ---
 
-### Fluxo da Interface
+### 5. Fluxo da Interface
 
-#### 1. Botao "Gerar Orcamento" em Precificacoes Salvas
+#### Card do Orcamento (Aprovado = Verde)
 
 ```text
 +--------------------------------------------------+
-|  [Pesquisar...]                                  |
-|                   [+ Gerar Orcamento]  <-- NOVO  |
-+--------------------------------------------------+
-|  Card Precificacao 1...                          |
-|  Card Precificacao 2...                          |
+|  ██████ FUNDO VERDE DESTAQUE ████████████████████ |
+|                                                   |
+|  Consultor: Maria Silva        [Aprovado] ✓       |
+|  Cliente: Farmacia ABC                            |
+|  31/01/2025 | 3 produtos | 2 servicos             |
+|  TOTAL: R$ 15.400,00                              |
+|                                                   |
+|  [Info Cliente] [Frete] [Editar] [PDF] [Excluir]  |
 +--------------------------------------------------+
 ```
 
-#### 2. Dialog de Geracao de Orcamento (Passo a Passo)
+#### Popup "Informacoes do Cliente"
 
-**Passo 1: Informacoes Basicas**
 ```text
 +--------------------------------------------------+
-|        GERAR ORCAMENTO - Passo 1 de 4            |
+|        INFORMACOES DO CLIENTE                    |
 +--------------------------------------------------+
 |                                                  |
-|  Nome do Cliente: [_____________________]        |
+|  Nome Completo: [_________________________]      |
+|  Email:         [_________________________]      |
+|  Telefone:      [_________________________]      |
+|  CPF:           [_________________________]      |
 |                                                  |
-|  Validade (dias):  [30]                          |
+|  CNPJ:          [_____________] [Buscar]         |
+|  (Preenchimento automatico apos busca CNPJ)      |
 |                                                  |
-|  Observacoes:                                    |
-|  [______________________________________]        |
-|  [______________________________________]        |
+|  Razao Social:  [_________________________]      |
+|  Endereco:      [_________________________]      |
+|  CEP:           [_____________]                  |
+|  Cidade/Estado: [____________] [__]              |
 |                                                  |
-|              [Cancelar]  [Proximo ->]            |
+|              [Cancelar]  [Salvar]                |
 +--------------------------------------------------+
 ```
 
-**Passo 2: Selecionar Produtos de Producao**
-```text
-+--------------------------------------------------+
-|        GERAR ORCAMENTO - Passo 2 de 4            |
-+--------------------------------------------------+
-|  CUSTOS DE PRODUCAO                              |
-|                                                  |
-|  [+ Adicionar Precificacao Salva]                |
-|  [+ Adicionar Produto Avulso]                    |
-|                                                  |
-|  +--------------------------------------------+  |
-|  | [X] Vitamina C 500mg    Encaps.   R$ 45,00 |  |
-|  |     Qtd: [100]          Sub: R$ 4.500,00   |  |
-|  +--------------------------------------------+  |
-|  | [X] Omega 3 Gummy       Gummy     R$ 38,00 |  |
-|  |     Qtd: [50]           Sub: R$ 1.900,00   |  |
-|  +--------------------------------------------+  |
-|  | [X] Produto Avulso      Custom    R$ 25,00 |  |
-|  |     Qtd: [100]          Sub: R$ 2.500,00   |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|  SUBTOTAL PRODUCAO:              R$ 8.900,00     |
-|                                                  |
-|         [<- Voltar]  [Proximo ->]                |
-+--------------------------------------------------+
-```
+#### Popup "Detalhamento de Frete"
 
-**Passo 3: Servicos de Criacao de Marca (Opcional)**
 ```text
 +--------------------------------------------------+
-|        GERAR ORCAMENTO - Passo 3 de 4            |
+|        DETALHAMENTO DE FRETE                     |
 +--------------------------------------------------+
-|  SERVICO DE CRIACAO DE MARCA PROPRIA             |
 |                                                  |
-|  [+ Adicionar Plano/Servico]                     |
+|  Frete com a Lemon Caps fazendo direto           |
+|  para o cliente final do produtor?               |
 |                                                  |
+|  ( ) Sim    ( ) Nao                              |
+|                                                  |
+|  [SE SIM]:                                       |
+|  Usar tabela tradicional de envio?               |
+|  (X) Sim - Tabela padrao aplicada                |
+|  ( ) Nao - Definir valores personalizados        |
+|                                                  |
+|  [SE NAO OU VALORES PERSONALIZADOS]:             |
 |  +--------------------------------------------+  |
-|  | Nome: [Plano Premium____________]           |  |
-|  | Descricao: [Desenvolvimento de marca...]    |  |
-|  | Valor: R$ [5.000,00]                        |  |
-|  | [Remover]                                   |  |
-|  +--------------------------------------------+  |
-|  +--------------------------------------------+  |
-|  | Nome: [Design de Rotulagem______]           |  |
-|  | Valor: R$ [1.500,00]                        |  |
-|  | [Remover]                                   |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|  SUBTOTAL SERVICOS:              R$ 6.500,00     |
-|                                                  |
-|         [<- Voltar]  [Proximo ->]                |
-+--------------------------------------------------+
-```
-
-**Passo 4: Resumo e Confirmacao**
-```text
-+--------------------------------------------------+
-|        GERAR ORCAMENTO - Passo 4 de 4            |
-+--------------------------------------------------+
-|  RESUMO DO ORCAMENTO                             |
-|                                                  |
-|  Cliente: Farmacia ABC                           |
-|                                                  |
-|  PRODUCAO:                                       |
-|  • Vitamina C 500mg (100un)      R$ 4.500,00     |
-|  • Omega 3 Gummy (50un)          R$ 1.900,00     |
-|  • Produto Avulso (100un)        R$ 2.500,00     |
-|  Subtotal:                       R$ 8.900,00     |
-|                                                  |
-|  SERVICOS DE MARCA:                              |
-|  • Plano Premium                 R$ 5.000,00     |
-|  • Design de Rotulagem           R$ 1.500,00     |
-|  Subtotal:                       R$ 6.500,00     |
-|                                                  |
-|  +--------------------------------------------+  |
-|  |    VALOR TOTAL DO ORCAMENTO               |  |
-|  |              R$ 15.400,00                  |  |
+|  | Tipo Produto  | Plano        | Valor       |  |
+|  |---------------|--------------|-------------|  |
+|  | [Soluvel v]   | [2 POTES v]  | R$ [56,00]  |  |
+|  | [+ Adicionar Plano]                        |  |
 |  +--------------------------------------------+  |
 |                                                  |
-|     [<- Voltar]  [Salvar Orcamento]              |
+|              [Cancelar]  [Salvar]                |
 +--------------------------------------------------+
 ```
 
 ---
 
-### Subpagina de Orcamentos Gerados
+### 6. Consulta Automatica de CNPJ
 
-Nova rota: `/orcamentos`
+Usar API gratuita BrasilAPI para consultar CNPJ:
 
-```text
-+--------------------------------------------------+
-|  ORCAMENTOS GERADOS                              |
-|  [Pesquisar por cliente...]                      |
-+--------------------------------------------------+
-|                                                  |
-|  +--------------------------------------------+  |
-|  | ORC-001 | Farmacia ABC     | 15/01/2025    |  |
-|  | 3 produtos + 2 servicos                    |  |
-|  | TOTAL: R$ 15.400,00                        |  |
-|  | Status: [Rascunho]                         |  |
-|  |                                            |  |
-|  | [Editar] [Baixar PDF] [Excluir]            |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|  +--------------------------------------------+  |
-|  | ORC-002 | Lab XYZ          | 14/01/2025    |  |
-|  | 1 produto + 1 servico                      |  |
-|  | TOTAL: R$ 8.500,00                         |  |
-|  | Status: [Enviado]                          |  |
-|  |                                            |  |
-|  | [Editar] [Baixar PDF] [Excluir]            |  |
-|  +--------------------------------------------+  |
-+--------------------------------------------------+
+```typescript
+async function consultarCNPJ(cnpj: string) {
+  const cnpjLimpo = cnpj.replace(/\D/g, '');
+  const response = await fetch(
+    `https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`
+  );
+  if (!response.ok) throw new Error('CNPJ nao encontrado');
+  return await response.json();
+}
+
+// Retorno da API:
+// razao_social, nome_fantasia, logradouro, numero, complemento,
+// bairro, municipio, uf, cep, email, telefone
 ```
+
+Campos preenchidos automaticamente apos busca:
+- Razao Social
+- Endereco completo (logradouro + numero + complemento + bairro)
+- CEP
+- Cidade
+- Estado
 
 ---
 
-### Design do PDF
+### 7. Atualizacao do PDF
 
-Identidade Visual Lemon Caps:
-- **Cores Principais**: 
-  - Verde Escuro (fundo): #181A00, #2E3003
-  - Amarelo Limao: #CAD400, #F2FF00
-- **Logo**: Usar a logo com o limao (copiar para public/images/logo-lemoncaps.jpg)
-- **Tipografia**: Sans-serif moderna (Helvetica no PDF)
-- **Estilo**: Minimalista, limpo, profissional
-
-Estrutura do PDF A4:
+Nova estrutura do PDF incluindo:
 
 ```text
 +--------------------------------------------------+
-|  ██████████████████████████████████████████████  |
-|  ██  [LOGO LEMON CAPS]                       ██  |
-|  ██  ORCAMENTO COMERCIAL                     ██  |
-|  ██  Data: 31/01/2025      ORC-001           ██  |
-|  ██████████████████████████████████████████████  |
+|  ██████████████ LEMON CAPS ██████████████████████ |
+|  ORCAMENTO COMERCIAL                              |
+|  Consultor: Maria Silva        31/01/2025         |
++--------------------------------------------------+
 |                                                  |
-|  CLIENTE: Farmacia ABC                           |
+|  ================================================|
+|  DADOS DO CLIENTE                                |
+|  ================================================|
+|  Nome: Joao da Silva                             |
+|  Email: joao@empresa.com | Tel: (11) 99999-8888  |
+|  CPF: 123.456.789-00                             |
+|  CNPJ: 12.345.678/0001-00                        |
+|  Endereco: Rua ABC, 123 - Sao Paulo/SP           |
+|  CEP: 01234-000                                  |
 |                                                  |
 |  ================================================|
 |  CUSTOS DE PRODUCAO                              |
 |  ================================================|
-|  +-------+-------------------+-----+------------+|
-|  | Item  | Produto           | Qtd | Valor      ||
-|  +-------+-------------------+-----+------------+|
-|  | 1     | Vitamina C 500mg  | 100 | R$ 4.500,00||
-|  | 2     | Omega 3 Gummy     | 50  | R$ 1.900,00||
-|  +-------+-------------------+-----+------------+|
-|  | SUBTOTAL PRODUCAO              | R$ 6.400,00 ||
-|  +---------------------------------------------|+|
+|  ... (tabela de produtos) ...                    |
 |                                                  |
 |  ================================================|
-|  SERVICO DE CRIACAO DE MARCA PROPRIA             |
+|  SERVICOS DE MARCA                               |
 |  ================================================|
-|  +-----------------------------------+----------+|
-|  | Plano Premium                     | R$ 5.000 ||
-|  | Design de Rotulagem               | R$ 1.500 ||
-|  +-----------------------------------+----------+|
-|  | SUBTOTAL SERVICOS                 | R$ 6.500 ||
-|  +----------------------------------------------+|
+|  ... (tabela de servicos) ...                    |
 |                                                  |
-|  ██████████████████████████████████████████████  |
-|  ██  VALOR TOTAL DO ORCAMENTO:   R$ 12.900,00 ██ |
-|  ██████████████████████████████████████████████  |
+|  ================================================|
+|  DETALHAMENTO DE FRETE                           |
+|  ================================================|
+|  Frete via Lemon Caps: SIM                       |
+|  Tabela Aplicada: Tradicional                    |
+|  OU                                              |
+|  Planos Personalizados:                          |
+|  • Soluvel - 2 POTES: R$ 56,00                   |
+|  • Liquido - Ate 5 POTES: R$ 36,00               |
 |                                                  |
-|  Validade: 30 dias a partir da emissao           |
-|  ________________________________________________|
-|  LEMON CAPS - www.lemoncaps.com.br               |
+|  ================================================|
+|  VALOR TOTAL: R$ 15.400,00                       |
+|  ================================================|
 +--------------------------------------------------+
 ```
 
 ---
 
-### Detalhes Tecnicos
+### 8. Tipos TypeScript Atualizados
 
-#### Hook useOrcamentos.ts
 ```typescript
-export function useOrcamentos() {
-  // listar todos os orcamentos
-  // buscar orcamento por ID
-  // criar orcamento
-  // atualizar orcamento
-  // deletar orcamento
-  // atualizar status
-}
-```
+// src/types/orcamento.ts
 
-#### Tipos TypeScript (orcamento.ts)
-```typescript
-interface ItemProducao {
-  tipo: 'precificacao' | 'avulso';
-  precificacao_id?: string;
-  nome_produto: string;
-  segmento: string;
-  preco_unitario: number;
-  quantidade: number;
-  subtotal: number;
+export interface DadosCliente {
+  nome_completo?: string;
+  email?: string;
+  telefone?: string;
+  cpf?: string;
+  cnpj?: string;
+  razao_social?: string;
+  endereco_cnpj?: string;
+  cep_cnpj?: string;
+  cidade?: string;
+  estado?: string;
 }
 
-interface ServicoMarca {
-  nome_plano: string;
-  descricao?: string;
+export interface PlanoFreteCustomizado {
+  tipo_produto: string;
+  plano: string;
   valor: number;
 }
 
-interface Orcamento {
-  id: string;
-  numero_orcamento: string;
-  nome_cliente: string;
-  itens_producao: ItemProducao[];
-  servicos_marca: ServicoMarca[];
-  subtotal_producao: number;
-  subtotal_servicos: number;
-  valor_total: number;
-  observacoes?: string;
-  validade_dias: number;
-  status: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
-  created_at: string;
-  updated_at: string;
+export interface DetalhamentoFrete {
+  frete_lemon_caps: boolean;
+  usa_tabela_tradicional: boolean;
+  planos_customizados: PlanoFreteCustomizado[];
+}
+
+export interface Orcamento {
+  // ... campos existentes ...
+  consultor_responsavel?: string;
+  dados_cliente?: DadosCliente;
+  detalhamento_frete?: DetalhamentoFrete;
 }
 ```
 
 ---
 
-### Sequencia de Implementacao
+### 9. Sequencia de Implementacao
 
-1. **Criar tabela no banco** - Migration SQL
-2. **Copiar logos para public/** - Usar lov-copy
-3. **Criar tipos TypeScript** - src/types/orcamento.ts
-4. **Criar hook de orcamentos** - src/hooks/useOrcamentos.ts
-5. **Criar pagina de orcamentos** - src/pages/Orcamentos.tsx
-6. **Criar dialog de geracao** - src/components/GerarOrcamentoDialog.tsx
-7. **Criar gerador de PDF** - src/lib/orcamentoGenerator.ts
-8. **Atualizar navegacao** - Navigation.tsx + App.tsx
-9. **Adicionar botao em PrecificacoesSalvas** - Integrar fluxo
-
----
-
-### RLS Policies
-
-A tabela `orcamentos` tera politicas permissivas (mesmo padrao do projeto):
-- SELECT: true
-- INSERT: true
-- UPDATE: true
-- DELETE: true
+1. **Migration SQL** - Adicionar colunas ao banco
+2. **Atualizar tipos** - `src/types/orcamento.ts`
+3. **Atualizar hook** - `src/hooks/useOrcamentos.ts`
+4. **Criar InformacoesClienteDialog** - Popup com consulta CNPJ
+5. **Criar DetalhamentoFreteDialog** - Popup com tabelas de frete
+6. **Atualizar GerarOrcamentoDialog** - Campo de consultor
+7. **Atualizar Orcamentos.tsx** - Botoes, destaque verde, exibir consultor
+8. **Atualizar orcamentoGenerator.ts** - Incluir novas secoes no PDF
 
 ---
 
-### Resumo
+### Resumo Visual das Mudancas
 
-Este sistema permite ao vendedor:
-1. Clicar em "Gerar Orcamento" na aba de Precificacoes Salvas
-2. Preencher nome do cliente
-3. Selecionar uma ou mais precificacoes existentes (com quantidade)
-4. Adicionar produtos avulsos manualmente
-5. Adicionar servicos de Criacao de Marca Propria (planos customizaveis)
-6. Ver o valor total (Producao + Servicos)
-7. Salvar o orcamento no banco
-8. Ver lista de orcamentos em "/orcamentos"
-9. Editar orcamentos existentes
-10. Baixar PDF profissional com identidade Lemon Caps
+```text
+ANTES:
++------------------+
+| ORC-001          |  <- Numero do orcamento
+| Cliente: ABC     |
+| [Editar] [PDF]   |
++------------------+
+
+DEPOIS:
++------------------+    VERDE SE APROVADO
+| Maria Silva      |  <- Nome do consultor
+| Cliente: ABC     |
+| [Info] [Frete] [Editar] [PDF]  <- Novos botoes
++------------------+
+```
+
