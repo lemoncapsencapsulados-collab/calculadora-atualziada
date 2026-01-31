@@ -25,8 +25,11 @@ import {
   Palette,
   Check,
   X,
-  UserCircle
+  UserCircle,
+  User,
+  Truck
 } from 'lucide-react';
+import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
@@ -60,6 +63,12 @@ export default function GerarOrcamentoDialog({
   const [servicosMarca, setServicosMarca] = useState<ServicoMarca[]>([]);
   const [novoServico, setNovoServico] = useState({ nome: '', descricao: '', valor: 0 });
   const [showServicoForm, setShowServicoForm] = useState(false);
+
+  // Step 4: Dados opcionais (cliente e frete)
+  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
+  const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
+  const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
+  const [showFreteInline, setShowFreteInline] = useState(false);
 
   // Carregar dados se editando
   useEffect(() => {
@@ -181,6 +190,9 @@ export default function GerarOrcamentoDialog({
     setIsSubmitting(true);
     
     try {
+      // Verificar se há dados de cliente preenchidos
+      const hasDadosCliente = Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '');
+      
       if (orcamentoExistente) {
         await updateOrcamento.mutateAsync({
           id: orcamentoExistente.id,
@@ -194,6 +206,8 @@ export default function GerarOrcamentoDialog({
             subtotal_producao: subtotalProducao,
             subtotal_servicos: subtotalServicos,
             valor_total: valorTotal,
+            ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
+            ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
           },
         });
       } else {
@@ -210,6 +224,8 @@ export default function GerarOrcamentoDialog({
           subtotal_servicos: subtotalServicos,
           valor_total: valorTotal,
           status: 'rascunho',
+          ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
+          ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
         };
         
         await createOrcamento.mutateAsync(novoOrcamento);
@@ -690,6 +706,190 @@ export default function GerarOrcamentoDialog({
               <p className="text-xs text-muted-foreground">
                 Validade: {validadeDias} dias a partir da emissão
               </p>
+
+              {/* Seção opcional de Info Cliente e Frete */}
+              <Card className="border-dashed">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Adicionar informações (opcional):
+                  </p>
+                  <div className="flex gap-3 flex-wrap">
+                    <Button 
+                      variant={Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '') ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setShowInfoClienteInline(!showInfoClienteInline)}
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      Info Cliente
+                      {Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '') && (
+                        <Check className="w-3 h-3 ml-1" />
+                      )}
+                    </Button>
+                    <Button 
+                      variant={detalhamentoFreteTemp ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setShowFreteInline(!showFreteInline)}
+                    >
+                      <Truck className="w-4 h-4 mr-2" />
+                      Frete
+                      {detalhamentoFreteTemp && (
+                        <Check className="w-3 h-3 ml-1" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Esses dados podem ser adicionados depois na tela de orçamentos
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Form inline de Info Cliente */}
+              {showInfoClienteInline && (
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Informações do Cliente
+                      </p>
+                      <Button variant="ghost" size="sm" onClick={() => setShowInfoClienteInline(false)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nome Completo</Label>
+                        <Input
+                          value={dadosClienteTemp.nome_completo || ''}
+                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, nome_completo: e.target.value }))}
+                          placeholder="Nome completo"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email</Label>
+                        <Input
+                          type="email"
+                          value={dadosClienteTemp.email || ''}
+                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="email@exemplo.com"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Telefone</Label>
+                        <Input
+                          value={dadosClienteTemp.telefone || ''}
+                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, telefone: e.target.value }))}
+                          placeholder="(00) 00000-0000"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">CPF</Label>
+                        <Input
+                          value={dadosClienteTemp.cpf || ''}
+                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cpf: e.target.value }))}
+                          placeholder="000.000.000-00"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">CNPJ</Label>
+                        <Input
+                          value={dadosClienteTemp.cnpj || ''}
+                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cnpj: e.target.value }))}
+                          placeholder="00.000.000/0000-00"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Razão Social</Label>
+                        <Input
+                          value={dadosClienteTemp.razao_social || ''}
+                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, razao_social: e.target.value }))}
+                          placeholder="Razão social"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Form inline de Frete */}
+              {showFreteInline && (
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium flex items-center gap-2">
+                        <Truck className="w-4 h-4" />
+                        Detalhamento de Frete
+                      </p>
+                      <Button variant="ghost" size="sm" onClick={() => setShowFreteInline(false)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-4">
+                        <Label className="text-sm">Frete via Lemon Caps?</Label>
+                        <div className="flex gap-3">
+                          <Button
+                            type="button"
+                            variant={detalhamentoFreteTemp?.frete_lemon_caps === true ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setDetalhamentoFreteTemp(prev => ({
+                              frete_lemon_caps: true,
+                              usa_tabela_tradicional: prev?.usa_tabela_tradicional ?? true,
+                              planos_customizados: prev?.planos_customizados ?? [],
+                            }))}
+                          >
+                            Sim
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={detalhamentoFreteTemp?.frete_lemon_caps === false ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setDetalhamentoFreteTemp(prev => ({
+                              frete_lemon_caps: false,
+                              usa_tabela_tradicional: false,
+                              planos_customizados: prev?.planos_customizados ?? [],
+                            }))}
+                          >
+                            Não
+                          </Button>
+                        </div>
+                      </div>
+
+                      {detalhamentoFreteTemp?.frete_lemon_caps && (
+                        <div className="flex items-center gap-4">
+                          <Label className="text-sm">Tabela tradicional?</Label>
+                          <div className="flex gap-3">
+                            <Button
+                              type="button"
+                              variant={detalhamentoFreteTemp.usa_tabela_tradicional ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setDetalhamentoFreteTemp(prev => prev ? ({
+                                ...prev,
+                                usa_tabela_tradicional: true,
+                              }) : null)}
+                            >
+                              Sim
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={!detalhamentoFreteTemp.usa_tabela_tradicional ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setDetalhamentoFreteTemp(prev => prev ? ({
+                                ...prev,
+                                usa_tabela_tradicional: false,
+                              }) : null)}
+                            >
+                              Não
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 

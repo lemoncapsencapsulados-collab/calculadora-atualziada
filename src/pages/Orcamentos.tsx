@@ -42,6 +42,7 @@ import {
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import InformacoesClienteDialog from '@/components/InformacoesClienteDialog';
 import DetalhamentoFreteDialog from '@/components/DetalhamentoFreteDialog';
+import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -56,11 +57,11 @@ export default function Orcamentos() {
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [editandoOrcamento, setEditandoOrcamento] = useState<Orcamento | null>(null);
   const [criandoNovo, setCriandoNovo] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   
-  // Novos estados para os dialogs
+  // Estados para os dialogs
   const [infoClienteOrcamento, setInfoClienteOrcamento] = useState<Orcamento | null>(null);
   const [freteOrcamento, setFreteOrcamento] = useState<Orcamento | null>(null);
+  const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
 
   // Filtrar orçamentos
   const orcamentosFiltrados = orcamentos.filter(o => {
@@ -73,15 +74,8 @@ export default function Orcamentos() {
     );
   });
 
-  const handleDownloadPDF = async (orcamento: Orcamento) => {
-    setDownloadingId(orcamento.id);
-    try {
-      await generateOrcamentoPDF(orcamento);
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-    } finally {
-      setDownloadingId(null);
-    }
+  const handleOpenPreview = (orcamento: Orcamento) => {
+    setPreviewOrcamento(orcamento);
   };
 
   const handleConfirmDelete = async () => {
@@ -278,14 +272,9 @@ export default function Orcamentos() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleDownloadPDF(orcamento)}
-                            disabled={downloadingId === orcamento.id}
+                            onClick={() => handleOpenPreview(orcamento)}
                           >
-                            {downloadingId === orcamento.id ? (
-                              <div className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full" />
-                            ) : (
-                              <Download className="w-4 h-4 mr-2" />
-                            )}
+                            <FileText className="w-4 h-4 mr-2" />
                             PDF
                           </Button>
                           <Button 
@@ -334,7 +323,13 @@ export default function Orcamentos() {
         />
       )}
 
-      {/* Dialog de Confirmação de Exclusão */}
+      {/* Dialog de Preview do PDF */}
+      {previewOrcamento && (
+        <PreviewPdfDialog
+          orcamento={previewOrcamento}
+          onClose={() => setPreviewOrcamento(null)}
+        />
+      )}
       <AlertDialog open={!!deletandoId} onOpenChange={(open) => !open && setDeletandoId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
