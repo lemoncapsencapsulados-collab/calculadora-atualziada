@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert } from '@/types/orcamento';
+import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot } from '@/types/orcamento';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -82,19 +83,41 @@ export default function GerarOrcamentoDialog({
   };
 
   // Handlers
-  const handleAddPrecificacoes = () => {
-    const novasItems: ItemProducao[] = selectedPrecificacoes.map(precId => {
-      const prec = (precificacoes as any[])?.find(p => p.id === precId);
-      return {
-        tipo: 'precificacao' as const,
-        precificacao_id: precId,
-        nome_produto: prec?.formulas?.nome_formula || 'Produto',
-        segmento: prec?.formulas?.tipo_produto || '',
-        preco_unitario: Number(prec?.preco_venda) || 0,
-        quantidade: 1,
-        subtotal: Number(prec?.preco_venda) || 0,
-      };
-    });
+  const handleAddPrecificacoes = async () => {
+    const novasItems: ItemProducao[] = await Promise.all(
+      selectedPrecificacoes.map(async (precId) => {
+        const prec = (precificacoes as any[])?.find(p => p.id === precId);
+        
+        // Buscar insumos da fórmula
+        let insumos_formula: InsumoSnapshot[] = [];
+        if (prec?.formula_id) {
+          const { data: formula } = await supabase
+            .from('formulas')
+            .select('itens')
+            .eq('id', prec.formula_id)
+            .maybeSingle();
+          
+          if (formula?.itens && Array.isArray(formula.itens)) {
+            insumos_formula = (formula.itens as any[]).map(item => ({
+              nome: item.nome_insumo_snapshot || '',
+              quantidade: item.qtd_informada || 0,
+              unidade: item.unidade_informada || '',
+            }));
+          }
+        }
+        
+        return {
+          tipo: 'precificacao' as const,
+          precificacao_id: precId,
+          nome_produto: prec?.formulas?.nome_formula || 'Produto',
+          segmento: prec?.formulas?.tipo_produto || '',
+          preco_unitario: Number(prec?.preco_venda) || 0,
+          quantidade: 1,
+          subtotal: Number(prec?.preco_venda) || 0,
+          insumos_formula,
+        };
+      })
+    );
     
     setItensProducao(prev => [...prev, ...novasItems]);
     setSelectedPrecificacoes([]);

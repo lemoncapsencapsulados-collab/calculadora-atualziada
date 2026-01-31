@@ -159,54 +159,85 @@ export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> 
     doc.text('CUSTOS DE PRODUÇÃO', margin + 5, yPos + 7);
     yPos += 14;
 
-    // Tabela de produtos
-    const produtosData = orcamento.itens_producao.map((item, index) => [
-      (index + 1).toString(),
-      item.nome_produto,
-      item.segmento,
-      item.quantidade.toString(),
-      formatCurrency(item.preco_unitario),
-      formatCurrency(item.subtotal),
-    ]);
+    // Renderizar cada item com sua composição
+    orcamento.itens_producao.forEach((item, index) => {
+      // Verificar se precisa de nova página
+      const estimatedHeight = 30 + (item.insumos_formula?.length || 0) * 4;
+      if (yPos + estimatedHeight > pageHeight - 40) {
+        doc.addPage();
+        yPos = 20;
+      }
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [['#', 'Produto', 'Segmento', 'Qtd', 'Preço Unit.', 'Subtotal']],
-      body: produtosData,
-      margin: { left: margin, right: margin },
-      headStyles: {
-        fillColor: COLORS.darkGreen,
-        textColor: COLORS.white,
-        fontStyle: 'bold',
-        fontSize: 9,
-      },
-      bodyStyles: {
-        textColor: COLORS.textDark,
-        fontSize: 9,
-      },
-      alternateRowStyles: {
-        fillColor: COLORS.lightGray,
-      },
-      columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 'auto' },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 15, halign: 'center' },
-        4: { cellWidth: 28, halign: 'right' },
-        5: { cellWidth: 30, halign: 'right' },
-      },
-      foot: [[
-        '', '', '', '', 
-        { content: 'SUBTOTAL:', styles: { fontStyle: 'bold', halign: 'right' } },
-        { content: formatCurrency(orcamento.subtotal_producao), styles: { fontStyle: 'bold', halign: 'right' } }
-      ]],
-      footStyles: {
-        fillColor: COLORS.lightGray,
-        textColor: COLORS.textDark,
-      },
+      // Tabela do produto individual
+      autoTable(doc, {
+        startY: yPos,
+        head: index === 0 ? [['#', 'Produto', 'Segmento', 'Qtd', 'Preço Unit.', 'Subtotal']] : undefined,
+        body: [[
+          (index + 1).toString(),
+          item.nome_produto,
+          item.segmento,
+          item.quantidade.toString(),
+          formatCurrency(item.preco_unitario),
+          formatCurrency(item.subtotal),
+        ]],
+        margin: { left: margin, right: margin },
+        headStyles: {
+          fillColor: COLORS.darkGreen,
+          textColor: COLORS.white,
+          fontStyle: 'bold',
+          fontSize: 9,
+        },
+        bodyStyles: {
+          textColor: COLORS.textDark,
+          fontSize: 9,
+        },
+        alternateRowStyles: {
+          fillColor: COLORS.lightGray,
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 15, halign: 'center' },
+          4: { cellWidth: 28, halign: 'right' },
+          5: { cellWidth: 30, halign: 'right' },
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 2;
+
+      // Adicionar composição se for precificação com insumos
+      if (item.tipo === 'precificacao' && item.insumos_formula && item.insumos_formula.length > 0) {
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.textDark);
+        doc.text('Composição:', margin + 5, yPos + 3);
+        yPos += 6;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...COLORS.textGray);
+
+        item.insumos_formula.forEach(insumo => {
+          doc.text(`• ${insumo.nome} - ${insumo.quantidade} ${insumo.unidade}`, margin + 8, yPos);
+          yPos += 3.5;
+        });
+
+        yPos += 4;
+      }
     });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    // Subtotal de produção
+    yPos += 2;
+    doc.setFillColor(...COLORS.lightGray);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+    doc.setTextColor(...COLORS.textDark);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUBTOTAL:', pageWidth - margin - 45, yPos + 5.5);
+    doc.text(formatCurrency(orcamento.subtotal_producao), pageWidth - margin - 5, yPos + 5.5, { align: 'right' });
+
+    yPos += 14;
   }
 
   // ========== SEÇÃO: SERVIÇOS DE MARCA ==========

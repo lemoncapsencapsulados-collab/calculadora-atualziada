@@ -1,3 +1,9 @@
+export interface InsumoSnapshot {
+  nome: string;
+  quantidade: number;
+  unidade: string;
+}
+
 export interface ItemProducao {
   tipo: 'precificacao' | 'avulso';
   precificacao_id?: string;
@@ -6,6 +12,7 @@ export interface ItemProducao {
   preco_unitario: number;
   quantidade: number;
   subtotal: number;
+  insumos_formula?: InsumoSnapshot[];
 }
 
 export interface ServicoMarca {
