@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Orcamento, OrcamentoInsert, OrcamentoUpdate, ItemProducao, ServicoMarca } from '@/types/orcamento';
+import { Orcamento, OrcamentoInsert, OrcamentoUpdate, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to parse JSONB fields
@@ -9,6 +9,8 @@ function parseOrcamento(row: any): Orcamento {
     ...row,
     itens_producao: (row.itens_producao || []) as ItemProducao[],
     servicos_marca: (row.servicos_marca || []) as ServicoMarca[],
+    dados_cliente: (row.dados_cliente || {}) as DadosCliente,
+    detalhamento_frete: (row.detalhamento_frete || {}) as DetalhamentoFrete,
   };
 }
 
@@ -58,6 +60,8 @@ export function useOrcamentos() {
           ...orcamento,
           itens_producao: orcamento.itens_producao as any,
           servicos_marca: orcamento.servicos_marca as any,
+          dados_cliente: orcamento.dados_cliente as any,
+          detalhamento_frete: orcamento.detalhamento_frete as any,
         }])
         .select()
         .single();
@@ -90,6 +94,8 @@ export function useOrcamentos() {
           ...updates,
           itens_producao: updates.itens_producao as any,
           servicos_marca: updates.servicos_marca as any,
+          dados_cliente: updates.dados_cliente as any,
+          detalhamento_frete: updates.detalhamento_frete as any,
         })
         .eq('id', id)
         .select()
@@ -169,6 +175,64 @@ export function useOrcamentos() {
     },
   });
 
+  // Update dados cliente
+  const updateDadosCliente = useMutation({
+    mutationFn: async ({ id, dados_cliente }: { id: string; dados_cliente: DadosCliente }) => {
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .update({ dados_cliente: dados_cliente as any })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return parseOrcamento(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      toast({
+        title: 'Dados do cliente atualizados',
+        description: 'As informações foram salvas.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao atualizar dados do cliente',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Update detalhamento frete
+  const updateDetalhamentoFrete = useMutation({
+    mutationFn: async ({ id, detalhamento_frete }: { id: string; detalhamento_frete: DetalhamentoFrete }) => {
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .update({ detalhamento_frete: detalhamento_frete as any })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return parseOrcamento(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      toast({
+        title: 'Detalhamento de frete atualizado',
+        description: 'As informações foram salvas.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao atualizar frete',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   return {
     orcamentos: orcamentos || [],
     isLoading,
@@ -177,6 +241,8 @@ export function useOrcamentos() {
     updateOrcamento,
     deleteOrcamento,
     updateStatus,
+    updateDadosCliente,
+    updateDetalhamentoFrete,
     getNextNumeroOrcamento,
   };
 }

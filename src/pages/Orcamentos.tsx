@@ -15,7 +15,10 @@ import {
   Package, 
   Palette,
   FileText,
-  Plus
+  Plus,
+  User,
+  Truck,
+  CheckCircle2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,6 +40,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
+import InformacoesClienteDialog from '@/components/InformacoesClienteDialog';
+import DetalhamentoFreteDialog from '@/components/DetalhamentoFreteDialog';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -52,6 +57,10 @@ export default function Orcamentos() {
   const [editandoOrcamento, setEditandoOrcamento] = useState<Orcamento | null>(null);
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  
+  // Novos estados para os dialogs
+  const [infoClienteOrcamento, setInfoClienteOrcamento] = useState<Orcamento | null>(null);
+  const [freteOrcamento, setFreteOrcamento] = useState<Orcamento | null>(null);
 
   // Filtrar orçamentos
   const orcamentosFiltrados = orcamentos.filter(o => {
@@ -59,7 +68,8 @@ export default function Orcamentos() {
     if (!termo) return true;
     return (
       o.nome_cliente.toLowerCase().includes(termo) ||
-      o.numero_orcamento.toLowerCase().includes(termo)
+      o.numero_orcamento.toLowerCase().includes(termo) ||
+      (o.consultor_responsavel || '').toLowerCase().includes(termo)
     );
   });
 
@@ -124,7 +134,7 @@ export default function Orcamentos() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="Pesquisar por cliente ou número..."
+              placeholder="Pesquisar por cliente, consultor ou número..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -149,115 +159,149 @@ export default function Orcamentos() {
             </div>
           ) : (
             <div className="space-y-4">
-              {orcamentosFiltrados.map((orcamento) => (
-                <Card key={orcamento.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 p-4">
-                      {/* Informações do Orçamento */}
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2 flex-wrap">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-mono text-muted-foreground">
+              {orcamentosFiltrados.map((orcamento) => {
+                const isAprovado = orcamento.status === 'aprovado';
+                
+                return (
+                  <Card 
+                    key={orcamento.id} 
+                    className={`overflow-hidden transition-all ${
+                      isAprovado 
+                        ? 'border-green-500 bg-green-50 dark:bg-green-950/20 shadow-green-100 dark:shadow-green-900/20 shadow-md' 
+                        : ''
+                    }`}
+                  >
+                    <CardContent className="p-0">
+                      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 p-4">
+                        {/* Informações do Orçamento */}
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {/* Consultor como título principal */}
+                                <span className="font-semibold text-lg">
+                                  {orcamento.consultor_responsavel || 'Sem consultor'}
+                                </span>
+                                <Badge variant={STATUS_CONFIG[orcamento.status]?.variant || 'secondary'}>
+                                  {STATUS_CONFIG[orcamento.status]?.label || orcamento.status}
+                                </Badge>
+                                {isAprovado && (
+                                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                )}
+                              </div>
+                              <p className="text-muted-foreground text-sm mt-1">
+                                Cliente: <span className="font-medium text-foreground">{orcamento.nome_cliente}</span>
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
                                 {orcamento.numero_orcamento}
-                              </span>
-                              <Badge variant={STATUS_CONFIG[orcamento.status]?.variant || 'secondary'}>
-                                {STATUS_CONFIG[orcamento.status]?.label || orcamento.status}
-                              </Badge>
+                              </p>
                             </div>
-                            <h3 className="font-semibold text-lg text-foreground mt-1">
-                              {orcamento.nome_cliente}
-                            </h3>
+                            
+                            {/* Selector de Status */}
+                            <Select
+                              value={orcamento.status}
+                              onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
+                            >
+                              <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="rascunho">Rascunho</SelectItem>
+                                <SelectItem value="enviado">Enviado</SelectItem>
+                                <SelectItem value="aprovado">Aprovado</SelectItem>
+                                <SelectItem value="recusado">Recusado</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
-                          
-                          {/* Selector de Status */}
-                          <Select
-                            value={orcamento.status}
-                            onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
+
+                          {/* Data e Resumo */}
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {format(new Date(orcamento.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Package className="w-3 h-3" />
+                              {orcamento.itens_producao?.length || 0} produto(s)
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Palette className="w-3 h-3" />
+                              {orcamento.servicos_marca?.length || 0} serviço(s)
+                            </div>
+                          </div>
+
+                          {/* Valores */}
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground text-xs">Produção</p>
+                              <p className="font-medium">{formatCurrency(orcamento.subtotal_producao)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground text-xs">Serviços</p>
+                              <p className="font-medium">{formatCurrency(orcamento.subtotal_servicos)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground text-xs">Total</p>
+                              <p className={`font-bold text-lg ${isAprovado ? 'text-green-600' : 'text-primary'}`}>
+                                {formatCurrency(orcamento.valor_total)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ações */}
+                        <div className="flex lg:flex-col gap-2 justify-end flex-wrap">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setInfoClienteOrcamento(orcamento)}
                           >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="rascunho">Rascunho</SelectItem>
-                              <SelectItem value="enviado">Enviado</SelectItem>
-                              <SelectItem value="aprovado">Aprovado</SelectItem>
-                              <SelectItem value="recusado">Recusado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Data e Resumo */}
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {format(new Date(orcamento.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Package className="w-3 h-3" />
-                            {orcamento.itens_producao?.length || 0} produto(s)
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Palette className="w-3 h-3" />
-                            {orcamento.servicos_marca?.length || 0} serviço(s)
-                          </div>
-                        </div>
-
-                        {/* Valores */}
-                        <div className="grid grid-cols-3 gap-4 text-sm">
-                          <div>
-                            <p className="text-muted-foreground text-xs">Produção</p>
-                            <p className="font-medium">{formatCurrency(orcamento.subtotal_producao)}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground text-xs">Serviços</p>
-                            <p className="font-medium">{formatCurrency(orcamento.subtotal_servicos)}</p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground text-xs">Total</p>
-                            <p className="font-bold text-primary text-lg">
-                              {formatCurrency(orcamento.valor_total)}
-                            </p>
-                          </div>
+                            <User className="w-4 h-4 mr-2" />
+                            Info Cliente
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setFreteOrcamento(orcamento)}
+                          >
+                            <Truck className="w-4 h-4 mr-2" />
+                            Frete
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setEditandoOrcamento(orcamento)}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDownloadPDF(orcamento)}
+                            disabled={downloadingId === orcamento.id}
+                          >
+                            {downloadingId === orcamento.id ? (
+                              <div className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full" />
+                            ) : (
+                              <Download className="w-4 h-4 mr-2" />
+                            )}
+                            PDF
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => setDeletandoId(orcamento.id)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Ações */}
-                      <div className="flex lg:flex-col gap-2 justify-end">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setEditandoOrcamento(orcamento)}
-                        >
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Editar
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDownloadPDF(orcamento)}
-                          disabled={downloadingId === orcamento.id}
-                        >
-                          {downloadingId === orcamento.id ? (
-                            <div className="w-4 h-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full" />
-                          ) : (
-                            <Download className="w-4 h-4 mr-2" />
-                          )}
-                          PDF
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => setDeletandoId(orcamento.id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Excluir
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -271,6 +315,22 @@ export default function Orcamentos() {
             setCriandoNovo(false);
             setEditandoOrcamento(null);
           }}
+        />
+      )}
+
+      {/* Dialog de Informações do Cliente */}
+      {infoClienteOrcamento && (
+        <InformacoesClienteDialog
+          orcamento={infoClienteOrcamento}
+          onClose={() => setInfoClienteOrcamento(null)}
+        />
+      )}
+
+      {/* Dialog de Detalhamento de Frete */}
+      {freteOrcamento && (
+        <DetalhamentoFreteDialog
+          orcamento={freteOrcamento}
+          onClose={() => setFreteOrcamento(null)}
         />
       )}
 
