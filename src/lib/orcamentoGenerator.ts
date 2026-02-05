@@ -35,6 +35,40 @@ const COLORS = {
 // A4: 210mm x 297mm - Altura útil ~270mm
 const PAGE_HEIGHT = 297;
 const USABLE_HEIGHT = PAGE_HEIGHT - LAYOUT.margin - LAYOUT.marginBottom;
+const MAX_SINGLE_PAGE_HEIGHT = 265; // Limite para modo de página única
+
+// ========== CÁLCULO DE ALTURA ESTIMADA ==========
+
+function estimateTotalContentHeight(orcamento: Orcamento): number {
+  const headerHeight = LAYOUT.headerHeight + LAYOUT.sectionGap;
+  const clienteHeight = 22; // ~5 linhas compactas
+  
+  // Produtos: header (8) + linhas (6 cada) + subtotal (7)
+  const numProdutos = orcamento.itens_producao?.length || 0;
+  const produtosHeight = numProdutos > 0 ? 15 + Math.min(numProdutos * 6, 48) : 0;
+  
+  // Serviços: header (8) + linhas (5 cada) + subtotal (7)
+  const numServicos = orcamento.servicos_marca?.length || 0;
+  const servicosHeight = numServicos > 0 ? 15 + Math.min(numServicos * 5, 30) : 0;
+  
+  // Frete
+  const freteHeight = orcamento.detalhamento_frete ? 14 : 0;
+  
+  // Total box
+  const totalHeight = 20;
+  
+  // Forma pagamento
+  const pagamentoHeight = orcamento.forma_pagamento ? 6 : 0;
+  
+  // Observações
+  const obsHeight = orcamento.observacoes ? 6 : 0;
+  
+  // Footer
+  const footerHeight = 12;
+  
+  return headerHeight + clienteHeight + produtosHeight + servicosHeight + 
+         freteHeight + totalHeight + pagamentoHeight + obsHeight + footerHeight;
+}
 
 // ========== FUNÇÕES UTILITÁRIAS ==========
 
@@ -151,12 +185,15 @@ function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): num
   return yPos + LAYOUT.sectionGap;
 }
 
-function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number, singlePageMode: boolean = true): number {
   if (!orcamento.itens_producao || orcamento.itens_producao.length === 0) {
     return yPos;
   }
 
   const pageWidth = getPageWidth(doc);
+  const maxRows = singlePageMode ? 8 : 50; // Limitar em modo página única
+  const itensExibir = orcamento.itens_producao.slice(0, maxRows);
+  const itensOcultos = orcamento.itens_producao.length - maxRows;
 
   // Título da seção
   doc.setFillColor(...COLORS.mediumGreen);
@@ -168,12 +205,13 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   yPos += 8;
 
   // Tabela compacta de produtos
-  const produtosData = orcamento.itens_producao.map((item, index) => {
-    // Composição inline resumida
+  const produtosData = itensExibir.map((item, index) => {
+    // Composição inline resumida (mais curta em modo single page)
     let composicao = '';
     if (item.insumos_formula && item.insumos_formula.length > 0) {
-      const insumos = item.insumos_formula.slice(0, 3).map(i => i.nome).join(', ');
-      composicao = item.insumos_formula.length > 3 ? `${insumos}...` : insumos;
+      const maxInsumos = singlePageMode ? 2 : 3;
+      const insumos = item.insumos_formula.slice(0, maxInsumos).map(i => i.nome).join(', ');
+      composicao = item.insumos_formula.length > maxInsumos ? `${insumos}...` : insumos;
     }
     
     const nomeCompleto = composicao ? `${item.nome_produto} (${composicao})` : item.nome_produto;
@@ -186,6 +224,11 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
       formatCurrency(item.subtotal),
     ];
   });
+
+  // Adicionar linha de resumo se houver itens ocultos
+  if (itensOcultos > 0) {
+    produtosData.push(['', `... e mais ${itensOcultos} produto(s)`, '', '', '']);
+  }
 
   autoTable(doc, {
     startY: yPos,
@@ -230,12 +273,15 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   return yPos + 7 + LAYOUT.sectionGap;
 }
 
-function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number, singlePageMode: boolean = true): number {
   if (!orcamento.servicos_marca || orcamento.servicos_marca.length === 0) {
     return yPos;
   }
 
   const pageWidth = getPageWidth(doc);
+  const maxRows = singlePageMode ? 5 : 20;
+  const servicosExibir = orcamento.servicos_marca.slice(0, maxRows);
+  const servicosOcultos = orcamento.servicos_marca.length - maxRows;
 
   // Título da seção
   doc.setFillColor(...COLORS.mediumGreen);
@@ -247,11 +293,16 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   yPos += 8;
 
   // Tabela compacta de serviços
-  const servicosData = orcamento.servicos_marca.map((servico) => [
+  const servicosData = servicosExibir.map((servico) => [
     servico.nome_plano,
     servico.descricao || '-',
     formatCurrency(servico.valor),
   ]);
+
+  // Adicionar linha de resumo se houver serviços ocultos
+  if (servicosOcultos > 0) {
+    servicosData.push([`... e mais ${servicosOcultos} serviço(s)`, '', '']);
+  }
 
   autoTable(doc, {
     startY: yPos,
@@ -498,12 +549,18 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     format: 'a4',
   });
 
+  // Calcular altura estimada para decidir o modo
+  const estimatedHeight = estimateTotalContentHeight(orcamento);
+  const singlePageMode = estimatedHeight <= MAX_SINGLE_PAGE_HEIGHT;
+  
+  console.log(`[PDF] Altura estimada: ${estimatedHeight}mm, Modo: ${singlePageMode ? 'página única' : 'múltiplas páginas'}`);
+
   try {
-    // Renderizar seções em ordem
+    // Renderizar seções em ordem, passando singlePageMode
     let yPos = renderHeader(doc, orcamento);
     yPos = renderDadosCliente(doc, orcamento, yPos);
-    yPos = renderProdutos(doc, orcamento, yPos);
-    yPos = renderServicos(doc, orcamento, yPos);
+    yPos = renderProdutos(doc, orcamento, yPos, singlePageMode);
+    yPos = renderServicos(doc, orcamento, yPos, singlePageMode);
     yPos = renderFrete(doc, orcamento, yPos);
     yPos = renderTotal(doc, orcamento, yPos);
     yPos = renderFormaPagamento(doc, orcamento, yPos);
