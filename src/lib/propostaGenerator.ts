@@ -17,32 +17,45 @@ interface PropostaData {
   valorServicosExtras: number;
 }
 
-// ========== LAYOUT ULTRA-COMPACTO - SEMPRE 1 PÁGINA A4 ==========
+// ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
-  margin: 12,
-  marginBottom: 10,
-  headerHeight: 25,
-  sectionGap: 2,
-  lineHeight: 4,
+  margin: 20,           // Margem generosa
+  marginBottom: 25,     // Margem inferior para footer
+  headerHeight: 40,     // Header grande e elegante
+  sectionGap: 10,       // Espaçamento entre seções
+  lineHeight: 6,        // Altura de linha confortável
   fontSize: {
-    title: 12,
-    sectionTitle: 8,
-    body: 7,
-    small: 6,
-    footer: 6,
+    title: 18,          // Títulos grandes
+    sectionTitle: 11,   // Subtítulos legíveis
+    body: 10,           // Corpo de texto legível
+    small: 9,           // Notas e detalhes
+    footer: 9,          // Rodapé
   },
-  maxIngredientes: 8,
 };
 
+// Paleta de cores minimalista e elegante
 const COLORS = {
-  darkGreen: [21, 87, 36] as [number, number, number],
-  lightGreenBg: [240, 247, 242] as [number, number, number],
+  // Tons escuros elegantes
+  darkGreen: [24, 26, 0] as [number, number, number],
+  mediumGreen: [46, 48, 3] as [number, number, number],
+  
+  // Acentos sofisticados
+  lemonYellow: [202, 212, 0] as [number, number, number],
+  brightYellow: [242, 255, 0] as [number, number, number],
+  
+  // Neutros minimalistas
   white: [255, 255, 255] as [number, number, number],
-  textDark: [60, 60, 60] as [number, number, number],
-  textGray: [100, 100, 100] as [number, number, number],
+  lightGray: [248, 248, 248] as [number, number, number],
+  borderGray: [220, 220, 220] as [number, number, number],
+  
+  // Texto
+  textDark: [40, 40, 40] as [number, number, number],
+  textMedium: [80, 80, 80] as [number, number, number],
+  textLight: [120, 120, 120] as [number, number, number],
 };
 
 const PAGE_HEIGHT = 297;
+const PAGE_WIDTH = 210;
 
 const formatarMoeda = (valor: number): string => {
   return valor.toLocaleString('pt-BR', { 
@@ -51,15 +64,37 @@ const formatarMoeda = (valor: number): string => {
   });
 };
 
-function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
-  if (!text) return '';
-  let truncated = text.replace(/\n/g, ' ').trim();
-  if (doc.getTextWidth(truncated) <= maxWidth) return truncated;
+function getPageWidth(doc: jsPDF): number {
+  return doc.internal.pageSize.getWidth();
+}
+
+function checkPageBreak(doc: jsPDF, currentY: number, requiredHeight: number): number {
+  const availableSpace = PAGE_HEIGHT - LAYOUT.marginBottom;
   
-  while (doc.getTextWidth(truncated + '...') > maxWidth && truncated.length > 0) {
-    truncated = truncated.slice(0, -1);
+  if (currentY + requiredHeight > availableSpace) {
+    doc.addPage();
+    return LAYOUT.margin + 10;
   }
-  return truncated + '...';
+  return currentY;
+}
+
+function renderSectionTitle(doc: jsPDF, title: string, yPos: number): number {
+  const pageWidth = getPageWidth(doc);
+  
+  yPos = checkPageBreak(doc, yPos, 15);
+  
+  // Título da seção
+  doc.setTextColor(...COLORS.darkGreen);
+  doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title.toUpperCase(), LAYOUT.margin, yPos);
+  
+  // Linha abaixo do título
+  doc.setDrawColor(...COLORS.lemonYellow);
+  doc.setLineWidth(0.8);
+  doc.line(LAYOUT.margin, yPos + 3, pageWidth - LAYOUT.margin, yPos + 3);
+  
+  return yPos + 10;
 }
 
 export async function gerarPropostaPDF(data: PropostaData) {
@@ -67,90 +102,94 @@ export async function gerarPropostaPDF(data: PropostaData) {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   
-  console.log(`[Proposta] Gerando proposta: ${formula.nome_formula} - Modo: página única forçada`);
+  console.log(`[Proposta] Gerando proposta: ${formula.nome_formula} - Modo: Premium expandido`);
   
   try {
     let yPos = 0;
 
-    // ========== HEADER COMPACTO ==========
+    // ========== HEADER ==========
     doc.setFillColor(...COLORS.darkGreen);
     doc.rect(0, 0, pageWidth, LAYOUT.headerHeight, 'F');
     
-    doc.setFontSize(14);
+    // Logo
+    doc.setTextColor(...COLORS.lemonYellow);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
+    doc.text('LEMON CAPS', LAYOUT.margin, 18);
+    
+    // Subtítulo
     doc.setTextColor(...COLORS.white);
-    doc.text('LEMON CAPS', LAYOUT.margin, 10);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Suplementos & Nutracêuticos', LAYOUT.margin, 26);
     
+    // Título do documento
     doc.setFontSize(LAYOUT.fontSize.title);
-    doc.text('PROPOSTA COMERCIAL', pageWidth - LAYOUT.margin, 9, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROPOSTA COMERCIAL', pageWidth - LAYOUT.margin, 16, { align: 'right' });
     
+    // Data
     doc.setFontSize(LAYOUT.fontSize.body);
     doc.setFont('helvetica', 'normal');
-    doc.text(format(new Date(), "dd/MM/yyyy", { locale: ptBR }), pageWidth - LAYOUT.margin, 16, { align: 'right' });
+    doc.text(format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), pageWidth - LAYOUT.margin, 26, { align: 'right' });
 
-    yPos = LAYOUT.headerHeight + LAYOUT.sectionGap + 1;
+    // Linha de destaque
+    doc.setDrawColor(...COLORS.lemonYellow);
+    doc.setLineWidth(1);
+    doc.line(0, LAYOUT.headerHeight, pageWidth, LAYOUT.headerHeight);
+
+    yPos = LAYOUT.headerHeight + LAYOUT.sectionGap;
 
     // ========== INFORMAÇÕES DO PRODUTO ==========
-    doc.setFillColor(...COLORS.lightGreenBg);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-    doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+    yPos = renderSectionTitle(doc, 'Informações do Produto', yPos);
+    
+    const labelWidth = 40;
+    
+    // Nome do produto em destaque
+    doc.setTextColor(...COLORS.textDark);
+    doc.setFontSize(LAYOUT.fontSize.body + 2);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('INFORMAÇÕES DO PRODUTO', LAYOUT.margin + 2, yPos + 3.5);
-    yPos += 6;
-
+    doc.text(formula.nome_formula, LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight + 2;
+    
+    // Detalhes em duas colunas
     doc.setFontSize(LAYOUT.fontSize.body);
-    doc.setTextColor(...COLORS.textDark);
-
-    // Info em formato compacto (2 colunas)
-    const col1X = LAYOUT.margin;
-    const col2X = pageWidth / 2;
     
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('Produto:', col1X, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.textDark);
-    doc.text(truncateText(doc, formula.nome_formula, 60), col1X + 16, yPos);
+    const campos = [
+      { label: 'Cliente', valor: formula.cliente },
+      { label: 'Tipo de Produto', valor: formula.tipo_produto },
+      { label: 'Unidades/Frasco', valor: `${formula.qtd_capsulas}` },
+    ];
     
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('Cliente:', col2X, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.textDark);
-    doc.text(truncateText(doc, formula.cliente, 60), col2X + 14, yPos);
-    yPos += LAYOUT.lineHeight;
+    if (formula.unidades_por_dose) {
+      const unidadeTexto = formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
+                           formula.tipo_produto === 'Gummy' ? 'gummies' :
+                           formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
+      campos.push({ label: 'Dose Sugerida', valor: `${formula.unidades_por_dose} ${unidadeTexto}` });
+      campos.push({ label: 'Doses por Frasco', valor: `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}` });
+    }
+    
+    for (const campo of campos) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text(`${campo.label}:`, LAYOUT.margin, yPos);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      doc.text(campo.valor, LAYOUT.margin + labelWidth, yPos);
+      
+      yPos += LAYOUT.lineHeight;
+    }
 
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('Tipo:', col1X, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.textDark);
-    doc.text(formula.tipo_produto, col1X + 16, yPos);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('Unid/Frasco:', col2X, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.textDark);
-    doc.text(`${formula.qtd_capsulas}`, col2X + 22, yPos);
-    yPos += LAYOUT.lineHeight + LAYOUT.sectionGap;
+    yPos += LAYOUT.sectionGap;
 
     // ========== COMPOSIÇÃO DA FÓRMULA ==========
-    doc.setFillColor(...COLORS.lightGreenBg);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-    doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('COMPOSIÇÃO DA FÓRMULA', LAYOUT.margin + 2, yPos + 3.5);
-    yPos += 6;
+    yPos = renderSectionTitle(doc, 'Composição da Fórmula', yPos);
 
-    const ingredientesExibir = formula.itens.slice(0, LAYOUT.maxIngredientes);
-    const ingredientesOcultos = formula.itens.length - LAYOUT.maxIngredientes;
-
-    const formulaData = ingredientesExibir.map((item: any) => {
+    // Tabela com todos os ingredientes
+    const formulaData = formula.itens.map((item: any) => {
       const concentracao = item.concentracao_percentual 
-        ? `${item.concentracao_percentual.toFixed(1)}%`
+        ? `${item.concentracao_percentual.toFixed(2)}%`
         : '-';
       return [
         item.nome_insumo_snapshot,
@@ -159,155 +198,216 @@ export async function gerarPropostaPDF(data: PropostaData) {
       ];
     });
 
-    // Adicionar linha de resumo se houver ingredientes ocultos
-    if (ingredientesOcultos > 0) {
-      formulaData.push([`... e mais ${ingredientesOcultos} ingrediente(s)`, '', '']);
-    }
-
     autoTable(doc, {
       startY: yPos,
-      head: [['Ingrediente', 'Qtd/Unidade', 'Conc.']],
+      head: [['Ingrediente', 'Quantidade por Dose', 'Concentração']],
       body: formulaData,
-      theme: 'plain',
+      margin: { left: LAYOUT.margin, right: LAYOUT.margin },
       headStyles: { 
         fillColor: COLORS.darkGreen,
         textColor: 255, 
         fontStyle: 'bold', 
         fontSize: LAYOUT.fontSize.small,
-        cellPadding: 1,
+        cellPadding: 4,
         halign: 'center'
       },
-      styles: { 
+      bodyStyles: { 
         fontSize: LAYOUT.fontSize.body, 
-        cellPadding: 1, 
+        cellPadding: 4, 
         textColor: COLORS.textDark 
       },
-      alternateRowStyles: { fillColor: [250, 252, 250] },
+      alternateRowStyles: { fillColor: COLORS.lightGray },
       columnStyles: {
-        0: { cellWidth: 'auto' },
-        1: { cellWidth: 30, halign: 'center' },
-        2: { cellWidth: 20, halign: 'center' },
+        0: { cellWidth: 'auto', fontStyle: 'bold' },
+        1: { cellWidth: 45, halign: 'center' },
+        2: { cellWidth: 35, halign: 'center' },
       },
-      margin: { left: LAYOUT.margin, right: LAYOUT.margin },
+      didDrawPage: () => {
+        // Re-render header in new pages if needed
+      }
     });
 
-    yPos = doc.lastAutoTable.finalY + LAYOUT.sectionGap + 1;
+    yPos = doc.lastAutoTable.finalY + LAYOUT.sectionGap + 5;
 
     // ========== VALORES DA PROPOSTA ==========
-    doc.setFillColor(...COLORS.lightGreenBg);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-    doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text('VALORES DA PROPOSTA', LAYOUT.margin + 2, yPos + 3.5);
-    yPos += 6;
+    yPos = checkPageBreak(doc, yPos, 80);
+    yPos = renderSectionTitle(doc, 'Valores da Proposta', yPos);
 
     const valorFrascos = precoUnitario * quantidadeFrascos;
     const valorTotal = valorFrascos + valorServicosExtras;
 
-    const valoresData: [string, string][] = [
-      ['Preço Unitário (frasco)', `R$ ${formatarMoeda(precoUnitario)}`],
-      ['Quantidade', `${quantidadeFrascos} unidades`],
-      ['Subtotal Produto', `R$ ${formatarMoeda(valorFrascos)}`],
-    ];
-
+    // Box de valores
+    doc.setFillColor(...COLORS.lightGray);
+    doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 50, 2, 2, 'F');
+    
+    const valoresYStart = yPos + 8;
+    const col1 = LAYOUT.margin + 10;
+    const col2 = pageWidth - LAYOUT.margin - 10;
+    
+    // Preço unitário
+    doc.setFontSize(LAYOUT.fontSize.body);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Preço Unitário (frasco):', col1, valoresYStart);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(`R$ ${formatarMoeda(precoUnitario)}`, col2, valoresYStart, { align: 'right' });
+    
+    // Quantidade
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Quantidade:', col1, valoresYStart + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(`${quantidadeFrascos} unidades`, col2, valoresYStart + 8, { align: 'right' });
+    
+    // Subtotal
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Subtotal Produto:', col1, valoresYStart + 16);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(`R$ ${formatarMoeda(valorFrascos)}`, col2, valoresYStart + 16, { align: 'right' });
+    
+    // Serviços extras (se houver)
+    let servicosOffset = 0;
     if (valorServicosExtras > 0) {
-      valoresData.push(['Serviços Extras', `R$ ${formatarMoeda(valorServicosExtras)}`]);
+      servicosOffset = 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text('Serviços Extras:', col1, valoresYStart + 24);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      doc.text(`R$ ${formatarMoeda(valorServicosExtras)}`, col2, valoresYStart + 24, { align: 'right' });
     }
+    
+    // Linha divisória
+    doc.setDrawColor(...COLORS.borderGray);
+    doc.setLineWidth(0.5);
+    doc.line(col1, valoresYStart + 28 + servicosOffset, col2, valoresYStart + 28 + servicosOffset);
+    
+    // Total dentro do box
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.setFontSize(LAYOUT.fontSize.body + 2);
+    doc.text('TOTAL:', col1, valoresYStart + 36 + servicosOffset);
+    doc.setFontSize(LAYOUT.fontSize.body + 4);
+    doc.text(`R$ ${formatarMoeda(valorTotal)}`, col2, valoresYStart + 36 + servicosOffset, { align: 'right' });
 
-    autoTable(doc, {
-      startY: yPos,
-      body: valoresData,
-      theme: 'plain',
-      styles: { 
-        fontSize: LAYOUT.fontSize.body, 
-        cellPadding: 1,
-        textColor: COLORS.textDark
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 70, textColor: COLORS.darkGreen },
-        1: { halign: 'right', cellWidth: 'auto' },
-      },
-      margin: { left: LAYOUT.margin, right: LAYOUT.margin },
-    });
-
-    yPos = doc.lastAutoTable.finalY + 2;
+    yPos += 55 + servicosOffset + LAYOUT.sectionGap;
 
     // ========== VALOR TOTAL (DESTAQUE) ==========
+    yPos = checkPageBreak(doc, yPos, 35);
+    yPos += 5;
+    
+    const boxHeight = 28;
     doc.setFillColor(...COLORS.darkGreen);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 10, 'F');
+    doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 3, 3, 'F');
+    
+    // Borda amarela
+    doc.setDrawColor(...COLORS.lemonYellow);
+    doc.setLineWidth(1.5);
+    doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 3, 3, 'S');
+    
     doc.setTextColor(...COLORS.white);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('VALOR TOTAL:', LAYOUT.margin + 5, yPos + 6.5);
     doc.setFontSize(12);
-    doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - LAYOUT.margin - 5, yPos + 6.5, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('VALOR TOTAL', LAYOUT.margin + 12, yPos + 17);
 
-    yPos += 12 + LAYOUT.sectionGap;
+    doc.setTextColor(...COLORS.brightYellow);
+    doc.setFontSize(22);
+    doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - LAYOUT.margin - 12, yPos + 18, { align: 'right' });
+
+    yPos += boxHeight + LAYOUT.sectionGap + 10;
 
     // ========== INFORMAÇÕES DE DOSAGEM ==========
     if (formula.unidades_por_dose) {
-      doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...COLORS.darkGreen);
-      doc.text('INFORMAÇÕES DE DOSAGEM', LAYOUT.margin, yPos);
-      yPos += 4;
-      
-      doc.setFontSize(LAYOUT.fontSize.body);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...COLORS.textDark);
+      yPos = checkPageBreak(doc, yPos, 40);
+      yPos = renderSectionTitle(doc, 'Informações de Dosagem', yPos);
       
       const unidadeTexto = formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
                            formula.tipo_produto === 'Gummy' ? 'gummies' :
                            formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
       
       const dosesInfo = [
-        `Dose: ${formula.unidades_por_dose} ${unidadeTexto}`,
-        `Doses/frasco: ${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}`,
-        `Total doses: ${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)}`
-      ].join(' | ');
+        { label: 'Dose Recomendada', valor: `${formula.unidades_por_dose} ${unidadeTexto}` },
+        { label: 'Doses por Frasco', valor: `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}` },
+        { label: 'Total de Doses (pedido)', valor: `${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)}` },
+      ];
       
-      doc.text(dosesInfo, LAYOUT.margin, yPos);
-      yPos += LAYOUT.lineHeight + LAYOUT.sectionGap;
+      doc.setFontSize(LAYOUT.fontSize.body);
+      
+      for (const info of dosesInfo) {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.textMedium);
+        doc.text(`${info.label}:`, LAYOUT.margin, yPos);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.textDark);
+        doc.text(info.valor, LAYOUT.margin + 50, yPos);
+        
+        yPos += LAYOUT.lineHeight;
+      }
     }
 
     // ========== FOOTER ==========
-    const footerY = PAGE_HEIGHT - LAYOUT.marginBottom;
-
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.3);
-    doc.line(LAYOUT.margin, footerY - 8, pageWidth - LAYOUT.margin, footerY - 8);
-
-    doc.setFontSize(LAYOUT.fontSize.footer);
-    doc.setFont('helvetica', 'italic');
-    doc.setTextColor(...COLORS.textGray);
-    doc.text('Proposta válida por 30 dias. Valores sujeitos a alteração.', pageWidth / 2, footerY - 4, { align: 'center' });
-
-    doc.setDrawColor(...COLORS.darkGreen);
-    doc.setLineWidth(0.3);
-    doc.line(LAYOUT.margin, footerY - 1, pageWidth - LAYOUT.margin, footerY - 1);
+    const totalPages = doc.getNumberOfPages();
     
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text(
-      `Lemon Caps - Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
-      pageWidth / 2,
-      footerY + 3,
-      { align: 'center' }
-    );
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      const footerY = PAGE_HEIGHT - LAYOUT.marginBottom + 5;
 
-    console.log(`[Proposta] Altura final usada: ${yPos}mm de 297mm`);
+      // Linha separadora
+      doc.setDrawColor(...COLORS.lemonYellow);
+      doc.setLineWidth(0.5);
+      doc.line(LAYOUT.margin, footerY - 12, pageWidth - LAYOUT.margin, footerY - 12);
+
+      // Validade
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFontSize(LAYOUT.fontSize.footer);
+      doc.setFont('helvetica', 'italic');
+      doc.text(
+        'Esta proposta tem validade de 30 dias. Valores sujeitos a alteração sem aviso prévio.',
+        LAYOUT.margin,
+        footerY - 5
+      );
+
+      // Info da empresa
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text('LEMON CAPS', pageWidth - LAYOUT.margin, footerY - 5, { align: 'right' });
+      
+      doc.setTextColor(...COLORS.textLight);
+      doc.setFontSize(8);
+      doc.text('www.lemoncaps.com.br', pageWidth - LAYOUT.margin, footerY + 1, { align: 'right' });
+      
+      doc.text(
+        `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+        LAYOUT.margin,
+        footerY + 1
+      );
+
+      // Número da página
+      doc.text(
+        `Página ${i} de ${totalPages}`,
+        pageWidth / 2,
+        footerY + 1,
+        { align: 'center' }
+      );
+    }
+
+    console.log(`[Proposta] Proposta gerada com ${doc.getNumberOfPages()} página(s)`);
 
   } catch (error) {
     console.error('Erro ao gerar proposta:', error);
     // Fallback mínimo
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.setTextColor(0, 0, 0);
     doc.text('LEMON CAPS - Proposta Comercial', 20, 30);
-    doc.setFontSize(10);
-    doc.text(`Produto: ${formula.nome_formula}`, 20, 40);
-    doc.text(`Cliente: ${formula.cliente}`, 20, 48);
-    doc.text(`Total: R$ ${formatarMoeda(precoUnitario * quantidadeFrascos + valorServicosExtras)}`, 20, 56);
+    doc.setFontSize(12);
+    doc.text(`Produto: ${formula.nome_formula}`, 20, 45);
+    doc.text(`Cliente: ${formula.cliente}`, 20, 55);
+    doc.text(`Total: R$ ${formatarMoeda(precoUnitario * quantidadeFrascos + valorServicosExtras)}`, 20, 65);
   }
 
   // Salvar PDF
