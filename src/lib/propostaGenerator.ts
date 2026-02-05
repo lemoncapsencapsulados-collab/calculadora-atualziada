@@ -17,6 +17,32 @@ interface PropostaData {
   valorServicosExtras: number;
 }
 
+// ========== LAYOUT COMPACTO PARA PÁGINA ÚNICA A4 ==========
+const LAYOUT = {
+  margin: 12,
+  marginBottom: 12,
+  headerHeight: 28,
+  sectionGap: 4,
+  lineHeight: 4.5,
+  fontSize: {
+    title: 14,
+    sectionTitle: 9,
+    body: 8,
+    small: 7,
+    footer: 6,
+  }
+};
+
+const COLORS = {
+  darkGreen: [21, 87, 36] as [number, number, number],
+  lightGreenBg: [240, 247, 242] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
+  textDark: [60, 60, 60] as [number, number, number],
+  textGray: [100, 100, 100] as [number, number, number],
+};
+
+const PAGE_HEIGHT = 297;
+
 const formatarMoeda = (valor: number): string => {
   return valor.toLocaleString('pt-BR', { 
     minimumFractionDigits: 2, 
@@ -28,212 +54,237 @@ export async function gerarPropostaPDF(data: PropostaData) {
   const { formula, precoUnitario, quantidadeFrascos, valorServicosExtras } = data;
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  let yPosition = 15;
-
-  // CABEÇALHO COM LOGO/MARCA
-  doc.setFillColor(21, 87, 36); // Verde escuro
-  doc.rect(0, 0, pageWidth, 45, 'F');
   
-  doc.setFontSize(32);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('LEMON CAPS', pageWidth / 2, 20, { align: 'center' });
-  
-  yPosition = 30;
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'normal');
-  doc.text('PROPOSTA COMERCIAL', pageWidth / 2, yPosition, { align: 'center' });
-  
-  yPosition = 38;
-  doc.setFontSize(9);
-  doc.text(format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), pageWidth / 2, yPosition, { align: 'center' });
+  try {
+    let yPos = 0;
 
-  yPosition = 55;
-
-  // INFORMAÇÕES DO PRODUTO
-  doc.setFillColor(240, 247, 242); // Verde muito claro
-  doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(21, 87, 36); // Verde escuro
-  doc.text('INFORMAÇÕES DO PRODUTO', 17, yPosition);
-  yPosition += 10;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(60, 60, 60);
-  
-  const infoProduto = [
-    ['Nome:', formula.nome_formula],
-    ['Cliente:', formula.cliente],
-    ['Tipo:', formula.tipo_produto],
-    ['Unidades por frasco:', `${formula.qtd_capsulas}`],
-  ];
-
-  infoProduto.forEach(([label, value]) => {
+    // ========== HEADER COMPACTO ==========
+    doc.setFillColor(...COLORS.darkGreen);
+    doc.rect(0, 0, pageWidth, LAYOUT.headerHeight, 'F');
+    
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(21, 87, 36);
-    doc.text(label, 17, yPosition);
+    doc.setTextColor(...COLORS.white);
+    doc.text('LEMON CAPS', LAYOUT.margin, 14);
+    
+    doc.setFontSize(LAYOUT.fontSize.title);
+    doc.text('PROPOSTA COMERCIAL', pageWidth - LAYOUT.margin, 12, { align: 'right' });
+    
+    doc.setFontSize(LAYOUT.fontSize.body);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60, 60, 60);
-    doc.text(String(value), 65, yPosition);
-    yPosition += 6;
-  });
+    doc.text(format(new Date(), "dd/MM/yyyy", { locale: ptBR }), pageWidth - LAYOUT.margin, 20, { align: 'right' });
 
-  yPosition += 6;
+    yPos = LAYOUT.headerHeight + LAYOUT.sectionGap + 2;
 
-  // FÓRMULA (COMPOSIÇÃO)
-  doc.setFillColor(240, 247, 242);
-  doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(21, 87, 36);
-  doc.text('COMPOSIÇÃO DA FÓRMULA', 17, yPosition);
-  yPosition += 8;
+    // ========== INFORMAÇÕES DO PRODUTO ==========
+    doc.setFillColor(...COLORS.lightGreenBg);
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+    doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('INFORMAÇÕES DO PRODUTO', LAYOUT.margin + 3, yPos + 4);
+    yPos += 9;
 
-  const formulaData = formula.itens.map((item: any) => {
-    const concentracao = item.concentracao_percentual 
-      ? `${item.concentracao_percentual.toFixed(2)}%`
-      : '-';
-    return [
-      item.nome_insumo_snapshot,
-      `${item.qtd_informada} ${item.unidade_informada}`,
-      concentracao,
+    doc.setFontSize(LAYOUT.fontSize.body);
+    doc.setTextColor(...COLORS.textDark);
+
+    // Info em formato mais compacto (2 colunas)
+    const col1X = LAYOUT.margin;
+    const col2X = pageWidth / 2;
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Produto:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(formula.nome_formula, col1X + 18, yPos);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Cliente:', col2X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(formula.cliente, col2X + 16, yPos);
+    yPos += LAYOUT.lineHeight;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Tipo:', col1X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(formula.tipo_produto, col1X + 18, yPos);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Unid/Frasco:', col2X, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(`${formula.qtd_capsulas}`, col2X + 24, yPos);
+    yPos += LAYOUT.lineHeight + LAYOUT.sectionGap;
+
+    // ========== COMPOSIÇÃO DA FÓRMULA ==========
+    doc.setFillColor(...COLORS.lightGreenBg);
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+    doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('COMPOSIÇÃO DA FÓRMULA', LAYOUT.margin + 3, yPos + 4);
+    yPos += 8;
+
+    const formulaData = formula.itens.map((item: any) => {
+      const concentracao = item.concentracao_percentual 
+        ? `${item.concentracao_percentual.toFixed(1)}%`
+        : '-';
+      return [
+        item.nome_insumo_snapshot,
+        `${item.qtd_informada} ${item.unidade_informada}`,
+        concentracao,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Ingrediente', 'Qtd/Unidade', 'Conc.']],
+      body: formulaData,
+      theme: 'plain',
+      headStyles: { 
+        fillColor: COLORS.darkGreen,
+        textColor: 255, 
+        fontStyle: 'bold', 
+        fontSize: LAYOUT.fontSize.small,
+        cellPadding: 1.5,
+        halign: 'center'
+      },
+      styles: { 
+        fontSize: LAYOUT.fontSize.body, 
+        cellPadding: 1.5, 
+        textColor: COLORS.textDark 
+      },
+      alternateRowStyles: { fillColor: [250, 252, 250] },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 35, halign: 'center' },
+        2: { cellWidth: 25, halign: 'center' },
+      },
+      margin: { left: LAYOUT.margin, right: LAYOUT.margin },
+    });
+
+    yPos = doc.lastAutoTable.finalY + LAYOUT.sectionGap + 2;
+
+    // ========== VALORES DA PROPOSTA ==========
+    doc.setFillColor(...COLORS.lightGreenBg);
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+    doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('VALORES DA PROPOSTA', LAYOUT.margin + 3, yPos + 4);
+    yPos += 9;
+
+    const valorFrascos = precoUnitario * quantidadeFrascos;
+    const valorTotal = valorFrascos + valorServicosExtras;
+
+    const valoresData: [string, string][] = [
+      ['Preço Unitário (frasco)', `R$ ${formatarMoeda(precoUnitario)}`],
+      ['Quantidade', `${quantidadeFrascos} unidades`],
+      ['Subtotal Produto', `R$ ${formatarMoeda(valorFrascos)}`],
     ];
-  });
 
-  autoTable(doc, {
-    startY: yPosition,
-    head: [['Ingrediente', 'Quantidade por Unidade', 'Concentração']],
-    body: formulaData,
-    theme: 'plain',
-    headStyles: { 
-      fillColor: [21, 87, 36], // Verde escuro
-      textColor: 255, 
-      fontStyle: 'bold', 
-      fontSize: 9,
-      halign: 'center'
-    },
-    styles: { fontSize: 9, cellPadding: 2.5, textColor: [60, 60, 60] },
-    alternateRowStyles: { fillColor: [250, 252, 250] },
-    columnStyles: {
-      0: { cellWidth: 80 },
-      1: { cellWidth: 50, halign: 'center' },
-      2: { cellWidth: 40, halign: 'center' },
-    },
-    margin: { left: 15, right: 15 },
-  });
+    if (valorServicosExtras > 0) {
+      valoresData.push(['Serviços Extras', `R$ ${formatarMoeda(valorServicosExtras)}`]);
+    }
 
-  yPosition = doc.lastAutoTable.finalY + 12;
+    autoTable(doc, {
+      startY: yPos,
+      body: valoresData,
+      theme: 'plain',
+      styles: { 
+        fontSize: LAYOUT.fontSize.body, 
+        cellPadding: 1.5,
+        textColor: COLORS.textDark
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 80, textColor: COLORS.darkGreen },
+        1: { halign: 'right', cellWidth: 'auto' },
+      },
+      margin: { left: LAYOUT.margin, right: LAYOUT.margin },
+    });
 
-  // VALORES
-  doc.setFillColor(240, 247, 242);
-  doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(21, 87, 36);
-  doc.text('VALORES DA PROPOSTA', 17, yPosition);
-  yPosition += 10;
+    yPos = doc.lastAutoTable.finalY + 3;
 
-  const valorFrascos = precoUnitario * quantidadeFrascos;
-  const valorTotal = valorFrascos + valorServicosExtras;
-
-  const valoresData: [string, string][] = [
-    ['Preço Unitário (por frasco)', `R$ ${formatarMoeda(precoUnitario)}`],
-    ['Quantidade de Frascos', `${quantidadeFrascos} unidades`],
-    ['Subtotal Produto', `R$ ${formatarMoeda(valorFrascos)}`],
-  ];
-
-  if (valorServicosExtras > 0) {
-    valoresData.push(['Serviços Extras', `R$ ${formatarMoeda(valorServicosExtras)}`]);
-  }
-
-  autoTable(doc, {
-    startY: yPosition,
-    body: valoresData,
-    theme: 'plain',
-    styles: { 
-      fontSize: 10, 
-      cellPadding: 3,
-      textColor: [60, 60, 60]
-    },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 100, textColor: [21, 87, 36] },
-      1: { halign: 'right', cellWidth: 70 },
-    },
-    margin: { left: 15, right: 15 },
-  });
-
-  yPosition = doc.lastAutoTable.finalY + 5;
-
-  // VALOR TOTAL (DESTAQUE)
-  doc.setFillColor(21, 87, 36); // Verde escuro
-  doc.rect(15, yPosition, pageWidth - 30, 14, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('VALOR TOTAL DA PROPOSTA:', 20, yPosition + 9);
-  doc.setFontSize(16);
-  doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - 20, yPosition + 9, { align: 'right' });
-  doc.setTextColor(60, 60, 60);
-
-  yPosition += 18;
-
-  // INFORMAÇÕES ADICIONAIS
-  if (formula.unidades_por_dose) {
-    yPosition += 5;
+    // ========== VALOR TOTAL (DESTAQUE) ==========
+    doc.setFillColor(...COLORS.darkGreen);
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 12, 'F');
+    doc.setTextColor(...COLORS.white);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(21, 87, 36);
-    doc.text('INFORMAÇÕES DE DOSAGEM', 17, yPosition);
-    yPosition += 6;
+    doc.text('VALOR TOTAL:', LAYOUT.margin + 6, yPos + 8);
+    doc.setFontSize(14);
+    doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - LAYOUT.margin - 6, yPos + 8, { align: 'right' });
+
+    yPos += 15 + LAYOUT.sectionGap;
+
+    // ========== INFORMAÇÕES DE DOSAGEM ==========
+    if (formula.unidades_por_dose) {
+      doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text('INFORMAÇÕES DE DOSAGEM', LAYOUT.margin, yPos);
+      yPos += 5;
+      
+      doc.setFontSize(LAYOUT.fontSize.body);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      
+      const unidadeTexto = formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
+                           formula.tipo_produto === 'Gummy' ? 'gummies' :
+                           formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
+      
+      const dosesInfo = [
+        `Dose: ${formula.unidades_por_dose} ${unidadeTexto}`,
+        `Doses/frasco: ${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}`,
+        `Total doses: ${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)}`
+      ].join(' | ');
+      
+      doc.text(dosesInfo, LAYOUT.margin, yPos);
+      yPos += LAYOUT.lineHeight + LAYOUT.sectionGap;
+    }
+
+    // ========== FOOTER ==========
+    const footerY = PAGE_HEIGHT - LAYOUT.marginBottom;
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(LAYOUT.margin, footerY - 10, pageWidth - LAYOUT.margin, footerY - 10);
+
+    doc.setFontSize(LAYOUT.fontSize.footer);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...COLORS.textGray);
+    doc.text('Proposta válida por 30 dias. Valores sujeitos a alteração.', pageWidth / 2, footerY - 6, { align: 'center' });
+
+    doc.setDrawColor(...COLORS.darkGreen);
+    doc.setLineWidth(0.3);
+    doc.line(LAYOUT.margin, footerY - 2, pageWidth - LAYOUT.margin, footerY - 2);
     
-    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60, 60, 60);
-    const unidadeTexto = formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
-                         formula.tipo_produto === 'Gummy' ? 'gummies' :
-                         formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
-    
-    doc.text(`• Dose recomendada: ${formula.unidades_por_dose} ${unidadeTexto}`, 17, yPosition);
-    yPosition += 4.5;
-    doc.text(`• Doses por frasco: ${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses`, 17, yPosition);
-    yPosition += 4.5;
-    doc.text(`• Total de doses na proposta: ${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)} doses`, 17, yPosition);
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text(
+      `Lemon Caps - Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+      pageWidth / 2,
+      footerY + 2,
+      { align: 'center' }
+    );
+
+  } catch (error) {
+    console.error('Erro ao gerar proposta:', error);
+    // Fallback mínimo
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('LEMON CAPS - Proposta Comercial', 20, 30);
+    doc.setFontSize(10);
+    doc.text(`Produto: ${formula.nome_formula}`, 20, 40);
+    doc.text(`Cliente: ${formula.cliente}`, 20, 48);
+    doc.text(`Total: R$ ${formatarMoeda(precoUnitario * quantidadeFrascos + valorServicosExtras)}`, 20, 56);
   }
-
-  // OBSERVAÇÕES E RODAPÉ
-  const finalPageHeight = doc.internal.pageSize.getHeight();
-  yPosition = finalPageHeight - 35;
-
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(15, yPosition, pageWidth - 15, yPosition);
-  yPosition += 6;
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(100, 100, 100);
-  doc.text('Esta proposta tem validade de 30 dias a partir da data de emissão.', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 5;
-  doc.text('Valores sujeitos a alteração mediante aprovação e início da produção.', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 8;
-
-  // RODAPÉ
-  doc.setDrawColor(21, 87, 36);
-  doc.setLineWidth(0.5);
-  doc.line(15, yPosition, pageWidth - 15, yPosition);
-  yPosition += 5;
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(21, 87, 36);
-  doc.text(
-    `Lemon Caps - Proposta gerada em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
-    pageWidth / 2,
-    yPosition,
-    { align: 'center' }
-  );
 
   // Salvar PDF
   const nomeArquivo = `proposta_${formula.nome_formula.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
