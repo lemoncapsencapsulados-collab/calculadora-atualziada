@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot } from '@/types/orcamento';
+import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -16,6 +16,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -158,6 +165,15 @@ export default function GerarOrcamentoDialog({
           quantidade,
           subtotal: item.preco_unitario * quantidade,
         };
+      }
+      return item;
+    }));
+  };
+
+  const handleUpdateItemField = (index: number, field: keyof ItemProducao, value: any) => {
+    setItensProducao(prev => prev.map((item, i) => {
+      if (i === index) {
+        return { ...item, [field]: value };
       }
       return item;
     }));
@@ -459,7 +475,7 @@ export default function GerarOrcamentoDialog({
                 <div className="space-y-2">
                   {itensProducao.map((item, index) => (
                     <Card key={index}>
-                      <CardContent className="p-3">
+                      <CardContent className="p-3 space-y-3">
                         <div className="flex items-center gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -496,6 +512,45 @@ export default function GerarOrcamentoDialog({
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
+                        </div>
+
+                        {/* Campos adicionais: quantidade por pote, unidade, dose diária */}
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Qtd por Pote</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={item.quantidade_por_pote || ''}
+                              onChange={(e) => handleUpdateItemField(index, 'quantidade_por_pote', parseInt(e.target.value) || undefined)}
+                              placeholder="60"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Unidade</Label>
+                            <Select
+                              value={item.unidade_por_pote || ''}
+                              onValueChange={(value) => handleUpdateItemField(index, 'unidade_por_pote', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="capsulas">Cápsulas</SelectItem>
+                                <SelectItem value="gummies">Gummies</SelectItem>
+                                <SelectItem value="ml">ML</SelectItem>
+                                <SelectItem value="g">Gramas</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Dose Diária</Label>
+                            <Input
+                              value={item.dose_diaria_sugerida || ''}
+                              onChange={(e) => handleUpdateItemField(index, 'dose_diaria_sugerida', e.target.value)}
+                              placeholder="2 cápsulas/dia"
+                            />
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

@@ -163,7 +163,7 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     // Renderizar cada item com sua composição
     orcamento.itens_producao.forEach((item, index) => {
       // Verificar se precisa de nova página
-      const estimatedHeight = 30 + (item.insumos_formula?.length || 0) * 4;
+      const estimatedHeight = 40 + (item.insumos_formula?.length || 0) * 4;
       if (yPos + estimatedHeight > pageHeight - 40) {
         doc.addPage();
         yPos = 20;
@@ -206,6 +206,30 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 2;
+
+      // Informações do produto: quantidade por pote e dose diária
+      if ((item.quantidade_por_pote && item.unidade_por_pote) || item.dose_diaria_sugerida) {
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.textDark);
+
+        if (item.quantidade_por_pote && item.unidade_por_pote) {
+          const unidadeLabel = {
+            'capsulas': 'cápsulas',
+            'gummies': 'gummies',
+            'ml': 'ml',
+            'g': 'g'
+          }[item.unidade_por_pote] || item.unidade_por_pote;
+          doc.text(`Apresentação: ${item.quantidade_por_pote} ${unidadeLabel}/pote`, margin + 5, yPos + 3);
+          yPos += 4;
+        }
+
+        if (item.dose_diaria_sugerida) {
+          doc.text(`Dose diária sugerida: ${item.dose_diaria_sugerida}`, margin + 5, yPos + 3);
+          yPos += 4;
+        }
+        yPos += 2;
+      }
 
       // Adicionar composição se for precificação com insumos
       if (item.tipo === 'precificacao' && item.insumos_formula && item.insumos_formula.length > 0) {
@@ -298,7 +322,7 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
 
   // ========== SEÇÃO: DETALHAMENTO DE FRETE ==========
   const frete = orcamento.detalhamento_frete;
-  if (frete && (frete.frete_lemon_caps !== undefined || (frete.planos_customizados && frete.planos_customizados.length > 0))) {
+  if (frete && (frete.frete_lemon_caps !== undefined || (frete.planos_customizados && frete.planos_customizados.length > 0) || frete.detalhamento_envio)) {
     // Título da seção
     doc.setFillColor(...COLORS.mediumGreen);
     doc.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
@@ -311,6 +335,30 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     doc.setTextColor(...COLORS.textDark);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
+
+    // Detalhamento de Envio
+    if (frete.detalhamento_envio) {
+      const tipoLabels: Record<string, string> = {
+        'total_produtor': 'Todo envio para o Produtor',
+        'total_lemoncaps': 'Toda logística via Lemon Caps',
+        'parcial': 'Envio Parcial',
+      };
+      doc.setFont('helvetica', 'bold');
+      doc.text('Logística:', margin + 5, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(tipoLabels[frete.detalhamento_envio.tipo] || frete.detalhamento_envio.tipo, margin + 30, yPos);
+      yPos += 5;
+      
+      if (frete.detalhamento_envio.tipo === 'parcial' && frete.detalhamento_envio.descricao_parcial) {
+        doc.setFontSize(8);
+        doc.setTextColor(...COLORS.textGray);
+        const descLines = doc.splitTextToSize(frete.detalhamento_envio.descricao_parcial, pageWidth - 2 * margin - 15);
+        doc.text(descLines, margin + 10, yPos);
+        yPos += descLines.length * 4 + 2;
+        doc.setFontSize(9);
+        doc.setTextColor(...COLORS.textDark);
+      }
+    }
 
     doc.text(`Frete via Lemon Caps: ${frete.frete_lemon_caps ? 'SIM' : 'NÃO'}`, margin + 5, yPos);
     yPos += 5;
