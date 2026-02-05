@@ -1,31 +1,132 @@
 
-## Plano: Garantir PDF em Página Única A4 - Sem Exceções
+## Plano: PDF Profissional de Alto Padrão com Layout Expandido
 
-### Problemas Identificados
+### Objetivo
 
-1. **Preview do PDF**: O iframe mostra tela preta porque alguns navegadores não exibem PDFs inline corretamente. Precisa de fallback com link direto.
-
-2. **Quebra de Páginas**: Mesmo com `singlePageMode`, o PDF ainda pode ultrapassar 1 página se houver muito conteúdo porque o cálculo de altura não está preciso o suficiente.
-
-3. **Falta de Limite Forçado**: O sistema tenta estimar altura mas não FORÇA o conteúdo a caber em uma página.
+Criar um PDF elegante e minimalista de alto padrão que:
+1. Utilize toda a folha A4 com espaçamento generoso
+2. Mostre TODAS as informações sem cortes ou resumos
+3. Use múltiplas páginas quando necessário com layout consistente
+4. Tenha estética premium e profissional
 
 ---
 
-### Solução Proposta: Layout Ultra-Compacto Forçado
+### Comparação: Layout Atual vs Novo Layout
 
-Criar um sistema que SEMPRE gera uma única página A4, independente da quantidade de conteúdo:
+| Aspecto | Layout Atual (Ultra-compacto) | Novo Layout (Premium) |
+|---------|------------------------------|----------------------|
+| Margem | 12mm | 20mm |
+| Fonte título | 12pt | 18pt |
+| Fonte corpo | 7pt | 10pt |
+| Fonte pequena | 6pt | 9pt |
+| Max produtos | 6 (truncado) | Ilimitado |
+| Max serviços | 3 (truncado) | Ilimitado |
+| Max insumos | 2 (truncado) | Todos |
+| Espaçamento | 2mm entre seções | 8mm entre seções |
+| Páginas | Forçado 1 página | Quantas necessárias |
 
-| Seção | Altura Fixa | Estratégia |
-|-------|-------------|------------|
-| Header | 25mm | Compactar logo + info inline |
-| Cliente | 18mm | Máximo 3 linhas |
-| Produtos | 70mm máx | Limitar a 6 itens |
-| Serviços | 30mm máx | Limitar a 3 itens |
-| Frete | 12mm | Uma linha inline |
-| Total | 14mm | Box compacto |
-| Pagamento + Obs | 10mm | Truncar texto |
-| Footer | 10mm | Linha única |
-| **Total** | **~189mm** | Sobra ~80mm margem |
+---
+
+### Novo Layout Premium - Estrutura
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                                                         │ ← Margem 20mm
+│   ╭─────────────────────────────────────────────────╮   │
+│   │                  LEMON CAPS                     │   │ ← Header 40mm
+│   │                                                 │   │
+│   │  ORÇAMENTO COMERCIAL           Nº ORÇ-2024-XXX │   │
+│   │  Consultor: Nome               Data: XX/XX/XX  │   │
+│   ╰─────────────────────────────────────────────────╯   │
+│                                                         │ ← 12mm espaço
+│   ─────────────────────────────────────────────────     │
+│   DADOS DO CLIENTE                                      │ ← Seção 50mm
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   Nome: Cliente Exemplo Ltda                            │
+│   Email: cliente@email.com                              │
+│   Telefone: (11) 99999-9999                            │
+│   CNPJ: 00.000.000/0000-00                             │
+│   Razão Social: Empresa Exemplo                        │
+│   Endereço: Rua X, 123 - São Paulo/SP                  │
+│   Canal de Venda: Digital e Físico                     │
+│                                                         │ ← 12mm espaço
+│   ─────────────────────────────────────────────────     │
+│   PRODUTOS                                              │ ← Tabela expandida
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   # │ Produto              │ Segmento   │ Qtd │ Unit   │
+│   ─────────────────────────────────────────────────     │
+│   1 │ Whey Protein         │ Esportivo  │ 100 │ R$ XX  │
+│     │ Composição:                                      │
+│     │ • Whey Isolado - 30g                             │
+│     │ • Creatina - 5g                                  │
+│     │ • Vitamina D - 1000 UI                           │
+│   ─────────────────────────────────────────────────     │
+│   2 │ Colágeno Premium     │ Beleza     │ 50  │ R$ XX  │
+│     │ Composição:                                      │
+│     │ • Colágeno Hidrolisado - 10g                     │
+│     │ • Ácido Hialurônico - 100mg                      │
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│                     SUBTOTAL PRODUÇÃO: R$ XX.XXX,XX    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+                    ─── Página 1 de 2 ───
+
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│   ─────────────────────────────────────────────────     │
+│   SERVIÇOS DE MARCA                                     │
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   Serviço           │ Descrição              │ Valor   │
+│   Plano Premium     │ Consultoria completa   │ R$ XXX  │
+│   Design Label      │ Arte da embalagem      │ R$ XXX  │
+│                                                         │
+│                     SUBTOTAL SERVIÇOS: R$ XX.XXX,XX    │
+│                                                         │ ← 12mm espaço
+│   ─────────────────────────────────────────────────     │
+│   DETALHAMENTO DE FRETE                                 │
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   Tipo de Logística: Logística Lemon Caps              │
+│   Frete Lemon Caps: SIM                                │
+│   Tabela: Tradicional                                   │
+│                                                         │
+│   Planos Customizados:                                 │
+│   • Encapsulados: Até 5 POTES - R$ 34,80              │
+│   • Solúvel: 3 a 5 POTES - R$ 54,40                   │
+│                                                         │ ← 16mm espaço
+│   ╔═════════════════════════════════════════════════╗   │
+│   ║                                                 ║   │ ← Box Total 28mm
+│   ║   VALOR TOTAL                    R$ 12.345,67  ║   │
+│   ║                                                 ║   │
+│   ╚═════════════════════════════════════════════════╝   │
+│                                                         │ ← 12mm espaço
+│   ─────────────────────────────────────────────────     │
+│   FORMA DE PAGAMENTO                                    │
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   30% de entrada via PIX, 70% restante em até 3x      │
+│   no cartão de crédito, após aprovação da arte        │
+│                                                         │ ← 8mm espaço
+│   ─────────────────────────────────────────────────     │
+│   OBSERVAÇÕES                                           │
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   Produto será entregue em até 15 dias úteis após     │
+│   confirmação do pagamento. Frete grátis para SP.     │
+│                                                         │
+│   ─────────────────────────────────────────────────     │
+│                                                         │
+│   Este orçamento tem validade de 30 dias.              │
+│                                                         │
+│   LEMON CAPS - www.lemoncaps.com.br                    │
+│                                                         │ ← Margem 20mm
+└─────────────────────────────────────────────────────────┘
+                    ─── Página 2 de 2 ───
+```
 
 ---
 
@@ -33,162 +134,250 @@ Criar um sistema que SEMPRE gera uma única página A4, independente da quantida
 
 | Arquivo | Modificação |
 |---------|-------------|
-| `src/lib/orcamentoGenerator.ts` | Forçar layout de página única com limites rígidos |
-| `src/lib/propostaGenerator.ts` | Sincronizar mesma abordagem |
-| `src/components/PreviewPdfDialog.tsx` | Adicionar fallback para navegadores que não exibem PDF inline |
+| `src/lib/orcamentoGenerator.ts` | Refatorar completamente para layout premium expandido |
+| `src/lib/propostaGenerator.ts` | Aplicar mesmo padrão visual premium |
 
 ---
 
 ### Detalhes Técnicos
 
-#### 1. Novo LAYOUT Forçado em orcamentoGenerator.ts
+#### 1. Novo LAYOUT Premium
 
 ```typescript
 const LAYOUT = {
-  margin: 12,
-  marginBottom: 10,
-  headerHeight: 25,  // Reduzido de 28
-  sectionGap: 2,     // Reduzido de 3
-  lineHeight: 4,
+  margin: 20,           // Margem generosa
+  headerHeight: 40,     // Header grande e elegante
+  sectionGap: 8,        // Espaçamento entre seções
+  lineHeight: 6,        // Altura de linha confortável
   fontSize: {
-    title: 12,       // Reduzido de 14
-    sectionTitle: 8, // Reduzido de 9
-    body: 7,         // Reduzido de 8
-    small: 6,        // Reduzido de 7
-    footer: 6,
+    title: 18,          // Títulos grandes
+    sectionTitle: 11,   // Subtítulos legíveis
+    body: 10,           // Corpo de texto legível
+    small: 9,           // Notas e detalhes
+    footer: 9,          // Rodapé
   },
-  // Limites rígidos
-  maxProdutos: 6,
-  maxServicos: 3,
-  maxInsumos: 2,
 };
 ```
 
-#### 2. Limites Forçados nas Tabelas
+#### 2. Paleta de Cores Minimalista
 
 ```typescript
-function renderProdutos(doc, orcamento, yPos) {
-  const MAX_PRODUTOS = 6;
-  const itens = orcamento.itens_producao || [];
-  const itensExibir = itens.slice(0, MAX_PRODUTOS);
-  const restantes = itens.length - MAX_PRODUTOS;
+const COLORS = {
+  // Tons escuros elegantes
+  darkGreen: [24, 26, 0],      // Quase preto esverdeado
+  mediumGreen: [46, 48, 3],    // Verde escuro
   
-  // Tabela com altura máxima fixa
-  // Se restantes > 0, adicionar linha "... e mais X produto(s)"
-}
+  // Acentos sofisticados
+  lemonYellow: [202, 212, 0],  // Amarelo limão
+  
+  // Neutros minimalistas
+  white: [255, 255, 255],
+  lightGray: [248, 248, 248],  // Fundo alternado
+  borderGray: [220, 220, 220], // Linhas sutis
+  
+  // Texto
+  textDark: [40, 40, 40],      // Texto principal
+  textMedium: [80, 80, 80],    // Texto secundário
+  textLight: [120, 120, 120],  // Texto terciário
+};
 ```
 
-#### 3. Truncamento Forçado de Textos
+#### 3. Sistema de Múltiplas Páginas
 
 ```typescript
-function truncateText(doc, text, maxWidth) {
-  let truncated = text.replace(/\n/g, ' ');
-  while (doc.getTextWidth(truncated + '...') > maxWidth && truncated.length > 0) {
-    truncated = truncated.slice(0, -1);
+function checkPageBreak(doc: jsPDF, currentY: number, requiredHeight: number): number {
+  const pageHeight = 297;
+  const bottomMargin = 25;
+  const availableSpace = pageHeight - bottomMargin;
+  
+  if (currentY + requiredHeight > availableSpace) {
+    doc.addPage();
+    addPageHeader(doc);  // Header em páginas subsequentes
+    return LAYOUT.margin + 10;  // Nova posição Y
   }
-  return truncated.length < text.length ? truncated + '...' : text;
+  return currentY;
+}
+
+function addPageFooter(doc: jsPDF, pageNumber: number, totalPages: number): void {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = 297;
+  
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(
+    `Página ${pageNumber} de ${totalPages}`,
+    pageWidth / 2,
+    pageHeight - 10,
+    { align: 'center' }
+  );
 }
 ```
 
-#### 4. Box Total Mais Compacto
+#### 4. Composição Expandida dos Produtos
+
+Em vez de mostrar composição inline truncada, mostrar lista completa:
 
 ```typescript
-function renderTotal(doc, orcamento, yPos) {
-  const totalBoxHeight = 12; // Reduzido de 16
+function renderProdutoExpandido(doc: jsPDF, item: ItemProducao, yPos: number): number {
+  // Nome do produto em destaque
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(LAYOUT.fontSize.body);
+  doc.text(item.nome_produto, LAYOUT.margin + 10, yPos);
+  yPos += 5;
   
+  // Detalhes do produto
+  if (item.quantidade_por_pote && item.unidade_por_pote) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(LAYOUT.fontSize.small);
+    doc.text(`${item.quantidade_por_pote} ${item.unidade_por_pote} por frasco`, LAYOUT.margin + 10, yPos);
+    yPos += 4;
+  }
+  
+  // Composição completa (todos os insumos)
+  if (item.insumos_formula && item.insumos_formula.length > 0) {
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Composição:', LAYOUT.margin + 10, yPos);
+    yPos += 4;
+    
+    for (const insumo of item.insumos_formula) {
+      yPos = checkPageBreak(doc, yPos, 5);
+      doc.text(`• ${insumo.nome} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 15, yPos);
+      yPos += 4;
+    }
+  }
+  
+  return yPos + 3;
+}
+```
+
+#### 5. Dados do Cliente Expandidos
+
+Mostrar cada campo em sua própria linha:
+
+```typescript
+function renderDadosClienteExpandido(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  const dados = orcamento.dados_cliente;
+  
+  // Cada campo em linha separada com label
+  const campos = [
+    { label: 'Nome', valor: orcamento.nome_cliente },
+    { label: 'Email', valor: dados?.email },
+    { label: 'Telefone', valor: dados?.telefone },
+    { label: 'CPF', valor: dados?.cpf },
+    { label: 'CNPJ', valor: dados?.cnpj },
+    { label: 'Razão Social', valor: dados?.razao_social },
+    { label: 'Endereço', valor: formatEndereco(dados) },
+    { label: 'Canal de Venda', valor: formatCanalVenda(dados?.forma_venda) },
+  ];
+  
+  for (const campo of campos) {
+    if (campo.valor) {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${campo.label}:`, LAYOUT.margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(campo.valor, LAYOUT.margin + 25, yPos);
+      yPos += LAYOUT.lineHeight;
+    }
+  }
+  
+  return yPos;
+}
+```
+
+#### 6. Frete Detalhado
+
+Mostrar informações de frete em formato estruturado:
+
+```typescript
+function renderFreteDetalhado(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  const frete = orcamento.detalhamento_frete;
+  
+  // Tipo de logística
+  if (frete.detalhamento_envio) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tipo de Logística:', LAYOUT.margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(getTipoLogisticaLabel(frete.detalhamento_envio.tipo), LAYOUT.margin + 35, yPos);
+    yPos += LAYOUT.lineHeight;
+    
+    if (frete.detalhamento_envio.descricao_parcial) {
+      doc.text(`Detalhes: ${frete.detalhamento_envio.descricao_parcial}`, LAYOUT.margin, yPos);
+      yPos += LAYOUT.lineHeight;
+    }
+  }
+  
+  // Frete LC
+  doc.setFont('helvetica', 'bold');
+  doc.text('Frete Lemon Caps:', LAYOUT.margin, yPos);
+  doc.setFont('helvetica', 'normal');
+  doc.text(frete.frete_lemon_caps ? 'SIM' : 'NÃO', LAYOUT.margin + 35, yPos);
+  yPos += LAYOUT.lineHeight;
+  
+  // Tabela
+  if (frete.usa_tabela_tradicional) {
+    doc.text('Tabela de Preços: Tradicional', LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight;
+  }
+  
+  // Planos customizados
+  if (frete.planos_customizados?.length > 0) {
+    yPos += 2;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Planos de Frete:', LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight;
+    
+    for (const plano of frete.planos_customizados) {
+      doc.setFont('helvetica', 'normal');
+      doc.text(`• ${plano.tipo_produto}: ${plano.plano} - ${formatCurrency(plano.valor)}`, LAYOUT.margin + 5, yPos);
+      yPos += 5;
+    }
+  }
+  
+  return yPos;
+}
+```
+
+#### 7. Box de Total Premium
+
+```typescript
+function renderTotalPremium(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const boxHeight = 24;
+  
+  yPos = checkPageBreak(doc, yPos, boxHeight + 10);
+  yPos += 8;  // Espaço antes do box
+  
+  // Box com gradiente simulado
   doc.setFillColor(...COLORS.darkGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, totalBoxHeight, 'F');
+  doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 2, 2, 'F');
   
-  // Fonte menor
-  doc.setFontSize(9);
-  doc.text('VALOR TOTAL:', LAYOUT.margin + 5, yPos + 8);
+  // Borda sutil
+  doc.setDrawColor(...COLORS.lemonYellow);
+  doc.setLineWidth(1);
+  doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 2, 2, 'S');
   
-  doc.setFontSize(13); // Reduzido de 16
-  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 5, yPos + 8, { align: 'right' });
+  // Texto
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('VALOR TOTAL', LAYOUT.margin + 10, yPos + 15);
+  
+  doc.setTextColor(...COLORS.lemonYellow);
+  doc.setFontSize(18);
+  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 10, yPos + 16, { align: 'right' });
+  
+  return yPos + boxHeight + 10;
 }
 ```
-
-#### 5. Fix no PreviewPdfDialog
-
-```typescript
-// Adicionar type ao blob para garantir exibição correta
-const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-
-// Adicionar fallback com botão "Abrir em Nova Aba"
-{pdfUrl && (
-  <div className="flex flex-col items-center gap-3">
-    <iframe src={pdfUrl} className="w-full h-full" />
-    <Button variant="link" onClick={() => window.open(pdfUrl, '_blank')}>
-      Não consegue ver? Abrir em nova aba
-    </Button>
-  </div>
-)}
-```
-
----
-
-### Sincronização com propostaGenerator.ts
-
-Aplicar mesmas constantes e estratégias:
-
-```typescript
-const LAYOUT = {
-  margin: 12,
-  headerHeight: 25,
-  sectionGap: 2,
-  lineHeight: 4,
-  fontSize: { title: 12, sectionTitle: 8, body: 7, small: 6 },
-  maxIngredientes: 8,
-};
-```
-
----
-
-### Visualização do Layout Final A4
-
-```text
-┌─────────────────────────────────────────────────────┐ ← 0mm
-│ LEMON CAPS          ORÇAMENTO | Consultor | Data   │ ← Header 25mm
-├─────────────────────────────────────────────────────┤ ← 25mm
-│ CLIENTE                                             │
-│ Nome Cliente | Email | Tel                          │ ← Cliente 18mm
-│ CNPJ | Razão Social                                 │
-├─────────────────────────────────────────────────────┤ ← 43mm
-│ PRODUTOS                                            │
-│ # | Produto (composição)      | Qtd | Unit | Total │
-│ 1 | Produto A (Ins1, Ins2...) |  10 | R$X  | R$Y  │
-│ 2 | Produto B (Ins3...)       |   5 | R$X  | R$Y  │ ← Produtos ~60mm
-│ ... e mais X produto(s)                            │
-│                          SUBTOTAL PRODUÇÃO: R$XXX  │
-├─────────────────────────────────────────────────────┤ ← 103mm
-│ SERVIÇOS                                            │
-│ Plano | Descrição | Valor                          │ ← Serviços ~25mm
-│                          SUBTOTAL SERVIÇOS: R$XXX  │
-├─────────────────────────────────────────────────────┤ ← 128mm
-│ FRETE: Logística X | Frete LC: SIM | Tabela: Trad  │ ← Frete 10mm
-├─────────────────────────────────────────────────────┤ ← 138mm
-│                                                     │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ VALOR TOTAL:                        R$ 12.345  │ │ ← Total 14mm
-│ └─────────────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────┤ ← 152mm
-│ Forma de Pagamento: 30% entrada + 70% na entrega...│ ← Pag 8mm
-│ Obs: Texto truncado se necessário...               │ ← Obs 6mm
-├─────────────────────────────────────────────────────┤ ← 166mm
-│ ─────────────────────────────────────────────────  │
-│ Validade: 30 dias | LEMON CAPS - www.lemoncaps...  │ ← Footer 10mm
-└─────────────────────────────────────────────────────┘ ← ~176mm (A4 = 297mm)
-```
-
-**Altura total estimada: ~176mm** - Muito abaixo do limite de 297mm da A4!
 
 ---
 
 ### Resultado Esperado
 
-1. **SEMPRE 1 página A4** - Sem exceções
-2. **Preview funcionando** - Com fallback para nova aba se necessário
-3. **Fontes legíveis** - 7pt mínimo (ainda legível)
-4. **Layout elegante** - Bem organizado e separado por seções
-5. **Sem cortes** - Tudo visível em uma única folha
-6. **Consistência** - Orçamento e Proposta seguem mesmo padrão
+1. **Layout Premium**: Margens generosas, espaçamento confortável
+2. **Informações Completas**: Nada truncado ou omitido
+3. **Múltiplas Páginas**: Quebras automáticas quando necessário
+4. **Estética Minimalista**: Cores sutis, tipografia elegante
+5. **Alto Padrão**: Aparência profissional e sofisticada
+6. **Consistência**: Orçamento e Proposta com mesmo visual
+
