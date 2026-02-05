@@ -36,6 +36,7 @@ export interface DadosCliente {
   cep_cnpj?: string;
   cidade?: string;
   estado?: string;
+  forma_venda?: 'locais_fisicos' | 'venda_digital' | 'ambas' | 'sem_informacao';
 }
 
 export interface PlanoFreteCustomizado {

@@ -125,6 +125,16 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
       clienteInfo.push(`Endereço: ${endereco}`);
     }
     if (dadosCliente.cep_cnpj) clienteInfo.push(`CEP: ${dadosCliente.cep_cnpj}`);
+    
+    // Forma de Venda
+    if (dadosCliente.forma_venda && dadosCliente.forma_venda !== 'sem_informacao') {
+      const formaVendaLabels: Record<string, string> = {
+        'locais_fisicos': 'Locais físicos',
+        'venda_digital': 'Venda digital',
+        'ambas': 'Ambas (física e digital)',
+      };
+      clienteInfo.push(`Forma de Venda: ${formaVendaLabels[dadosCliente.forma_venda] || dadosCliente.forma_venda}`);
+    }
 
     clienteInfo.forEach(info => {
       doc.text(info, margin + 5, yPos);

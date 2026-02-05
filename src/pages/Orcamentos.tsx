@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   Search, 
-  Download, 
   Pencil, 
   Trash2, 
   Calendar, 
@@ -16,8 +15,6 @@ import {
   Palette,
   FileText,
   Plus,
-  User,
-  Truck,
   CheckCircle2,
   FileCheck
 } from 'lucide-react';
@@ -41,8 +38,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
-import InformacoesClienteDialog from '@/components/InformacoesClienteDialog';
-import DetalhamentoFreteDialog from '@/components/DetalhamentoFreteDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 
@@ -61,8 +56,6 @@ export default function Orcamentos() {
   const [criandoNovo, setCriandoNovo] = useState(false);
   
   // Estados para os dialogs
-  const [infoClienteOrcamento, setInfoClienteOrcamento] = useState<Orcamento | null>(null);
-  const [freteOrcamento, setFreteOrcamento] = useState<Orcamento | null>(null);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
 
@@ -251,22 +244,6 @@ export default function Orcamentos() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => setInfoClienteOrcamento(orcamento)}
-                          >
-                            <User className="w-4 h-4 mr-2" />
-                            Info Cliente
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setFreteOrcamento(orcamento)}
-                          >
-                            <Truck className="w-4 h-4 mr-2" />
-                            Frete
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
                             onClick={() => setEditandoOrcamento(orcamento)}
                           >
                             <Pencil className="w-4 h-4 mr-2" />
@@ -318,21 +295,6 @@ export default function Orcamentos() {
         />
       )}
 
-      {/* Dialog de Informações do Cliente */}
-      {infoClienteOrcamento && (
-        <InformacoesClienteDialog
-          orcamento={infoClienteOrcamento}
-          onClose={() => setInfoClienteOrcamento(null)}
-        />
-      )}
-
-      {/* Dialog de Detalhamento de Frete */}
-      {freteOrcamento && (
-        <DetalhamentoFreteDialog
-          orcamento={freteOrcamento}
-          onClose={() => setFreteOrcamento(null)}
-        />
-      )}
 
       {/* Dialog de Preview do PDF */}
       {previewOrcamento && (

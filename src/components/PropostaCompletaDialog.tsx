@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Truck, Download, PackageCheck, Search } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag } from 'lucide-react';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -47,6 +47,9 @@ export default function PropostaCompletaDialog({
     estado: '',
   });
 
+  // Forma de venda
+  const [formaVenda, setFormaVenda] = useState<string>('sem_informacao');
+
   // Detalhamento de frete
   const [freteLemonCaps, setFreteLemonCaps] = useState<boolean>(true);
   const [usaTabelaTradicional, setUsaTabelaTradicional] = useState<boolean>(true);
@@ -62,6 +65,7 @@ export default function PropostaCompletaDialog({
         ...dadosCliente,
         ...orcamento.dados_cliente,
       });
+      setFormaVenda(orcamento.dados_cliente.forma_venda || 'sem_informacao');
     }
     if (orcamento.detalhamento_frete) {
       setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
@@ -106,10 +110,15 @@ export default function PropostaCompletaDialog({
     setIsSubmitting(true);
     
     try {
-      // Salvar dados do cliente
+      // Salvar dados do cliente com forma de venda
+      const dadosClienteCompletos: DadosCliente = {
+        ...dadosCliente,
+        forma_venda: formaVenda as DadosCliente['forma_venda'],
+      };
+      
       await updateDadosCliente.mutateAsync({
         id: orcamento.id,
-        dados_cliente: dadosCliente,
+        dados_cliente: dadosClienteCompletos,
       });
 
       // Salvar detalhamento de frete
@@ -128,7 +137,7 @@ export default function PropostaCompletaDialog({
       // Criar orçamento atualizado para gerar PDF
       const orcamentoAtualizado: Orcamento = {
         ...orcamento,
-        dados_cliente: dadosCliente,
+        dados_cliente: dadosClienteCompletos,
         detalhamento_frete: detalhamentoFrete,
       };
 
@@ -147,7 +156,10 @@ export default function PropostaCompletaDialog({
   const handleDownload = async () => {
     const orcamentoAtualizado: Orcamento = {
       ...orcamento,
-      dados_cliente: dadosCliente,
+      dados_cliente: {
+        ...dadosCliente,
+        forma_venda: formaVenda as DadosCliente['forma_venda'],
+      },
       detalhamento_frete: {
         frete_lemon_caps: freteLemonCaps,
         usa_tabela_tradicional: usaTabelaTradicional,
@@ -314,12 +326,57 @@ export default function PropostaCompletaDialog({
             </CardContent>
           </Card>
 
-          {/* 2. Detalhamento de Frete */}
+          {/* 2. Forma de Venda do Cliente */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4" />
+                2. Forma de Venda do Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Label className="text-sm text-muted-foreground mb-3 block">
+                Como o cliente vende seus produtos?
+              </Label>
+              <RadioGroup
+                value={formaVenda}
+                onValueChange={setFormaVenda}
+                className="space-y-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="locais_fisicos" id="locais" />
+                  <Label htmlFor="locais" className="font-normal cursor-pointer">
+                    Locais físicos
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="venda_digital" id="digital" />
+                  <Label htmlFor="digital" className="font-normal cursor-pointer">
+                    Venda digital
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="ambas" id="ambas" />
+                  <Label htmlFor="ambas" className="font-normal cursor-pointer">
+                    Ambas
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="sem_informacao" id="sem-info" />
+                  <Label htmlFor="sem-info" className="font-normal cursor-pointer">
+                    Sem informação
+                  </Label>
+                </div>
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          {/* 3. Detalhamento de Frete */}
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Truck className="w-4 h-4" />
-                2. Detalhamento de Frete
+                3. Detalhamento de Frete
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
