@@ -1,33 +1,67 @@
 
-## Plano: Corrigir Preview e Criar Layout Compacto de Pagina Unica A4
+## Plano: Garantir PDF em Pagina Unica A4 e Melhorar Preview
 
-### Problemas Identificados
+### Status Atual
 
-1. **Preview nao abre**: A funcao `generateOrcamentoPDFBlob` pode estar falhando silenciosamente no carregamento do logo ou na renderizacao
-2. **Conteudo cortado**: O `checkPageBreak` nao previne cortes em todos os casos
-3. **Nao cabe em uma pagina**: O layout atual gera multiplas paginas quando o orcamento tem muitos itens
+Apos testes no browser, verifiquei que:
+- O **preview do PDF esta funcionando** no "Gerar Orcamento"
+- A **Proposta Completa** tambem gera preview corretamente
+- O layout compacto ja esta implementado em ambos os arquivos
 
----
+### Problema Identificado
 
-### Solucao Proposta: Modo de Pagina Unica Compacto
+O PDF pode ultrapassar 1 pagina quando:
+1. Ha muitos produtos na tabela
+2. Ha muitos servicos
+3. Observacoes ou forma de pagamento sao muito longos
 
-Criar um layout otimizado que prioriza caber tudo em uma unica pagina A4:
+### Solucao Proposta
 
-#### Estrategia de Layout Compacto
+#### 1. Adicionar Controle de Altura no `orcamentoGenerator.ts`
 
-| Secao | Altura Maxima | Otimizacao |
-|-------|---------------|------------|
-| Header | 35mm | Logo menor, fonte reduzida |
-| Dados Cliente | 25mm | Formato inline, fonte 8pt |
-| Tabela Produtos | Dinamica | Linhas condensadas, sem composicao detalhada |
-| Servicos | 20mm | Tabela simples |
-| Frete | 15mm | Texto inline |
-| Total | 20mm | Box compacto |
-| Forma Pagamento | 15mm | Texto condensado |
-| Observacoes | 15mm | Truncar se necessario |
-| Validade/Footer | 15mm | Rodape compacto |
+Verificar se o conteudo total vai ultrapassar a altura A4 e ajustar dinamicamente:
 
-**Altura util A4**: 297mm - 30mm margens = ~267mm disponivel
+```typescript
+const MAX_CONTENT_HEIGHT = 265; // A4 (297mm) - margens (32mm)
+
+function calculateTotalHeight(orcamento: Orcamento): number {
+  let height = 28; // header
+  height += 20; // dados cliente
+  height += Math.min(orcamento.itens_producao?.length || 0, 5) * 8; // max 5 produtos visiveis
+  height += Math.min(orcamento.servicos_marca?.length || 0, 3) * 6; // max 3 servicos
+  height += 20; // total box
+  height += 10; // forma pagamento
+  height += 10; // observacoes
+  height += 15; // footer
+  return height;
+}
+```
+
+#### 2. Limitar Itens Exibidos em Tabelas
+
+Para garantir pagina unica, limitar quantidade de itens nas tabelas:
+
+- **Produtos**: Exibir ate 6 produtos; se mais, mostrar resumo
+- **Servicos**: Exibir ate 4 servicos; se mais, consolidar
+- **Composicao**: Ja esta truncada em 3 insumos
+
+#### 3. Fallback para Multiplas Paginas
+
+Se o conteudo for muito grande para uma pagina, usar layout com quebras de pagina controladas:
+
+```typescript
+const useSinglePageMode = calculateTotalHeight(orcamento) <= MAX_CONTENT_HEIGHT;
+
+if (useSinglePageMode) {
+  // Layout compacto atual
+} else {
+  // Layout expandido com checkPageBreak
+}
+```
+
+#### 4. Atualizar `propostaGenerator.ts` 
+
+Aplicar mesmas melhorias para manter consistencia.
 
 ---
 
@@ -35,170 +69,72 @@ Criar um layout otimizado que prioriza caber tudo em uma unica pagina A4:
 
 | Arquivo | Modificacao |
 |---------|-------------|
-| `src/lib/orcamentoGenerator.ts` | Refatorar para layout compacto de pagina unica |
-| `src/components/PreviewPdfDialog.tsx` | Melhorar tratamento de erros e fallback |
+| `src/lib/orcamentoGenerator.ts` | Adicionar calculo de altura e modo dual (pagina unica vs multiplas) |
+| `src/lib/propostaGenerator.ts` | Sincronizar estilo e aplicar mesmas otimizacoes |
 
 ---
 
 ### Detalhes Tecnicos
 
-#### 1. Novo Layout Compacto em orcamentoGenerator.ts
+#### Funcao de Calculo de Altura
 
 ```typescript
-const LAYOUT_COMPACT = {
-  margin: 12,
-  marginBottom: 15,
-  headerHeight: 30,
-  sectionGap: 4,
-  lineHeight: 4,
-  fontSize: {
-    title: 14,
-    sectionTitle: 9,
-    body: 8,
-    small: 7,
-    footer: 7,
-  }
-};
-```
-
-#### 2. Header Compacto
-
-- Logo: 30x12mm (menor)
-- Titulo e dados alinhados horizontalmente
-- Altura total: 30mm
-
-#### 3. Dados do Cliente Compacto
-
-```text
-Cliente: Nome do Cliente | Email: email@test.com | Tel: (00) 00000-0000
-CNPJ: 00.000.000/0000-00 | Razao Social: Empresa LTDA
-```
-
-#### 4. Tabela de Produtos Condensada
-
-- Remover coluna de segmento
-- Mostrar composicao inline: "Produto X (Insumo A, Insumo B...)"
-- Fonte 8pt
-- Altura de linha: 5mm
-
-#### 5. Box Total Menor
-
-- Altura: 15mm em vez de 28mm
-- Fonte do valor: 16pt em vez de 20pt
-
-#### 6. Tratamento de Overflow
-
-```typescript
-function fitToSinglePage(doc: jsPDF, totalHeight: number): void {
-  const availableHeight = 267; // A4 - margens
-  if (totalHeight > availableHeight) {
-    const scale = availableHeight / totalHeight;
-    // Aplicar escala ao documento se necessario
-    // Ou truncar observacoes/detalhes secundarios
-  }
+function estimateTotalContentHeight(orcamento: Orcamento): number {
+  const headerHeight = 28;
+  const clienteHeight = 20;
+  const produtosHeight = Math.min((orcamento.itens_producao?.length || 0) * 10, 60) + 15; // max 60mm
+  const servicosHeight = orcamento.servicos_marca?.length ? 
+    Math.min((orcamento.servicos_marca.length) * 8, 32) + 12 : 0;
+  const freteHeight = orcamento.detalhamento_frete ? 15 : 0;
+  const totalHeight = 18;
+  const pagamentoHeight = orcamento.forma_pagamento ? 8 : 0;
+  const obsHeight = orcamento.observacoes ? 8 : 0;
+  const footerHeight = 12;
+  
+  return headerHeight + clienteHeight + produtosHeight + servicosHeight + 
+         freteHeight + totalHeight + pagamentoHeight + obsHeight + footerHeight;
 }
 ```
 
----
-
-### Correcoes no PreviewPdfDialog.tsx
-
-```typescript
-useEffect(() => {
-  let objectUrl: string | null = null;
-  let isMounted = true;
-
-  async function loadPreview() {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const blob = await generateOrcamentoPDFBlob(orcamento);
-      
-      if (!isMounted) return;
-      
-      if (!blob || blob.size === 0) {
-        throw new Error('Blob vazio');
-      }
-      
-      objectUrl = URL.createObjectURL(blob);
-      setPdfUrl(objectUrl);
-    } catch (err) {
-      console.error('Erro ao gerar preview:', err);
-      if (isMounted) {
-        setError(`Erro ao gerar PDF: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      }
-    } finally {
-      if (isMounted) {
-        setIsLoading(false);
-      }
-    }
-  }
-
-  loadPreview();
-
-  return () => {
-    isMounted = false;
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-    }
-  };
-}, [orcamento]);
-```
-
----
-
-### Funcao Principal Atualizada
+#### Modo Dual de Renderizacao
 
 ```typescript
 async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
-
-  try {
-    let yPos = await renderHeaderCompact(doc, orcamento);
-    yPos = renderDadosClienteCompact(doc, orcamento, yPos);
-    yPos = renderProdutosCompact(doc, orcamento, yPos);
-    yPos = renderServicosCompact(doc, orcamento, yPos);
-    yPos = renderFreteCompact(doc, orcamento, yPos);
-    yPos = renderTotalCompact(doc, orcamento, yPos);
-    yPos = renderFormaPagamentoCompact(doc, orcamento, yPos);
-    yPos = renderObservacoesCompact(doc, orcamento, yPos);
-    renderValidadeCompact(doc, orcamento, yPos);
-    
-    addFooterCompact(doc);
-    renderStatusWatermark(doc, orcamento);
-  } catch (error) {
-    console.error('Erro ao criar PDF:', error);
-    // Fallback: pelo menos o header
-    doc.setFontSize(16);
-    doc.text('Erro ao gerar PDF completo', 20, 50);
-    doc.setFontSize(10);
-    doc.text(`Orcamento: ${orcamento.numero_orcamento}`, 20, 60);
-    doc.text(`Cliente: ${orcamento.nome_cliente}`, 20, 70);
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  
+  const estimatedHeight = estimateTotalContentHeight(orcamento);
+  const singlePageMode = estimatedHeight <= 265;
+  
+  if (singlePageMode) {
+    // Usar fontes compactas e layout atual
+    return renderSinglePage(doc, orcamento);
+  } else {
+    // Usar layout com quebras de pagina controladas
+    return renderMultiPage(doc, orcamento);
   }
-
-  return doc;
 }
 ```
 
----
+#### Truncar Tabela de Produtos se Necessario
 
-### Sequencia de Implementacao
-
-1. **Atualizar orcamentoGenerator.ts** - Criar versao compacta de todas as funcoes
-2. **Corrigir PreviewPdfDialog.tsx** - Melhorar tratamento de erros e lifecycle
-3. **Testar em diferentes cenarios** - Orcamentos com poucos e muitos itens
+```typescript
+function renderProdutos(doc, orcamento, yPos, maxRows = 10) {
+  const itens = orcamento.itens_producao?.slice(0, maxRows) || [];
+  const hasMore = (orcamento.itens_producao?.length || 0) > maxRows;
+  
+  // Renderizar tabela...
+  
+  if (hasMore) {
+    // Adicionar linha: "... e mais X produtos"
+  }
+}
+```
 
 ---
 
 ### Resultado Esperado
 
-- PDF sempre em uma unica pagina A4
-- Fonte legivel (8-9pt para texto principal)
-- Preview funcionando corretamente
-- Sem conteudo cortado
-- Layout elegante e profissional
+1. PDFs com poucos itens: uma unica pagina A4
+2. PDFs com muitos itens: multiplas paginas bem formatadas
+3. Preview funcionando em ambos os casos
+4. Consistencia entre Orcamento e Proposta Completa
