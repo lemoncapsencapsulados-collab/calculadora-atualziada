@@ -233,6 +233,7 @@ export type Database = {
           created_at: string | null
           dados_cliente: Json | null
           detalhamento_frete: Json | null
+          forma_pagamento: string | null
           id: string
           itens_producao: Json
           nome_cliente: string
@@ -251,6 +252,7 @@ export type Database = {
           created_at?: string | null
           dados_cliente?: Json | null
           detalhamento_frete?: Json | null
+          forma_pagamento?: string | null
           id?: string
           itens_producao?: Json
           nome_cliente: string
@@ -269,6 +271,7 @@ export type Database = {
           created_at?: string | null
           dados_cliente?: Json | null
           detalhamento_frete?: Json | null
+          forma_pagamento?: string | null
           id?: string
           itens_producao?: Json
           nome_cliente?: string

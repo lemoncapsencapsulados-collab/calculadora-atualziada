@@ -57,6 +57,7 @@ export default function GerarOrcamentoDialog({
   const [nomeCliente, setNomeCliente] = useState('');
   const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
+  const [formaPagamento, setFormaPagamento] = useState('');
   const [observacoes, setObservacoes] = useState('');
   
   // Step 2: Itens de produção
@@ -83,6 +84,7 @@ export default function GerarOrcamentoDialog({
       setNomeCliente(orcamentoExistente.nome_cliente);
       setConsultorResponsavel(orcamentoExistente.consultor_responsavel || '');
       setValidadeDias(orcamentoExistente.validade_dias);
+      setFormaPagamento(orcamentoExistente.forma_pagamento || '');
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
       setServicosMarca(orcamentoExistente.servicos_marca || []);
@@ -216,6 +218,7 @@ export default function GerarOrcamentoDialog({
             nome_cliente: nomeCliente,
             consultor_responsavel: consultorResponsavel,
             validade_dias: validadeDias,
+            forma_pagamento: formaPagamento || undefined,
             observacoes,
             itens_producao: itensProducao,
             servicos_marca: servicosMarca,
@@ -233,6 +236,7 @@ export default function GerarOrcamentoDialog({
           nome_cliente: nomeCliente,
           consultor_responsavel: consultorResponsavel,
           validade_dias: validadeDias,
+          forma_pagamento: formaPagamento || undefined,
           observacoes,
           itens_producao: itensProducao,
           servicos_marca: servicosMarca,
@@ -311,6 +315,17 @@ export default function GerarOrcamentoDialog({
                   onChange={(e) => setValidadeDias(parseInt(e.target.value) || 30)}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="formaPagamento">Forma de Pagamento</Label>
+                <Textarea
+                  id="formaPagamento"
+                  value={formaPagamento}
+                  onChange={(e) => setFormaPagamento(e.target.value)}
+                  placeholder='Ex: "50% do valor total na entrada pago via Pix e 50% pago no final da produção pago via cartão de crédito em 3x sem juros"'
+                  rows={3}
+                />
+              </div>
               
               <div className="space-y-2">
                 <Label htmlFor="obs">Observações</Label>
@@ -318,7 +333,7 @@ export default function GerarOrcamentoDialog({
                   id="obs"
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Condições de pagamento, detalhes adicionais..."
+                  placeholder="Detalhes adicionais..."
                   rows={4}
                 />
               </div>
