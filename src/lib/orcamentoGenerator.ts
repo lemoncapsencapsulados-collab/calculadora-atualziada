@@ -403,6 +403,21 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
 
   yPos += totalBoxHeight + 15;
 
+  // ========== FORMA DE PAGAMENTO ==========
+  if (orcamento.forma_pagamento) {
+    doc.setTextColor(...COLORS.textDark);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FORMA DE PAGAMENTO:', margin, yPos);
+    yPos += 5;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const pagLines = doc.splitTextToSize(orcamento.forma_pagamento, pageWidth - 2 * margin);
+    doc.text(pagLines, margin, yPos);
+    yPos += pagLines.length * 4 + 10;
+  }
+
   // ========== OBSERVAÇÕES ==========
   if (orcamento.observacoes) {
     doc.setTextColor(...COLORS.textDark);

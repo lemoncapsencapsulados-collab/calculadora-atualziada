@@ -69,6 +69,7 @@ export interface Orcamento {
   subtotal_servicos: number;
   valor_total: number;
   observacoes?: string;
+  forma_pagamento?: string;
   validade_dias: number;
   status: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
   created_at: string;
@@ -87,6 +88,7 @@ export interface OrcamentoInsert {
   subtotal_servicos: number;
   valor_total: number;
   observacoes?: string;
+  forma_pagamento?: string;
   validade_dias?: number;
   status?: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
 }
@@ -102,6 +104,7 @@ export interface OrcamentoUpdate {
   subtotal_servicos?: number;
   valor_total?: number;
   observacoes?: string;
+  forma_pagamento?: string;
   validade_dias?: number;
   status?: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
 }
