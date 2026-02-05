@@ -1,225 +1,204 @@
 
-## Plano: Otimização dos PDFs para A4 com Layout Responsivo e Legível
-
-### Objetivo
-Reformular completamente a geração de PDFs em `orcamentoGenerator.ts` para garantir:
-- Layout perfeitamente enquadrado em folhas A4
-- Fonte em tamanho legível sem necessidade de zoom
-- Quebras de página automáticas inteligentes (sem cortar conteúdo)
-- Margens adequadas e espaçamento elegante
-- Visualização correta em mobile e desktop
-
----
+## Plano: Corrigir Preview e Criar Layout Compacto de Pagina Unica A4
 
 ### Problemas Identificados
 
-| Problema | Causa |
-|----------|-------|
-| Conteúdo cortado entre páginas | Verificação de altura insuficiente antes de adicionar seções |
-| Fontes pequenas demais | Tamanhos de 8-9pt para texto principal |
-| Layout desorganizado | Espaçamento inconsistente entre seções |
-| Margens inadequadas | Margem de 20mm pode ser ajustada |
-| Quebras de página manuais | Falta de verificação automática de espaço restante |
+1. **Preview nao abre**: A funcao `generateOrcamentoPDFBlob` pode estar falhando silenciosamente no carregamento do logo ou na renderizacao
+2. **Conteudo cortado**: O `checkPageBreak` nao previne cortes em todos os casos
+3. **Nao cabe em uma pagina**: O layout atual gera multiplas paginas quando o orcamento tem muitos itens
 
 ---
 
-### Solução Proposta
+### Solucao Proposta: Modo de Pagina Unica Compacto
 
-#### 1. Constantes de Layout Padronizadas
+Criar um layout otimizado que prioriza caber tudo em uma unica pagina A4:
 
-```typescript
-const LAYOUT = {
-  margin: 15,           // Margem lateral padrão
-  marginTop: 15,        // Margem superior
-  marginBottom: 25,     // Margem inferior (espaço para footer)
-  headerHeight: 45,     // Altura do cabeçalho
-  sectionGap: 8,        // Espaço entre seções
-  lineHeight: 5,        // Altura de linha padrão
-  fontSize: {
-    title: 18,          // Títulos principais
-    sectionTitle: 11,   // Títulos de seção
-    body: 10,           // Texto principal
-    small: 9,           // Texto secundário
-    footer: 8,          // Rodapé
-  }
-};
-```
+#### Estrategia de Layout Compacto
 
-#### 2. Função de Verificação de Página
+| Secao | Altura Maxima | Otimizacao |
+|-------|---------------|------------|
+| Header | 35mm | Logo menor, fonte reduzida |
+| Dados Cliente | 25mm | Formato inline, fonte 8pt |
+| Tabela Produtos | Dinamica | Linhas condensadas, sem composicao detalhada |
+| Servicos | 20mm | Tabela simples |
+| Frete | 15mm | Texto inline |
+| Total | 20mm | Box compacto |
+| Forma Pagamento | 15mm | Texto condensado |
+| Observacoes | 15mm | Truncar se necessario |
+| Validade/Footer | 15mm | Rodape compacto |
 
-```typescript
-function checkPageBreak(doc: jsPDF, yPos: number, requiredHeight: number): number {
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const safeBottom = pageHeight - LAYOUT.marginBottom;
-  
-  if (yPos + requiredHeight > safeBottom) {
-    doc.addPage();
-    addPageHeader(doc); // Adiciona cabeçalho reduzido em páginas seguintes
-    return LAYOUT.marginTop + 15;
-  }
-  return yPos;
-}
-```
-
-#### 3. Cabeçalho Compacto para Páginas Adicionais
-
-```typescript
-function addPageHeader(doc: jsPDF): void {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  
-  doc.setFillColor(...COLORS.darkGreen);
-  doc.rect(0, 0, pageWidth, 15, 'F');
-  
-  doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('LEMON CAPS - Orçamento Comercial', LAYOUT.margin, 10);
-}
-```
-
-#### 4. Footer em Todas as Páginas
-
-```typescript
-function addPageFooter(doc: jsPDF, pageNumber: number, totalPages: number): void {
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  
-  doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(0.3);
-  doc.line(LAYOUT.margin, pageHeight - 18, pageWidth - LAYOUT.margin, pageHeight - 18);
-  
-  doc.setTextColor(...COLORS.textGray);
-  doc.setFontSize(8);
-  doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth / 2, pageHeight - 12, { align: 'center' });
-  doc.text('LEMON CAPS - www.lemoncaps.com.br', pageWidth / 2, pageHeight - 7, { align: 'center' });
-}
-```
-
----
-
-### Alterações por Seção
-
-#### Header Principal (Página 1)
-- Altura reduzida de 50mm para 45mm
-- Logo e título melhor posicionados
-- Fontes maiores para legibilidade
-
-#### Dados do Cliente
-- Fonte aumentada de 9pt para 10pt
-- Espaçamento entre linhas de 5mm para 6mm
-- Verificação de quebra de página antes de iniciar
-
-#### Tabela de Produtos
-- Verificação de altura estimada antes de cada produto
-- Se não couber, inicia nova página
-- Cabeçalho da tabela repetido em cada página
-
-#### Composição da Fórmula
-- Fonte aumentada de 8pt para 9pt
-- Verificação de espaço antes de listar insumos
-- Se lista for longa, pode continuar em próxima página
-
-#### Serviços de Marca
-- Verificação de espaço antes da seção
-- Tabela com autoTable já gerencia quebras
-
-#### Detalhamento de Frete
-- Verificação de espaço antes da seção
-- Texto com quebra automática (splitTextToSize)
-
-#### Valor Total
-- Box sempre em posição adequada
-- Verificação para não ficar cortado
-
-#### Forma de Pagamento e Observações
-- Verificação de espaço antes de cada
-- Quebra de linha automática para textos longos
+**Altura util A4**: 297mm - 30mm margens = ~267mm disponivel
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Modificação |
+| Arquivo | Modificacao |
 |---------|-------------|
-| `src/lib/orcamentoGenerator.ts` | Refatoração completa com layout padronizado, quebras de página automáticas, fontes legíveis e footer em todas as páginas |
+| `src/lib/orcamentoGenerator.ts` | Refatorar para layout compacto de pagina unica |
+| `src/components/PreviewPdfDialog.tsx` | Melhorar tratamento de erros e fallback |
 
 ---
 
-### Detalhes Técnicos
+### Detalhes Tecnicos
 
-#### Estrutura do Código Refatorado
+#### 1. Novo Layout Compacto em orcamentoGenerator.ts
 
 ```typescript
-// 1. Constantes de layout e cores
-const LAYOUT = { ... };
-const COLORS = { ... };
+const LAYOUT_COMPACT = {
+  margin: 12,
+  marginBottom: 15,
+  headerHeight: 30,
+  sectionGap: 4,
+  lineHeight: 4,
+  fontSize: {
+    title: 14,
+    sectionTitle: 9,
+    body: 8,
+    small: 7,
+    footer: 7,
+  }
+};
+```
 
-// 2. Funções utilitárias
-function formatCurrency(value: number): string { ... }
-function checkPageBreak(doc: jsPDF, yPos: number, requiredHeight: number): number { ... }
-function addPageHeader(doc: jsPDF): void { ... }
-function addFooterToAllPages(doc: jsPDF): void { ... }
+#### 2. Header Compacto
 
-// 3. Funções de seção (cada uma verifica espaço antes de renderizar)
-function renderHeader(doc: jsPDF, orcamento: Orcamento): number { ... }
-function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderTotal(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
-function renderValidade(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+- Logo: 30x12mm (menor)
+- Titulo e dados alinhados horizontalmente
+- Altura total: 30mm
 
-// 4. Função principal
+#### 3. Dados do Cliente Compacto
+
+```text
+Cliente: Nome do Cliente | Email: email@test.com | Tel: (00) 00000-0000
+CNPJ: 00.000.000/0000-00 | Razao Social: Empresa LTDA
+```
+
+#### 4. Tabela de Produtos Condensada
+
+- Remover coluna de segmento
+- Mostrar composicao inline: "Produto X (Insumo A, Insumo B...)"
+- Fonte 8pt
+- Altura de linha: 5mm
+
+#### 5. Box Total Menor
+
+- Altura: 15mm em vez de 28mm
+- Fonte do valor: 16pt em vez de 20pt
+
+#### 6. Tratamento de Overflow
+
+```typescript
+function fitToSinglePage(doc: jsPDF, totalHeight: number): void {
+  const availableHeight = 267; // A4 - margens
+  if (totalHeight > availableHeight) {
+    const scale = availableHeight / totalHeight;
+    // Aplicar escala ao documento se necessario
+    // Ou truncar observacoes/detalhes secundarios
+  }
+}
+```
+
+---
+
+### Correcoes no PreviewPdfDialog.tsx
+
+```typescript
+useEffect(() => {
+  let objectUrl: string | null = null;
+  let isMounted = true;
+
+  async function loadPreview() {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const blob = await generateOrcamentoPDFBlob(orcamento);
+      
+      if (!isMounted) return;
+      
+      if (!blob || blob.size === 0) {
+        throw new Error('Blob vazio');
+      }
+      
+      objectUrl = URL.createObjectURL(blob);
+      setPdfUrl(objectUrl);
+    } catch (err) {
+      console.error('Erro ao gerar preview:', err);
+      if (isMounted) {
+        setError(`Erro ao gerar PDF: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      }
+    } finally {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }
+  }
+
+  loadPreview();
+
+  return () => {
+    isMounted = false;
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  };
+}, [orcamento]);
+```
+
+---
+
+### Funcao Principal Atualizada
+
+```typescript
 async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  
-  let yPos = renderHeader(doc, orcamento);
-  yPos = renderDadosCliente(doc, orcamento, yPos);
-  yPos = renderProdutos(doc, orcamento, yPos);
-  yPos = renderServicos(doc, orcamento, yPos);
-  yPos = renderFrete(doc, orcamento, yPos);
-  yPos = renderTotal(doc, orcamento, yPos);
-  yPos = renderFormaPagamento(doc, orcamento, yPos);
-  yPos = renderObservacoes(doc, orcamento, yPos);
-  yPos = renderValidade(doc, orcamento, yPos);
-  
-  addFooterToAllPages(doc);
-  
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  try {
+    let yPos = await renderHeaderCompact(doc, orcamento);
+    yPos = renderDadosClienteCompact(doc, orcamento, yPos);
+    yPos = renderProdutosCompact(doc, orcamento, yPos);
+    yPos = renderServicosCompact(doc, orcamento, yPos);
+    yPos = renderFreteCompact(doc, orcamento, yPos);
+    yPos = renderTotalCompact(doc, orcamento, yPos);
+    yPos = renderFormaPagamentoCompact(doc, orcamento, yPos);
+    yPos = renderObservacoesCompact(doc, orcamento, yPos);
+    renderValidadeCompact(doc, orcamento, yPos);
+    
+    addFooterCompact(doc);
+    renderStatusWatermark(doc, orcamento);
+  } catch (error) {
+    console.error('Erro ao criar PDF:', error);
+    // Fallback: pelo menos o header
+    doc.setFontSize(16);
+    doc.text('Erro ao gerar PDF completo', 20, 50);
+    doc.setFontSize(10);
+    doc.text(`Orcamento: ${orcamento.numero_orcamento}`, 20, 60);
+    doc.text(`Cliente: ${orcamento.nome_cliente}`, 20, 70);
+  }
+
   return doc;
 }
 ```
 
-#### Tamanhos de Fonte Atualizados
+---
 
-| Elemento | Antes | Depois |
-|----------|-------|--------|
-| Título principal | 20pt | 18pt |
-| Título seção | 10-11pt | 11pt |
-| Texto principal | 9pt | 10pt |
-| Composição | 8pt | 9pt |
-| Footer | 8pt | 8pt |
+### Sequencia de Implementacao
 
-#### Verificação de Quebra de Página
-
-Antes de cada seção, verificar se há espaço suficiente:
-
-```typescript
-// Exemplo: antes de renderizar Valor Total
-const totalBoxHeight = 30; // altura estimada
-yPos = checkPageBreak(doc, yPos, totalBoxHeight);
-```
+1. **Atualizar orcamentoGenerator.ts** - Criar versao compacta de todas as funcoes
+2. **Corrigir PreviewPdfDialog.tsx** - Melhorar tratamento de erros e lifecycle
+3. **Testar em diferentes cenarios** - Orcamentos com poucos e muitos itens
 
 ---
 
 ### Resultado Esperado
 
-1. PDF sempre enquadrado em A4 (210mm x 297mm)
-2. Margens uniformes de 15mm nas laterais
-3. Fontes legíveis sem necessidade de zoom (10pt para texto principal)
-4. Quebras de página automáticas antes de cada seção
-5. Nenhum conteúdo cortado entre páginas
-6. Footer com numeração em todas as páginas
-7. Visualização adequada em mobile e desktop
-8. Espaçamento elegante e padronizado
+- PDF sempre em uma unica pagina A4
+- Fonte legivel (8-9pt para texto principal)
+- Preview funcionando corretamente
+- Sem conteudo cortado
+- Layout elegante e profissional
