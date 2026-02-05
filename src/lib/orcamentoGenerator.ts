@@ -4,20 +4,24 @@ import { Orcamento } from '@/types/orcamento';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// ========== LAYOUT COMPACTO PARA PÁGINA ÚNICA A4 ==========
+// ========== LAYOUT ULTRA-COMPACTO - SEMPRE 1 PÁGINA A4 ==========
 const LAYOUT = {
   margin: 12,
-  marginBottom: 12,
-  headerHeight: 28,
-  sectionGap: 3,
+  marginBottom: 10,
+  headerHeight: 25,  // Reduzido
+  sectionGap: 2,     // Reduzido
   lineHeight: 4,
   fontSize: {
-    title: 14,
-    sectionTitle: 9,
-    body: 8,
-    small: 7,
+    title: 12,       // Reduzido
+    sectionTitle: 8, // Reduzido
+    body: 7,         // Reduzido
+    small: 6,        // Reduzido
     footer: 6,
-  }
+  },
+  // Limites rígidos para garantir 1 página
+  maxProdutos: 6,
+  maxServicos: 3,
+  maxInsumos: 2,
 };
 
 // Cores da identidade visual Lemon Caps
@@ -32,43 +36,7 @@ const COLORS = {
   textGray: [100, 100, 100] as [number, number, number],
 };
 
-// A4: 210mm x 297mm - Altura útil ~270mm
 const PAGE_HEIGHT = 297;
-const USABLE_HEIGHT = PAGE_HEIGHT - LAYOUT.margin - LAYOUT.marginBottom;
-const MAX_SINGLE_PAGE_HEIGHT = 265; // Limite para modo de página única
-
-// ========== CÁLCULO DE ALTURA ESTIMADA ==========
-
-function estimateTotalContentHeight(orcamento: Orcamento): number {
-  const headerHeight = LAYOUT.headerHeight + LAYOUT.sectionGap;
-  const clienteHeight = 22; // ~5 linhas compactas
-  
-  // Produtos: header (8) + linhas (6 cada) + subtotal (7)
-  const numProdutos = orcamento.itens_producao?.length || 0;
-  const produtosHeight = numProdutos > 0 ? 15 + Math.min(numProdutos * 6, 48) : 0;
-  
-  // Serviços: header (8) + linhas (5 cada) + subtotal (7)
-  const numServicos = orcamento.servicos_marca?.length || 0;
-  const servicosHeight = numServicos > 0 ? 15 + Math.min(numServicos * 5, 30) : 0;
-  
-  // Frete
-  const freteHeight = orcamento.detalhamento_frete ? 14 : 0;
-  
-  // Total box
-  const totalHeight = 20;
-  
-  // Forma pagamento
-  const pagamentoHeight = orcamento.forma_pagamento ? 6 : 0;
-  
-  // Observações
-  const obsHeight = orcamento.observacoes ? 6 : 0;
-  
-  // Footer
-  const footerHeight = 12;
-  
-  return headerHeight + clienteHeight + produtosHeight + servicosHeight + 
-         freteHeight + totalHeight + pagamentoHeight + obsHeight + footerHeight;
-}
 
 // ========== FUNÇÕES UTILITÁRIAS ==========
 
@@ -83,7 +51,18 @@ function getPageWidth(doc: jsPDF): number {
   return doc.internal.pageSize.getWidth();
 }
 
-// ========== FUNÇÕES DE RENDERIZAÇÃO COMPACTAS ==========
+function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
+  if (!text) return '';
+  let truncated = text.replace(/\n/g, ' ').trim();
+  if (doc.getTextWidth(truncated) <= maxWidth) return truncated;
+  
+  while (doc.getTextWidth(truncated + '...') > maxWidth && truncated.length > 0) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated + '...';
+}
+
+// ========== FUNÇÕES DE RENDERIZAÇÃO ULTRA-COMPACTAS ==========
 
 function renderHeader(doc: jsPDF, orcamento: Orcamento): number {
   const pageWidth = getPageWidth(doc);
@@ -92,16 +71,16 @@ function renderHeader(doc: jsPDF, orcamento: Orcamento): number {
   doc.setFillColor(...COLORS.darkGreen);
   doc.rect(0, 0, pageWidth, LAYOUT.headerHeight, 'F');
 
-  // Logo como texto (evita problemas de carregamento de imagem)
+  // Logo como texto
   doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(16);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('LEMON CAPS', LAYOUT.margin, 12);
+  doc.text('LEMON CAPS', LAYOUT.margin, 10);
 
   // Título e info à direita
   doc.setTextColor(...COLORS.white);
   doc.setFontSize(LAYOUT.fontSize.title);
-  doc.text('ORÇAMENTO COMERCIAL', pageWidth - LAYOUT.margin, 10, { align: 'right' });
+  doc.text('ORÇAMENTO COMERCIAL', pageWidth - LAYOUT.margin, 9, { align: 'right' });
 
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'normal');
@@ -112,14 +91,14 @@ function renderHeader(doc: jsPDF, orcamento: Orcamento): number {
     format(new Date(orcamento.created_at), "dd/MM/yyyy", { locale: ptBR })
   ].filter(Boolean).join(' | ');
   
-  doc.text(infoLine, pageWidth - LAYOUT.margin, 18, { align: 'right' });
+  doc.text(infoLine, pageWidth - LAYOUT.margin, 16, { align: 'right' });
 
   // Linha amarela de destaque
   doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.4);
   doc.line(0, LAYOUT.headerHeight, pageWidth, LAYOUT.headerHeight);
 
-  return LAYOUT.headerHeight + LAYOUT.sectionGap + 2;
+  return LAYOUT.headerHeight + LAYOUT.sectionGap + 1;
 }
 
 function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -128,56 +107,45 @@ function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): num
 
   // Título da seção
   doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
   doc.setTextColor(...COLORS.lemonYellow);
   doc.setFontSize(LAYOUT.fontSize.sectionTitle);
   doc.setFont('helvetica', 'bold');
-  doc.text('CLIENTE', LAYOUT.margin + 3, yPos + 4);
-  yPos += 8;
+  doc.text('CLIENTE', LAYOUT.margin + 2, yPos + 3.5);
+  yPos += 6;
 
   doc.setTextColor(...COLORS.textDark);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(LAYOUT.fontSize.body);
-
-  // Linha 1: Nome (em destaque)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.text(orcamento.nome_cliente, LAYOUT.margin, yPos + 1);
-  yPos += 5;
+  yPos += 4;
 
   if (dadosCliente) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(LAYOUT.fontSize.body);
 
-    // Linha 2: Contato
+    // Linha 1: Contato inline
     const contato = [
       dadosCliente.email,
-      dadosCliente.telefone ? `Tel: ${dadosCliente.telefone}` : null
-    ].filter(Boolean).join(' | ');
-    if (contato) {
-      doc.text(contato, LAYOUT.margin, yPos + 1);
-      yPos += LAYOUT.lineHeight;
-    }
-
-    // Linha 3: CNPJ/CPF + Razão Social
-    const doc1 = [
+      dadosCliente.telefone ? `Tel: ${dadosCliente.telefone}` : null,
       dadosCliente.cnpj ? `CNPJ: ${dadosCliente.cnpj}` : null,
       dadosCliente.cpf ? `CPF: ${dadosCliente.cpf}` : null,
-      dadosCliente.razao_social
     ].filter(Boolean).join(' | ');
-    if (doc1) {
-      doc.text(doc1, LAYOUT.margin, yPos + 1);
+    
+    if (contato) {
+      doc.text(truncateText(doc, contato, pageWidth - 2 * LAYOUT.margin), LAYOUT.margin, yPos + 1);
       yPos += LAYOUT.lineHeight;
     }
 
-    // Linha 4: Endereço
-    if (dadosCliente.endereco_cnpj || dadosCliente.cidade) {
-      const endereco = [
-        dadosCliente.endereco_cnpj,
-        dadosCliente.cidade && dadosCliente.estado ? `${dadosCliente.cidade}/${dadosCliente.estado}` : null,
-        dadosCliente.cep_cnpj ? `CEP: ${dadosCliente.cep_cnpj}` : null
-      ].filter(Boolean).join(' - ');
-      doc.text(endereco, LAYOUT.margin, yPos + 1);
+    // Linha 2: Endereço
+    const endereco = [
+      dadosCliente.razao_social,
+      dadosCliente.endereco_cnpj,
+      dadosCliente.cidade && dadosCliente.estado ? `${dadosCliente.cidade}/${dadosCliente.estado}` : null,
+    ].filter(Boolean).join(' - ');
+    
+    if (endereco) {
+      doc.text(truncateText(doc, endereco, pageWidth - 2 * LAYOUT.margin), LAYOUT.margin, yPos + 1);
       yPos += LAYOUT.lineHeight;
     }
   }
@@ -185,33 +153,31 @@ function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): num
   return yPos + LAYOUT.sectionGap;
 }
 
-function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number, singlePageMode: boolean = true): number {
+function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   if (!orcamento.itens_producao || orcamento.itens_producao.length === 0) {
     return yPos;
   }
 
   const pageWidth = getPageWidth(doc);
-  const maxRows = singlePageMode ? 8 : 50; // Limitar em modo página única
-  const itensExibir = orcamento.itens_producao.slice(0, maxRows);
-  const itensOcultos = orcamento.itens_producao.length - maxRows;
+  const itensExibir = orcamento.itens_producao.slice(0, LAYOUT.maxProdutos);
+  const itensOcultos = orcamento.itens_producao.length - LAYOUT.maxProdutos;
 
   // Título da seção
   doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
   doc.setTextColor(...COLORS.lemonYellow);
   doc.setFontSize(LAYOUT.fontSize.sectionTitle);
   doc.setFont('helvetica', 'bold');
-  doc.text('PRODUTOS', LAYOUT.margin + 3, yPos + 4);
-  yPos += 8;
+  doc.text('PRODUTOS', LAYOUT.margin + 2, yPos + 3.5);
+  yPos += 6;
 
-  // Tabela compacta de produtos
+  // Tabela ultra-compacta de produtos
   const produtosData = itensExibir.map((item, index) => {
-    // Composição inline resumida (mais curta em modo single page)
+    // Composição inline muito curta
     let composicao = '';
     if (item.insumos_formula && item.insumos_formula.length > 0) {
-      const maxInsumos = singlePageMode ? 2 : 3;
-      const insumos = item.insumos_formula.slice(0, maxInsumos).map(i => i.nome).join(', ');
-      composicao = item.insumos_formula.length > maxInsumos ? `${insumos}...` : insumos;
+      const insumos = item.insumos_formula.slice(0, LAYOUT.maxInsumos).map(i => i.nome).join(', ');
+      composicao = item.insumos_formula.length > LAYOUT.maxInsumos ? `${insumos}...` : insumos;
     }
     
     const nomeCompleto = composicao ? `${item.nome_produto} (${composicao})` : item.nome_produto;
@@ -240,62 +206,61 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number, singlePa
       textColor: COLORS.white,
       fontStyle: 'bold',
       fontSize: LAYOUT.fontSize.small,
-      cellPadding: 1.5,
+      cellPadding: 1,
     },
     bodyStyles: {
       textColor: COLORS.textDark,
       fontSize: LAYOUT.fontSize.body,
-      cellPadding: 1.5,
+      cellPadding: 1,
     },
     alternateRowStyles: {
       fillColor: COLORS.lightGray,
     },
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
+      0: { cellWidth: 7, halign: 'center' },
       1: { cellWidth: 'auto' },
-      2: { cellWidth: 12, halign: 'center' },
-      3: { cellWidth: 22, halign: 'right' },
-      4: { cellWidth: 25, halign: 'right' },
+      2: { cellWidth: 10, halign: 'center' },
+      3: { cellWidth: 20, halign: 'right' },
+      4: { cellWidth: 22, halign: 'right' },
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 2;
+  yPos = (doc as any).lastAutoTable.finalY + 1;
 
-  // Subtotal de produção
+  // Subtotal de produção - mais compacto
   doc.setFillColor(...COLORS.lightGray);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
+  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 4, 'F');
   doc.setTextColor(...COLORS.textDark);
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'bold');
-  doc.text('SUBTOTAL PRODUÇÃO:', pageWidth - LAYOUT.margin - 40, yPos + 3.5);
-  doc.text(formatCurrency(orcamento.subtotal_producao), pageWidth - LAYOUT.margin - 3, yPos + 3.5, { align: 'right' });
+  doc.text('SUBTOTAL PRODUÇÃO:', pageWidth - LAYOUT.margin - 38, yPos + 2.8);
+  doc.text(formatCurrency(orcamento.subtotal_producao), pageWidth - LAYOUT.margin - 2, yPos + 2.8, { align: 'right' });
 
-  return yPos + 7 + LAYOUT.sectionGap;
+  return yPos + 5 + LAYOUT.sectionGap;
 }
 
-function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number, singlePageMode: boolean = true): number {
+function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   if (!orcamento.servicos_marca || orcamento.servicos_marca.length === 0) {
     return yPos;
   }
 
   const pageWidth = getPageWidth(doc);
-  const maxRows = singlePageMode ? 5 : 20;
-  const servicosExibir = orcamento.servicos_marca.slice(0, maxRows);
-  const servicosOcultos = orcamento.servicos_marca.length - maxRows;
+  const servicosExibir = orcamento.servicos_marca.slice(0, LAYOUT.maxServicos);
+  const servicosOcultos = orcamento.servicos_marca.length - LAYOUT.maxServicos;
 
   // Título da seção
   doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
   doc.setTextColor(...COLORS.lemonYellow);
   doc.setFontSize(LAYOUT.fontSize.sectionTitle);
   doc.setFont('helvetica', 'bold');
-  doc.text('SERVIÇOS DE MARCA', LAYOUT.margin + 3, yPos + 4);
-  yPos += 8;
+  doc.text('SERVIÇOS DE MARCA', LAYOUT.margin + 2, yPos + 3.5);
+  yPos += 6;
 
-  // Tabela compacta de serviços
+  // Tabela ultra-compacta de serviços
   const servicosData = servicosExibir.map((servico) => [
     servico.nome_plano,
-    servico.descricao || '-',
+    servico.descricao ? truncateText(doc, servico.descricao, 80) : '-',
     formatCurrency(servico.valor),
   ]);
 
@@ -314,35 +279,35 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number, singlePa
       textColor: COLORS.white,
       fontStyle: 'bold',
       fontSize: LAYOUT.fontSize.small,
-      cellPadding: 1.5,
+      cellPadding: 1,
     },
     bodyStyles: {
       textColor: COLORS.textDark,
       fontSize: LAYOUT.fontSize.body,
-      cellPadding: 1.5,
+      cellPadding: 1,
     },
     alternateRowStyles: {
       fillColor: COLORS.lightGray,
     },
     columnStyles: {
-      0: { cellWidth: 40 },
+      0: { cellWidth: 35 },
       1: { cellWidth: 'auto' },
-      2: { cellWidth: 28, halign: 'right' },
+      2: { cellWidth: 25, halign: 'right' },
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 2;
+  yPos = (doc as any).lastAutoTable.finalY + 1;
 
-  // Subtotal de serviços
+  // Subtotal de serviços - mais compacto
   doc.setFillColor(...COLORS.lightGray);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
+  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 4, 'F');
   doc.setTextColor(...COLORS.textDark);
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'bold');
-  doc.text('SUBTOTAL SERVIÇOS:', pageWidth - LAYOUT.margin - 40, yPos + 3.5);
-  doc.text(formatCurrency(orcamento.subtotal_servicos), pageWidth - LAYOUT.margin - 3, yPos + 3.5, { align: 'right' });
+  doc.text('SUBTOTAL SERVIÇOS:', pageWidth - LAYOUT.margin - 38, yPos + 2.8);
+  doc.text(formatCurrency(orcamento.subtotal_servicos), pageWidth - LAYOUT.margin - 2, yPos + 2.8, { align: 'right' });
 
-  return yPos + 7 + LAYOUT.sectionGap;
+  return yPos + 5 + LAYOUT.sectionGap;
 }
 
 function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -353,58 +318,55 @@ function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
 
   const pageWidth = getPageWidth(doc);
 
-  // Título inline
+  // Título inline mais compacto
   doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
   doc.setTextColor(...COLORS.lemonYellow);
   doc.setFontSize(LAYOUT.fontSize.sectionTitle);
   doc.setFont('helvetica', 'bold');
-  doc.text('FRETE', LAYOUT.margin + 3, yPos + 4);
-  yPos += 8;
+  doc.text('FRETE', LAYOUT.margin + 2, yPos + 3.5);
+  yPos += 6;
 
   doc.setTextColor(...COLORS.textDark);
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'normal');
 
-  // Info de frete em uma linha
+  // Info de frete em uma linha única
   const freteInfo = [];
   
   if (frete.detalhamento_envio) {
     const tipoLabels: Record<string, string> = {
       'total_produtor': 'Envio p/ Produtor',
-      'total_lemoncaps': 'Logística Lemon Caps',
+      'total_lemoncaps': 'Logística LC',
       'parcial': 'Envio Parcial',
     };
     freteInfo.push(`Logística: ${tipoLabels[frete.detalhamento_envio.tipo] || frete.detalhamento_envio.tipo}`);
   }
   
-  freteInfo.push(`Frete Lemon Caps: ${frete.frete_lemon_caps ? 'SIM' : 'NÃO'}`);
+  freteInfo.push(`Frete LC: ${frete.frete_lemon_caps ? 'SIM' : 'NÃO'}`);
   
   if (frete.usa_tabela_tradicional) {
     freteInfo.push('Tabela: Tradicional');
   }
 
-  doc.text(freteInfo.join(' | '), LAYOUT.margin, yPos + 1);
-  yPos += LAYOUT.lineHeight;
-
-  // Planos customizados em linha única se houver
+  // Planos customizados inline
   if (frete.planos_customizados && frete.planos_customizados.length > 0) {
-    const planosText = frete.planos_customizados
+    const planosText = frete.planos_customizados.slice(0, 2)
       .map(p => `${p.tipo_produto}: ${formatCurrency(p.valor)}`)
-      .join(' | ');
-    doc.setFontSize(LAYOUT.fontSize.small);
-    doc.text(planosText, LAYOUT.margin, yPos + 1);
-    yPos += LAYOUT.lineHeight;
+      .join(', ');
+    freteInfo.push(planosText);
   }
 
-  return yPos + LAYOUT.sectionGap;
+  doc.text(truncateText(doc, freteInfo.join(' | '), pageWidth - 2 * LAYOUT.margin), LAYOUT.margin, yPos + 1);
+
+  return yPos + LAYOUT.lineHeight + LAYOUT.sectionGap;
 }
 
 function renderTotal(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   const pageWidth = getPageWidth(doc);
-  const totalBoxHeight = 16;
+  const totalBoxHeight = 12; // Mais compacto
   
-  yPos += 2;
+  yPos += 1;
   
   // Box do total
   doc.setFillColor(...COLORS.darkGreen);
@@ -412,20 +374,20 @@ function renderTotal(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   
   // Borda amarela
   doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(0.8);
+  doc.setLineWidth(0.6);
   doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, totalBoxHeight, 'S');
 
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('VALOR TOTAL:', LAYOUT.margin + 8, yPos + 10);
+  doc.text('VALOR TOTAL:', LAYOUT.margin + 6, yPos + 7.5);
 
   doc.setTextColor(...COLORS.brightYellow);
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 8, yPos + 11, { align: 'right' });
+  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 6, yPos + 8, { align: 'right' });
 
-  return yPos + totalBoxHeight + LAYOUT.sectionGap + 2;
+  return yPos + totalBoxHeight + LAYOUT.sectionGap + 1;
 }
 
 function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -441,18 +403,10 @@ function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): n
   doc.text('Forma de Pagamento:', LAYOUT.margin, yPos);
   
   doc.setFont('helvetica', 'normal');
-  // Truncar se muito longo
-  const maxWidth = pageWidth - 2 * LAYOUT.margin - 40;
-  let pagText = orcamento.forma_pagamento;
-  if (doc.getTextWidth(pagText) > maxWidth) {
-    while (doc.getTextWidth(pagText + '...') > maxWidth && pagText.length > 0) {
-      pagText = pagText.slice(0, -1);
-    }
-    pagText += '...';
-  }
-  doc.text(pagText, LAYOUT.margin + 38, yPos);
+  const maxWidth = pageWidth - 2 * LAYOUT.margin - 35;
+  doc.text(truncateText(doc, orcamento.forma_pagamento, maxWidth), LAYOUT.margin + 35, yPos);
   
-  return yPos + LAYOUT.lineHeight + 1;
+  return yPos + LAYOUT.lineHeight;
 }
 
 function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -469,29 +423,20 @@ function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): numb
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(LAYOUT.fontSize.small);
-  // Truncar observações para caber em uma linha
-  const maxWidth = pageWidth - 2 * LAYOUT.margin - 12;
-  let obsText = orcamento.observacoes.replace(/\n/g, ' ');
-  if (doc.getTextWidth(obsText) > maxWidth) {
-    while (doc.getTextWidth(obsText + '...') > maxWidth && obsText.length > 0) {
-      obsText = obsText.slice(0, -1);
-    }
-    obsText += '...';
-  }
-  doc.text(obsText, LAYOUT.margin + 10, yPos);
+  const maxWidth = pageWidth - 2 * LAYOUT.margin - 10;
+  doc.text(truncateText(doc, orcamento.observacoes, maxWidth), LAYOUT.margin + 10, yPos);
   
-  return yPos + LAYOUT.lineHeight + 1;
+  return yPos + LAYOUT.lineHeight;
 }
 
 function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
   const pageWidth = getPageWidth(doc);
-  const pageHeight = PAGE_HEIGHT;
-  const footerY = pageHeight - LAYOUT.marginBottom;
+  const footerY = PAGE_HEIGHT - LAYOUT.marginBottom;
 
   // Linha separadora
   doc.setDrawColor(...COLORS.lemonYellow);
   doc.setLineWidth(0.3);
-  doc.line(LAYOUT.margin, footerY - 6, pageWidth - LAYOUT.margin, footerY - 6);
+  doc.line(LAYOUT.margin, footerY - 5, pageWidth - LAYOUT.margin, footerY - 5);
 
   // Validade e info
   doc.setTextColor(...COLORS.textGray);
@@ -500,7 +445,7 @@ function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
   doc.text(
     `Validade: ${orcamento.validade_dias} dias | LEMON CAPS - www.lemoncaps.com.br`,
     pageWidth / 2,
-    footerY - 2,
+    footerY - 1,
     { align: 'center' }
   );
 }
@@ -549,18 +494,14 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     format: 'a4',
   });
 
-  // Calcular altura estimada para decidir o modo
-  const estimatedHeight = estimateTotalContentHeight(orcamento);
-  const singlePageMode = estimatedHeight <= MAX_SINGLE_PAGE_HEIGHT;
-  
-  console.log(`[PDF] Altura estimada: ${estimatedHeight}mm, Modo: ${singlePageMode ? 'página única' : 'múltiplas páginas'}`);
+  console.log(`[PDF] Gerando orçamento: ${orcamento.numero_orcamento} - Modo: página única forçada`);
 
   try {
-    // Renderizar seções em ordem, passando singlePageMode
+    // Renderizar seções em ordem com limites forçados
     let yPos = renderHeader(doc, orcamento);
     yPos = renderDadosCliente(doc, orcamento, yPos);
-    yPos = renderProdutos(doc, orcamento, yPos, singlePageMode);
-    yPos = renderServicos(doc, orcamento, yPos, singlePageMode);
+    yPos = renderProdutos(doc, orcamento, yPos);
+    yPos = renderServicos(doc, orcamento, yPos);
     yPos = renderFrete(doc, orcamento, yPos);
     yPos = renderTotal(doc, orcamento, yPos);
     yPos = renderFormaPagamento(doc, orcamento, yPos);
@@ -569,6 +510,8 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     // Footer e marca d'água
     renderFooter(doc, orcamento);
     renderStatusWatermark(doc, orcamento);
+    
+    console.log(`[PDF] Altura final usada: ${yPos}mm de 297mm`);
   } catch (error) {
     console.error('Erro ao criar PDF:', error);
     // Fallback mínimo
