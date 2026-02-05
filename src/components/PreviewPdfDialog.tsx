@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Download, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, Download, FileText, ExternalLink } from 'lucide-react';
 
 interface PreviewPdfDialogProps {
   orcamento: Orcamento;
@@ -50,7 +50,9 @@ export default function PreviewPdfDialog({
           URL.revokeObjectURL(objectUrlRef.current);
         }
         
-        const url = URL.createObjectURL(blob);
+        // Criar blob com type explícito para garantir exibição correta
+        const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+        const url = URL.createObjectURL(pdfBlob);
         objectUrlRef.current = url;
         setPdfUrl(url);
       } catch (err) {
@@ -87,6 +89,12 @@ export default function PreviewPdfDialog({
     }
   };
 
+  const handleOpenNewTab = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
   return (
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
@@ -109,15 +117,32 @@ export default function PreviewPdfDialog({
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <FileText className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-destructive">{error}</p>
+                <p className="text-sm text-destructive mb-3">{error}</p>
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar PDF diretamente
+                </Button>
               </div>
             </div>
           ) : pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full"
-              title="Preview do PDF"
-            />
+            <div className="flex flex-col h-full">
+              <iframe
+                src={pdfUrl}
+                className="w-full flex-1"
+                title="Preview do PDF"
+              />
+              <div className="flex justify-center py-2 bg-muted/50 border-t">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={handleOpenNewTab}
+                  className="text-xs text-muted-foreground"
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Não consegue ver? Abrir em nova aba
+                </Button>
+              </div>
+            </div>
           ) : null}
         </div>
 

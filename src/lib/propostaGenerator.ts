@@ -17,20 +17,21 @@ interface PropostaData {
   valorServicosExtras: number;
 }
 
-// ========== LAYOUT COMPACTO PARA PÁGINA ÚNICA A4 ==========
+// ========== LAYOUT ULTRA-COMPACTO - SEMPRE 1 PÁGINA A4 ==========
 const LAYOUT = {
   margin: 12,
-  marginBottom: 12,
-  headerHeight: 28,
-  sectionGap: 4,
-  lineHeight: 4.5,
+  marginBottom: 10,
+  headerHeight: 25,
+  sectionGap: 2,
+  lineHeight: 4,
   fontSize: {
-    title: 14,
-    sectionTitle: 9,
-    body: 8,
-    small: 7,
+    title: 12,
+    sectionTitle: 8,
+    body: 7,
+    small: 6,
     footer: 6,
-  }
+  },
+  maxIngredientes: 8,
 };
 
 const COLORS = {
@@ -42,19 +43,6 @@ const COLORS = {
 };
 
 const PAGE_HEIGHT = 297;
-const MAX_SINGLE_PAGE_HEIGHT = 265;
-
-// Estimar altura para modo de página única
-function estimatePropostaHeight(formula: Formula): number {
-  const headerHeight = LAYOUT.headerHeight + LAYOUT.sectionGap;
-  const infoHeight = 18;
-  const composicaoHeight = 15 + Math.min(formula.itens.length * 5, 50);
-  const valoresHeight = 35;
-  const dosagemHeight = formula.unidades_por_dose ? 12 : 0;
-  const footerHeight = 15;
-  
-  return headerHeight + infoHeight + composicaoHeight + valoresHeight + dosagemHeight + footerHeight;
-}
 
 const formatarMoeda = (valor: number): string => {
   return valor.toLocaleString('pt-BR', { 
@@ -63,17 +51,23 @@ const formatarMoeda = (valor: number): string => {
   });
 };
 
+function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
+  if (!text) return '';
+  let truncated = text.replace(/\n/g, ' ').trim();
+  if (doc.getTextWidth(truncated) <= maxWidth) return truncated;
+  
+  while (doc.getTextWidth(truncated + '...') > maxWidth && truncated.length > 0) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated + '...';
+}
+
 export async function gerarPropostaPDF(data: PropostaData) {
   const { formula, precoUnitario, quantidadeFrascos, valorServicosExtras } = data;
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   
-  // Calcular modo de página
-  const estimatedHeight = estimatePropostaHeight(formula);
-  const singlePageMode = estimatedHeight <= MAX_SINGLE_PAGE_HEIGHT;
-  const maxIngredientes = singlePageMode ? 10 : 30;
-  
-  console.log(`[Proposta] Altura estimada: ${estimatedHeight}mm, Modo: ${singlePageMode ? 'página única' : 'múltiplas'}`);
+  console.log(`[Proposta] Gerando proposta: ${formula.nome_formula} - Modo: página única forçada`);
   
   try {
     let yPos = 0;
@@ -82,33 +76,33 @@ export async function gerarPropostaPDF(data: PropostaData) {
     doc.setFillColor(...COLORS.darkGreen);
     doc.rect(0, 0, pageWidth, LAYOUT.headerHeight, 'F');
     
-    doc.setFontSize(18);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.white);
-    doc.text('LEMON CAPS', LAYOUT.margin, 14);
+    doc.text('LEMON CAPS', LAYOUT.margin, 10);
     
     doc.setFontSize(LAYOUT.fontSize.title);
-    doc.text('PROPOSTA COMERCIAL', pageWidth - LAYOUT.margin, 12, { align: 'right' });
+    doc.text('PROPOSTA COMERCIAL', pageWidth - LAYOUT.margin, 9, { align: 'right' });
     
     doc.setFontSize(LAYOUT.fontSize.body);
     doc.setFont('helvetica', 'normal');
-    doc.text(format(new Date(), "dd/MM/yyyy", { locale: ptBR }), pageWidth - LAYOUT.margin, 20, { align: 'right' });
+    doc.text(format(new Date(), "dd/MM/yyyy", { locale: ptBR }), pageWidth - LAYOUT.margin, 16, { align: 'right' });
 
-    yPos = LAYOUT.headerHeight + LAYOUT.sectionGap + 2;
+    yPos = LAYOUT.headerHeight + LAYOUT.sectionGap + 1;
 
     // ========== INFORMAÇÕES DO PRODUTO ==========
     doc.setFillColor(...COLORS.lightGreenBg);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
     doc.setFontSize(LAYOUT.fontSize.sectionTitle);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
-    doc.text('INFORMAÇÕES DO PRODUTO', LAYOUT.margin + 3, yPos + 4);
-    yPos += 9;
+    doc.text('INFORMAÇÕES DO PRODUTO', LAYOUT.margin + 2, yPos + 3.5);
+    yPos += 6;
 
     doc.setFontSize(LAYOUT.fontSize.body);
     doc.setTextColor(...COLORS.textDark);
 
-    // Info em formato mais compacto (2 colunas)
+    // Info em formato compacto (2 colunas)
     const col1X = LAYOUT.margin;
     const col2X = pageWidth / 2;
     
@@ -117,14 +111,14 @@ export async function gerarPropostaPDF(data: PropostaData) {
     doc.text('Produto:', col1X, yPos);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.textDark);
-    doc.text(formula.nome_formula, col1X + 18, yPos);
+    doc.text(truncateText(doc, formula.nome_formula, 60), col1X + 16, yPos);
     
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
     doc.text('Cliente:', col2X, yPos);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.textDark);
-    doc.text(formula.cliente, col2X + 16, yPos);
+    doc.text(truncateText(doc, formula.cliente, 60), col2X + 14, yPos);
     yPos += LAYOUT.lineHeight;
 
     doc.setFont('helvetica', 'bold');
@@ -132,27 +126,27 @@ export async function gerarPropostaPDF(data: PropostaData) {
     doc.text('Tipo:', col1X, yPos);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.textDark);
-    doc.text(formula.tipo_produto, col1X + 18, yPos);
+    doc.text(formula.tipo_produto, col1X + 16, yPos);
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
     doc.text('Unid/Frasco:', col2X, yPos);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.textDark);
-    doc.text(`${formula.qtd_capsulas}`, col2X + 24, yPos);
+    doc.text(`${formula.qtd_capsulas}`, col2X + 22, yPos);
     yPos += LAYOUT.lineHeight + LAYOUT.sectionGap;
 
     // ========== COMPOSIÇÃO DA FÓRMULA ==========
     doc.setFillColor(...COLORS.lightGreenBg);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
     doc.setFontSize(LAYOUT.fontSize.sectionTitle);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
-    doc.text('COMPOSIÇÃO DA FÓRMULA', LAYOUT.margin + 3, yPos + 4);
-    yPos += 8;
+    doc.text('COMPOSIÇÃO DA FÓRMULA', LAYOUT.margin + 2, yPos + 3.5);
+    yPos += 6;
 
-    const ingredientesExibir = formula.itens.slice(0, maxIngredientes);
-    const ingredientesOcultos = formula.itens.length - maxIngredientes;
+    const ingredientesExibir = formula.itens.slice(0, LAYOUT.maxIngredientes);
+    const ingredientesOcultos = formula.itens.length - LAYOUT.maxIngredientes;
 
     const formulaData = ingredientesExibir.map((item: any) => {
       const concentracao = item.concentracao_percentual 
@@ -180,33 +174,33 @@ export async function gerarPropostaPDF(data: PropostaData) {
         textColor: 255, 
         fontStyle: 'bold', 
         fontSize: LAYOUT.fontSize.small,
-        cellPadding: 1.5,
+        cellPadding: 1,
         halign: 'center'
       },
       styles: { 
         fontSize: LAYOUT.fontSize.body, 
-        cellPadding: 1.5, 
+        cellPadding: 1, 
         textColor: COLORS.textDark 
       },
       alternateRowStyles: { fillColor: [250, 252, 250] },
       columnStyles: {
         0: { cellWidth: 'auto' },
-        1: { cellWidth: 35, halign: 'center' },
-        2: { cellWidth: 25, halign: 'center' },
+        1: { cellWidth: 30, halign: 'center' },
+        2: { cellWidth: 20, halign: 'center' },
       },
       margin: { left: LAYOUT.margin, right: LAYOUT.margin },
     });
 
-    yPos = doc.lastAutoTable.finalY + LAYOUT.sectionGap + 2;
+    yPos = doc.lastAutoTable.finalY + LAYOUT.sectionGap + 1;
 
     // ========== VALORES DA PROPOSTA ==========
     doc.setFillColor(...COLORS.lightGreenBg);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 6, 'F');
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
     doc.setFontSize(LAYOUT.fontSize.sectionTitle);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
-    doc.text('VALORES DA PROPOSTA', LAYOUT.margin + 3, yPos + 4);
-    yPos += 9;
+    doc.text('VALORES DA PROPOSTA', LAYOUT.margin + 2, yPos + 3.5);
+    yPos += 6;
 
     const valorFrascos = precoUnitario * quantidadeFrascos;
     const valorTotal = valorFrascos + valorServicosExtras;
@@ -227,29 +221,29 @@ export async function gerarPropostaPDF(data: PropostaData) {
       theme: 'plain',
       styles: { 
         fontSize: LAYOUT.fontSize.body, 
-        cellPadding: 1.5,
+        cellPadding: 1,
         textColor: COLORS.textDark
       },
       columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 80, textColor: COLORS.darkGreen },
+        0: { fontStyle: 'bold', cellWidth: 70, textColor: COLORS.darkGreen },
         1: { halign: 'right', cellWidth: 'auto' },
       },
       margin: { left: LAYOUT.margin, right: LAYOUT.margin },
     });
 
-    yPos = doc.lastAutoTable.finalY + 3;
+    yPos = doc.lastAutoTable.finalY + 2;
 
     // ========== VALOR TOTAL (DESTAQUE) ==========
     doc.setFillColor(...COLORS.darkGreen);
-    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 12, 'F');
+    doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 10, 'F');
     doc.setTextColor(...COLORS.white);
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('VALOR TOTAL:', LAYOUT.margin + 6, yPos + 8);
-    doc.setFontSize(14);
-    doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - LAYOUT.margin - 6, yPos + 8, { align: 'right' });
+    doc.text('VALOR TOTAL:', LAYOUT.margin + 5, yPos + 6.5);
+    doc.setFontSize(12);
+    doc.text(`R$ ${formatarMoeda(valorTotal)}`, pageWidth - LAYOUT.margin - 5, yPos + 6.5, { align: 'right' });
 
-    yPos += 15 + LAYOUT.sectionGap;
+    yPos += 12 + LAYOUT.sectionGap;
 
     // ========== INFORMAÇÕES DE DOSAGEM ==========
     if (formula.unidades_por_dose) {
@@ -257,7 +251,7 @@ export async function gerarPropostaPDF(data: PropostaData) {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...COLORS.darkGreen);
       doc.text('INFORMAÇÕES DE DOSAGEM', LAYOUT.margin, yPos);
-      yPos += 5;
+      yPos += 4;
       
       doc.setFontSize(LAYOUT.fontSize.body);
       doc.setFont('helvetica', 'normal');
@@ -282,25 +276,27 @@ export async function gerarPropostaPDF(data: PropostaData) {
 
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.3);
-    doc.line(LAYOUT.margin, footerY - 10, pageWidth - LAYOUT.margin, footerY - 10);
+    doc.line(LAYOUT.margin, footerY - 8, pageWidth - LAYOUT.margin, footerY - 8);
 
     doc.setFontSize(LAYOUT.fontSize.footer);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(...COLORS.textGray);
-    doc.text('Proposta válida por 30 dias. Valores sujeitos a alteração.', pageWidth / 2, footerY - 6, { align: 'center' });
+    doc.text('Proposta válida por 30 dias. Valores sujeitos a alteração.', pageWidth / 2, footerY - 4, { align: 'center' });
 
     doc.setDrawColor(...COLORS.darkGreen);
     doc.setLineWidth(0.3);
-    doc.line(LAYOUT.margin, footerY - 2, pageWidth - LAYOUT.margin, footerY - 2);
+    doc.line(LAYOUT.margin, footerY - 1, pageWidth - LAYOUT.margin, footerY - 1);
     
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.darkGreen);
     doc.text(
       `Lemon Caps - Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
       pageWidth / 2,
-      footerY + 2,
+      footerY + 3,
       { align: 'center' }
     );
+
+    console.log(`[Proposta] Altura final usada: ${yPos}mm de 297mm`);
 
   } catch (error) {
     console.error('Erro ao gerar proposta:', error);
