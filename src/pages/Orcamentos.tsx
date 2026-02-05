@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento } from '@/types/orcamento';
-import { generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,8 @@ import {
   Plus,
   User,
   Truck,
-  CheckCircle2
+  CheckCircle2,
+  FileCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,6 +44,7 @@ import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import InformacoesClienteDialog from '@/components/InformacoesClienteDialog';
 import DetalhamentoFreteDialog from '@/components/DetalhamentoFreteDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
+import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -62,6 +64,7 @@ export default function Orcamentos() {
   const [infoClienteOrcamento, setInfoClienteOrcamento] = useState<Orcamento | null>(null);
   const [freteOrcamento, setFreteOrcamento] = useState<Orcamento | null>(null);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
+  const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
 
   // Filtrar orçamentos
   const orcamentosFiltrados = orcamentos.filter(o => {
@@ -275,7 +278,15 @@ export default function Orcamentos() {
                             onClick={() => handleOpenPreview(orcamento)}
                           >
                             <FileText className="w-4 h-4 mr-2" />
-                            PDF
+                            Gerar Orçamento
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => setPropostaCompletaOrcamento(orcamento)}
+                          >
+                            <FileCheck className="w-4 h-4 mr-2" />
+                            Proposta Completa
                           </Button>
                           <Button 
                             variant="destructive" 
@@ -328,6 +339,14 @@ export default function Orcamentos() {
         <PreviewPdfDialog
           orcamento={previewOrcamento}
           onClose={() => setPreviewOrcamento(null)}
+        />
+      )}
+
+      {/* Dialog de Proposta Completa */}
+      {propostaCompletaOrcamento && (
+        <PropostaCompletaDialog
+          orcamento={propostaCompletaOrcamento}
+          onClose={() => setPropostaCompletaOrcamento(null)}
         />
       )}
       <AlertDialog open={!!deletandoId} onOpenChange={(open) => !open && setDeletandoId(null)}>

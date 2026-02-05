@@ -13,6 +13,10 @@ export interface ItemProducao {
   quantidade: number;
   subtotal: number;
   insumos_formula?: InsumoSnapshot[];
+  // Detalhes do produto
+  quantidade_por_pote?: number;
+  unidade_por_pote?: string;
+  dose_diaria_sugerida?: string;
 }
 
 export interface ServicoMarca {
@@ -40,10 +44,16 @@ export interface PlanoFreteCustomizado {
   valor: number;
 }
 
+export interface DetalhamentoEnvio {
+  tipo: 'total_produtor' | 'total_lemoncaps' | 'parcial';
+  descricao_parcial?: string;
+}
+
 export interface DetalhamentoFrete {
   frete_lemon_caps: boolean;
   usa_tabela_tradicional: boolean;
   planos_customizados: PlanoFreteCustomizado[];
+  detalhamento_envio?: DetalhamentoEnvio;
 }
 
 export interface Orcamento {

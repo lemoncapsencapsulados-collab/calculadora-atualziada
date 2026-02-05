@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
-import { Orcamento, DetalhamentoFrete, PlanoFreteCustomizado, TABELA_FRETE, TipoProdutoFrete } from '@/types/orcamento';
+import { Orcamento, DetalhamentoFrete, PlanoFreteCustomizado, DetalhamentoEnvio, TABELA_FRETE, TipoProdutoFrete } from '@/types/orcamento';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -20,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Truck, Plus, Trash2, Info } from 'lucide-react';
+import { Loader2, Truck, Plus, Trash2, Info, PackageCheck } from 'lucide-react';
 
 interface DetalhamentoFreteDialogProps {
   orcamento: Orcamento;
@@ -39,6 +40,12 @@ export default function DetalhamentoFreteDialog({
   const [usaTabelaTradicional, setUsaTabelaTradicional] = useState<boolean>(true);
   const [planosCustomizados, setPlanosCustomizados] = useState<PlanoFreteCustomizado[]>([]);
   
+  // Detalhamento de envio
+  const [detalhamentoEnvio, setDetalhamentoEnvio] = useState<DetalhamentoEnvio>({
+    tipo: 'total_lemoncaps',
+    descricao_parcial: '',
+  });
+  
   // Novo plano sendo adicionado
   const [novoPlano, setNovoPlano] = useState({
     tipo_produto: '',
@@ -51,6 +58,9 @@ export default function DetalhamentoFreteDialog({
       setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
       setUsaTabelaTradicional(orcamento.detalhamento_frete.usa_tabela_tradicional ?? true);
       setPlanosCustomizados(orcamento.detalhamento_frete.planos_customizados || []);
+      if (orcamento.detalhamento_frete.detalhamento_envio) {
+        setDetalhamentoEnvio(orcamento.detalhamento_frete.detalhamento_envio);
+      }
     }
   }, [orcamento]);
 
@@ -80,6 +90,7 @@ export default function DetalhamentoFreteDialog({
         frete_lemon_caps: freteLemonCaps,
         usa_tabela_tradicional: usaTabelaTradicional,
         planos_customizados: planosCustomizados,
+        detalhamento_envio: detalhamentoEnvio,
       };
 
       await updateDetalhamentoFrete.mutateAsync({
@@ -109,6 +120,60 @@ export default function DetalhamentoFreteDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Detalhamento de Envio - NOVA SEÇÃO */}
+          <div className="space-y-3">
+            <Label className="text-base flex items-center gap-2">
+              <PackageCheck className="w-4 h-4" />
+              Como será feita a logística?
+            </Label>
+            <RadioGroup
+              value={detalhamentoEnvio.tipo}
+              onValueChange={(value) => setDetalhamentoEnvio(prev => ({ 
+                ...prev, 
+                tipo: value as DetalhamentoEnvio['tipo'],
+                descricao_parcial: value !== 'parcial' ? '' : prev.descricao_parcial,
+              }))}
+              className="space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="total_produtor" id="envio-produtor" />
+                <Label htmlFor="envio-produtor" className="font-normal cursor-pointer">
+                  Todo envio para o Produtor
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="total_lemoncaps" id="envio-lemoncaps" />
+                <Label htmlFor="envio-lemoncaps" className="font-normal cursor-pointer">
+                  Toda logística via Lemon Caps
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="parcial" id="envio-parcial" />
+                <Label htmlFor="envio-parcial" className="font-normal cursor-pointer">
+                  Envio Parcial
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {/* Campo para descrição do envio parcial */}
+            {detalhamentoEnvio.tipo === 'parcial' && (
+              <div className="ml-6 space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  Descreva a divisão:
+                </Label>
+                <Textarea
+                  value={detalhamentoEnvio.descricao_parcial || ''}
+                  onChange={(e) => setDetalhamentoEnvio(prev => ({ 
+                    ...prev, 
+                    descricao_parcial: e.target.value 
+                  }))}
+                  placeholder="Ex: 50 potes para produtor, 100 potes logística Lemon Caps"
+                  rows={3}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Pergunta principal */}
           <div className="space-y-3">
             <Label className="text-base">
