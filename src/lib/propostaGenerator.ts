@@ -42,6 +42,19 @@ const COLORS = {
 };
 
 const PAGE_HEIGHT = 297;
+const MAX_SINGLE_PAGE_HEIGHT = 265;
+
+// Estimar altura para modo de página única
+function estimatePropostaHeight(formula: Formula): number {
+  const headerHeight = LAYOUT.headerHeight + LAYOUT.sectionGap;
+  const infoHeight = 18;
+  const composicaoHeight = 15 + Math.min(formula.itens.length * 5, 50);
+  const valoresHeight = 35;
+  const dosagemHeight = formula.unidades_por_dose ? 12 : 0;
+  const footerHeight = 15;
+  
+  return headerHeight + infoHeight + composicaoHeight + valoresHeight + dosagemHeight + footerHeight;
+}
 
 const formatarMoeda = (valor: number): string => {
   return valor.toLocaleString('pt-BR', { 
@@ -54,6 +67,13 @@ export async function gerarPropostaPDF(data: PropostaData) {
   const { formula, precoUnitario, quantidadeFrascos, valorServicosExtras } = data;
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // Calcular modo de página
+  const estimatedHeight = estimatePropostaHeight(formula);
+  const singlePageMode = estimatedHeight <= MAX_SINGLE_PAGE_HEIGHT;
+  const maxIngredientes = singlePageMode ? 10 : 30;
+  
+  console.log(`[Proposta] Altura estimada: ${estimatedHeight}mm, Modo: ${singlePageMode ? 'página única' : 'múltiplas'}`);
   
   try {
     let yPos = 0;
@@ -131,7 +151,10 @@ export async function gerarPropostaPDF(data: PropostaData) {
     doc.text('COMPOSIÇÃO DA FÓRMULA', LAYOUT.margin + 3, yPos + 4);
     yPos += 8;
 
-    const formulaData = formula.itens.map((item: any) => {
+    const ingredientesExibir = formula.itens.slice(0, maxIngredientes);
+    const ingredientesOcultos = formula.itens.length - maxIngredientes;
+
+    const formulaData = ingredientesExibir.map((item: any) => {
       const concentracao = item.concentracao_percentual 
         ? `${item.concentracao_percentual.toFixed(1)}%`
         : '-';
@@ -141,6 +164,11 @@ export async function gerarPropostaPDF(data: PropostaData) {
         concentracao,
       ];
     });
+
+    // Adicionar linha de resumo se houver ingredientes ocultos
+    if (ingredientesOcultos > 0) {
+      formulaData.push([`... e mais ${ingredientesOcultos} ingrediente(s)`, '', '']);
+    }
 
     autoTable(doc, {
       startY: yPos,
