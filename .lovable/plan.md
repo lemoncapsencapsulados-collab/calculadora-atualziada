@@ -1,183 +1,225 @@
 
-## Plano: Remover Botoes Info Cliente/Frete e Adicionar Forma de Venda
+## Plano: Otimização dos PDFs para A4 com Layout Responsivo e Legível
 
-### Resumo das Alteracoes
-
-1. **Remover botoes "Info Cliente" e "Frete"** da lista de orcamentos em `Orcamentos.tsx`
-2. **Adicionar campo "Forma de Venda"** no `PropostaCompletaDialog.tsx` com opcoes de multipla escolha
-
----
-
-### 1. Modificar Orcamentos.tsx
-
-Remover os dois botoes de Info Cliente e Frete da secao de acoes de cada orcamento (linhas 251-266):
-
-**Antes:**
-- Info Cliente
-- Frete
-- Editar
-- Gerar Orcamento
-- Proposta Completa
-- Excluir
-
-**Depois:**
-- Editar
-- Gerar Orcamento
-- Proposta Completa
-- Excluir
-
-Tambem remover:
-- Estados `infoClienteOrcamento` e `freteOrcamento`
-- Imports dos dialogs `InformacoesClienteDialog` e `DetalhamentoFreteDialog`
-- Renderizacao condicional desses dialogs
-- Imports de icones `User` e `Truck` (se nao usados em outro lugar)
+### Objetivo
+Reformular completamente a geração de PDFs em `orcamentoGenerator.ts` para garantir:
+- Layout perfeitamente enquadrado em folhas A4
+- Fonte em tamanho legível sem necessidade de zoom
+- Quebras de página automáticas inteligentes (sem cortar conteúdo)
+- Margens adequadas e espaçamento elegante
+- Visualização correta em mobile e desktop
 
 ---
 
-### 2. Modificar PropostaCompletaDialog.tsx
+### Problemas Identificados
 
-Adicionar secao "Forma de Venda do Cliente" com RadioGroup contendo as opcoes:
-
-| Valor | Label |
-|-------|-------|
-| `locais_fisicos` | Locais físicos |
-| `venda_digital` | Venda digital |
-| `ambas` | Ambas |
-| `sem_informacao` | Sem informação |
-
-**Layout atualizado:**
-
-```text
-+--------------------------------------------------+
-|         GERAR PROPOSTA COMPLETA                  |
-+--------------------------------------------------+
-|                                                  |
-|  [1. INFORMACOES DO CLIENTE]                     |
-|  +--------------------------------------------+  |
-|  | Nome, Email, Telefone, CPF, CNPJ, etc      |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|  [2. FORMA DE VENDA DO CLIENTE]                  |
-|  +--------------------------------------------+  |
-|  | Como o cliente vende seus produtos?        |  |
-|  |                                            |  |
-|  | ( ) Locais físicos                         |  |
-|  | ( ) Venda digital                          |  |
-|  | ( ) Ambas                                  |  |
-|  | ( ) Sem informação                         |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|  [3. DETALHAMENTO DE FRETE]                      |
-|  +--------------------------------------------+  |
-|  | Logistica, Frete Lemon Caps, etc           |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|           [Cancelar]  [Gerar Proposta]           |
-+--------------------------------------------------+
-```
+| Problema | Causa |
+|----------|-------|
+| Conteúdo cortado entre páginas | Verificação de altura insuficiente antes de adicionar seções |
+| Fontes pequenas demais | Tamanhos de 8-9pt para texto principal |
+| Layout desorganizado | Espaçamento inconsistente entre seções |
+| Margens inadequadas | Margem de 20mm pode ser ajustada |
+| Quebras de página manuais | Falta de verificação automática de espaço restante |
 
 ---
 
-### 3. Atualizar Tipos (Opcional - Para Persistir)
+### Solução Proposta
 
-Adicionar campo `forma_venda` ao tipo `DadosCliente` em `src/types/orcamento.ts`:
+#### 1. Constantes de Layout Padronizadas
 
 ```typescript
-export interface DadosCliente {
-  // campos existentes...
-  forma_venda?: 'locais_fisicos' | 'venda_digital' | 'ambas' | 'sem_informacao';
+const LAYOUT = {
+  margin: 15,           // Margem lateral padrão
+  marginTop: 15,        // Margem superior
+  marginBottom: 25,     // Margem inferior (espaço para footer)
+  headerHeight: 45,     // Altura do cabeçalho
+  sectionGap: 8,        // Espaço entre seções
+  lineHeight: 5,        // Altura de linha padrão
+  fontSize: {
+    title: 18,          // Títulos principais
+    sectionTitle: 11,   // Títulos de seção
+    body: 10,           // Texto principal
+    small: 9,           // Texto secundário
+    footer: 8,          // Rodapé
+  }
+};
+```
+
+#### 2. Função de Verificação de Página
+
+```typescript
+function checkPageBreak(doc: jsPDF, yPos: number, requiredHeight: number): number {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const safeBottom = pageHeight - LAYOUT.marginBottom;
+  
+  if (yPos + requiredHeight > safeBottom) {
+    doc.addPage();
+    addPageHeader(doc); // Adiciona cabeçalho reduzido em páginas seguintes
+    return LAYOUT.marginTop + 15;
+  }
+  return yPos;
+}
+```
+
+#### 3. Cabeçalho Compacto para Páginas Adicionais
+
+```typescript
+function addPageHeader(doc: jsPDF): void {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  doc.setFillColor(...COLORS.darkGreen);
+  doc.rect(0, 0, pageWidth, 15, 'F');
+  
+  doc.setTextColor(...COLORS.lemonYellow);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LEMON CAPS - Orçamento Comercial', LAYOUT.margin, 10);
+}
+```
+
+#### 4. Footer em Todas as Páginas
+
+```typescript
+function addPageFooter(doc: jsPDF, pageNumber: number, totalPages: number): void {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  doc.setDrawColor(...COLORS.lemonYellow);
+  doc.setLineWidth(0.3);
+  doc.line(LAYOUT.margin, pageHeight - 18, pageWidth - LAYOUT.margin, pageHeight - 18);
+  
+  doc.setTextColor(...COLORS.textGray);
+  doc.setFontSize(8);
+  doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth / 2, pageHeight - 12, { align: 'center' });
+  doc.text('LEMON CAPS - www.lemoncaps.com.br', pageWidth / 2, pageHeight - 7, { align: 'center' });
 }
 ```
 
 ---
 
+### Alterações por Seção
+
+#### Header Principal (Página 1)
+- Altura reduzida de 50mm para 45mm
+- Logo e título melhor posicionados
+- Fontes maiores para legibilidade
+
+#### Dados do Cliente
+- Fonte aumentada de 9pt para 10pt
+- Espaçamento entre linhas de 5mm para 6mm
+- Verificação de quebra de página antes de iniciar
+
+#### Tabela de Produtos
+- Verificação de altura estimada antes de cada produto
+- Se não couber, inicia nova página
+- Cabeçalho da tabela repetido em cada página
+
+#### Composição da Fórmula
+- Fonte aumentada de 8pt para 9pt
+- Verificação de espaço antes de listar insumos
+- Se lista for longa, pode continuar em próxima página
+
+#### Serviços de Marca
+- Verificação de espaço antes da seção
+- Tabela com autoTable já gerencia quebras
+
+#### Detalhamento de Frete
+- Verificação de espaço antes da seção
+- Texto com quebra automática (splitTextToSize)
+
+#### Valor Total
+- Box sempre em posição adequada
+- Verificação para não ficar cortado
+
+#### Forma de Pagamento e Observações
+- Verificação de espaço antes de cada
+- Quebra de linha automática para textos longos
+
+---
+
 ### Arquivos a Modificar
 
-| Arquivo | Modificacao |
+| Arquivo | Modificação |
 |---------|-------------|
-| `src/pages/Orcamentos.tsx` | Remover botoes Info Cliente e Frete, remover estados e imports relacionados |
-| `src/components/PropostaCompletaDialog.tsx` | Adicionar secao "Forma de Venda" com RadioGroup de 4 opcoes |
-| `src/types/orcamento.ts` | Adicionar `forma_venda` ao tipo `DadosCliente` |
-| `src/lib/orcamentoGenerator.ts` | Incluir forma de venda no PDF (se preenchida) |
+| `src/lib/orcamentoGenerator.ts` | Refatoração completa com layout padronizado, quebras de página automáticas, fontes legíveis e footer em todas as páginas |
 
 ---
 
-### Detalhes Tecnicos
+### Detalhes Técnicos
 
-#### PropostaCompletaDialog.tsx - Nova Secao
+#### Estrutura do Código Refatorado
 
 ```typescript
-// Novo estado
-const [formaVenda, setFormaVenda] = useState<string>(
-  orcamento.dados_cliente?.forma_venda || 'sem_informacao'
-);
+// 1. Constantes de layout e cores
+const LAYOUT = { ... };
+const COLORS = { ... };
 
-// No JSX, entre Info Cliente e Frete:
-<Card>
-  <CardHeader className="py-3">
-    <CardTitle className="text-base flex items-center gap-2">
-      <ShoppingBag className="w-4 h-4" />
-      2. Forma de Venda do Cliente
-    </CardTitle>
-  </CardHeader>
-  <CardContent>
-    <Label className="text-sm text-muted-foreground mb-3 block">
-      Como o cliente vende seus produtos?
-    </Label>
-    <RadioGroup
-      value={formaVenda}
-      onValueChange={setFormaVenda}
-      className="space-y-2"
-    >
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="locais_fisicos" id="locais" />
-        <Label htmlFor="locais" className="font-normal cursor-pointer">
-          Locais físicos
-        </Label>
-      </div>
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="venda_digital" id="digital" />
-        <Label htmlFor="digital" className="font-normal cursor-pointer">
-          Venda digital
-        </Label>
-      </div>
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="ambas" id="ambas" />
-        <Label htmlFor="ambas" className="font-normal cursor-pointer">
-          Ambas
-        </Label>
-      </div>
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="sem_informacao" id="sem-info" />
-        <Label htmlFor="sem-info" className="font-normal cursor-pointer">
-          Sem informação
-        </Label>
-      </div>
-    </RadioGroup>
-  </CardContent>
-</Card>
+// 2. Funções utilitárias
+function formatCurrency(value: number): string { ... }
+function checkPageBreak(doc: jsPDF, yPos: number, requiredHeight: number): number { ... }
+function addPageHeader(doc: jsPDF): void { ... }
+function addFooterToAllPages(doc: jsPDF): void { ... }
+
+// 3. Funções de seção (cada uma verifica espaço antes de renderizar)
+function renderHeader(doc: jsPDF, orcamento: Orcamento): number { ... }
+function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderTotal(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+function renderValidade(doc: jsPDF, orcamento: Orcamento, yPos: number): number { ... }
+
+// 4. Função principal
+async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  
+  let yPos = renderHeader(doc, orcamento);
+  yPos = renderDadosCliente(doc, orcamento, yPos);
+  yPos = renderProdutos(doc, orcamento, yPos);
+  yPos = renderServicos(doc, orcamento, yPos);
+  yPos = renderFrete(doc, orcamento, yPos);
+  yPos = renderTotal(doc, orcamento, yPos);
+  yPos = renderFormaPagamento(doc, orcamento, yPos);
+  yPos = renderObservacoes(doc, orcamento, yPos);
+  yPos = renderValidade(doc, orcamento, yPos);
+  
+  addFooterToAllPages(doc);
+  
+  return doc;
+}
 ```
 
-#### Salvar no handleGenerateProposta
+#### Tamanhos de Fonte Atualizados
+
+| Elemento | Antes | Depois |
+|----------|-------|--------|
+| Título principal | 20pt | 18pt |
+| Título seção | 10-11pt | 11pt |
+| Texto principal | 9pt | 10pt |
+| Composição | 8pt | 9pt |
+| Footer | 8pt | 8pt |
+
+#### Verificação de Quebra de Página
+
+Antes de cada seção, verificar se há espaço suficiente:
 
 ```typescript
-// Incluir forma_venda nos dados do cliente
-const dadosClienteCompletos = {
-  ...dadosCliente,
-  forma_venda: formaVenda as DadosCliente['forma_venda'],
-};
-
-await updateDadosCliente.mutateAsync({
-  id: orcamento.id,
-  dados_cliente: dadosClienteCompletos,
-});
+// Exemplo: antes de renderizar Valor Total
+const totalBoxHeight = 30; // altura estimada
+yPos = checkPageBreak(doc, yPos, totalBoxHeight);
 ```
 
 ---
 
-### Sequencia de Implementacao
+### Resultado Esperado
 
-1. **Atualizar tipos** - Adicionar `forma_venda` em `DadosCliente`
-2. **Atualizar PropostaCompletaDialog** - Adicionar secao de forma de venda
-3. **Limpar Orcamentos.tsx** - Remover botoes e dialogs de Info Cliente/Frete
-4. **Atualizar PDF Generator** - Incluir forma de venda no PDF
+1. PDF sempre enquadrado em A4 (210mm x 297mm)
+2. Margens uniformes de 15mm nas laterais
+3. Fontes legíveis sem necessidade de zoom (10pt para texto principal)
+4. Quebras de página automáticas antes de cada seção
+5. Nenhum conteúdo cortado entre páginas
+6. Footer com numeração em todas as páginas
+7. Visualização adequada em mobile e desktop
+8. Espaçamento elegante e padronizado
