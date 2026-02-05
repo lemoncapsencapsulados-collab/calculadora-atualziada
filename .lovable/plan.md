@@ -1,95 +1,91 @@
 
-## Plano: Adicionar Campo de Forma de Pagamento no Step 1
+## Plano: Remover Botoes Info Cliente/Frete e Adicionar Forma de Venda
 
-### Objetivo
-Adicionar um campo descritivo de "Forma de Pagamento" no Step 1 do dialog de criação de orçamento, entre "Validade (dias)" e "Observações", com exemplo de descrição para orientar o consultor.
+### Resumo das Alteracoes
 
----
-
-### Alterações no Tipo Orcamento
-
-Adicionar campo `forma_pagamento` nas interfaces:
-
-```typescript
-// Em src/types/orcamento.ts
-export interface Orcamento {
-  // campos existentes...
-  forma_pagamento?: string;
-}
-
-export interface OrcamentoInsert {
-  // campos existentes...
-  forma_pagamento?: string;
-}
-
-export interface OrcamentoUpdate {
-  // campos existentes...
-  forma_pagamento?: string;
-}
-```
+1. **Remover botoes "Info Cliente" e "Frete"** da lista de orcamentos em `Orcamentos.tsx`
+2. **Adicionar campo "Forma de Venda"** no `PropostaCompletaDialog.tsx` com opcoes de multipla escolha
 
 ---
 
-### Migração do Banco de Dados
+### 1. Modificar Orcamentos.tsx
 
-Adicionar coluna `forma_pagamento` na tabela `orcamentos`:
+Remover os dois botoes de Info Cliente e Frete da secao de acoes de cada orcamento (linhas 251-266):
 
-```sql
-ALTER TABLE orcamentos 
-ADD COLUMN forma_pagamento TEXT;
-```
+**Antes:**
+- Info Cliente
+- Frete
+- Editar
+- Gerar Orcamento
+- Proposta Completa
+- Excluir
+
+**Depois:**
+- Editar
+- Gerar Orcamento
+- Proposta Completa
+- Excluir
+
+Tambem remover:
+- Estados `infoClienteOrcamento` e `freteOrcamento`
+- Imports dos dialogs `InformacoesClienteDialog` e `DetalhamentoFreteDialog`
+- Renderizacao condicional desses dialogs
+- Imports de icones `User` e `Truck` (se nao usados em outro lugar)
 
 ---
 
-### Modificar GerarOrcamentoDialog.tsx
+### 2. Modificar PropostaCompletaDialog.tsx
 
-Adicionar no Step 1 o novo campo entre "Validade" e "Observações":
+Adicionar secao "Forma de Venda do Cliente" com RadioGroup contendo as opcoes:
+
+| Valor | Label |
+|-------|-------|
+| `locais_fisicos` | Locais físicos |
+| `venda_digital` | Venda digital |
+| `ambas` | Ambas |
+| `sem_informacao` | Sem informação |
+
+**Layout atualizado:**
 
 ```text
-STEP 1 - INFORMAÇÕES BÁSICAS (ATUALIZADO)
 +--------------------------------------------------+
-|  Consultor Responsável *                         |
-|  [_______________________]                       |
+|         GERAR PROPOSTA COMPLETA                  |
++--------------------------------------------------+
 |                                                  |
-|  Nome do Cliente *                               |
-|  [_______________________]                       |
+|  [1. INFORMACOES DO CLIENTE]                     |
+|  +--------------------------------------------+  |
+|  | Nome, Email, Telefone, CPF, CNPJ, etc      |  |
+|  +--------------------------------------------+  |
 |                                                  |
-|  Validade (dias)                                 |
-|  [30]                                            |
+|  [2. FORMA DE VENDA DO CLIENTE]                  |
+|  +--------------------------------------------+  |
+|  | Como o cliente vende seus produtos?        |  |
+|  |                                            |  |
+|  | ( ) Locais físicos                         |  |
+|  | ( ) Venda digital                          |  |
+|  | ( ) Ambas                                  |  |
+|  | ( ) Sem informação                         |  |
+|  +--------------------------------------------+  |
 |                                                  |
-|  Forma de Pagamento                              |
-|  +----------------------------------------------+|
-|  | [Textarea com placeholder de exemplo]        ||
-|  | Ex: "50% do valor total na entrada pago      ||
-|  | via Pix e 50% pago no final da produção      ||
-|  | pago via cartão de crédito em 3x sem juros"  ||
-|  +----------------------------------------------+|
+|  [3. DETALHAMENTO DE FRETE]                      |
+|  +--------------------------------------------+  |
+|  | Logistica, Frete Lemon Caps, etc           |  |
+|  +--------------------------------------------+  |
 |                                                  |
-|  Observações                                     |
-|  [_______________________]                       |
+|           [Cancelar]  [Gerar Proposta]           |
 +--------------------------------------------------+
 ```
 
 ---
 
-### Atualizar PDF Generator
+### 3. Atualizar Tipos (Opcional - Para Persistir)
 
-Adicionar seção de "Forma de Pagamento" no PDF (antes de Observações):
+Adicionar campo `forma_venda` ao tipo `DadosCliente` em `src/types/orcamento.ts`:
 
 ```typescript
-// Em src/lib/orcamentoGenerator.ts
-if (orcamento.forma_pagamento) {
-  doc.setTextColor(...COLORS.textDark);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text('FORMA DE PAGAMENTO:', margin, yPos);
-  yPos += 5;
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const pagLines = doc.splitTextToSize(orcamento.forma_pagamento, pageWidth - 2 * margin);
-  doc.text(pagLines, margin, yPos);
-  yPos += pagLines.length * 4 + 10;
+export interface DadosCliente {
+  // campos existentes...
+  forma_venda?: 'locais_fisicos' | 'venda_digital' | 'ambas' | 'sem_informacao';
 }
 ```
 
@@ -97,52 +93,91 @@ if (orcamento.forma_pagamento) {
 
 ### Arquivos a Modificar
 
-| Arquivo | Modificação |
+| Arquivo | Modificacao |
 |---------|-------------|
-| `src/types/orcamento.ts` | Adicionar `forma_pagamento?: string` nas interfaces Orcamento, OrcamentoInsert e OrcamentoUpdate |
-| `src/components/GerarOrcamentoDialog.tsx` | Adicionar estado e campo textarea no Step 1, incluir no handleSubmit |
-| `src/lib/orcamentoGenerator.ts` | Adicionar seção de Forma de Pagamento no PDF |
-| **Migração SQL** | Adicionar coluna `forma_pagamento` na tabela `orcamentos` |
+| `src/pages/Orcamentos.tsx` | Remover botoes Info Cliente e Frete, remover estados e imports relacionados |
+| `src/components/PropostaCompletaDialog.tsx` | Adicionar secao "Forma de Venda" com RadioGroup de 4 opcoes |
+| `src/types/orcamento.ts` | Adicionar `forma_venda` ao tipo `DadosCliente` |
+| `src/lib/orcamentoGenerator.ts` | Incluir forma de venda no PDF (se preenchida) |
 
 ---
 
-### Detalhes Técnicos
+### Detalhes Tecnicos
 
-#### GerarOrcamentoDialog.tsx
+#### PropostaCompletaDialog.tsx - Nova Secao
 
 ```typescript
 // Novo estado
-const [formaPagamento, setFormaPagamento] = useState('');
+const [formaVenda, setFormaVenda] = useState<string>(
+  orcamento.dados_cliente?.forma_venda || 'sem_informacao'
+);
 
-// Carregar ao editar
-useEffect(() => {
-  if (orcamentoExistente) {
-    // ... estados existentes ...
-    setFormaPagamento(orcamentoExistente.forma_pagamento || '');
-  }
-}, [orcamentoExistente]);
+// No JSX, entre Info Cliente e Frete:
+<Card>
+  <CardHeader className="py-3">
+    <CardTitle className="text-base flex items-center gap-2">
+      <ShoppingBag className="w-4 h-4" />
+      2. Forma de Venda do Cliente
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <Label className="text-sm text-muted-foreground mb-3 block">
+      Como o cliente vende seus produtos?
+    </Label>
+    <RadioGroup
+      value={formaVenda}
+      onValueChange={setFormaVenda}
+      className="space-y-2"
+    >
+      <div className="flex items-center space-x-2">
+        <RadioGroupItem value="locais_fisicos" id="locais" />
+        <Label htmlFor="locais" className="font-normal cursor-pointer">
+          Locais físicos
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2">
+        <RadioGroupItem value="venda_digital" id="digital" />
+        <Label htmlFor="digital" className="font-normal cursor-pointer">
+          Venda digital
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2">
+        <RadioGroupItem value="ambas" id="ambas" />
+        <Label htmlFor="ambas" className="font-normal cursor-pointer">
+          Ambas
+        </Label>
+      </div>
+      <div className="flex items-center space-x-2">
+        <RadioGroupItem value="sem_informacao" id="sem-info" />
+        <Label htmlFor="sem-info" className="font-normal cursor-pointer">
+          Sem informação
+        </Label>
+      </div>
+    </RadioGroup>
+  </CardContent>
+</Card>
+```
 
-// No Step 1, entre Validade e Observações:
-<div className="space-y-2">
-  <Label htmlFor="formaPagamento">Forma de Pagamento</Label>
-  <Textarea
-    id="formaPagamento"
-    value={formaPagamento}
-    onChange={(e) => setFormaPagamento(e.target.value)}
-    placeholder='Ex: "50% do valor total na entrada pago via Pix e 50% pago no final da produção pago via cartão de crédito em 3x sem juros"'
-    rows={3}
-  />
-</div>
+#### Salvar no handleGenerateProposta
 
-// No handleSubmit, incluir:
-forma_pagamento: formaPagamento || undefined,
+```typescript
+// Incluir forma_venda nos dados do cliente
+const dadosClienteCompletos = {
+  ...dadosCliente,
+  forma_venda: formaVenda as DadosCliente['forma_venda'],
+};
+
+await updateDadosCliente.mutateAsync({
+  id: orcamento.id,
+  dados_cliente: dadosClienteCompletos,
+});
 ```
 
 ---
 
-### Sequência de Implementação
+### Sequencia de Implementacao
 
-1. **Migração SQL** - Adicionar coluna `forma_pagamento`
-2. **Atualizar tipos** - `src/types/orcamento.ts`
-3. **Atualizar GerarOrcamentoDialog** - Adicionar campo no Step 1
-4. **Atualizar PDF Generator** - Incluir forma de pagamento no PDF
+1. **Atualizar tipos** - Adicionar `forma_venda` em `DadosCliente`
+2. **Atualizar PropostaCompletaDialog** - Adicionar secao de forma de venda
+3. **Limpar Orcamentos.tsx** - Remover botoes e dialogs de Info Cliente/Frete
+4. **Atualizar PDF Generator** - Incluir forma de venda no PDF
