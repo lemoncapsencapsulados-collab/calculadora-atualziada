@@ -1,42 +1,48 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Orcamento } from '@/types/orcamento';
+import { Orcamento, DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// ========== LAYOUT ULTRA-COMPACTO - SEMPRE 1 PÁGINA A4 ==========
+// ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
-  margin: 12,
-  marginBottom: 10,
-  headerHeight: 25,  // Reduzido
-  sectionGap: 2,     // Reduzido
-  lineHeight: 4,
+  margin: 20,           // Margem generosa
+  marginBottom: 25,     // Margem inferior para footer
+  headerHeight: 40,     // Header grande e elegante
+  sectionGap: 10,       // Espaçamento entre seções
+  lineHeight: 6,        // Altura de linha confortável
   fontSize: {
-    title: 12,       // Reduzido
-    sectionTitle: 8, // Reduzido
-    body: 7,         // Reduzido
-    small: 6,        // Reduzido
-    footer: 6,
+    title: 18,          // Títulos grandes
+    sectionTitle: 11,   // Subtítulos legíveis
+    body: 10,           // Corpo de texto legível
+    small: 9,           // Notas e detalhes
+    footer: 9,          // Rodapé
   },
-  // Limites rígidos para garantir 1 página
-  maxProdutos: 6,
-  maxServicos: 3,
-  maxInsumos: 2,
 };
 
-// Cores da identidade visual Lemon Caps
+// Paleta de cores minimalista e elegante
 const COLORS = {
+  // Tons escuros elegantes
   darkGreen: [24, 26, 0] as [number, number, number],
   mediumGreen: [46, 48, 3] as [number, number, number],
+  
+  // Acentos sofisticados
   lemonYellow: [202, 212, 0] as [number, number, number],
   brightYellow: [242, 255, 0] as [number, number, number],
+  
+  // Neutros minimalistas
   white: [255, 255, 255] as [number, number, number],
   lightGray: [248, 248, 248] as [number, number, number],
-  textDark: [30, 30, 30] as [number, number, number],
-  textGray: [100, 100, 100] as [number, number, number],
+  borderGray: [220, 220, 220] as [number, number, number],
+  
+  // Texto
+  textDark: [40, 40, 40] as [number, number, number],
+  textMedium: [80, 80, 80] as [number, number, number],
+  textLight: [120, 120, 120] as [number, number, number],
 };
 
 const PAGE_HEIGHT = 297;
+const PAGE_WIDTH = 210;
 
 // ========== FUNÇÕES UTILITÁRIAS ==========
 
@@ -51,102 +57,183 @@ function getPageWidth(doc: jsPDF): number {
   return doc.internal.pageSize.getWidth();
 }
 
-function truncateText(doc: jsPDF, text: string, maxWidth: number): string {
-  if (!text) return '';
-  let truncated = text.replace(/\n/g, ' ').trim();
-  if (doc.getTextWidth(truncated) <= maxWidth) return truncated;
+function checkPageBreak(doc: jsPDF, currentY: number, requiredHeight: number): number {
+  const availableSpace = PAGE_HEIGHT - LAYOUT.marginBottom;
   
-  while (doc.getTextWidth(truncated + '...') > maxWidth && truncated.length > 0) {
-    truncated = truncated.slice(0, -1);
+  if (currentY + requiredHeight > availableSpace) {
+    doc.addPage();
+    return LAYOUT.margin + 10;
   }
-  return truncated + '...';
+  return currentY;
 }
 
-// ========== FUNÇÕES DE RENDERIZAÇÃO ULTRA-COMPACTAS ==========
+function addPageNumbers(doc: jsPDF): void {
+  const totalPages = doc.getNumberOfPages();
+  
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.textLight);
+    doc.text(
+      `Página ${i} de ${totalPages}`,
+      PAGE_WIDTH / 2,
+      PAGE_HEIGHT - 8,
+      { align: 'center' }
+    );
+  }
+}
+
+function formatEndereco(dados?: DadosCliente): string {
+  if (!dados) return '';
+  const parts = [
+    dados.endereco_cnpj,
+    dados.cep_cnpj ? `CEP: ${dados.cep_cnpj}` : null,
+    dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : null,
+  ].filter(Boolean);
+  return parts.join(' - ');
+}
+
+function formatCanalVenda(forma?: string): string {
+  const labels: Record<string, string> = {
+    'locais_fisicos': 'Locais Físicos',
+    'venda_digital': 'Venda Digital',
+    'ambas': 'Físico e Digital',
+    'sem_informacao': 'Não Informado',
+  };
+  return forma ? labels[forma] || forma : '';
+}
+
+function getTipoLogisticaLabel(tipo?: string): string {
+  const labels: Record<string, string> = {
+    'total_produtor': 'Total para o Produtor',
+    'total_lemoncaps': 'Logística Lemon Caps',
+    'parcial': 'Envio Parcial',
+  };
+  return tipo ? labels[tipo] || tipo : '';
+}
+
+// ========== FUNÇÕES DE RENDERIZAÇÃO PREMIUM ==========
 
 function renderHeader(doc: jsPDF, orcamento: Orcamento): number {
   const pageWidth = getPageWidth(doc);
   
-  // Background do header compacto
+  // Background do header
   doc.setFillColor(...COLORS.darkGreen);
   doc.rect(0, 0, pageWidth, LAYOUT.headerHeight, 'F');
 
-  // Logo como texto
+  // Logo
   doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(14);
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('LEMON CAPS', LAYOUT.margin, 10);
-
-  // Título e info à direita
+  doc.text('LEMON CAPS', LAYOUT.margin, 18);
+  
+  // Subtítulo
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(LAYOUT.fontSize.title);
-  doc.text('ORÇAMENTO COMERCIAL', pageWidth - LAYOUT.margin, 9, { align: 'right' });
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Suplementos & Nutracêuticos', LAYOUT.margin, 26);
 
+  // Título do documento
+  doc.setFontSize(LAYOUT.fontSize.title);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ORÇAMENTO COMERCIAL', pageWidth - LAYOUT.margin, 16, { align: 'right' });
+
+  // Número e data
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'normal');
-  
-  const infoLine = [
-    orcamento.consultor_responsavel ? `Consultor: ${orcamento.consultor_responsavel}` : null,
-    orcamento.numero_orcamento,
-    format(new Date(orcamento.created_at), "dd/MM/yyyy", { locale: ptBR })
-  ].filter(Boolean).join(' | ');
-  
-  doc.text(infoLine, pageWidth - LAYOUT.margin, 16, { align: 'right' });
+  doc.text(`Nº ${orcamento.numero_orcamento}`, pageWidth - LAYOUT.margin, 24, { align: 'right' });
+  doc.text(format(new Date(orcamento.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), pageWidth - LAYOUT.margin, 32, { align: 'right' });
 
-  // Linha amarela de destaque
+  // Linha de destaque
   doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(1);
   doc.line(0, LAYOUT.headerHeight, pageWidth, LAYOUT.headerHeight);
 
-  return LAYOUT.headerHeight + LAYOUT.sectionGap + 1;
+  return LAYOUT.headerHeight + LAYOUT.sectionGap;
+}
+
+function renderConsultor(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  if (!orcamento.consultor_responsavel) return yPos;
+  
+  const pageWidth = getPageWidth(doc);
+  
+  doc.setTextColor(...COLORS.textMedium);
+  doc.setFontSize(LAYOUT.fontSize.body);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Consultor Responsável: ${orcamento.consultor_responsavel}`, LAYOUT.margin, yPos);
+  
+  // Linha sutil
+  doc.setDrawColor(...COLORS.borderGray);
+  doc.setLineWidth(0.3);
+  doc.line(LAYOUT.margin, yPos + 4, pageWidth - LAYOUT.margin, yPos + 4);
+  
+  return yPos + LAYOUT.sectionGap + 4;
+}
+
+function renderSectionTitle(doc: jsPDF, title: string, yPos: number): number {
+  const pageWidth = getPageWidth(doc);
+  
+  yPos = checkPageBreak(doc, yPos, 15);
+  
+  // Título da seção
+  doc.setTextColor(...COLORS.darkGreen);
+  doc.setFontSize(LAYOUT.fontSize.sectionTitle);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title.toUpperCase(), LAYOUT.margin, yPos);
+  
+  // Linha abaixo do título
+  doc.setDrawColor(...COLORS.lemonYellow);
+  doc.setLineWidth(0.8);
+  doc.line(LAYOUT.margin, yPos + 3, pageWidth - LAYOUT.margin, yPos + 3);
+  
+  return yPos + 10;
 }
 
 function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   const pageWidth = getPageWidth(doc);
-  const dadosCliente = orcamento.dados_cliente;
+  const dados = orcamento.dados_cliente;
+  const labelWidth = 35;
 
-  // Título da seção
-  doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-  doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-  doc.setFont('helvetica', 'bold');
-  doc.text('CLIENTE', LAYOUT.margin + 2, yPos + 3.5);
-  yPos += 6;
-
+  yPos = renderSectionTitle(doc, 'Dados do Cliente', yPos);
+  
+  // Nome do cliente em destaque
   doc.setTextColor(...COLORS.textDark);
+  doc.setFontSize(LAYOUT.fontSize.body + 2);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text(orcamento.nome_cliente, LAYOUT.margin, yPos + 1);
-  yPos += 4;
+  doc.text(orcamento.nome_cliente, LAYOUT.margin, yPos);
+  yPos += LAYOUT.lineHeight + 2;
 
-  if (dadosCliente) {
-    doc.setFont('helvetica', 'normal');
+  if (dados) {
     doc.setFontSize(LAYOUT.fontSize.body);
-
-    // Linha 1: Contato inline
-    const contato = [
-      dadosCliente.email,
-      dadosCliente.telefone ? `Tel: ${dadosCliente.telefone}` : null,
-      dadosCliente.cnpj ? `CNPJ: ${dadosCliente.cnpj}` : null,
-      dadosCliente.cpf ? `CPF: ${dadosCliente.cpf}` : null,
-    ].filter(Boolean).join(' | ');
     
-    if (contato) {
-      doc.text(truncateText(doc, contato, pageWidth - 2 * LAYOUT.margin), LAYOUT.margin, yPos + 1);
-      yPos += LAYOUT.lineHeight;
-    }
+    const campos = [
+      { label: 'Email', valor: dados.email },
+      { label: 'Telefone', valor: dados.telefone },
+      { label: 'CPF', valor: dados.cpf },
+      { label: 'CNPJ', valor: dados.cnpj },
+      { label: 'Razão Social', valor: dados.razao_social },
+      { label: 'Endereço', valor: formatEndereco(dados) },
+      { label: 'Canal de Venda', valor: formatCanalVenda(dados.forma_venda) },
+    ];
 
-    // Linha 2: Endereço
-    const endereco = [
-      dadosCliente.razao_social,
-      dadosCliente.endereco_cnpj,
-      dadosCliente.cidade && dadosCliente.estado ? `${dadosCliente.cidade}/${dadosCliente.estado}` : null,
-    ].filter(Boolean).join(' - ');
-    
-    if (endereco) {
-      doc.text(truncateText(doc, endereco, pageWidth - 2 * LAYOUT.margin), LAYOUT.margin, yPos + 1);
-      yPos += LAYOUT.lineHeight;
+    for (const campo of campos) {
+      if (campo.valor) {
+        yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.textMedium);
+        doc.text(`${campo.label}:`, LAYOUT.margin, yPos);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.textDark);
+        
+        // Quebrar texto longo
+        const maxWidth = pageWidth - LAYOUT.margin - labelWidth - LAYOUT.margin;
+        const lines = doc.splitTextToSize(campo.valor, maxWidth);
+        doc.text(lines, LAYOUT.margin + labelWidth, yPos);
+        
+        yPos += LAYOUT.lineHeight * Math.max(lines.length, 1);
+      }
     }
   }
 
@@ -159,84 +246,107 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   }
 
   const pageWidth = getPageWidth(doc);
-  const itensExibir = orcamento.itens_producao.slice(0, LAYOUT.maxProdutos);
-  const itensOcultos = orcamento.itens_producao.length - LAYOUT.maxProdutos;
+  
+  yPos = renderSectionTitle(doc, 'Produtos', yPos);
 
-  // Título da seção
-  doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-  doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PRODUTOS', LAYOUT.margin + 2, yPos + 3.5);
-  yPos += 6;
-
-  // Tabela ultra-compacta de produtos
-  const produtosData = itensExibir.map((item, index) => {
-    // Composição inline muito curta
-    let composicao = '';
-    if (item.insumos_formula && item.insumos_formula.length > 0) {
-      const insumos = item.insumos_formula.slice(0, LAYOUT.maxInsumos).map(i => i.nome).join(', ');
-      composicao = item.insumos_formula.length > LAYOUT.maxInsumos ? `${insumos}...` : insumos;
+  // Renderizar cada produto detalhadamente
+  orcamento.itens_producao.forEach((item, index) => {
+    // Verificar espaço - cada produto precisa de aprox. 30-50mm
+    const estimatedHeight = 25 + (item.insumos_formula?.length || 0) * 5;
+    yPos = checkPageBreak(doc, yPos, estimatedHeight);
+    
+    // Número e nome do produto
+    doc.setFillColor(...COLORS.lightGray);
+    doc.rect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 10, 'F');
+    
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.setFontSize(LAYOUT.fontSize.body + 1);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${index + 1}. ${item.nome_produto}`, LAYOUT.margin + 3, yPos + 2);
+    
+    // Segmento
+    doc.setTextColor(...COLORS.textMedium);
+    doc.setFontSize(LAYOUT.fontSize.small);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Segmento: ${item.segmento}`, pageWidth - LAYOUT.margin - 3, yPos + 2, { align: 'right' });
+    
+    yPos += 12;
+    
+    // Detalhes do produto
+    if (item.quantidade_por_pote && item.unidade_por_pote) {
+      doc.setTextColor(...COLORS.textDark);
+      doc.setFontSize(LAYOUT.fontSize.body);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Quantidade por frasco: ${item.quantidade_por_pote} ${item.unidade_por_pote}`, LAYOUT.margin + 5, yPos);
+      yPos += LAYOUT.lineHeight;
     }
     
-    const nomeCompleto = composicao ? `${item.nome_produto} (${composicao})` : item.nome_produto;
+    if (item.dose_diaria_sugerida) {
+      doc.text(`Dose diária sugerida: ${item.dose_diaria_sugerida}`, LAYOUT.margin + 5, yPos);
+      yPos += LAYOUT.lineHeight;
+    }
     
-    return [
-      (index + 1).toString(),
-      nomeCompleto,
-      item.quantidade.toString(),
-      formatCurrency(item.preco_unitario),
-      formatCurrency(item.subtotal),
-    ];
+    // Composição completa
+    if (item.insumos_formula && item.insumos_formula.length > 0) {
+      yPos += 2;
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFontSize(LAYOUT.fontSize.small);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Composição da Fórmula:', LAYOUT.margin + 5, yPos);
+      yPos += LAYOUT.lineHeight - 1;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      
+      for (const insumo of item.insumos_formula) {
+        yPos = checkPageBreak(doc, yPos, 5);
+        doc.text(`• ${insumo.nome} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 10, yPos);
+        yPos += 5;
+      }
+    }
+    
+    yPos += 3;
+    
+    // Valores do produto
+    const col1 = LAYOUT.margin + 5;
+    const col2 = pageWidth / 2;
+    const col3 = pageWidth - LAYOUT.margin - 3;
+    
+    doc.setFontSize(LAYOUT.fontSize.body);
+    doc.setTextColor(...COLORS.textMedium);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Quantidade: ${item.quantidade} un.`, col1, yPos);
+    doc.text(`Preço Unit.: ${formatCurrency(item.preco_unitario)}`, col2, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text(`Subtotal: ${formatCurrency(item.subtotal)}`, col3, yPos, { align: 'right' });
+    
+    yPos += LAYOUT.lineHeight + 5;
+    
+    // Linha divisória entre produtos
+    if (index < orcamento.itens_producao.length - 1) {
+      doc.setDrawColor(...COLORS.borderGray);
+      doc.setLineWidth(0.3);
+      doc.line(LAYOUT.margin + 5, yPos - 2, pageWidth - LAYOUT.margin - 5, yPos - 2);
+      yPos += 5;
+    }
   });
 
-  // Adicionar linha de resumo se houver itens ocultos
-  if (itensOcultos > 0) {
-    produtosData.push(['', `... e mais ${itensOcultos} produto(s)`, '', '', '']);
-  }
-
-  autoTable(doc, {
-    startY: yPos,
-    head: [['#', 'Produto / Composição', 'Qtd', 'Unit.', 'Subtotal']],
-    body: produtosData,
-    margin: { left: LAYOUT.margin, right: LAYOUT.margin },
-    headStyles: {
-      fillColor: COLORS.darkGreen,
-      textColor: COLORS.white,
-      fontStyle: 'bold',
-      fontSize: LAYOUT.fontSize.small,
-      cellPadding: 1,
-    },
-    bodyStyles: {
-      textColor: COLORS.textDark,
-      fontSize: LAYOUT.fontSize.body,
-      cellPadding: 1,
-    },
-    alternateRowStyles: {
-      fillColor: COLORS.lightGray,
-    },
-    columnStyles: {
-      0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 10, halign: 'center' },
-      3: { cellWidth: 20, halign: 'right' },
-      4: { cellWidth: 22, halign: 'right' },
-    },
-  });
-
-  yPos = (doc as any).lastAutoTable.finalY + 1;
-
-  // Subtotal de produção - mais compacto
-  doc.setFillColor(...COLORS.lightGray);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 4, 'F');
-  doc.setTextColor(...COLORS.textDark);
+  // Subtotal de produção
+  yPos = checkPageBreak(doc, yPos, 15);
+  yPos += 3;
+  
+  doc.setFillColor(...COLORS.mediumGreen);
+  doc.rect(pageWidth / 2, yPos - 4, pageWidth / 2 - LAYOUT.margin, 10, 'F');
+  
+  doc.setTextColor(...COLORS.white);
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'bold');
-  doc.text('SUBTOTAL PRODUÇÃO:', pageWidth - LAYOUT.margin - 38, yPos + 2.8);
-  doc.text(formatCurrency(orcamento.subtotal_producao), pageWidth - LAYOUT.margin - 2, yPos + 2.8, { align: 'right' });
+  doc.text('SUBTOTAL PRODUÇÃO:', pageWidth / 2 + 5, yPos + 2);
+  doc.setFontSize(LAYOUT.fontSize.body + 2);
+  doc.text(formatCurrency(orcamento.subtotal_producao), pageWidth - LAYOUT.margin - 5, yPos + 2, { align: 'right' });
 
-  return yPos + 5 + LAYOUT.sectionGap;
+  return yPos + 15 + LAYOUT.sectionGap;
 }
 
 function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -245,29 +355,15 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   }
 
   const pageWidth = getPageWidth(doc);
-  const servicosExibir = orcamento.servicos_marca.slice(0, LAYOUT.maxServicos);
-  const servicosOcultos = orcamento.servicos_marca.length - LAYOUT.maxServicos;
+  
+  yPos = renderSectionTitle(doc, 'Serviços de Marca', yPos);
 
-  // Título da seção
-  doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-  doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-  doc.setFont('helvetica', 'bold');
-  doc.text('SERVIÇOS DE MARCA', LAYOUT.margin + 2, yPos + 3.5);
-  yPos += 6;
-
-  // Tabela ultra-compacta de serviços
-  const servicosData = servicosExibir.map((servico) => [
+  // Tabela de serviços
+  const servicosData = orcamento.servicos_marca.map((servico) => [
     servico.nome_plano,
-    servico.descricao ? truncateText(doc, servico.descricao, 80) : '-',
+    servico.descricao || '-',
     formatCurrency(servico.valor),
   ]);
-
-  // Adicionar linha de resumo se houver serviços ocultos
-  if (servicosOcultos > 0) {
-    servicosData.push([`... e mais ${servicosOcultos} serviço(s)`, '', '']);
-  }
 
   autoTable(doc, {
     startY: yPos,
@@ -279,35 +375,37 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
       textColor: COLORS.white,
       fontStyle: 'bold',
       fontSize: LAYOUT.fontSize.small,
-      cellPadding: 1,
+      cellPadding: 4,
     },
     bodyStyles: {
       textColor: COLORS.textDark,
       fontSize: LAYOUT.fontSize.body,
-      cellPadding: 1,
+      cellPadding: 4,
     },
     alternateRowStyles: {
       fillColor: COLORS.lightGray,
     },
     columnStyles: {
-      0: { cellWidth: 35 },
+      0: { cellWidth: 50, fontStyle: 'bold' },
       1: { cellWidth: 'auto' },
-      2: { cellWidth: 25, halign: 'right' },
+      2: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 1;
+  yPos = (doc as any).lastAutoTable.finalY + 5;
 
-  // Subtotal de serviços - mais compacto
-  doc.setFillColor(...COLORS.lightGray);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 4, 'F');
-  doc.setTextColor(...COLORS.textDark);
+  // Subtotal de serviços
+  doc.setFillColor(...COLORS.mediumGreen);
+  doc.rect(pageWidth / 2, yPos, pageWidth / 2 - LAYOUT.margin, 10, 'F');
+  
+  doc.setTextColor(...COLORS.white);
   doc.setFontSize(LAYOUT.fontSize.body);
   doc.setFont('helvetica', 'bold');
-  doc.text('SUBTOTAL SERVIÇOS:', pageWidth - LAYOUT.margin - 38, yPos + 2.8);
-  doc.text(formatCurrency(orcamento.subtotal_servicos), pageWidth - LAYOUT.margin - 2, yPos + 2.8, { align: 'right' });
+  doc.text('SUBTOTAL SERVIÇOS:', pageWidth / 2 + 5, yPos + 6);
+  doc.setFontSize(LAYOUT.fontSize.body + 2);
+  doc.text(formatCurrency(orcamento.subtotal_servicos), pageWidth - LAYOUT.margin - 5, yPos + 6, { align: 'right' });
 
-  return yPos + 5 + LAYOUT.sectionGap;
+  return yPos + 15 + LAYOUT.sectionGap;
 }
 
 function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -317,77 +415,109 @@ function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   }
 
   const pageWidth = getPageWidth(doc);
+  
+  yPos = renderSectionTitle(doc, 'Detalhamento de Frete', yPos);
 
-  // Título inline mais compacto
-  doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, 5, 'F');
-  doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(LAYOUT.fontSize.sectionTitle);
-  doc.setFont('helvetica', 'bold');
-  doc.text('FRETE', LAYOUT.margin + 2, yPos + 3.5);
-  yPos += 6;
-
-  doc.setTextColor(...COLORS.textDark);
   doc.setFontSize(LAYOUT.fontSize.body);
-  doc.setFont('helvetica', 'normal');
+  const labelWidth = 45;
 
-  // Info de frete em uma linha única
-  const freteInfo = [];
-  
+  // Tipo de logística
   if (frete.detalhamento_envio) {
-    const tipoLabels: Record<string, string> = {
-      'total_produtor': 'Envio p/ Produtor',
-      'total_lemoncaps': 'Logística LC',
-      'parcial': 'Envio Parcial',
-    };
-    freteInfo.push(`Logística: ${tipoLabels[frete.detalhamento_envio.tipo] || frete.detalhamento_envio.tipo}`);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Tipo de Logística:', LAYOUT.margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(getTipoLogisticaLabel(frete.detalhamento_envio.tipo), LAYOUT.margin + labelWidth, yPos);
+    yPos += LAYOUT.lineHeight;
+    
+    if (frete.detalhamento_envio.descricao_parcial) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text('Detalhes:', LAYOUT.margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      
+      const maxWidth = pageWidth - LAYOUT.margin - labelWidth - LAYOUT.margin;
+      const lines = doc.splitTextToSize(frete.detalhamento_envio.descricao_parcial, maxWidth);
+      doc.text(lines, LAYOUT.margin + labelWidth, yPos);
+      yPos += LAYOUT.lineHeight * lines.length;
+    }
   }
-  
-  freteInfo.push(`Frete LC: ${frete.frete_lemon_caps ? 'SIM' : 'NÃO'}`);
-  
+
+  // Frete LC
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.textMedium);
+  doc.text('Frete Lemon Caps:', LAYOUT.margin, yPos);
+  doc.setFont('helvetica', 'bold');
+  if (frete.frete_lemon_caps) {
+    doc.setTextColor(34, 197, 94);
+  } else {
+    doc.setTextColor(...COLORS.textDark);
+  }
+  doc.text(frete.frete_lemon_caps ? 'SIM' : 'NÃO', LAYOUT.margin + labelWidth, yPos);
+  yPos += LAYOUT.lineHeight;
+
+  // Tabela tradicional
   if (frete.usa_tabela_tradicional) {
-    freteInfo.push('Tabela: Tradicional');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Tabela de Preços:', LAYOUT.margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text('Tradicional', LAYOUT.margin + labelWidth, yPos);
+    yPos += LAYOUT.lineHeight;
   }
 
-  // Planos customizados inline
+  // Planos customizados
   if (frete.planos_customizados && frete.planos_customizados.length > 0) {
-    const planosText = frete.planos_customizados.slice(0, 2)
-      .map(p => `${p.tipo_produto}: ${formatCurrency(p.valor)}`)
-      .join(', ');
-    freteInfo.push(planosText);
+    yPos += 3;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Planos de Frete Customizados:', LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    
+    for (const plano of frete.planos_customizados) {
+      yPos = checkPageBreak(doc, yPos, 6);
+      doc.text(`• ${plano.tipo_produto}: ${plano.plano} - ${formatCurrency(plano.valor)}`, LAYOUT.margin + 5, yPos);
+      yPos += LAYOUT.lineHeight;
+    }
   }
 
-  doc.text(truncateText(doc, freteInfo.join(' | '), pageWidth - 2 * LAYOUT.margin), LAYOUT.margin, yPos + 1);
-
-  return yPos + LAYOUT.lineHeight + LAYOUT.sectionGap;
+  return yPos + LAYOUT.sectionGap;
 }
 
 function renderTotal(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   const pageWidth = getPageWidth(doc);
-  const totalBoxHeight = 12; // Mais compacto
+  const boxHeight = 28;
   
-  yPos += 1;
+  yPos = checkPageBreak(doc, yPos, boxHeight + 15);
+  yPos += 8;
   
   // Box do total
   doc.setFillColor(...COLORS.darkGreen);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, totalBoxHeight, 'F');
+  doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 3, 3, 'F');
   
   // Borda amarela
   doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(0.6);
-  doc.rect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, totalBoxHeight, 'S');
+  doc.setLineWidth(1.5);
+  doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 3, 3, 'S');
 
+  // Texto
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(9);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('VALOR TOTAL:', LAYOUT.margin + 6, yPos + 7.5);
+  doc.text('VALOR TOTAL', LAYOUT.margin + 12, yPos + 17);
 
   doc.setTextColor(...COLORS.brightYellow);
-  doc.setFontSize(13);
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 6, yPos + 8, { align: 'right' });
+  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 12, yPos + 18, { align: 'right' });
 
-  return yPos + totalBoxHeight + LAYOUT.sectionGap + 1;
+  return yPos + boxHeight + LAYOUT.sectionGap + 5;
 }
 
 function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -396,17 +526,18 @@ function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): n
   }
 
   const pageWidth = getPageWidth(doc);
-
-  doc.setTextColor(...COLORS.textDark);
+  
+  yPos = renderSectionTitle(doc, 'Forma de Pagamento', yPos);
+  
   doc.setFontSize(LAYOUT.fontSize.body);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Forma de Pagamento:', LAYOUT.margin, yPos);
-  
   doc.setFont('helvetica', 'normal');
-  const maxWidth = pageWidth - 2 * LAYOUT.margin - 35;
-  doc.text(truncateText(doc, orcamento.forma_pagamento, maxWidth), LAYOUT.margin + 35, yPos);
+  doc.setTextColor(...COLORS.textDark);
   
-  return yPos + LAYOUT.lineHeight;
+  const maxWidth = pageWidth - 2 * LAYOUT.margin;
+  const lines = doc.splitTextToSize(orcamento.forma_pagamento, maxWidth);
+  doc.text(lines, LAYOUT.margin, yPos);
+
+  return yPos + (LAYOUT.lineHeight * lines.length) + LAYOUT.sectionGap;
 }
 
 function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
@@ -415,39 +546,65 @@ function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): numb
   }
 
   const pageWidth = getPageWidth(doc);
-
-  doc.setTextColor(...COLORS.textDark);
+  
+  yPos = renderSectionTitle(doc, 'Observações', yPos);
+  
   doc.setFontSize(LAYOUT.fontSize.body);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Obs:', LAYOUT.margin, yPos);
-  
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(LAYOUT.fontSize.small);
-  const maxWidth = pageWidth - 2 * LAYOUT.margin - 10;
-  doc.text(truncateText(doc, orcamento.observacoes, maxWidth), LAYOUT.margin + 10, yPos);
+  doc.setTextColor(...COLORS.textDark);
   
-  return yPos + LAYOUT.lineHeight;
+  const maxWidth = pageWidth - 2 * LAYOUT.margin;
+  const lines = doc.splitTextToSize(orcamento.observacoes, maxWidth);
+  
+  for (const line of lines) {
+    yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
+    doc.text(line, LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight;
+  }
+
+  return yPos + LAYOUT.sectionGap;
 }
 
 function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
-  const pageWidth = getPageWidth(doc);
-  const footerY = PAGE_HEIGHT - LAYOUT.marginBottom;
+  const totalPages = doc.getNumberOfPages();
+  
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    const pageWidth = getPageWidth(doc);
+    const footerY = PAGE_HEIGHT - LAYOUT.marginBottom + 5;
 
-  // Linha separadora
-  doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(0.3);
-  doc.line(LAYOUT.margin, footerY - 5, pageWidth - LAYOUT.margin, footerY - 5);
+    // Linha separadora
+    doc.setDrawColor(...COLORS.lemonYellow);
+    doc.setLineWidth(0.5);
+    doc.line(LAYOUT.margin, footerY - 10, pageWidth - LAYOUT.margin, footerY - 10);
 
-  // Validade e info
-  doc.setTextColor(...COLORS.textGray);
-  doc.setFontSize(LAYOUT.fontSize.footer);
-  doc.setFont('helvetica', 'italic');
-  doc.text(
-    `Validade: ${orcamento.validade_dias} dias | LEMON CAPS - www.lemoncaps.com.br`,
-    pageWidth / 2,
-    footerY - 1,
-    { align: 'center' }
-  );
+    // Validade
+    doc.setTextColor(...COLORS.textMedium);
+    doc.setFontSize(LAYOUT.fontSize.footer);
+    doc.setFont('helvetica', 'italic');
+    doc.text(
+      `Este orçamento tem validade de ${orcamento.validade_dias} dias.`,
+      LAYOUT.margin,
+      footerY - 3
+    );
+
+    // Info da empresa
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('LEMON CAPS', pageWidth - LAYOUT.margin, footerY - 3, { align: 'right' });
+    
+    doc.setTextColor(...COLORS.textLight);
+    doc.setFontSize(8);
+    doc.text('www.lemoncaps.com.br', pageWidth - LAYOUT.margin, footerY + 3, { align: 'right' });
+
+    // Número da página
+    doc.text(
+      `Página ${i} de ${totalPages}`,
+      pageWidth / 2,
+      footerY + 3,
+      { align: 'center' }
+    );
+  }
 }
 
 function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
@@ -455,7 +612,7 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
     return;
   }
 
-  const pageHeight = PAGE_HEIGHT;
+  const totalPages = doc.getNumberOfPages();
   const pageWidth = getPageWidth(doc);
 
   const statusLabels: Record<string, string> = {
@@ -470,19 +627,22 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
     recusado: [239, 68, 68],
   };
 
-  doc.saveGraphicsState();
-  doc.setGState(new (doc as any).GState({ opacity: 0.08 }));
-  doc.setTextColor(...(statusColors[orcamento.status] || COLORS.textGray));
-  doc.setFontSize(50);
-  doc.setFont('helvetica', 'bold');
-  
-  doc.text(
-    statusLabels[orcamento.status] || orcamento.status.toUpperCase(),
-    pageWidth / 2,
-    pageHeight / 2,
-    { align: 'center', angle: 45 }
-  );
-  doc.restoreGraphicsState();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.saveGraphicsState();
+    doc.setGState(new (doc as any).GState({ opacity: 0.06 }));
+    doc.setTextColor(...(statusColors[orcamento.status] || COLORS.textLight));
+    doc.setFontSize(60);
+    doc.setFont('helvetica', 'bold');
+    
+    doc.text(
+      statusLabels[orcamento.status] || orcamento.status.toUpperCase(),
+      pageWidth / 2,
+      PAGE_HEIGHT / 2,
+      { align: 'center', angle: 45 }
+    );
+    doc.restoreGraphicsState();
+  }
 }
 
 // ========== FUNÇÃO PRINCIPAL ==========
@@ -494,11 +654,12 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     format: 'a4',
   });
 
-  console.log(`[PDF] Gerando orçamento: ${orcamento.numero_orcamento} - Modo: página única forçada`);
+  console.log(`[PDF] Gerando orçamento: ${orcamento.numero_orcamento} - Modo: Premium expandido`);
 
   try {
-    // Renderizar seções em ordem com limites forçados
+    // Renderizar seções em ordem
     let yPos = renderHeader(doc, orcamento);
+    yPos = renderConsultor(doc, orcamento, yPos);
     yPos = renderDadosCliente(doc, orcamento, yPos);
     yPos = renderProdutos(doc, orcamento, yPos);
     yPos = renderServicos(doc, orcamento, yPos);
@@ -507,21 +668,21 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     yPos = renderFormaPagamento(doc, orcamento, yPos);
     yPos = renderObservacoes(doc, orcamento, yPos);
 
-    // Footer e marca d'água
+    // Footer e marca d'água em todas as páginas
     renderFooter(doc, orcamento);
     renderStatusWatermark(doc, orcamento);
     
-    console.log(`[PDF] Altura final usada: ${yPos}mm de 297mm`);
+    console.log(`[PDF] Orçamento gerado com ${doc.getNumberOfPages()} página(s)`);
   } catch (error) {
     console.error('Erro ao criar PDF:', error);
     // Fallback mínimo
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.setTextColor(0, 0, 0);
-    doc.text('LEMON CAPS - Orçamento', 20, 30);
-    doc.setFontSize(10);
-    doc.text(`Nº: ${orcamento.numero_orcamento}`, 20, 40);
-    doc.text(`Cliente: ${orcamento.nome_cliente}`, 20, 48);
-    doc.text(`Total: ${formatCurrency(orcamento.valor_total)}`, 20, 56);
+    doc.text('LEMON CAPS - Orçamento Comercial', 20, 30);
+    doc.setFontSize(12);
+    doc.text(`Nº: ${orcamento.numero_orcamento}`, 20, 45);
+    doc.text(`Cliente: ${orcamento.nome_cliente}`, 20, 55);
+    doc.text(`Total: ${formatCurrency(orcamento.valor_total)}`, 20, 65);
   }
 
   return doc;
