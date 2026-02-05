@@ -1,133 +1,150 @@
 
+## Plano: Melhorias no Sistema de Orcamentos
 
-## Plano: Botoes Opcionais de Frete/Cliente no Orcamento + Preview do PDF
+### Resumo das Solicitacoes
 
-### Objetivo
-1. Adicionar botoes opcionais de "Info Cliente" e "Frete" no passo final (Step 4) do dialog de criacao de orcamento
-2. Antes de baixar o PDF, mostrar um popup com preview do documento e botao de download
-
----
-
-### 1. Modificacoes no GerarOrcamentoDialog.tsx
-
-Adicionar no Step 4 (Resumo) botoes opcionais que abrem os dialogs existentes de InformacoesCliente e DetalhamentoFrete:
-
-```text
-STEP 4 - RESUMO DO ORCAMENTO (ATUALIZADO)
-+--------------------------------------------------+
-|  Consultor Responsavel: Maria Silva              |
-|  Cliente: Farmacia ABC                           |
-|                                                  |
-|  PRODUCAO:                                       |
-|  • Vitamina C 500mg (100un) - R$ 4.500,00        |
-|  Subtotal: R$ 4.500,00                           |
-|                                                  |
-|  SERVICOS DE MARCA:                              |
-|  • Plano Premium - R$ 500,00                     |
-|  Subtotal: R$ 500,00                             |
-|                                                  |
-|  +--------------------------------------------+  |
-|  |  VALOR TOTAL: R$ 5.000,00                  |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|  Validade: 30 dias                               |
-|                                                  |
-|  +--------------------------------------------+  |
-|  |  ADICIONAR INFORMACOES (Opcional)          |  |
-|  |                                             |  |
-|  |  [User Icon] Info Cliente    [Truck] Frete |  |
-|  |                                             |  |
-|  |  Texto: "Esses dados podem ser adicionados |  |
-|  |  depois na tela de orcamentos"             |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|          [Voltar]      [Salvar Orcamento]        |
-+--------------------------------------------------+
-```
-
-Logica necessaria:
-- Adicionar estados para controlar abertura dos dialogs inline
-- Apos salvar o orcamento (handleSubmit), retornar o ID para poder usar nos dialogs
-- Permitir editar dados de cliente/frete mesmo durante a criacao
+1. **Detalhamento de Envio no Frete**: Opcao para dividir producao entre envio para o produtor e logistica pela Lemon Caps
+2. **Informacoes do Produto**: Adicionar quantidade por pote (Po/Capsula/Gummy/ML) e dose diaria sugerida na selecao de produtos
+3. **Dois Botoes de PDF**: "Gerar Orcamento" (simples, sem cliente/frete) e "Proposta Completa" (com cliente e frete)
+4. **Edicao Completa**: Ao editar, permitir voltar ate a etapa de escolha de produtos
 
 ---
 
-### 2. Criar Novo Componente: PreviewPdfDialog.tsx
+### 1. Alteracoes no Tipo ItemProducao
 
-Dialog com preview do PDF antes de baixar:
-
-```text
-+--------------------------------------------------+
-|            PREVIEW DO ORCAMENTO                  |
-|             [X]                                  |
-+--------------------------------------------------+
-|                                                  |
-|  +--------------------------------------------+  |
-|  |                                            |  |
-|  |        [Renderizacao do PDF]               |  |
-|  |                                            |  |
-|  |   LEMON CAPS - ORCAMENTO COMERCIAL         |  |
-|  |   Consultor: Maria Silva                   |  |
-|  |   ...                                      |  |
-|  |                                            |  |
-|  |   CUSTOS DE PRODUCAO                       |  |
-|  |   ...                                      |  |
-|  |                                            |  |
-|  |   VALOR TOTAL: R$ 5.000,00                 |  |
-|  |                                            |  |
-|  +--------------------------------------------+  |
-|                                                  |
-|                    [Baixar PDF]                  |
-+--------------------------------------------------+
-```
-
-Implementacao:
-- Usar jsPDF para gerar o PDF como blob
-- Converter para data URL e exibir em iframe
-- Botao de download usa a funcao existente generateOrcamentoPDF
-
----
-
-### 3. Modificar orcamentoGenerator.ts
-
-Adicionar funcao para gerar PDF como blob/data URL para preview:
+Adicionar campos para quantidade por pote e dose diaria:
 
 ```typescript
-// Nova funcao para preview
-export async function generateOrcamentoPDFBlob(
-  orcamento: Orcamento
-): Promise<Blob> {
-  // Mesma logica do generateOrcamentoPDF
-  // Mas retorna doc.output('blob') ao inves de doc.save()
-}
-
-// Funcao existente continua funcionando
-export async function generateOrcamentoPDF(
-  orcamento: Orcamento
-): Promise<void> {
-  // ... codigo existente ...
-  doc.save(`${nomeArquivo}.pdf`);
+export interface ItemProducao {
+  // campos existentes...
+  quantidade_por_pote?: number;      // Ex: 60 capsulas, 200ml, 150g
+  unidade_por_pote?: string;         // "capsulas", "ml", "g", "gummies"
+  dose_diaria_sugerida?: string;     // "2 capsulas ao dia", "10ml", etc.
 }
 ```
 
 ---
 
-### 4. Modificar Orcamentos.tsx
+### 2. Alteracoes no DetalhamentoFrete
 
-Atualizar handler do botao PDF para abrir preview primeiro:
+Adicionar campo para detalhamento de envio parcial:
 
 ```typescript
-// Antes
-const handleDownloadPDF = async (orcamento: Orcamento) => {
-  await generateOrcamentoPDF(orcamento);
-};
+export interface DetalhamentoEnvio {
+  tipo: 'total_produtor' | 'total_lemoncaps' | 'parcial';
+  descricao_parcial?: string;  // Ex: "50% para produtor, 50% logistica Lemon Caps"
+}
 
-// Depois
-const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
-
-// Botao PDF abre o dialog de preview
-onClick={() => setPreviewOrcamento(orcamento)}
+export interface DetalhamentoFrete {
+  frete_lemon_caps: boolean;
+  usa_tabela_tradicional: boolean;
+  planos_customizados: PlanoFreteCustomizado[];
+  detalhamento_envio?: DetalhamentoEnvio;  // NOVO
+}
 ```
+
+---
+
+### 3. Modificar GerarOrcamentoDialog.tsx
+
+#### Step 2 - Adicionar Campos no Produto
+
+Ao adicionar precificacao ou produto avulso, incluir inputs para:
+- Quantidade por pote (numero)
+- Unidade (select: capsulas, gummies, ml, g)
+- Dose diaria sugerida (texto livre)
+
+#### Edicao Completa
+
+Quando `orcamentoExistente` existir, permitir navegar para qualquer step (nao apenas resumo).
+
+---
+
+### 4. Modificar DetalhamentoFreteDialog.tsx
+
+Adicionar secao de "Detalhamento de Envio":
+
+```text
+DETALHAMENTO DE ENVIO
++--------------------------------------------------+
+|  Como sera feita a logistica?                    |
+|                                                  |
+|  ( ) Todo envio para o Produtor                  |
+|  ( ) Toda logistica via Lemon Caps               |
+|  ( ) Envio Parcial                               |
+|                                                  |
+|  [Se parcial selecionado]                        |
+|  +----------------------------------------------+|
+|  | Descreva a divisao:                          ||
+|  | [___________________________________________]||
+|  | Ex: "50 potes para produtor, 100 potes       ||
+|  | logistica Lemon Caps"                        ||
+|  +----------------------------------------------+|
++--------------------------------------------------+
+```
+
+---
+
+### 5. Modificar Orcamentos.tsx - Dois Botoes de PDF
+
+Substituir botao "PDF" por dois botoes:
+
+```text
+ACOES DO ORCAMENTO
++--------------------------------------------------+
+|  [Info Cliente] [Frete] [Editar]                 |
+|                                                  |
+|  [Gerar Orcamento]     [Proposta Completa]       |
+|  (sem cliente/frete)   (com cliente e frete)     |
+|                                                  |
+|  [Excluir]                                       |
++--------------------------------------------------+
+```
+
+- **Gerar Orcamento**: Gera PDF sem dados do cliente e sem frete
+- **Proposta Completa**: Abre dialog para preencher Info Cliente e Frete antes de gerar PDF
+
+---
+
+### 6. Criar PropostaCompletaDialog.tsx
+
+Dialog que solicita Info Cliente e Frete antes de gerar a proposta completa:
+
+```text
++--------------------------------------------------+
+|         GERAR PROPOSTA COMPLETA                  |
+|                    [X]                           |
++--------------------------------------------------+
+|                                                  |
+|  Para gerar a proposta completa, preencha:       |
+|                                                  |
+|  [1. INFORMACOES DO CLIENTE]                     |
+|  +--------------------------------------------+  |
+|  | Nome: [_______________________]            |  |
+|  | Email: [______________________]            |  |
+|  | Telefone: [___________________]            |  |
+|  | CNPJ: [_______________________] [Buscar]   |  |
+|  +--------------------------------------------+  |
+|                                                  |
+|  [2. DETALHAMENTO DE FRETE]                      |
+|  +--------------------------------------------+  |
+|  | Frete via Lemon Caps? [Sim] [Nao]          |  |
+|  | Detalhamento de Envio: [______________]    |  |
+|  +--------------------------------------------+  |
+|                                                  |
+|           [Cancelar]  [Gerar Proposta]           |
++--------------------------------------------------+
+```
+
+Apos preencher, salva os dados no orcamento e gera o PDF completo.
+
+---
+
+### 7. Atualizar PDF Generator
+
+Adicionar novas secoes:
+- Quantidade por pote e dose diaria para cada produto
+- Detalhamento de envio na secao de frete
 
 ---
 
@@ -135,187 +152,181 @@ onClick={() => setPreviewOrcamento(orcamento)}
 
 | Arquivo | Modificacao |
 |---------|-------------|
-| `src/components/GerarOrcamentoDialog.tsx` | Adicionar botoes opcionais de Info Cliente e Frete no Step 4 |
-| `src/components/PreviewPdfDialog.tsx` | NOVO - Dialog com preview do PDF |
-| `src/lib/orcamentoGenerator.ts` | Adicionar funcao generateOrcamentoPDFBlob para preview |
-| `src/pages/Orcamentos.tsx` | Integrar PreviewPdfDialog antes de baixar |
+| `src/types/orcamento.ts` | Adicionar campos `quantidade_por_pote`, `unidade_por_pote`, `dose_diaria_sugerida` em `ItemProducao` e `detalhamento_envio` em `DetalhamentoFrete` |
+| `src/components/GerarOrcamentoDialog.tsx` | Adicionar inputs de quantidade/dose no Step 2, permitir edicao completa navegando entre steps |
+| `src/components/DetalhamentoFreteDialog.tsx` | Adicionar secao de detalhamento de envio (total produtor, total lemoncaps, parcial) |
+| `src/pages/Orcamentos.tsx` | Trocar botao "PDF" por "Gerar Orcamento" e "Proposta Completa" |
+| `src/components/PropostaCompletaDialog.tsx` | NOVO - Dialog para preencher cliente/frete antes de gerar proposta |
+| `src/lib/orcamentoGenerator.ts` | Incluir quantidade por pote, dose diaria e detalhamento de envio no PDF |
 
 ---
 
 ### Detalhes Tecnicos
 
-#### GerarOrcamentoDialog.tsx - Step 4 atualizado
+#### Tipos atualizados (orcamento.ts)
 
 ```typescript
-// Novos estados
-const [showInfoCliente, setShowInfoCliente] = useState(false);
-const [showFrete, setShowFrete] = useState(false);
-const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
-const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
+export interface ItemProducao {
+  tipo: 'precificacao' | 'avulso';
+  precificacao_id?: string;
+  nome_produto: string;
+  segmento: string;
+  preco_unitario: number;
+  quantidade: number;
+  subtotal: number;
+  insumos_formula?: InsumoSnapshot[];
+  // NOVOS CAMPOS
+  quantidade_por_pote?: number;
+  unidade_por_pote?: string;
+  dose_diaria_sugerida?: string;
+}
 
-// No Step 4, apos o resumo de valores:
-{step === 4 && (
-  <div className="space-y-4">
-    {/* ... resumo existente ... */}
-    
-    {/* Secao opcional */}
-    <Card className="border-dashed">
-      <CardContent className="p-4">
-        <p className="text-sm text-muted-foreground mb-3">
-          Adicionar informacoes (opcional):
-        </p>
-        <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            onClick={() => setShowInfoCliente(true)}
-          >
-            <User className="w-4 h-4 mr-2" />
-            Info Cliente
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => setShowFrete(true)}
-          >
-            <Truck className="w-4 h-4 mr-2" />
-            Frete
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Esses dados podem ser adicionados depois na tela de orcamentos
-        </p>
-      </CardContent>
-    </Card>
+export interface DetalhamentoEnvio {
+  tipo: 'total_produtor' | 'total_lemoncaps' | 'parcial';
+  descricao_parcial?: string;
+}
+
+export interface DetalhamentoFrete {
+  frete_lemon_caps: boolean;
+  usa_tabela_tradicional: boolean;
+  planos_customizados: PlanoFreteCustomizado[];
+  detalhamento_envio?: DetalhamentoEnvio;
+}
+```
+
+#### Step 2 - Campos do Produto
+
+Apos adicionar produto, exibir campos editaveis:
+
+```typescript
+<div className="grid grid-cols-3 gap-2 mt-2">
+  <div className="space-y-1">
+    <Label className="text-xs">Qtd por Pote</Label>
+    <Input
+      type="number"
+      value={item.quantidade_por_pote || ''}
+      onChange={(e) => handleUpdateItemField(index, 'quantidade_por_pote', parseInt(e.target.value))}
+      placeholder="60"
+    />
   </div>
-)}
+  <div className="space-y-1">
+    <Label className="text-xs">Unidade</Label>
+    <Select
+      value={item.unidade_por_pote || ''}
+      onValueChange={(value) => handleUpdateItemField(index, 'unidade_por_pote', value)}
+    >
+      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="capsulas">Capsulas</SelectItem>
+        <SelectItem value="gummies">Gummies</SelectItem>
+        <SelectItem value="ml">ML</SelectItem>
+        <SelectItem value="g">Gramas</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+  <div className="space-y-1">
+    <Label className="text-xs">Dose Diaria</Label>
+    <Input
+      value={item.dose_diaria_sugerida || ''}
+      onChange={(e) => handleUpdateItemField(index, 'dose_diaria_sugerida', e.target.value)}
+      placeholder="2 capsulas/dia"
+    />
+  </div>
+</div>
 ```
 
-#### PreviewPdfDialog.tsx
+#### Botoes na Pagina Orcamentos
 
 ```typescript
-interface PreviewPdfDialogProps {
-  orcamento: Orcamento;
-  onClose: () => void;
-  onDownload: () => void;
-}
-
-export default function PreviewPdfDialog({
-  orcamento,
-  onClose,
-  onDownload,
-}: PreviewPdfDialogProps) {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadPreview() {
-      try {
-        const blob = await generateOrcamentoPDFBlob(orcamento);
-        const url = URL.createObjectURL(blob);
-        setPdfUrl(url);
-      } catch (error) {
-        console.error('Erro ao gerar preview:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadPreview();
-    
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [orcamento]);
-
-  return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>Preview do Orcamento</DialogTitle>
-        </DialogHeader>
-        
-        <div className="flex-1 min-h-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-8 h-8 animate-spin" />
-            </div>
-          ) : pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full border rounded-lg"
-              title="Preview PDF"
-            />
-          ) : (
-            <p>Erro ao carregar preview</p>
-          )}
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
-          <Button onClick={onDownload}>
-            <Download className="w-4 h-4 mr-2" />
-            Baixar PDF
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// Substituir botao PDF por:
+<Button 
+  variant="outline" 
+  size="sm"
+  onClick={() => handleGerarOrcamentoSimples(orcamento)}
+>
+  <FileText className="w-4 h-4 mr-2" />
+  Gerar Orcamento
+</Button>
+<Button 
+  variant="default" 
+  size="sm"
+  onClick={() => setPropostaCompletaOrcamento(orcamento)}
+>
+  <FileCheck className="w-4 h-4 mr-2" />
+  Proposta Completa
+</Button>
 ```
 
-#### orcamentoGenerator.ts - Nova funcao
+#### PDF Generator - Nova Secao por Produto
 
 ```typescript
-// Funcao interna que gera o documento
-async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
-  const doc = new jsPDF({...});
-  // ... toda a logica de geracao ...
-  return doc;
+// Apos nome do produto, adicionar detalhes:
+if (item.quantidade_por_pote && item.unidade_por_pote) {
+  doc.text(`Apresentacao: ${item.quantidade_por_pote} ${item.unidade_por_pote}/pote`, x, yPos);
+  yPos += 4;
 }
-
-// Para preview (retorna blob)
-export async function generateOrcamentoPDFBlob(
-  orcamento: Orcamento
-): Promise<Blob> {
-  const doc = await createOrcamentoPDF(orcamento);
-  return doc.output('blob');
-}
-
-// Para download (salva arquivo)
-export async function generateOrcamentoPDF(
-  orcamento: Orcamento
-): Promise<void> {
-  const doc = await createOrcamentoPDF(orcamento);
-  const nomeArquivo = orcamento.consultor_responsavel 
-    ? `${orcamento.consultor_responsavel.replace(/\s+/g, '-')}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`
-    : `${orcamento.numero_orcamento}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`;
-  doc.save(`${nomeArquivo}.pdf`);
+if (item.dose_diaria_sugerida) {
+  doc.text(`Dose diaria sugerida: ${item.dose_diaria_sugerida}`, x, yPos);
+  yPos += 4;
 }
 ```
 
----
+#### PDF Generator - Detalhamento de Envio
 
-### Sequencia de Implementacao
-
-1. **Atualizar orcamentoGenerator.ts** - Refatorar para ter funcao de preview
-2. **Criar PreviewPdfDialog.tsx** - Novo componente de preview
-3. **Atualizar Orcamentos.tsx** - Integrar preview antes do download
-4. **Atualizar GerarOrcamentoDialog.tsx** - Adicionar botoes opcionais no Step 4
+```typescript
+// Na secao de frete, adicionar:
+if (frete.detalhamento_envio) {
+  const tipoLabels = {
+    'total_produtor': 'Todo envio para o Produtor',
+    'total_lemoncaps': 'Toda logistica via Lemon Caps',
+    'parcial': 'Envio Parcial',
+  };
+  doc.text(`Logistica: ${tipoLabels[frete.detalhamento_envio.tipo]}`, margin + 5, yPos);
+  yPos += 5;
+  
+  if (frete.detalhamento_envio.tipo === 'parcial' && frete.detalhamento_envio.descricao_parcial) {
+    doc.text(`Detalhes: ${frete.detalhamento_envio.descricao_parcial}`, margin + 10, yPos);
+    yPos += 5;
+  }
+}
+```
 
 ---
 
 ### Fluxo do Usuario
 
 #### Criando Orcamento:
-1. Step 1: Informacoes basicas (consultor, cliente)
-2. Step 2: Adicionar produtos
-3. Step 3: Adicionar servicos de marca
-4. Step 4: Resumo + botoes opcionais de Info Cliente e Frete
-5. Salvar Orcamento
+1. Step 1: Consultor + Cliente
+2. Step 2: Adicionar produtos COM quantidade/pote e dose diaria
+3. Step 3: Servicos de marca
+4. Step 4: Resumo + opcoes de Info Cliente e Frete
+5. Salvar
 
-#### Baixando PDF:
-1. Na lista de orcamentos, clicar em "PDF"
-2. Abre dialog com preview do documento
-3. Usuario visualiza o PDF renderizado
-4. Clicar em "Baixar PDF" para fazer download
+#### Editando Orcamento:
+- Clicar em "Editar" abre dialog no Step 1
+- Usuario pode navegar livremente entre todos os steps
+- Pode modificar produtos, quantidades, doses, etc.
+
+#### Gerando PDF Simples:
+1. Clicar em "Gerar Orcamento"
+2. Abre preview do PDF (sem dados de cliente e frete)
+3. Baixar
+
+#### Gerando Proposta Completa:
+1. Clicar em "Proposta Completa"
+2. Abre dialog para preencher/revisar Info Cliente e Frete
+3. Salva os dados
+4. Abre preview do PDF completo
+5. Baixar
+
+---
+
+### Sequencia de Implementacao
+
+1. **Atualizar tipos** - `src/types/orcamento.ts`
+2. **Atualizar DetalhamentoFreteDialog** - Adicionar secao de detalhamento de envio
+3. **Atualizar GerarOrcamentoDialog** - Adicionar campos quantidade/dose e permitir edicao completa
+4. **Criar PropostaCompletaDialog** - Novo componente para proposta completa
+5. **Atualizar Orcamentos.tsx** - Substituir botao PDF pelos dois novos botoes
+6. **Atualizar PDF Generator** - Incluir novos campos no PDF
 
