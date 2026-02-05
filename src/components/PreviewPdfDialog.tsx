@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Orcamento } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
 import {
@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Download, FileText } from 'lucide-react';
+import { Loader2, Download, FileText, AlertCircle } from 'lucide-react';
 
 interface PreviewPdfDialogProps {
   orcamento: Orcamento;
@@ -24,30 +24,54 @@ export default function PreviewPdfDialog({
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let objectUrl: string | null = null;
+    let isMounted = true;
 
     async function loadPreview() {
       try {
         setIsLoading(true);
         setError(null);
+        
+        console.log('Iniciando geração do PDF preview...');
         const blob = await generateOrcamentoPDFBlob(orcamento);
-        objectUrl = URL.createObjectURL(blob);
-        setPdfUrl(objectUrl);
+        
+        if (!isMounted) return;
+        
+        if (!blob || blob.size === 0) {
+          throw new Error('Blob do PDF está vazio');
+        }
+        
+        console.log('PDF gerado com sucesso, tamanho:', blob.size);
+        
+        // Limpar URL anterior se existir
+        if (objectUrlRef.current) {
+          URL.revokeObjectURL(objectUrlRef.current);
+        }
+        
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        setPdfUrl(url);
       } catch (err) {
         console.error('Erro ao gerar preview:', err);
-        setError('Não foi possível gerar o preview do PDF.');
+        if (isMounted) {
+          setError(`Erro ao gerar PDF: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
 
     loadPreview();
 
     return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
+      isMounted = false;
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
       }
     };
   }, [orcamento]);
