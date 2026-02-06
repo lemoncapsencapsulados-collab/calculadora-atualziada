@@ -1,383 +1,302 @@
 
-## Plano: PDF Profissional de Alto Padrão com Layout Expandido
+
+## Plano: Detalhamento de Pagamento no Fluxo de Orcamento
 
 ### Objetivo
 
-Criar um PDF elegante e minimalista de alto padrão que:
-1. Utilize toda a folha A4 com espaçamento generoso
-2. Mostre TODAS as informações sem cortes ou resumos
-3. Use múltiplas páginas quando necessário com layout consistente
-4. Tenha estética premium e profissional
+Adicionar campos estruturados de pagamento no fluxo de "Gerar Orcamento" a partir de "Precificacoes Salvas", permitindo:
+- Preenchimento opcional durante a criacao do orcamento
+- Preenchimento obrigatorio quando gerar "Proposta Completa"
+- Exibicao formatada nos PDFs gerados
 
 ---
 
-### Comparação: Layout Atual vs Novo Layout
+### Novos Campos de Pagamento
 
-| Aspecto | Layout Atual (Ultra-compacto) | Novo Layout (Premium) |
-|---------|------------------------------|----------------------|
-| Margem | 12mm | 20mm |
-| Fonte título | 12pt | 18pt |
-| Fonte corpo | 7pt | 10pt |
-| Fonte pequena | 6pt | 9pt |
-| Max produtos | 6 (truncado) | Ilimitado |
-| Max serviços | 3 (truncado) | Ilimitado |
-| Max insumos | 2 (truncado) | Todos |
-| Espaçamento | 2mm entre seções | 8mm entre seções |
-| Páginas | Forçado 1 página | Quantas necessárias |
+| Campo | Tipo | Descricao |
+|-------|------|-----------|
+| `valor_entrada` | number | Valor pago de entrada |
+| `forma_pagamento_entrada` | string | Como sera pago (PIX, Cartao, Boleto, etc) |
+| `valor_termino` | number | Valor pago no termino dos produtos |
+| `forma_pagamento_termino` | string | Como sera pago no termino |
 
 ---
 
-### Novo Layout Premium - Estrutura
+### Estrutura de Dados
+
+Criar nova interface `CondicoesPagamento` no tipo `orcamento.ts`:
+
+```typescript
+export interface CondicoesPagamento {
+  valor_entrada?: number;
+  forma_pagamento_entrada?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
+  descricao_entrada?: string;  // Detalhes adicionais (ex: "em 3x")
+  
+  valor_termino?: number;
+  forma_pagamento_termino?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
+  descricao_termino?: string;  // Detalhes adicionais
+}
+```
+
+---
+
+### Interface de Usuario (UX)
+
+#### Step 1 do GerarOrcamentoDialog - Apos "Forma de Pagamento"
+
+Adicionar uma secao colapsavel "Detalhamento de Pagamento" com layout amigavel:
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                                                         │ ← Margem 20mm
-│   ╭─────────────────────────────────────────────────╮   │
-│   │                  LEMON CAPS                     │   │ ← Header 40mm
-│   │                                                 │   │
-│   │  ORÇAMENTO COMERCIAL           Nº ORÇ-2024-XXX │   │
-│   │  Consultor: Nome               Data: XX/XX/XX  │   │
-│   ╰─────────────────────────────────────────────────╯   │
-│                                                         │ ← 12mm espaço
-│   ─────────────────────────────────────────────────     │
-│   DADOS DO CLIENTE                                      │ ← Seção 50mm
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   Nome: Cliente Exemplo Ltda                            │
-│   Email: cliente@email.com                              │
-│   Telefone: (11) 99999-9999                            │
-│   CNPJ: 00.000.000/0000-00                             │
-│   Razão Social: Empresa Exemplo                        │
-│   Endereço: Rua X, 123 - São Paulo/SP                  │
-│   Canal de Venda: Digital e Físico                     │
-│                                                         │ ← 12mm espaço
-│   ─────────────────────────────────────────────────     │
-│   PRODUTOS                                              │ ← Tabela expandida
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   # │ Produto              │ Segmento   │ Qtd │ Unit   │
-│   ─────────────────────────────────────────────────     │
-│   1 │ Whey Protein         │ Esportivo  │ 100 │ R$ XX  │
-│     │ Composição:                                      │
-│     │ • Whey Isolado - 30g                             │
-│     │ • Creatina - 5g                                  │
-│     │ • Vitamina D - 1000 UI                           │
-│   ─────────────────────────────────────────────────     │
-│   2 │ Colágeno Premium     │ Beleza     │ 50  │ R$ XX  │
-│     │ Composição:                                      │
-│     │ • Colágeno Hidrolisado - 10g                     │
-│     │ • Ácido Hialurônico - 100mg                      │
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│                     SUBTOTAL PRODUÇÃO: R$ XX.XXX,XX    │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-                    ─── Página 1 de 2 ───
+┌─────────────────────────────────────────────────────────────┐
+│  DETALHAMENTO DE PAGAMENTO (opcional)                       │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  ┌─ ENTRADA ─────────────────────────────────────────────┐  │
+│  │                                                       │  │
+│  │  Qual e o valor da entrada?                           │  │
+│  │  ┌────────────────────────────────────────────────┐   │  │
+│  │  │ R$  [________________]                         │   │  │
+│  │  └────────────────────────────────────────────────┘   │  │
+│  │                                                       │  │
+│  │  Como sera pago?                                      │  │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐      │  │
+│  │  │   PIX   │ │ Cartao  │ │ Boleto  │ │ Transf. │      │  │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘      │  │
+│  │                                                       │  │
+│  │  Detalhes adicionais (opcional):                      │  │
+│  │  ┌────────────────────────────────────────────────┐   │  │
+│  │  │ Ex: "em 3x sem juros"                          │   │  │
+│  │  └────────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌─ PAGAMENTO NO TERMINO ────────────────────────────────┐  │
+│  │                                                       │  │
+│  │  Qual e o valor no termino da producao?               │  │
+│  │  ┌────────────────────────────────────────────────┐   │  │
+│  │  │ R$  [________________]  ou  [ ] Restante       │   │  │
+│  │  └────────────────────────────────────────────────┘   │  │
+│  │                                                       │  │
+│  │  Como sera pago?                                      │  │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐      │  │
+│  │  │   PIX   │ │ Cartao  │ │ Boleto  │ │ Transf. │      │  │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘      │  │
+│  │                                                       │  │
+│  │  Detalhes adicionais (opcional):                      │  │
+│  │  ┌────────────────────────────────────────────────┐   │  │
+│  │  │ Ex: "apos aprovacao da arte"                   │   │  │
+│  │  └────────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
-┌─────────────────────────────────────────────────────────┐
-│                                                         │
-│   ─────────────────────────────────────────────────     │
-│   SERVIÇOS DE MARCA                                     │
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   Serviço           │ Descrição              │ Valor   │
-│   Plano Premium     │ Consultoria completa   │ R$ XXX  │
-│   Design Label      │ Arte da embalagem      │ R$ XXX  │
-│                                                         │
-│                     SUBTOTAL SERVIÇOS: R$ XX.XXX,XX    │
-│                                                         │ ← 12mm espaço
-│   ─────────────────────────────────────────────────     │
-│   DETALHAMENTO DE FRETE                                 │
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   Tipo de Logística: Logística Lemon Caps              │
-│   Frete Lemon Caps: SIM                                │
-│   Tabela: Tradicional                                   │
-│                                                         │
-│   Planos Customizados:                                 │
-│   • Encapsulados: Até 5 POTES - R$ 34,80              │
-│   • Solúvel: 3 a 5 POTES - R$ 54,40                   │
-│                                                         │ ← 16mm espaço
-│   ╔═════════════════════════════════════════════════╗   │
-│   ║                                                 ║   │ ← Box Total 28mm
-│   ║   VALOR TOTAL                    R$ 12.345,67  ║   │
-│   ║                                                 ║   │
-│   ╚═════════════════════════════════════════════════╝   │
-│                                                         │ ← 12mm espaço
-│   ─────────────────────────────────────────────────     │
-│   FORMA DE PAGAMENTO                                    │
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   30% de entrada via PIX, 70% restante em até 3x      │
-│   no cartão de crédito, após aprovação da arte        │
-│                                                         │ ← 8mm espaço
-│   ─────────────────────────────────────────────────     │
-│   OBSERVAÇÕES                                           │
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   Produto será entregue em até 15 dias úteis após     │
-│   confirmação do pagamento. Frete grátis para SP.     │
-│                                                         │
-│   ─────────────────────────────────────────────────     │
-│                                                         │
-│   Este orçamento tem validade de 30 dias.              │
-│                                                         │
-│   LEMON CAPS - www.lemoncaps.com.br                    │
-│                                                         │ ← Margem 20mm
-└─────────────────────────────────────────────────────────┘
-                    ─── Página 2 de 2 ───
+---
+
+### Validacao na Proposta Completa
+
+No `PropostaCompletaDialog.tsx`, adicionar validacao:
+
+1. Se os campos de pagamento NAO estiverem preenchidos, mostrar secao para preenchimento obrigatorio
+2. Destacar visualmente que esses campos sao necessarios para gerar a proposta
+3. Bloquear geracao ate que os campos estejam completos
+
+---
+
+### Exibicao no PDF
+
+#### Formato no PDF (orcamentoGenerator.ts e propostaGenerator.ts):
+
+```text
+─────────────────────────────────────────────────
+CONDICOES DE PAGAMENTO
+─────────────────────────────────────────────────
+
+ENTRADA
+  Valor: R$ 5.000,00
+  Forma: PIX
+  Detalhes: Pagamento imediato apos aprovacao
+
+NO TERMINO DA PRODUCAO
+  Valor: R$ 7.345,67 (restante)
+  Forma: Cartao de Credito
+  Detalhes: Em 3x sem juros apos entrega
 ```
 
 ---
 
 ### Arquivos a Modificar
 
-| Arquivo | Modificação |
+| Arquivo | Modificacao |
 |---------|-------------|
-| `src/lib/orcamentoGenerator.ts` | Refatorar completamente para layout premium expandido |
-| `src/lib/propostaGenerator.ts` | Aplicar mesmo padrão visual premium |
+| `src/types/orcamento.ts` | Adicionar interface `CondicoesPagamento` e campo no `Orcamento` |
+| `src/components/GerarOrcamentoDialog.tsx` | Adicionar secao de detalhamento de pagamento no Step 1 |
+| `src/components/PropostaCompletaDialog.tsx` | Adicionar validacao e campos de pagamento obrigatorios |
+| `src/lib/orcamentoGenerator.ts` | Adicionar renderizacao das condicoes de pagamento no PDF |
+| `src/lib/propostaGenerator.ts` | Sincronizar exibicao do pagamento |
+| Migracao no banco de dados | Adicionar campo `condicoes_pagamento JSONB` na tabela `orcamentos` |
 
 ---
 
-### Detalhes Técnicos
+### Detalhes Tecnicos
 
-#### 1. Novo LAYOUT Premium
-
-```typescript
-const LAYOUT = {
-  margin: 20,           // Margem generosa
-  headerHeight: 40,     // Header grande e elegante
-  sectionGap: 8,        // Espaçamento entre seções
-  lineHeight: 6,        // Altura de linha confortável
-  fontSize: {
-    title: 18,          // Títulos grandes
-    sectionTitle: 11,   // Subtítulos legíveis
-    body: 10,           // Corpo de texto legível
-    small: 9,           // Notas e detalhes
-    footer: 9,          // Rodapé
-  },
-};
-```
-
-#### 2. Paleta de Cores Minimalista
+#### 1. Nova Interface (orcamento.ts)
 
 ```typescript
-const COLORS = {
-  // Tons escuros elegantes
-  darkGreen: [24, 26, 0],      // Quase preto esverdeado
-  mediumGreen: [46, 48, 3],    // Verde escuro
+export interface CondicoesPagamento {
+  valor_entrada?: number;
+  forma_pagamento_entrada?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
+  descricao_entrada?: string;
   
-  // Acentos sofisticados
-  lemonYellow: [202, 212, 0],  // Amarelo limão
-  
-  // Neutros minimalistas
-  white: [255, 255, 255],
-  lightGray: [248, 248, 248],  // Fundo alternado
-  borderGray: [220, 220, 220], // Linhas sutis
-  
-  // Texto
-  textDark: [40, 40, 40],      // Texto principal
-  textMedium: [80, 80, 80],    // Texto secundário
-  textLight: [120, 120, 120],  // Texto terciário
-};
-```
-
-#### 3. Sistema de Múltiplas Páginas
-
-```typescript
-function checkPageBreak(doc: jsPDF, currentY: number, requiredHeight: number): number {
-  const pageHeight = 297;
-  const bottomMargin = 25;
-  const availableSpace = pageHeight - bottomMargin;
-  
-  if (currentY + requiredHeight > availableSpace) {
-    doc.addPage();
-    addPageHeader(doc);  // Header em páginas subsequentes
-    return LAYOUT.margin + 10;  // Nova posição Y
-  }
-  return currentY;
+  valor_termino?: number;
+  usa_valor_restante?: boolean;  // Se true, calcula automaticamente
+  forma_pagamento_termino?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
+  descricao_termino?: string;
 }
 
-function addPageFooter(doc: jsPDF, pageNumber: number, totalPages: number): void {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = 297;
-  
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text(
-    `Página ${pageNumber} de ${totalPages}`,
-    pageWidth / 2,
-    pageHeight - 10,
-    { align: 'center' }
-  );
+export interface Orcamento {
+  // ... campos existentes
+  condicoes_pagamento?: CondicoesPagamento;
 }
 ```
 
-#### 4. Composição Expandida dos Produtos
-
-Em vez de mostrar composição inline truncada, mostrar lista completa:
+#### 2. Componente de Selecao de Forma de Pagamento
 
 ```typescript
-function renderProdutoExpandido(doc: jsPDF, item: ItemProducao, yPos: number): number {
-  // Nome do produto em destaque
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(LAYOUT.fontSize.body);
-  doc.text(item.nome_produto, LAYOUT.margin + 10, yPos);
-  yPos += 5;
+const FORMAS_PAGAMENTO = [
+  { value: 'pix', label: 'PIX', icon: Smartphone },
+  { value: 'cartao_credito', label: 'Cartao de Credito', icon: CreditCard },
+  { value: 'cartao_debito', label: 'Cartao de Debito', icon: CreditCard },
+  { value: 'boleto', label: 'Boleto', icon: FileText },
+  { value: 'transferencia', label: 'Transferencia', icon: Building },
+  { value: 'outro', label: 'Outro', icon: MoreHorizontal },
+];
+```
+
+#### 3. Logica de Validacao
+
+```typescript
+function validarCondicoesPagamento(condicoes?: CondicoesPagamento, valorTotal?: number): string[] {
+  const erros: string[] = [];
   
-  // Detalhes do produto
-  if (item.quantidade_por_pote && item.unidade_por_pote) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(LAYOUT.fontSize.small);
-    doc.text(`${item.quantidade_por_pote} ${item.unidade_por_pote} por frasco`, LAYOUT.margin + 10, yPos);
-    yPos += 4;
+  if (!condicoes?.valor_entrada && condicoes?.valor_entrada !== 0) {
+    erros.push('Informe o valor da entrada');
+  }
+  if (!condicoes?.forma_pagamento_entrada) {
+    erros.push('Selecione a forma de pagamento da entrada');
+  }
+  if (!condicoes?.valor_termino && !condicoes?.usa_valor_restante) {
+    erros.push('Informe o valor no termino ou marque "Restante"');
+  }
+  if (!condicoes?.forma_pagamento_termino) {
+    erros.push('Selecione a forma de pagamento no termino');
   }
   
-  // Composição completa (todos os insumos)
-  if (item.insumos_formula && item.insumos_formula.length > 0) {
-    doc.setTextColor(...COLORS.textMedium);
-    doc.text('Composição:', LAYOUT.margin + 10, yPos);
-    yPos += 4;
-    
-    for (const insumo of item.insumos_formula) {
-      yPos = checkPageBreak(doc, yPos, 5);
-      doc.text(`• ${insumo.nome} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 15, yPos);
-      yPos += 4;
-    }
-  }
-  
-  return yPos + 3;
+  return erros;
 }
 ```
 
-#### 5. Dados do Cliente Expandidos
-
-Mostrar cada campo em sua própria linha:
+#### 4. Renderizacao no PDF
 
 ```typescript
-function renderDadosClienteExpandido(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
-  const dados = orcamento.dados_cliente;
+function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  const condicoes = orcamento.condicoes_pagamento;
+  if (!condicoes) return yPos;
   
-  // Cada campo em linha separada com label
-  const campos = [
-    { label: 'Nome', valor: orcamento.nome_cliente },
-    { label: 'Email', valor: dados?.email },
-    { label: 'Telefone', valor: dados?.telefone },
-    { label: 'CPF', valor: dados?.cpf },
-    { label: 'CNPJ', valor: dados?.cnpj },
-    { label: 'Razão Social', valor: dados?.razao_social },
-    { label: 'Endereço', valor: formatEndereco(dados) },
-    { label: 'Canal de Venda', valor: formatCanalVenda(dados?.forma_venda) },
-  ];
+  yPos = checkPageBreak(doc, yPos, 60);
   
-  for (const campo of campos) {
-    if (campo.valor) {
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${campo.label}:`, LAYOUT.margin, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(campo.valor, LAYOUT.margin + 25, yPos);
-      yPos += LAYOUT.lineHeight;
-    }
-  }
+  // Titulo da secao
+  renderSectionTitle(doc, 'CONDICOES DE PAGAMENTO', yPos);
+  yPos += 12;
   
-  return yPos;
-}
-```
-
-#### 6. Frete Detalhado
-
-Mostrar informações de frete em formato estruturado:
-
-```typescript
-function renderFreteDetalhado(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
-  const frete = orcamento.detalhamento_frete;
-  
-  // Tipo de logística
-  if (frete.detalhamento_envio) {
+  // Entrada
+  if (condicoes.valor_entrada !== undefined) {
     doc.setFont('helvetica', 'bold');
-    doc.text('Tipo de Logística:', LAYOUT.margin, yPos);
+    doc.text('ENTRADA', LAYOUT.margin, yPos);
+    yPos += 6;
+    
     doc.setFont('helvetica', 'normal');
-    doc.text(getTipoLogisticaLabel(frete.detalhamento_envio.tipo), LAYOUT.margin + 35, yPos);
-    yPos += LAYOUT.lineHeight;
+    doc.text(`Valor: ${formatCurrency(condicoes.valor_entrada)}`, LAYOUT.margin + 5, yPos);
+    yPos += 5;
     
-    if (frete.detalhamento_envio.descricao_parcial) {
-      doc.text(`Detalhes: ${frete.detalhamento_envio.descricao_parcial}`, LAYOUT.margin, yPos);
-      yPos += LAYOUT.lineHeight;
-    }
-  }
-  
-  // Frete LC
-  doc.setFont('helvetica', 'bold');
-  doc.text('Frete Lemon Caps:', LAYOUT.margin, yPos);
-  doc.setFont('helvetica', 'normal');
-  doc.text(frete.frete_lemon_caps ? 'SIM' : 'NÃO', LAYOUT.margin + 35, yPos);
-  yPos += LAYOUT.lineHeight;
-  
-  // Tabela
-  if (frete.usa_tabela_tradicional) {
-    doc.text('Tabela de Preços: Tradicional', LAYOUT.margin, yPos);
-    yPos += LAYOUT.lineHeight;
-  }
-  
-  // Planos customizados
-  if (frete.planos_customizados?.length > 0) {
-    yPos += 2;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Planos de Frete:', LAYOUT.margin, yPos);
-    yPos += LAYOUT.lineHeight;
+    doc.text(`Forma: ${getFormaPagamentoLabel(condicoes.forma_pagamento_entrada)}`, LAYOUT.margin + 5, yPos);
+    yPos += 5;
     
-    for (const plano of frete.planos_customizados) {
-      doc.setFont('helvetica', 'normal');
-      doc.text(`• ${plano.tipo_produto}: ${plano.plano} - ${formatCurrency(plano.valor)}`, LAYOUT.margin + 5, yPos);
+    if (condicoes.descricao_entrada) {
+      doc.text(`Detalhes: ${condicoes.descricao_entrada}`, LAYOUT.margin + 5, yPos);
       yPos += 5;
     }
   }
   
-  return yPos;
+  // Termino
+  yPos += 4;
+  // ... similar para termino
+  
+  return yPos + LAYOUT.sectionGap;
 }
 ```
 
-#### 7. Box de Total Premium
+---
 
-```typescript
-function renderTotalPremium(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const boxHeight = 24;
-  
-  yPos = checkPageBreak(doc, yPos, boxHeight + 10);
-  yPos += 8;  // Espaço antes do box
-  
-  // Box com gradiente simulado
-  doc.setFillColor(...COLORS.darkGreen);
-  doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 2, 2, 'F');
-  
-  // Borda sutil
-  doc.setDrawColor(...COLORS.lemonYellow);
-  doc.setLineWidth(1);
-  doc.roundedRect(LAYOUT.margin, yPos, pageWidth - 2 * LAYOUT.margin, boxHeight, 2, 2, 'S');
-  
-  // Texto
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('VALOR TOTAL', LAYOUT.margin + 10, yPos + 15);
-  
-  doc.setTextColor(...COLORS.lemonYellow);
-  doc.setFontSize(18);
-  doc.text(formatCurrency(orcamento.valor_total), pageWidth - LAYOUT.margin - 10, yPos + 16, { align: 'right' });
-  
-  return yPos + boxHeight + 10;
-}
+### Fluxo de Uso
+
+```text
+Precificacoes Salvas
+        │
+        ▼
+   [Gerar Orcamento]
+        │
+        ▼
+┌───────────────────────────────────────┐
+│ Step 1: Informacoes Basicas           │
+│ ─────────────────────────────────────│
+│ • Consultor                           │
+│ • Cliente                             │
+│ • Validade                            │
+│ • Forma de Pagamento (texto livre)    │
+│                                       │
+│ ▼ DETALHAMENTO DE PAGAMENTO           │
+│   (Colapsavel - OPCIONAL)             │
+│   • Valor/Forma da Entrada            │
+│   • Valor/Forma no Termino            │
+└───────────────────────────────────────┘
+        │
+        ▼
+    (Steps 2, 3, 4)
+        │
+        ▼
+  [Salvar Orcamento]
+        │
+        ▼
+┌───────────────────────────────────────┐
+│ Na tela de Orcamentos:                │
+│                                       │
+│ [Gerar Orcamento] → PDF simples       │
+│                                       │
+│ [Proposta Completa] → Exige dados     │
+│   • Se pagamento NAO preenchido:      │
+│     → Mostra formulario obrigatorio   │
+│   • Se pagamento JA preenchido:       │
+│     → Usa dados existentes            │
+└───────────────────────────────────────┘
+```
+
+---
+
+### Migracao do Banco de Dados
+
+```sql
+ALTER TABLE orcamentos
+ADD COLUMN IF NOT EXISTS condicoes_pagamento JSONB DEFAULT NULL;
+
+COMMENT ON COLUMN orcamentos.condicoes_pagamento IS 'Detalhamento das condicoes de pagamento: entrada e termino';
 ```
 
 ---
 
 ### Resultado Esperado
 
-1. **Layout Premium**: Margens generosas, espaçamento confortável
-2. **Informações Completas**: Nada truncado ou omitido
-3. **Múltiplas Páginas**: Quebras automáticas quando necessário
-4. **Estética Minimalista**: Cores sutis, tipografia elegante
-5. **Alto Padrão**: Aparência profissional e sofisticada
-6. **Consistência**: Orçamento e Proposta com mesmo visual
+1. **UX Amigavel**: Campos organizados de forma logica e intuitiva
+2. **Flexibilidade**: Preenchimento opcional no orcamento, obrigatorio na proposta
+3. **Clareza nos PDFs**: Condicoes de pagamento bem formatadas e legais
+4. **Compatibilidade**: Campo `forma_pagamento` existente continua funcionando como texto livre
 
