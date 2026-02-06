@@ -1,302 +1,450 @@
 
 
-## Plano: Detalhamento de Pagamento no Fluxo de Orcamento
+## Plano: Dashboard Comercial Completa por Consultor
 
 ### Objetivo
 
-Adicionar campos estruturados de pagamento no fluxo de "Gerar Orcamento" a partir de "Precificacoes Salvas", permitindo:
-- Preenchimento opcional durante a criacao do orcamento
-- Preenchimento obrigatorio quando gerar "Proposta Completa"
-- Exibicao formatada nos PDFs gerados
+Criar uma **subpagina analitica e estrategica** totalmente integrada ao sistema existente, com foco em permitir visao 360 graus de cada consultor: vendas realizadas, pipeline de negociacao, recorrencia e oportunidades.
 
 ---
 
-### Novos Campos de Pagamento
+### Analise do Sistema Atual
 
-| Campo | Tipo | Descricao |
-|-------|------|-----------|
-| `valor_entrada` | number | Valor pago de entrada |
-| `forma_pagamento_entrada` | string | Como sera pago (PIX, Cartao, Boleto, etc) |
-| `valor_termino` | number | Valor pago no termino dos produtos |
-| `forma_pagamento_termino` | string | Como sera pago no termino |
-
----
-
-### Estrutura de Dados
-
-Criar nova interface `CondicoesPagamento` no tipo `orcamento.ts`:
-
-```typescript
-export interface CondicoesPagamento {
-  valor_entrada?: number;
-  forma_pagamento_entrada?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
-  descricao_entrada?: string;  // Detalhes adicionais (ex: "em 3x")
-  
-  valor_termino?: number;
-  forma_pagamento_termino?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
-  descricao_termino?: string;  // Detalhes adicionais
-}
-```
+| Aspecto | Estado Atual |
+|---------|--------------|
+| Tabela Principal | `orcamentos` - contem todos os dados necessarios |
+| Status Disponiveis | `rascunho`, `enviado`, `aprovado`, `recusado` |
+| Consultores Cadastrados | 6+ consultores ativos (TON, KILSON, DANIELLE, DERECK, JOAO, EVERTON) |
+| Dados Existentes | 8 orcamentos (3 aprovados, 5 em outras fases) |
+| Faturamento Total Aprovado | R$ 48.866,60 |
+| Produtos por Orcamento | Armazenados como JSONB em `itens_producao` |
+| Servicos por Orcamento | Armazenados como JSONB em `servicos_marca` |
 
 ---
 
-### Interface de Usuario (UX)
+### Mapeamento de Status
 
-#### Step 1 do GerarOrcamentoDialog - Apos "Forma de Pagamento"
-
-Adicionar uma secao colapsavel "Detalhamento de Pagamento" com layout amigavel:
+Para a dashboard, os status serao agrupados em tres camadas:
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  DETALHAMENTO DE PAGAMENTO (opcional)                       │
-│  ─────────────────────────────────────────────────────────  │
-│                                                             │
-│  ┌─ ENTRADA ─────────────────────────────────────────────┐  │
-│  │                                                       │  │
-│  │  Qual e o valor da entrada?                           │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │ R$  [________________]                         │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
-│  │                                                       │  │
-│  │  Como sera pago?                                      │  │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐      │  │
-│  │  │   PIX   │ │ Cartao  │ │ Boleto  │ │ Transf. │      │  │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘      │  │
-│  │                                                       │  │
-│  │  Detalhes adicionais (opcional):                      │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │ Ex: "em 3x sem juros"                          │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌─ PAGAMENTO NO TERMINO ────────────────────────────────┐  │
-│  │                                                       │  │
-│  │  Qual e o valor no termino da producao?               │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │ R$  [________________]  ou  [ ] Restante       │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
-│  │                                                       │  │
-│  │  Como sera pago?                                      │  │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐      │  │
-│  │  │   PIX   │ │ Cartao  │ │ Boleto  │ │ Transf. │      │  │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘      │  │
-│  │                                                       │  │
-│  │  Detalhes adicionais (opcional):                      │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │ Ex: "apos aprovacao da arte"                   │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+APROVADO → Vendas Fechadas (resultado real)
+ENVIADO → Pipeline / Em Negociacao
+RASCUNHO → Rascunho (pode incluir em pipeline ou ignorar)
+RECUSADO → Perdidas (para taxa de conversao)
 ```
 
 ---
 
-### Validacao na Proposta Completa
-
-No `PropostaCompletaDialog.tsx`, adicionar validacao:
-
-1. Se os campos de pagamento NAO estiverem preenchidos, mostrar secao para preenchimento obrigatorio
-2. Destacar visualmente que esses campos sao necessarios para gerar a proposta
-3. Bloquear geracao ate que os campos estejam completos
-
----
-
-### Exibicao no PDF
-
-#### Formato no PDF (orcamentoGenerator.ts e propostaGenerator.ts):
+### Arquitetura da Solucao
 
 ```text
-─────────────────────────────────────────────────
-CONDICOES DE PAGAMENTO
-─────────────────────────────────────────────────
-
-ENTRADA
-  Valor: R$ 5.000,00
-  Forma: PIX
-  Detalhes: Pagamento imediato apos aprovacao
-
-NO TERMINO DA PRODUCAO
-  Valor: R$ 7.345,67 (restante)
-  Forma: Cartao de Credito
-  Detalhes: Em 3x sem juros apos entrega
+┌─────────────────────────────────────────────────────────────────┐
+│                         App.tsx                                  │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Navigation.tsx                        │    │
+│  │  + Novo Link: "Dashboard Comercial" (/dashboard)        │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              DashboardComercial.tsx (NOVA)              │    │
+│  │  ┌─────────────────────────────────────────────────┐    │    │
+│  │  │            useDashboardComercial.ts             │    │    │
+│  │  │  (Hook que processa dados de orcamentos)        │    │    │
+│  │  └─────────────────────────────────────────────────┘    │    │
+│  │                                                         │    │
+│  │  Componentes Internos:                                  │    │
+│  │  ├── DashboardKPIs.tsx                                  │    │
+│  │  ├── DashboardVendasAprovadas.tsx                       │    │
+│  │  ├── DashboardPipeline.tsx                              │    │
+│  │  ├── DashboardRecorrencia.tsx                           │    │
+│  │  ├── DashboardPerfil.tsx                                │    │
+│  │  └── DashboardInsights.tsx                              │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Arquivos a Modificar
+### BLOCO 1: KPIs Gerais (Topo da Pagina)
 
-| Arquivo | Modificacao |
-|---------|-------------|
-| `src/types/orcamento.ts` | Adicionar interface `CondicoesPagamento` e campo no `Orcamento` |
-| `src/components/GerarOrcamentoDialog.tsx` | Adicionar secao de detalhamento de pagamento no Step 1 |
-| `src/components/PropostaCompletaDialog.tsx` | Adicionar validacao e campos de pagamento obrigatorios |
-| `src/lib/orcamentoGenerator.ts` | Adicionar renderizacao das condicoes de pagamento no PDF |
-| `src/lib/propostaGenerator.ts` | Sincronizar exibicao do pagamento |
-| Migracao no banco de dados | Adicionar campo `condicoes_pagamento JSONB` na tabela `orcamentos` |
+Cards destacados no topo mostrando metricas globais:
 
----
-
-### Detalhes Tecnicos
-
-#### 1. Nova Interface (orcamento.ts)
-
-```typescript
-export interface CondicoesPagamento {
-  valor_entrada?: number;
-  forma_pagamento_entrada?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
-  descricao_entrada?: string;
-  
-  valor_termino?: number;
-  usa_valor_restante?: boolean;  // Se true, calcula automaticamente
-  forma_pagamento_termino?: 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
-  descricao_termino?: string;
-}
-
-export interface Orcamento {
-  // ... campos existentes
-  condicoes_pagamento?: CondicoesPagamento;
-}
-```
-
-#### 2. Componente de Selecao de Forma de Pagamento
-
-```typescript
-const FORMAS_PAGAMENTO = [
-  { value: 'pix', label: 'PIX', icon: Smartphone },
-  { value: 'cartao_credito', label: 'Cartao de Credito', icon: CreditCard },
-  { value: 'cartao_debito', label: 'Cartao de Debito', icon: CreditCard },
-  { value: 'boleto', label: 'Boleto', icon: FileText },
-  { value: 'transferencia', label: 'Transferencia', icon: Building },
-  { value: 'outro', label: 'Outro', icon: MoreHorizontal },
-];
-```
-
-#### 3. Logica de Validacao
-
-```typescript
-function validarCondicoesPagamento(condicoes?: CondicoesPagamento, valorTotal?: number): string[] {
-  const erros: string[] = [];
-  
-  if (!condicoes?.valor_entrada && condicoes?.valor_entrada !== 0) {
-    erros.push('Informe o valor da entrada');
-  }
-  if (!condicoes?.forma_pagamento_entrada) {
-    erros.push('Selecione a forma de pagamento da entrada');
-  }
-  if (!condicoes?.valor_termino && !condicoes?.usa_valor_restante) {
-    erros.push('Informe o valor no termino ou marque "Restante"');
-  }
-  if (!condicoes?.forma_pagamento_termino) {
-    erros.push('Selecione a forma de pagamento no termino');
-  }
-  
-  return erros;
-}
-```
-
-#### 4. Renderizacao no PDF
-
-```typescript
-function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
-  const condicoes = orcamento.condicoes_pagamento;
-  if (!condicoes) return yPos;
-  
-  yPos = checkPageBreak(doc, yPos, 60);
-  
-  // Titulo da secao
-  renderSectionTitle(doc, 'CONDICOES DE PAGAMENTO', yPos);
-  yPos += 12;
-  
-  // Entrada
-  if (condicoes.valor_entrada !== undefined) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('ENTRADA', LAYOUT.margin, yPos);
-    yPos += 6;
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Valor: ${formatCurrency(condicoes.valor_entrada)}`, LAYOUT.margin + 5, yPos);
-    yPos += 5;
-    
-    doc.text(`Forma: ${getFormaPagamentoLabel(condicoes.forma_pagamento_entrada)}`, LAYOUT.margin + 5, yPos);
-    yPos += 5;
-    
-    if (condicoes.descricao_entrada) {
-      doc.text(`Detalhes: ${condicoes.descricao_entrada}`, LAYOUT.margin + 5, yPos);
-      yPos += 5;
-    }
-  }
-  
-  // Termino
-  yPos += 4;
-  // ... similar para termino
-  
-  return yPos + LAYOUT.sectionGap;
-}
-```
+| KPI | Descricao | Fonte |
+|-----|-----------|-------|
+| Faturamento Total | Soma de valor_total onde status = aprovado | orcamentos |
+| Novas Vendas | Contagem de orcamentos aprovados | orcamentos |
+| Pipeline em Negociacao | Soma de valor_total onde status = enviado | orcamentos |
+| Ticket Medio Geral | Faturamento / Novas Vendas | calculado |
+| Taxa de Conversao | Aprovados / (Aprovados + Recusados) | calculado |
 
 ---
 
-### Fluxo de Uso
+### BLOCO 2: Vendas Aprovadas (Resultado Real)
+
+#### Metricas por Consultor
 
 ```text
-Precificacoes Salvas
-        │
-        ▼
-   [Gerar Orcamento]
-        │
-        ▼
-┌───────────────────────────────────────┐
-│ Step 1: Informacoes Basicas           │
-│ ─────────────────────────────────────│
-│ • Consultor                           │
-│ • Cliente                             │
-│ • Validade                            │
-│ • Forma de Pagamento (texto livre)    │
-│                                       │
-│ ▼ DETALHAMENTO DE PAGAMENTO           │
-│   (Colapsavel - OPCIONAL)             │
-│   • Valor/Forma da Entrada            │
-│   • Valor/Forma no Termino            │
-└───────────────────────────────────────┘
-        │
-        ▼
-    (Steps 2, 3, 4)
-        │
-        ▼
-  [Salvar Orcamento]
-        │
-        ▼
-┌───────────────────────────────────────┐
-│ Na tela de Orcamentos:                │
-│                                       │
-│ [Gerar Orcamento] → PDF simples       │
-│                                       │
-│ [Proposta Completa] → Exige dados     │
-│   • Se pagamento NAO preenchido:      │
-│     → Mostra formulario obrigatorio   │
-│   • Se pagamento JA preenchido:       │
-│     → Usa dados existentes            │
-└───────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│ RANKING DE CONSULTORES - VENDAS FECHADAS                          │
+├──────────────────────┬─────────┬──────────────┬─────────┬─────────┤
+│ Consultor            │ Vendas  │ Faturamento  │ Ticket  │ Clientes│
+├──────────────────────┼─────────┼──────────────┼─────────┼─────────┤
+│ TON                  │ 2       │ R$ 41.268,00 │ R$ 20K  │ 2       │
+│ DERECK               │ 1       │ R$ 7.598,60  │ R$ 7K   │ 1       │
+├──────────────────────┼─────────┼──────────────┼─────────┼─────────┤
+│ TOTAL                │ 3       │ R$ 48.866,60 │         │ 3       │
+└──────────────────────┴─────────┴──────────────┴─────────┴─────────┘
 ```
+
+#### Mix de Vendas (Analise Automatica)
+
+Para cada consultor, calcular:
+
+- Total de produtos de producao vendidos (itens_producao)
+- Total de servicos de marca vendidos (servicos_marca)
+- Proporcao producao vs servicos
+- Alertas de dependencia de produto unico
+
+#### Produtos Mais Vendidos
+
+```text
+┌───────────────────────────────────────────────────────────────────┐
+│ PRODUTOS MAIS VENDIDOS                                            │
+├──────────────────────────────┬─────────┬──────────────┬──────────┤
+│ Produto                      │ Qtd     │ Faturamento  │ % Total  │
+├──────────────────────────────┼─────────┼──────────────┼──────────┤
+│ SEM FITOTERAPICO            │ 500     │ R$ 9.500,00  │ 19.4%    │
+│ VITAMINA B12                │ 500     │ R$ 8.000,00  │ 16.4%    │
+│ Melatonina + triptofanos    │ 200     │ R$ 4.000,00  │ 8.2%     │
+└──────────────────────────────┴─────────┴──────────────┴──────────┘
+```
+
+---
+
+### BLOCO 3: Pipeline de Negociacao
+
+#### Metricas de Pipeline por Consultor
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ PIPELINE POR CONSULTOR                                              │
+├──────────────────────┬─────────┬──────────────┬──────────┬─────────┤
+│ Consultor            │ Propostas│ Valor Total │ Ticket   │ Dias Med│
+├──────────────────────┼─────────┼──────────────┼─────────┼─────────┤
+│ EVERTON BARROS       │ 1       │ R$ 50.080   │ R$ 50K  │ 2 dias  │
+│ KILSON SILVA         │ 2       │ R$ 18.720   │ R$ 9K   │ 5 dias  │
+│ DANIELLE             │ 1       │ R$ 10.400   │ R$ 10K  │ 3 dias  │
+│ JOAO Ferrari         │ 1       │ R$ 32.268   │ R$ 32K  │ 7 dias  │
+├──────────────────────┼─────────┼──────────────┼─────────┼─────────┤
+│ TOTAL PIPELINE       │ 5       │ R$111.468   │         │         │
+└──────────────────────┴─────────┴──────────────┴─────────┴─────────┘
+```
+
+#### Alertas de Pipeline
+
+- Propostas paradas ha mais de 7 dias
+- Pipeline alto com baixa conversao
+- Propostas de maior valor em aberto
+
+---
+
+### BLOCO 4: Vendas Recorrentes (Recompras)
+
+#### Nova Tabela no Banco de Dados
+
+Criar tabela `recompras` para armazenar vendas recorrentes:
+
+```sql
+CREATE TABLE recompras (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome_cliente TEXT NOT NULL,
+  consultor_responsavel TEXT NOT NULL,
+  data_recompra TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  produtos JSONB NOT NULL DEFAULT '[]',
+  quantidade_total INTEGER NOT NULL,
+  valor_total NUMERIC NOT NULL,
+  observacao TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### Interface de Cadastro Manual
+
+Dialog para inserir recompras com campos:
+- Nome do cliente (autocomplete de clientes existentes)
+- Consultor responsavel
+- Data da recompra
+- Produtos e quantidades
+- Valor total
+- Observacao
+
+#### Metricas de Recorrencia
+
+| Metrica | Descricao |
+|---------|-----------|
+| Total Recompras | Soma de valor_total de recompras |
+| % Faturamento Recorrente | Recompras / (Vendas + Recompras) |
+| Clientes Recorrentes | Contagem distinta de clientes |
+| Ticket Medio Recompra | Total / Quantidade |
+| Produto Mais Recomprado | Ranking por frequencia |
+
+---
+
+### BLOCO 5: Analise Temporal
+
+#### Filtros de Periodo
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ PERIODO: [Mensal ▼] [Janeiro 2026 ▼] até [Fevereiro 2026 ▼] │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Opcoes:
+- Mensal
+- Bimestral
+- Trimestral
+- Semestral
+- Customizado
+
+#### Graficos Temporais
+
+- Evolucao de faturamento (linha)
+- Comparativo novas vendas vs recorrencia (barras empilhadas)
+- Pipeline ao longo do tempo (area)
+
+---
+
+### BLOCO 6: Perfil dos Clientes
+
+Baseado nos dados de `dados_cliente` do orcamento:
+
+#### Metricas de Perfil
+
+| Campo | Descricao |
+|-------|-----------|
+| Canal de Venda | locais_fisicos, venda_digital, ambas |
+| Distribuicao Geografica | cidade, estado |
+| Tipo de Documento | CPF vs CNPJ |
+
+#### Analise por Canal
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ DISTRIBUICAO POR CANAL DE VENDA                             │
+├──────────────────────┬─────────┬──────────────┬─────────────┤
+│ Canal                │ Clientes│ Faturamento  │ Ticket Med  │
+├──────────────────────┼─────────┼──────────────┼─────────────┤
+│ Digital              │ 2       │ R$ 25.000    │ R$ 12.500   │
+│ Fisico               │ 1       │ R$ 15.000    │ R$ 15.000   │
+│ Ambos                │ 1       │ R$ 8.866     │ R$ 8.866    │
+└──────────────────────┴─────────┴──────────────┴─────────────┘
+```
+
+---
+
+### BLOCO 7: Insights Automaticos
+
+Sistema de geracao de insights baseado em regras:
+
+#### Tipos de Insights
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ 🔴 ALERTA: TON tem R$ 32K em pipeline ha mais de 7 dias            │
+├─────────────────────────────────────────────────────────────────────┤
+│ 🟡 ATENCAO: KILSON tem ticket medio 30% abaixo da media            │
+├─────────────────────────────────────────────────────────────────────┤
+│ 🟢 POSITIVO: EVERTON tem a maior proposta do mes (R$ 50K)          │
+├─────────────────────────────────────────────────────────────────────┤
+│ 📊 OPORTUNIDADE: 70% das vendas sao de producao, poucos servicos   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Regras de Geracao
+
+- Pipeline parado > 7 dias
+- Ticket medio < 80% da media geral
+- Baixa recorrencia (<10% do faturamento)
+- Alta concentracao em um produto (>50%)
+- Pipeline alto sem fechamento recente
+
+---
+
+### Arquivos a Criar/Modificar
+
+| Arquivo | Tipo | Descricao |
+|---------|------|-----------|
+| `src/pages/DashboardComercial.tsx` | Criar | Pagina principal da dashboard |
+| `src/hooks/useDashboardComercial.ts` | Criar | Hook para processamento de dados |
+| `src/hooks/useRecompras.ts` | Criar | Hook para gerenciar recompras |
+| `src/components/dashboard/DashboardKPIs.tsx` | Criar | Componente de KPIs |
+| `src/components/dashboard/DashboardVendas.tsx` | Criar | Componente de vendas |
+| `src/components/dashboard/DashboardPipeline.tsx` | Criar | Componente de pipeline |
+| `src/components/dashboard/DashboardRecorrencia.tsx` | Criar | Componente de recorrencia |
+| `src/components/dashboard/DashboardInsights.tsx` | Criar | Componente de insights |
+| `src/components/dashboard/DashboardFiltros.tsx` | Criar | Componente de filtros |
+| `src/components/dashboard/NovaRecompraDialog.tsx` | Criar | Dialog para inserir recompra |
+| `src/types/dashboard.ts` | Criar | Tipos TypeScript |
+| `src/components/Navigation.tsx` | Modificar | Adicionar link da dashboard |
+| `src/App.tsx` | Modificar | Adicionar rota /dashboard |
+| Migracao SQL | Criar | Tabela recompras |
 
 ---
 
 ### Migracao do Banco de Dados
 
 ```sql
-ALTER TABLE orcamentos
-ADD COLUMN IF NOT EXISTS condicoes_pagamento JSONB DEFAULT NULL;
+-- Tabela de recompras (vendas recorrentes)
+CREATE TABLE recompras (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome_cliente TEXT NOT NULL,
+  consultor_responsavel TEXT NOT NULL,
+  data_recompra TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  produtos JSONB NOT NULL DEFAULT '[]',
+  quantidade_total INTEGER NOT NULL DEFAULT 0,
+  valor_total NUMERIC NOT NULL DEFAULT 0,
+  observacao TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-COMMENT ON COLUMN orcamentos.condicoes_pagamento IS 'Detalhamento das condicoes de pagamento: entrada e termino';
+-- Habilitar RLS
+ALTER TABLE recompras ENABLE ROW LEVEL SECURITY;
+
+-- Politicas RLS (permissivas para workspace compartilhado)
+CREATE POLICY "Permitir leitura publica de recompras"
+  ON recompras FOR SELECT USING (true);
+
+CREATE POLICY "Permitir insercao publica de recompras"
+  ON recompras FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Permitir atualizacao publica de recompras"
+  ON recompras FOR UPDATE USING (true);
+
+CREATE POLICY "Permitir exclusao publica de recompras"
+  ON recompras FOR DELETE USING (true);
+```
+
+---
+
+### Tecnologias e Bibliotecas
+
+| Biblioteca | Uso |
+|------------|-----|
+| Recharts | Graficos (ja instalado) |
+| date-fns | Manipulacao de datas (ja instalado) |
+| Lucide React | Icones (ja instalado) |
+| shadcn/ui | Componentes UI (ja instalado) |
+
+---
+
+### Layout Visual da Dashboard
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                     DASHBOARD COMERCIAL                             │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ FILTROS: [Consultor ▼] [Periodo ▼] [Jan 2026] até [Fev 2026]│   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │
+│  │ FATUR.  │ │ VENDAS  │ │PIPELINE │ │ TICKET  │ │CONVERSAO│       │
+│  │R$48.866 │ │   3     │ │R$111.468│ │ R$16.288│ │  100%   │       │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘       │
+│                                                                     │
+│  ┌────────────────────────────┐ ┌────────────────────────────┐     │
+│  │ RANKING CONSULTORES        │ │ EVOLUCAO TEMPORAL          │     │
+│  │ ┌────┬──────┬───────┐      │ │      📈 Grafico           │     │
+│  │ │TON │ 2    │ R$41K │      │ │                            │     │
+│  │ │DER │ 1    │ R$7K  │      │ │                            │     │
+│  │ └────┴──────┴───────┘      │ │                            │     │
+│  └────────────────────────────┘ └────────────────────────────┘     │
+│                                                                     │
+│  ┌────────────────────────────┐ ┌────────────────────────────┐     │
+│  │ PIPELINE                   │ │ PRODUTOS MAIS VENDIDOS     │     │
+│  │ ┌────┬──────┬───────┐      │ │ ┌─────────────┬─────┐      │     │
+│  │ │EVE │ 1    │ R$50K │      │ │ │ NAC         │ 200 │      │     │
+│  │ │KIL │ 2    │ R$18K │      │ │ │ B12         │ 500 │      │     │
+│  │ └────┴──────┴───────┘      │ │ └─────────────┴─────┘      │     │
+│  └────────────────────────────┘ └────────────────────────────┘     │
+│                                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ INSIGHTS E ALERTAS                                           │  │
+│  │ 🔴 Pipeline parado: JOAO - R$ 32K ha 7 dias                  │  │
+│  │ 🟢 Maior venda do mes: EVERTON - R$ 50K                      │  │
+│  │ 📊 Mix desbalanceado: 80% producao, 20% servicos             │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Funcionalidades Detalhadas
+
+#### 1. Hook useDashboardComercial
+
+```typescript
+// Principais funcoes do hook:
+- getVendasAprovadas(filtros)
+- getPipeline(filtros)
+- getMetricasPorConsultor(filtros)
+- getProdutosMaisVendidos(filtros)
+- getMixVendas(consultorId)
+- getInsightsAutomaticos()
+- getEvolucaoTemporal(periodo)
+```
+
+#### 2. Calculo de Metricas
+
+```typescript
+// Exemplo de calculo de mix
+function calcularMixVendas(orcamentos: Orcamento[]) {
+  const totalProducao = orcamentos.reduce(
+    (acc, o) => acc + o.subtotal_producao, 0
+  );
+  const totalServicos = orcamentos.reduce(
+    (acc, o) => acc + o.subtotal_servicos, 0
+  );
+  const total = totalProducao + totalServicos;
+  
+  return {
+    producao: { valor: totalProducao, percentual: (totalProducao/total)*100 },
+    servicos: { valor: totalServicos, percentual: (totalServicos/total)*100 },
+    equilibrado: Math.abs((totalProducao/total) - 0.5) < 0.2
+  };
+}
+```
+
+#### 3. Sistema de Insights
+
+```typescript
+// Regras de geracao de insights
+const regras = [
+  { 
+    tipo: 'alerta',
+    condicao: (pipeline) => pipeline.diasParado > 7,
+    mensagem: (c) => `${c.consultor} tem R$ ${c.valor} parado ha ${c.dias} dias`
+  },
+  {
+    tipo: 'positivo',
+    condicao: (venda) => venda.valor > mediaGeral * 1.5,
+    mensagem: (v) => `${v.consultor} fechou venda acima da media: R$ ${v.valor}`
+  }
+];
 ```
 
 ---
 
 ### Resultado Esperado
 
-1. **UX Amigavel**: Campos organizados de forma logica e intuitiva
-2. **Flexibilidade**: Preenchimento opcional no orcamento, obrigatorio na proposta
-3. **Clareza nos PDFs**: Condicoes de pagamento bem formatadas e legais
-4. **Compatibilidade**: Campo `forma_pagamento` existente continua funcionando como texto livre
+1. **Visao 360 graus** de cada consultor
+2. **Separacao clara** entre resultado real (aprovado) e potencial (pipeline)
+3. **Recorrencia rastreavel** com cadastro manual
+4. **Insights automaticos** para tomada de decisao
+5. **Graficos executivos** para apresentacao gerencial
+6. **Totalmente integrado** ao modulo de Orcamentos existente
+7. **Visual limpo e profissional** seguindo o padrao do sistema
 
