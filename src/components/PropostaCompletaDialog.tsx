@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
-import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio } from '@/types/orcamento';
+import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
 import {
   Dialog,
@@ -15,7 +15,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet } from 'lucide-react';
+import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -26,7 +28,7 @@ export default function PropostaCompletaDialog({
   orcamento,
   onClose,
 }: PropostaCompletaDialogProps) {
-  const { updateDadosCliente, updateDetalhamentoFrete } = useOrcamentos();
+  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
@@ -58,6 +60,12 @@ export default function PropostaCompletaDialog({
     descricao_parcial: '',
   });
 
+  // Condições de pagamento
+  const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>(
+    orcamento.condicoes_pagamento || {}
+  );
+  const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
+
   useEffect(() => {
     // Carregar dados existentes
     if (orcamento.dados_cliente) {
@@ -73,6 +81,9 @@ export default function PropostaCompletaDialog({
       if (orcamento.detalhamento_frete.detalhamento_envio) {
         setDetalhamentoEnvio(orcamento.detalhamento_frete.detalhamento_envio);
       }
+    }
+    if (orcamento.condicoes_pagamento) {
+      setCondicoesPagamento(orcamento.condicoes_pagamento);
     }
   }, [orcamento]);
 
@@ -107,6 +118,14 @@ export default function PropostaCompletaDialog({
   };
 
   const handleGenerateProposta = async () => {
+    // Validar condições de pagamento
+    const erros = validarCondicoesPagamento(condicoesPagamento);
+    if (erros.length > 0) {
+      setErrosPagamento(erros);
+      return;
+    }
+    setErrosPagamento([]);
+    
     setIsSubmitting(true);
     
     try {
@@ -134,11 +153,20 @@ export default function PropostaCompletaDialog({
         detalhamento_frete: detalhamentoFrete,
       });
 
+      // Salvar condições de pagamento
+      await updateOrcamento.mutateAsync({
+        id: orcamento.id,
+        updates: {
+          condicoes_pagamento: condicoesPagamento,
+        },
+      });
+
       // Criar orçamento atualizado para gerar PDF
       const orcamentoAtualizado: Orcamento = {
         ...orcamento,
         dados_cliente: dadosClienteCompletos,
         detalhamento_frete: detalhamentoFrete,
+        condicoes_pagamento: condicoesPagamento,
       };
 
       // Gerar preview do PDF
@@ -166,6 +194,7 @@ export default function PropostaCompletaDialog({
         planos_customizados: orcamento.detalhamento_frete?.planos_customizados || [],
         detalhamento_envio: detalhamentoEnvio,
       },
+      condicoes_pagamento: condicoesPagamento,
     };
     await generateOrcamentoPDF(orcamentoAtualizado);
     onClose();
@@ -482,6 +511,41 @@ export default function PropostaCompletaDialog({
                     </Button>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 4. Condições de Pagamento (obrigatório) */}
+          <Card className={errosPagamento.length > 0 ? 'border-destructive' : ''}>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wallet className="w-4 h-4" />
+                4. Condições de Pagamento
+                <span className="text-xs text-destructive font-normal">(obrigatório)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <CondicoesPagamentoForm
+                value={condicoesPagamento}
+                onChange={(value) => {
+                  setCondicoesPagamento(value);
+                  setErrosPagamento([]);
+                }}
+                valorTotal={orcamento.valor_total}
+                isRequired={true}
+              />
+              
+              {errosPagamento.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <ul className="list-disc list-inside space-y-1">
+                      {errosPagamento.map((erro, i) => (
+                        <li key={i}>{erro}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
               )}
             </CardContent>
           </Card>

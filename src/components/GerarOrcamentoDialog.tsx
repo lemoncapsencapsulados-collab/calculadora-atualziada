@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio } from '@/types/orcamento';
+import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -37,6 +37,7 @@ import {
   Truck
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
+import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
@@ -78,6 +79,9 @@ export default function GerarOrcamentoDialog({
   const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
   const [showFreteInline, setShowFreteInline] = useState(false);
 
+  // Condições de pagamento
+  const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
+
   // Carregar dados se editando
   useEffect(() => {
     if (orcamentoExistente) {
@@ -88,6 +92,13 @@ export default function GerarOrcamentoDialog({
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
       setServicosMarca(orcamentoExistente.servicos_marca || []);
+      setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
+      if (orcamentoExistente.dados_cliente) {
+        setDadosClienteTemp(orcamentoExistente.dados_cliente);
+      }
+      if (orcamentoExistente.detalhamento_frete) {
+        setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
+      }
     }
   }, [orcamentoExistente]);
 
@@ -211,6 +222,9 @@ export default function GerarOrcamentoDialog({
       // Verificar se há dados de cliente preenchidos
       const hasDadosCliente = Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '');
       
+      // Verificar se há condições de pagamento preenchidas
+      const hasCondicoesPagamento = Object.values(condicoesPagamento).some(v => v !== undefined && v !== null && v !== '');
+      
       if (orcamentoExistente) {
         await updateOrcamento.mutateAsync({
           id: orcamentoExistente.id,
@@ -227,6 +241,7 @@ export default function GerarOrcamentoDialog({
             valor_total: valorTotal,
             ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
             ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
+            ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
           },
         });
       } else {
@@ -246,6 +261,7 @@ export default function GerarOrcamentoDialog({
           status: 'rascunho',
           ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
           ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
+          ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
         };
         
         await createOrcamento.mutateAsync(novoOrcamento);
@@ -317,15 +333,23 @@ export default function GerarOrcamentoDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="formaPagamento">Forma de Pagamento</Label>
+                <Label htmlFor="formaPagamento">Forma de Pagamento (descrição livre)</Label>
                 <Textarea
                   id="formaPagamento"
                   value={formaPagamento}
                   onChange={(e) => setFormaPagamento(e.target.value)}
                   placeholder='Ex: "50% do valor total na entrada pago via Pix e 50% pago no final da produção pago via cartão de crédito em 3x sem juros"'
-                  rows={3}
+                  rows={2}
                 />
               </div>
+
+              {/* Detalhamento de Pagamento */}
+              <CondicoesPagamentoForm
+                value={condicoesPagamento}
+                onChange={setCondicoesPagamento}
+                valorTotal={valorTotal}
+                isRequired={false}
+              />
               
               <div className="space-y-2">
                 <Label htmlFor="obs">Observações</Label>
@@ -334,7 +358,7 @@ export default function GerarOrcamentoDialog({
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
                   placeholder="Detalhes adicionais..."
-                  rows={4}
+                  rows={3}
                 />
               </div>
             </div>

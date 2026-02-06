@@ -229,6 +229,7 @@ export type Database = {
       }
       orcamentos: {
         Row: {
+          condicoes_pagamento: Json | null
           consultor_responsavel: string | null
           created_at: string | null
           dados_cliente: Json | null
@@ -248,6 +249,7 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
@@ -267,6 +269,7 @@ export type Database = {
           valor_total?: number
         }
         Update: {
+          condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
