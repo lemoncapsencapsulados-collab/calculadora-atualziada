@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Orcamento, DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
+import { Orcamento, DadosCliente, DetalhamentoFrete, CondicoesPagamento, FormaPagamentoTipo } from '@/types/orcamento';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -108,6 +108,18 @@ function getTipoLogisticaLabel(tipo?: string): string {
     'total_produtor': 'Total para o Produtor',
     'total_lemoncaps': 'Logística Lemon Caps',
     'parcial': 'Envio Parcial',
+  };
+  return tipo ? labels[tipo] || tipo : '';
+}
+
+function getFormaPagamentoLabel(tipo?: FormaPagamentoTipo): string {
+  const labels: Record<FormaPagamentoTipo, string> = {
+    'pix': 'PIX',
+    'cartao_credito': 'Cartão de Crédito',
+    'cartao_debito': 'Cartão de Débito',
+    'boleto': 'Boleto',
+    'transferencia': 'Transferência Bancária',
+    'outro': 'Outro',
   };
   return tipo ? labels[tipo] || tipo : '';
 }
@@ -520,6 +532,112 @@ function renderTotal(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   return yPos + boxHeight + LAYOUT.sectionGap + 5;
 }
 
+function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  const condicoes = orcamento.condicoes_pagamento;
+  if (!condicoes || (!condicoes.valor_entrada && !condicoes.valor_termino && !condicoes.usa_valor_restante)) {
+    return yPos;
+  }
+
+  const pageWidth = getPageWidth(doc);
+  
+  yPos = checkPageBreak(doc, yPos, 70);
+  yPos = renderSectionTitle(doc, 'Condições de Pagamento', yPos);
+
+  const labelWidth = 35;
+
+  // Entrada
+  if (condicoes.valor_entrada !== undefined || condicoes.forma_pagamento_entrada) {
+    doc.setFillColor(...COLORS.lightGray);
+    doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 28, 2, 2, 'F');
+    
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.setFontSize(LAYOUT.fontSize.body);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ENTRADA', LAYOUT.margin + 5, yPos + 2);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    
+    if (condicoes.valor_entrada !== undefined) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text('Valor:', LAYOUT.margin + 5, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text(formatCurrency(condicoes.valor_entrada), LAYOUT.margin + labelWidth, yPos);
+    }
+    
+    if (condicoes.forma_pagamento_entrada) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text('Forma:', pageWidth / 2, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      doc.text(getFormaPagamentoLabel(condicoes.forma_pagamento_entrada), pageWidth / 2 + 20, yPos);
+    }
+    yPos += LAYOUT.lineHeight;
+    
+    if (condicoes.descricao_entrada) {
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFont('helvetica', 'italic');
+      doc.text(condicoes.descricao_entrada, LAYOUT.margin + 5, yPos);
+    }
+    yPos += 12;
+  }
+
+  // Término
+  if (condicoes.valor_termino !== undefined || condicoes.usa_valor_restante || condicoes.forma_pagamento_termino) {
+    yPos = checkPageBreak(doc, yPos, 30);
+    
+    doc.setFillColor(...COLORS.lightGray);
+    doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 28, 2, 2, 'F');
+    
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.setFontSize(LAYOUT.fontSize.body);
+    doc.setFont('helvetica', 'bold');
+    doc.text('NO TÉRMINO DA PRODUÇÃO', LAYOUT.margin + 5, yPos + 2);
+    yPos += 8;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    
+    // Calcular valor do término
+    let valorTermino = condicoes.valor_termino || 0;
+    let labelValor = formatCurrency(valorTermino);
+    if (condicoes.usa_valor_restante && condicoes.valor_entrada !== undefined) {
+      valorTermino = Math.max(0, orcamento.valor_total - condicoes.valor_entrada);
+      labelValor = `${formatCurrency(valorTermino)} (restante)`;
+    }
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Valor:', LAYOUT.margin + 5, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text(labelValor, LAYOUT.margin + labelWidth, yPos);
+    
+    if (condicoes.forma_pagamento_termino) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text('Forma:', pageWidth / 2, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      doc.text(getFormaPagamentoLabel(condicoes.forma_pagamento_termino), pageWidth / 2 + 20, yPos);
+    }
+    yPos += LAYOUT.lineHeight;
+    
+    if (condicoes.descricao_termino) {
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFont('helvetica', 'italic');
+      doc.text(condicoes.descricao_termino, LAYOUT.margin + 5, yPos);
+    }
+    yPos += 12;
+  }
+
+  return yPos + LAYOUT.sectionGap;
+}
+
 function renderFormaPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   if (!orcamento.forma_pagamento) {
     return yPos;
@@ -665,6 +783,7 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     yPos = renderServicos(doc, orcamento, yPos);
     yPos = renderFrete(doc, orcamento, yPos);
     yPos = renderTotal(doc, orcamento, yPos);
+    yPos = renderCondicoesPagamento(doc, orcamento, yPos);
     yPos = renderFormaPagamento(doc, orcamento, yPos);
     yPos = renderObservacoes(doc, orcamento, yPos);
 

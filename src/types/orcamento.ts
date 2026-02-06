@@ -50,6 +50,20 @@ export interface DetalhamentoEnvio {
   descricao_parcial?: string;
 }
 
+// Condições de pagamento estruturadas
+export type FormaPagamentoTipo = 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
+
+export interface CondicoesPagamento {
+  valor_entrada?: number;
+  forma_pagamento_entrada?: FormaPagamentoTipo;
+  descricao_entrada?: string;
+  
+  valor_termino?: number;
+  usa_valor_restante?: boolean;
+  forma_pagamento_termino?: FormaPagamentoTipo;
+  descricao_termino?: string;
+}
+
 export interface DetalhamentoFrete {
   frete_lemon_caps: boolean;
   usa_tabela_tradicional: boolean;
@@ -66,6 +80,7 @@ export interface Orcamento {
   servicos_marca: ServicoMarca[];
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
+  condicoes_pagamento?: CondicoesPagamento;
   subtotal_producao: number;
   subtotal_servicos: number;
   valor_total: number;
@@ -85,6 +100,7 @@ export interface OrcamentoInsert {
   servicos_marca: ServicoMarca[];
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
+  condicoes_pagamento?: CondicoesPagamento;
   subtotal_producao: number;
   subtotal_servicos: number;
   valor_total: number;
@@ -101,6 +117,7 @@ export interface OrcamentoUpdate {
   servicos_marca?: ServicoMarca[];
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
+  condicoes_pagamento?: CondicoesPagamento;
   subtotal_producao?: number;
   subtotal_servicos?: number;
   valor_total?: number;

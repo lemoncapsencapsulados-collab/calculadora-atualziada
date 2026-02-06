@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Orcamento, OrcamentoInsert, OrcamentoUpdate, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
+import { Orcamento, OrcamentoInsert, OrcamentoUpdate, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to parse JSONB fields
@@ -11,6 +11,7 @@ function parseOrcamento(row: any): Orcamento {
     servicos_marca: (row.servicos_marca || []) as ServicoMarca[],
     dados_cliente: (row.dados_cliente || {}) as DadosCliente,
     detalhamento_frete: (row.detalhamento_frete || {}) as DetalhamentoFrete,
+    condicoes_pagamento: row.condicoes_pagamento as CondicoesPagamento | undefined,
   };
 }
 
@@ -62,6 +63,7 @@ export function useOrcamentos() {
           servicos_marca: orcamento.servicos_marca as any,
           dados_cliente: orcamento.dados_cliente as any,
           detalhamento_frete: orcamento.detalhamento_frete as any,
+          condicoes_pagamento: orcamento.condicoes_pagamento as any,
         }])
         .select()
         .single();
@@ -96,6 +98,7 @@ export function useOrcamentos() {
           servicos_marca: updates.servicos_marca as any,
           dados_cliente: updates.dados_cliente as any,
           detalhamento_frete: updates.detalhamento_frete as any,
+          condicoes_pagamento: updates.condicoes_pagamento as any,
         })
         .eq('id', id)
         .select()
