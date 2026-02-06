@@ -10,6 +10,7 @@ import Cotacoes from "./pages/Cotacoes";
 import Pedidos from "./pages/Pedidos";
 import Precificacao from "./pages/Precificacao";
 import Orcamentos from "./pages/Orcamentos";
+import DashboardComercial from "./pages/DashboardComercial";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
@@ -67,6 +68,7 @@ const App = () => {
               <Route path="/orcamentos" element={<Orcamentos />} />
               <Route path="/pedidos" element={<Pedidos />} />
               <Route path="/inventario" element={<Inventario />} />
+              <Route path="/dashboard" element={<DashboardComercial />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

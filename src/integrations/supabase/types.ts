@@ -463,6 +463,45 @@ export type Database = {
           },
         ]
       }
+      recompras: {
+        Row: {
+          consultor_responsavel: string
+          created_at: string | null
+          data_recompra: string
+          id: string
+          nome_cliente: string
+          observacao: string | null
+          produtos: Json
+          quantidade_total: number
+          updated_at: string | null
+          valor_total: number
+        }
+        Insert: {
+          consultor_responsavel: string
+          created_at?: string | null
+          data_recompra?: string
+          id?: string
+          nome_cliente: string
+          observacao?: string | null
+          produtos?: Json
+          quantidade_total?: number
+          updated_at?: string | null
+          valor_total?: number
+        }
+        Update: {
+          consultor_responsavel?: string
+          created_at?: string | null
+          data_recompra?: string
+          id?: string
+          nome_cliente?: string
+          observacao?: string | null
+          produtos?: Json
+          quantidade_total?: number
+          updated_at?: string | null
+          valor_total?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

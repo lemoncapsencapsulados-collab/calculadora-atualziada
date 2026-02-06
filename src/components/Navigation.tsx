@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt } from 'lucide-react';
+import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function Navigation() {
@@ -12,6 +12,7 @@ export function Navigation() {
     { to: '/orcamentos', label: 'Orçamentos', icon: Receipt },
     { to: '/pedidos', label: 'Pedidos Gerados', icon: ClipboardList },
     { to: '/inventario', label: 'Inventário', icon: Package },
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ];
 
   return (
