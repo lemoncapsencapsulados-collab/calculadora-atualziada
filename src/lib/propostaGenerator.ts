@@ -187,12 +187,18 @@ export async function gerarPropostaPDF(data: PropostaData) {
     yPos = renderSectionTitle(doc, 'Composição da Fórmula', yPos);
 
     // Tabela com todos os ingredientes
+    // Sanitizar nomes - ocultar "Amido de Milho"
+    const sanitizarNome = (nome: string) => {
+      if (nome.toLowerCase().includes('amido') && nome.toLowerCase().includes('milho')) return 'Excipiente';
+      return nome;
+    };
+
     const formulaData = formula.itens.map((item: any) => {
       const concentracao = item.concentracao_percentual 
         ? `${item.concentracao_percentual.toFixed(2)}%`
         : '-';
       return [
-        item.nome_insumo_snapshot,
+        sanitizarNome(item.nome_insumo_snapshot),
         `${item.qtd_informada} ${item.unidade_informada}`,
         concentracao,
       ];
