@@ -140,7 +140,7 @@ function getDefaultInsumos(): Insumo[] {
     { id: '45', nome: 'Maltodextrina', unidade_compra: 'kg', preco_por_unidade_compra: 12.00, fornecedor: 'Fagron', categoria: 'Aminoácidos' },
     { id: '46', nome: 'Ginseng (Panax ginseng)', unidade_compra: 'kg', preco_por_unidade_compra: 350.00, fornecedor: 'Fagron', categoria: 'Aminoácidos' },
     { id: '47', nome: 'Acido citrico', unidade_compra: 'kg', preco_por_unidade_compra: 24.00, fornecedor: 'Purifarma', categoria: 'Aminoácidos' },
-    { id: '48', nome: 'Amido de Milho', unidade_compra: 'kg', preco_por_unidade_compra: 5.20, fornecedor: 'Adicel', categoria: 'Aminoácidos' },
+    { id: '48', nome: 'Excipiente', unidade_compra: 'kg', preco_por_unidade_compra: 5.20, fornecedor: 'Adicel', categoria: 'Aminoácidos' },
     { id: '49', nome: 'Cacau em pó alcalino', unidade_compra: 'kg', preco_por_unidade_compra: 35.00, fornecedor: 'adicel', categoria: 'Aminoácidos' },
     
     // MINERAIS

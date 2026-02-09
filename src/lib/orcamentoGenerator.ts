@@ -310,9 +310,15 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.textDark);
       
+      // Sanitizar nomes - ocultar "Amido de Milho"
+      const sanitizarNome = (nome: string) => {
+        if (nome.toLowerCase().includes('amido') && nome.toLowerCase().includes('milho')) return 'Excipiente';
+        return nome;
+      };
+      
       for (const insumo of item.insumos_formula) {
         yPos = checkPageBreak(doc, yPos, 5);
-        doc.text(`• ${insumo.nome} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 10, yPos);
+        doc.text(`• ${sanitizarNome(insumo.nome)} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 10, yPos);
         yPos += 5;
       }
     }

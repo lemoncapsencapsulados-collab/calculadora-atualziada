@@ -233,7 +233,7 @@ export default function Calculator() {
     };
   }, [calculatedItems, tipoProduto]);
 
-  // Calcula quantidade de Amido de Milho necessário (somente para Encapsulados)
+  // Calcula quantidade de excipiente necessário (somente para Encapsulados)
   const calcularExcipiente = useMemo(() => {
     // Excipiente só é usado em Encapsulados
     if (tipoProduto !== 'Encapsulados') {
@@ -279,8 +279,8 @@ export default function Calculator() {
     // Diferença é quanto de excipiente precisamos
     const diferencaGramas = Math.max(0, capacidadeTotalDose - totalInsumosDose);
 
-    // Buscar o Amido de Milho no banco
-    const amidoMilho = insumos.find(i => i.nome.toLowerCase().includes('amido') && i.nome.toLowerCase().includes('milho'));
+    // Buscar o excipiente no banco
+    const amidoMilho = insumos.find(i => i.nome.toLowerCase().includes('excipiente'));
 
     // Debug logs
     console.log('🔍 DEBUG Excipiente:', {
@@ -289,12 +289,11 @@ export default function Calculator() {
       totalInsumosDose: totalInsumosDose.toFixed(3),
       capacidadeTotalDose,
       diferencaGramas: diferencaGramas.toFixed(3),
-      amidoEncontrado: !!amidoMilho,
-      nomeAmido: amidoMilho?.nome,
+      excipienteEncontrado: !!amidoMilho,
       totalItensCalculados: calculatedItems.filter(i => i && !i.error).length
     });
     if (!amidoMilho) {
-      console.warn('⚠️ Amido de Milho não encontrado no inventário!');
+      console.warn('⚠️ Excipiente não encontrado no inventário!');
       return {
         quantidade: 0,
         unidade: 'g' as UnitType,
@@ -460,7 +459,7 @@ export default function Calculator() {
     if (tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && calcularExcipiente.insumo) {
       formulaItems.push({
         insumo_id: calcularExcipiente.insumo.id,
-        nome_insumo_snapshot: `${calcularExcipiente.insumo.nome} (Excipiente)`,
+        nome_insumo_snapshot: 'Excipiente',
         qtd_informada: calcularExcipiente.quantidade,
         unidade_informada: calcularExcipiente.unidade,
         custo_calculado: calcularExcipiente.custo
@@ -975,7 +974,7 @@ export default function Calculator() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-orange-900 dark:text-orange-100 flex items-center gap-2">
                     <Wheat className="h-4 w-4" />
-                    Excipiente Necessário (Amido de Milho):
+                    Excipiente Necessário:
                   </span>
                   <span className="text-lg font-bold text-orange-700 dark:text-orange-300">
                     {(calcularExcipiente.quantidade * 1000).toFixed(2)}mg ({calcularExcipiente.quantidade.toFixed(3)}g)
@@ -1099,12 +1098,12 @@ export default function Calculator() {
           </CardContent>
         </Card>}
 
-      {/* Card informativo do Excipiente (Amido de Milho) - MELHORADO - só para Encapsulados */}
+      {/* Card informativo do Excipiente - MELHORADO - só para Encapsulados */}
       {tipoProduto === 'Encapsulados' && calcularExcipiente.quantidade > 0 && <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-blue-300 dark:from-blue-950/20 dark:to-blue-900/10 dark:border-blue-800 shadow-md">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Wheat className="h-5 w-5 text-blue-600" />
-              🔬 Detalhamento do Excipiente (Amido de Milho)
+              🔬 Detalhamento do Excipiente
             </CardTitle>
             <CardDescription className="text-xs">
               Completamento automático da capacidade da cápsula
