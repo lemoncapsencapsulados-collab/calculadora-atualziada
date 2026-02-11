@@ -304,7 +304,7 @@ export default function DetalhamentoFreteDialog({
                       <Input
                         type="number"
                         min={0}
-                        step="0.01"
+                        step="0.00001"
                         value={novoPlano.valor || ''}
                         onChange={(e) => setNovoPlano(prev => ({ ...prev, valor: parseFloat(e.target.value) || 0 }))}
                         placeholder="0,00"

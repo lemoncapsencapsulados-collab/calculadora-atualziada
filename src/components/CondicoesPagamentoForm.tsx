@@ -100,7 +100,7 @@ export default function CondicoesPagamentoForm({
                     <Input
                       type="number"
                       min={0}
-                      step="0.01"
+                      step="0.00001"
                       value={value.valor_entrada || ''}
                       onChange={(e) => handleChange('valor_entrada', parseFloat(e.target.value) || undefined)}
                       placeholder="0,00"
@@ -159,7 +159,7 @@ export default function CondicoesPagamentoForm({
                       <Input
                         type="number"
                         min={0}
-                        step="0.01"
+                        step="0.00001"
                         value={value.usa_valor_restante ? valorTerminoCalculado : (value.valor_termino || '')}
                         onChange={(e) => handleChange('valor_termino', parseFloat(e.target.value) || undefined)}
                         placeholder="0,00"

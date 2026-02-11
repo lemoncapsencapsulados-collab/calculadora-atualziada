@@ -361,7 +361,7 @@ export default function Precificacao() {
                   </div>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="0.00001"
                     value={custosIndiretos.maoObraDireta}
                     onChange={(e) =>
                       setCustosIndiretos({ ...custosIndiretos, maoObraDireta: parseFloat(e.target.value) || 0 })
@@ -421,7 +421,7 @@ export default function Precificacao() {
                     <Label>Energia Elétrica</Label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.00001"
                       value={custosIndiretos.energia}
                       onChange={(e) =>
                         setCustosIndiretos({ ...custosIndiretos, energia: parseFloat(e.target.value) || 0 })
@@ -433,7 +433,7 @@ export default function Precificacao() {
                     <Label>Depreciação de Máquinas</Label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.00001"
                       value={custosIndiretos.depreciacao}
                       onChange={(e) =>
                         setCustosIndiretos({ ...custosIndiretos, depreciacao: parseFloat(e.target.value) || 0 })
@@ -445,7 +445,7 @@ export default function Precificacao() {
                     <Label>Despesas Administrativas</Label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.00001"
                       value={custosIndiretos.administrativo}
                       onChange={(e) =>
                         setCustosIndiretos({ ...custosIndiretos, administrativo: parseFloat(e.target.value) || 0 })
@@ -532,7 +532,7 @@ export default function Precificacao() {
                 <Label>Preço de Venda (R$)</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="0.00001"
                   value={valorInput}
                   onChange={(e) => {
                     setValorInput(e.target.value);
@@ -768,7 +768,7 @@ export default function Precificacao() {
                   <Label>Valor dos Serviços Extras (R$)</Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="0.00001"
                     value={valorServicosExtras}
                     onChange={(e) => setValorServicosExtras(e.target.value)}
                     placeholder="0.00"
