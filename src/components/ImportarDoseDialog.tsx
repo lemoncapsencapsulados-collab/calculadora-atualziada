@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { ClipboardPaste, Check, AlertTriangle, Trash2, Image as ImageIcon, Loader2, X } from 'lucide-react';
+import { ClipboardPaste, Check, AlertTriangle, Trash2, Image as ImageIcon, Loader2, X, ShieldAlert } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,15 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Insumo, UnitType } from '@/types/formula';
@@ -170,6 +179,7 @@ export default function ImportarDoseDialog({
   const [imagemPreview, setImagemPreview] = useState<string | null>(null);
   const [processandoImagem, setProcessandoImagem] = useState(false);
   const [erroImagem, setErroImagem] = useState<string | null>(null);
+  const [showConfirmacao, setShowConfirmacao] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Parse em tempo real
@@ -253,10 +263,15 @@ export default function ImportarDoseDialog({
   
   const handleImport = () => {
     if (parsedItems.length > 0) {
-      onImport(parsedItems);
-      handleClear();
-      onOpenChange(false);
+      setShowConfirmacao(true);
     }
+  };
+
+  const handleConfirmarImport = () => {
+    onImport(parsedItems);
+    setShowConfirmacao(false);
+    handleClear();
+    onOpenChange(false);
   };
   
   const handleClear = () => {
@@ -478,6 +493,34 @@ export default function ImportarDoseDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Popup de confirmação */}
+      <AlertDialog open={showConfirmacao} onOpenChange={setShowConfirmacao}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader className="flex flex-col items-center text-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-orange-200 dark:shadow-orange-900/30">
+              <ShieldAlert className="h-8 w-8 text-white" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-bold tracking-tight">
+              ATENÇÃO
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base leading-relaxed">
+              Os preços, insumos e suas quantidades podem estar errados,{' '}
+              <span className="font-bold text-orange-600 dark:text-orange-400">
+                CONFIRA UM A UM ANTES SEMPRE.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-2 sm:justify-center">
+            <AlertDialogAction
+              onClick={handleConfirmarImport}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-8 py-3 text-base shadow-md"
+            >
+              VOU CONFERIR
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
