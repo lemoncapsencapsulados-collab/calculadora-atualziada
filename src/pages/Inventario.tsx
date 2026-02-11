@@ -523,10 +523,10 @@ export default function Inventario() {
                           id="preco"
                           name="preco"
                           type="number"
-                          step="0.01"
+                          step="0.00001"
                           min="0"
                           defaultValue={editingEmbalagem?.preco_unitario}
-                          placeholder="0.00"
+                          placeholder="0.00000"
                           required
                         />
                         <p className="text-xs text-muted-foreground mt-1">

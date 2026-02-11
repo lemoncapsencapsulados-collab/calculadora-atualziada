@@ -196,7 +196,7 @@ export function NovaRecompraDialog({
                     value={produto.valorUnitario || ''}
                     onChange={(e) => handleProdutoChange(index, 'valorUnitario', e.target.value)}
                     className="w-28"
-                    step="0.01"
+                    step="0.00001"
                   />
                   <span className="text-sm text-muted-foreground w-24 text-right">
                     {formatCurrency(produto.quantidade * produto.valorUnitario)}

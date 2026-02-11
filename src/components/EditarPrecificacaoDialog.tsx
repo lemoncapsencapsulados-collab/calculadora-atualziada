@@ -164,7 +164,7 @@ export default function EditarPrecificacaoDialog({
               <Label>Custo Matéria-Prima (R$)</Label>
               <Input
                 type="number"
-                step="0.01"
+                step="0.00001"
                 value={custoMP}
                 onChange={(e) => setCustoMP(e.target.value)}
               />
@@ -173,7 +173,7 @@ export default function EditarPrecificacaoDialog({
               <Label>Custo Embalagem (R$)</Label>
               <Input
                 type="number"
-                step="0.01"
+                step="0.00001"
                 value={custoEmbalagem}
                 onChange={(e) => setCustoEmbalagem(e.target.value)}
               />
@@ -195,7 +195,7 @@ export default function EditarPrecificacaoDialog({
             <Label>Preço de Venda (R$)</Label>
             <Input
               type="number"
-              step="0.01"
+              step="0.00001"
               value={precoVenda}
               onChange={(e) => setPrecoVenda(e.target.value)}
               className="text-lg font-semibold"

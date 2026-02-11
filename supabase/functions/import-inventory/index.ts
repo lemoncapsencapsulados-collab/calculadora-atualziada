@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
 
           if (existing) {
             // Atualizar preço se diferente
-            if (Math.abs(existing.preco_compra - preco) > 0.01) {
+            if (Math.abs(existing.preco_compra - preco) > 0.00001) {
               const { error } = await supabase
                 .from('insumos')
                 .update({ preco_compra: preco })
@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
 
           if (existing) {
             // Atualizar preço se diferente
-            if (Math.abs(existing.preco_unitario - embalagem.preco_unitario) > 0.01) {
+            if (Math.abs(existing.preco_unitario - embalagem.preco_unitario) > 0.00001) {
               const { error } = await supabase
                 .from('embalagens')
                 .update({ preco_unitario: embalagem.preco_unitario })

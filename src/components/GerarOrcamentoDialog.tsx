@@ -476,7 +476,7 @@ export default function GerarOrcamentoDialog({
                         <Input
                           type="number"
                           min={0}
-                          step="0.01"
+                          step="0.00001"
                           value={produtoAvulso.preco || ''}
                           onChange={(e) => setProdutoAvulso(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
                         />
@@ -659,7 +659,7 @@ export default function GerarOrcamentoDialog({
                         <Input
                           type="number"
                           min={0}
-                          step="0.01"
+                          step="0.00001"
                           value={novoServico.valor || ''}
                           onChange={(e) => setNovoServico(prev => ({ ...prev, valor: parseFloat(e.target.value) || 0 }))}
                         />
