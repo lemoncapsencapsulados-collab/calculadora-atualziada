@@ -1161,68 +1161,6 @@ export default function Calculator() {
           </CardContent>
         </Card>}
 
-      {tipoProduto === 'Encapsulados' && <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Tipo de Cápsula</CardTitle>
-            <CardDescription>Selecione o tipo de cápsula para este pote</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {(() => {
-            const capsulas = embalagens.filter(emb => emb.categoria === 'Cápsulas');
-            console.log('🔍 DEBUG Cápsulas:', {
-              tipoProduto,
-              totalEmbalagens: embalagens.length,
-              totalCapsulas: capsulas.length,
-              capsulasEncontradas: capsulas.map(c => ({
-                nome: c.nome,
-                categoria: c.categoria
-              }))
-            });
-            return null;
-          })()}
-            
-            <div className="space-y-3">
-              {embalagens.filter(emb => emb.categoria === 'Cápsulas').map(capsula => <div key={capsula.id} className={`flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer ${selectedCapsula === capsula.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/50'}`} onClick={() => setSelectedCapsula(capsula.id)}>
-                    <div className="flex-1">
-                      <Label className="font-medium cursor-pointer text-base">
-                        {capsula.nome}
-                      </Label>
-                      {capsula.subcategoria && <Badge variant="outline" className="ml-2 text-xs">
-                          {capsula.subcategoria}
-                        </Badge>}
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {capsula.descricao}
-                      </p>
-                      <div className="flex items-baseline gap-2 mt-2">
-                        <p className="text-sm font-semibold text-primary">
-                          {formatCurrency(capsula.preco_unitario)} / unidade
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          × {qtdCapsulas || 0} cápsulas = {formatCurrency(capsula.preco_unitario * (parseFloat(qtdCapsulas) || 0))}
-                        </p>
-                      </div>
-                    </div>
-                    {selectedCapsula === capsula.id && <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-white text-xs">
-                        ✓
-                      </div>}
-                  </div>)}
-            </div>
-            
-            {embalagens.filter(emb => emb.categoria === 'Cápsulas').length === 0 && <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-800">
-                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                  ⚠️ Nenhuma cápsula cadastrada no inventário
-                </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  Cadastre cápsulas na seção de Inventário com categoria "Cápsulas"
-                </p>
-              </div>}
-            
-            {embalagens.filter(emb => emb.categoria === 'Cápsulas').length > 0 && !selectedCapsula && <p className="text-sm text-amber-600 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                ⚠️ Selecione um tipo de cápsula para prosseguir
-              </p>}
-          </CardContent>
-        </Card>}
-
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle>Embalagem</CardTitle>
@@ -1241,8 +1179,17 @@ export default function Calculator() {
               }
               setSelectedEmbalagens(newSet);
             }}
-            excludeCategoria="Cápsulas"
+            selectedCapsulaId={selectedCapsula}
+            onCapsulaSelect={(id) => setSelectedCapsula(selectedCapsula === id ? null : id)}
+            qtdCapsulas={parseFloat(qtdCapsulas) || 0}
+            tipoProduto={tipoProduto}
           />
+
+          {tipoProduto === 'Encapsulados' && embalagens.filter(emb => emb.categoria === 'Cápsulas').length > 0 && !selectedCapsula && (
+            <p className="text-sm text-amber-600 mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+              ⚠️ Selecione um tipo de cápsula para prosseguir
+            </p>
+          )}
         </CardContent>
       </Card>
 
