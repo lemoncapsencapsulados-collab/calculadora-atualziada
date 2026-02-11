@@ -1,75 +1,57 @@
 
 
-## Plano: Ocultar "Amido de Milho" em todo o sistema
+## Plano: Precisao de 5 casas decimais para precos
 
-### Objetivo
+### Problema
 
-Remover todas as referencias visíveis a "Amido de Milho" em toda a aplicacao, substituindo por apenas "Excipiente". O insumo continua funcionando internamente da mesma forma, mas nenhum usuario ou cliente vera o nome real.
+O campo de preco de embalagens no inventario usa `step="0.01"`, limitando a entrada a 2 casas decimais. Uma capsula que custa R$ 0,018 e arredondada para R$ 0,02, gerando distorcao significativa em grandes volumes.
 
----
+### Alteracoes
 
-### Arquivos a Modificar
+#### 1. `src/pages/Inventario.tsx` - Campo de preco de embalagens
 
-#### 1. `src/pages/Calculator.tsx` (principal - 6 alteracoes)
+Alterar o input de preco de embalagem:
+- `step="0.01"` para `step="0.00001"`
+- `placeholder="0.00"` para `placeholder="0.00000"`
 
-| Local | De | Para |
-|-------|-----|------|
-| Comentario linha ~236 | "Amido de Milho necessário" | "Excipiente necessário" |
-| Comentario linha ~282 | "Buscar o Amido de Milho no banco" | "Buscar o excipiente no banco" |
-| Console.warn linha ~297 | "Amido de Milho nao encontrado" | "Excipiente nao encontrado" |
-| Debug log linha ~293 | "amidoEncontrado", "nomeAmido" | "excipienteEncontrado" |
-| UI linha ~978 | "Excipiente Necessário (Amido de Milho):" | "Excipiente Necessário:" |
-| UI linha ~1107 | "Detalhamento do Excipiente (Amido de Milho)" | "Detalhamento do Excipiente" |
-| Comentario linha ~1102 | "(Amido de Milho)" | removido |
-| Snapshot nome linha ~463 | `${calcularExcipiente.insumo.nome} (Excipiente)` | `Excipiente` |
+#### 2. `src/lib/unitConversion.ts` - Exibicao de valores
 
-A linha 463 e critica: quando a formula e salva, o `nome_insumo_snapshot` registra o nome. Mudar para apenas "Excipiente" garante que em PDFs de propostas e orcamentos, o nome "Amido de Milho" nunca apareca.
+A funcao `formatCurrency` ja suporta ate 13 casas decimais (`maximumFractionDigits: 13`), entao os calculos e exibicao de valores detalhados ja funcionam corretamente. Nenhuma alteracao necessaria aqui.
 
-#### 2. `src/lib/localStorage.ts` (1 alteracao)
+#### 3. `src/pages/Inventario.tsx` - Exibicao do preco na listagem
 
-| Local | De | Para |
-|-------|-----|------|
-| Dados iniciais linha ~143 | `nome: 'Amido de Milho'` | `nome: 'Excipiente'` |
+Atualmente usa `formatCurrency(embalagem.preco_unitario)` que ja suporta precisao. Nenhuma alteracao necessaria na exibicao.
 
-Isso afeta apenas dados iniciais de fallback. O banco de dados real tambem precisara ser atualizado.
+#### 4. `supabase/functions/import-inventory/index.ts` - Tolerancia de comparacao
 
-#### 3. Banco de Dados - Atualizar nome do insumo
-
-Executar update no registro existente do inventario para renomear "Amido de Milho" para "Excipiente", garantindo que a busca no Calculator continue funcionando.
-
----
-
-### Logica de Busca do Excipiente (Adaptacao)
-
-A busca atual no Calculator usa:
-```typescript
-insumos.find(i => i.nome.toLowerCase().includes('amido') && i.nome.toLowerCase().includes('milho'))
+A comparacao de precos na importacao usa tolerancia de `0.01`:
 ```
-
-Sera alterada para:
-```typescript
-insumos.find(i => i.nome.toLowerCase().includes('excipiente'))
+Math.abs(existing.preco_unitario - embalagem.preco_unitario) > 0.01
 ```
+Alterar para `0.00001` para respeitar a nova precisao.
 
-Isso garante que o sistema encontra o insumo pelo novo nome.
+#### 5. Outros campos com `step="0.01"` (escopo completo)
 
----
+Como voce mencionou que "essa linha de raciocinio serve para tudo", os seguintes campos tambem serao atualizados para `step="0.00001"`:
 
-### PDFs (Propostas e Orcamentos)
+| Arquivo | Campo |
+|---------|-------|
+| `src/pages/Inventario.tsx` | Preco embalagem |
+| `src/components/EditarPrecificacaoDialog.tsx` | Custo MP, Custo Embalagem, Preco Venda |
+| `src/components/GerarOrcamentoDialog.tsx` | Preco produto avulso, Valor servico |
+| `src/components/DetalhamentoFreteDialog.tsx` | Valor do plano |
+| `src/components/dashboard/NovaRecompraDialog.tsx` | Valor unitario |
+| `src/pages/Precificacao.tsx` | Custos indiretos, valor input, servicos extras |
+| `src/components/CondicoesPagamentoForm.tsx` | Valor entrada, valor termino |
 
-Os PDFs ja usam os dados salvos (`nome_insumo_snapshot` e `insumos_formula[].nome`). Com a alteracao no snapshot (item 1, linha 463), novas formulas salvas ja mostrarao apenas "Excipiente" nos PDFs automaticamente.
+#### 6. Banco de dados
 
-Para formulas ja salvas anteriormente que contenham "Amido de Milho" no snapshot, os geradores de PDF (`propostaGenerator.ts` e `orcamentoGenerator.ts`) receberao um filtro que substitui qualquer texto contendo "Amido de Milho" por "Excipiente" antes de renderizar.
+A coluna `preco_unitario` na tabela `embalagens` ja e do tipo `numeric` sem restricao de casas decimais, entao aceita qualquer precisao. Nenhuma migracao necessaria.
 
----
+### Resumo
 
-### Resumo das Mudancas
-
-| Arquivo | Alteracoes |
-|---------|------------|
-| `src/pages/Calculator.tsx` | ~8 substituicoes (UI, comentarios, logica de busca, snapshot) |
-| `src/lib/localStorage.ts` | 1 substituicao (dados iniciais) |
-| `src/lib/propostaGenerator.ts` | 1 filtro para sanitizar nomes antes do PDF |
-| `src/lib/orcamentoGenerator.ts` | 1 filtro para sanitizar nomes antes do PDF |
-| Banco de dados | UPDATE no insumo para renomear |
+- Todas as entradas numericas de valores monetarios passam a aceitar ate 5 casas decimais
+- A exibicao ja suporta precisao alta (formatCurrency com ate 13 casas)
+- O banco de dados ja suporta (tipo numeric)
+- A importacao passa a respeitar a nova precisao
 
