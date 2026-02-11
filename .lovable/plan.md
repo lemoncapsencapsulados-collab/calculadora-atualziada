@@ -1,31 +1,41 @@
 
 
-## Plano: Popup de confirmacao apos importar dose
+## Plano: Capsulas como categoria na hierarquia de embalagens
+
+### Problema atual
+
+A "Capsula 0 (ENCAPSULADOS)" esta cadastrada com categoria **"Potes PET"** no banco de dados, e o card separado "Tipo de Capsula" nao a encontra porque filtra por `categoria === 'Capsulas'`. Alem disso, o usuario quer que as capsulas aparecam diretamente na secao de embalagens como uma categoria, em vez de num card separado.
 
 ### O que sera feito
 
-Ao clicar no botao "IMPORTAR DOSE", em vez de importar diretamente, sera exibido um AlertDialog de confirmacao com o seguinte conteudo:
+1. **Corrigir a categoria no banco de dados** - Atualizar a "Capsula 0" de "Potes PET" para "Capsulas"
 
-- Icone de atencao (triangulo amarelo/laranja)
-- Titulo: **ATENCAO**
-- Mensagem: "Os precos, insumos e suas quantidades podem estar errados, CONFIRA UM A UM ANTES SEMPRE."
-- Botao de confirmacao: **VOU CONFERIR**
+2. **Remover o card separado "Tipo de Capsula"** (linhas 1164-1224 do Calculator.tsx)
 
-Ao clicar em "VOU CONFERIR", a importacao sera executada normalmente.
+3. **Incluir capsulas na hierarquia de embalagens** - Remover o `excludeCategoria="Capsulas"` do `EmbalagensHierarchy`
+
+4. **Ordenar categorias para que "Capsulas" fique acima de "Silica"** - Ajustar a ordenacao no `EmbalagensHierarchy` para que "Capsulas" apareca antes de "Silica gel"
+
+5. **Comportamento especial para capsulas** - Na hierarquia, capsulas terao selecao exclusiva (radio) em vez de checkbox, pois so se pode selecionar um tipo de capsula por formula. Ao selecionar uma capsula, ela sera registrada como `selectedCapsula` (selecao unica), e o custo sera calculado como `preco_unitario x quantidade_capsulas`
 
 ### Detalhes tecnicos
 
-**Arquivo:** `src/components/ImportarDoseDialog.tsx`
+**Migracao SQL:**
+```sql
+UPDATE embalagens SET categoria = 'Cápsulas' WHERE id = '0e499d80-ca08-41ec-832d-035b37eb1656';
+```
 
-1. Adicionar um estado `showConfirmacao` (boolean) ao componente
-2. Alterar `handleImport` para apenas abrir o popup de confirmacao (`setShowConfirmacao(true)`)
-3. Criar `handleConfirmarImport` que executa a importacao real (logica atual do `handleImport`) e fecha o popup
-4. Adicionar um `AlertDialog` estilizado com:
-   - Fundo com gradiente laranja/amarelo no icone
-   - Texto em destaque para a parte "CONFIRA UM A UM ANTES SEMPRE"
-   - Botao "VOU CONFERIR" com estilo primario
-   - Animacao suave de entrada
-5. Usar os componentes `AlertDialog` ja existentes no projeto (`@/components/ui/alert-dialog`)
+**Arquivo: `src/components/EmbalagensHierarchy.tsx`**
+- Remover a prop `excludeCategoria`
+- Adicionar props `selectedCapsulaId` e `onCapsulaSelect` para gerenciar selecao exclusiva de capsulas
+- Adicionar prop `qtdCapsulas` para exibir o custo total (preco x qtd)
+- Para a categoria "Capsulas", renderizar radio buttons em vez de checkboxes
+- Ordenar categorias com prioridade customizada: "Capsulas" fica acima de "Silica"
+- Mostrar apenas para tipo "Encapsulados" (controlado via prop `tipoProduto`)
 
-Nenhuma alteracao em banco de dados ou outros arquivos sera necessaria.
+**Arquivo: `src/pages/Calculator.tsx`**
+- Remover o card separado "Tipo de Capsula" (linhas 1164-1224)
+- Remover `excludeCategoria="Capsulas"` do EmbalagensHierarchy
+- Passar as novas props `selectedCapsulaId`, `onCapsulaSelect`, `qtdCapsulas` e `tipoProduto` para o EmbalagensHierarchy
+- Manter toda a logica de calculo de custo de capsulas existente (preco x quantidade)
 
