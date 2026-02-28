@@ -1,8 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard } from 'lucide-react';
+import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function Navigation() {
+interface NavigationProps {
+  onLogout?: () => void;
+}
+
+export function Navigation({ onLogout }: NavigationProps) {
   const location = useLocation();
   
   const links = [
@@ -51,6 +55,16 @@ export function Navigation() {
                 </Link>
               );
             })}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all text-muted-foreground hover:bg-destructive/10 hover:text-destructive ml-2"
+                title="Sair"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm">Sair</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

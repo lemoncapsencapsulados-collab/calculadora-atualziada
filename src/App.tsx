@@ -11,13 +11,16 @@ import Pedidos from "./pages/Pedidos";
 import Precificacao from "./pages/Precificacao";
 import Orcamentos from "./pages/Orcamentos";
 import DashboardComercial from "./pages/DashboardComercial";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 const queryClient = new QueryClient();
 
-const App = () => {
+const AppContent = () => {
+  const { isAuthenticated, logout } = useAuth();
   const [migrated, setMigrated] = useState(false);
 
   useEffect(() => {
@@ -37,42 +40,50 @@ const App = () => {
     runMigration();
   }, []);
 
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   if (!migrated) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <div className="flex items-center justify-center min-h-screen bg-background">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-lg text-foreground">Sincronizando dados com a nuvem...</p>
-              <p className="mt-2 text-sm text-muted-foreground">Isso acontecerá apenas uma vez</p>
-            </div>
-          </div>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-lg text-foreground">Sincronizando dados com a nuvem...</p>
+          <p className="mt-2 text-sm text-muted-foreground">Isso acontecerá apenas uma vez</p>
+        </div>
+      </div>
     );
   }
 
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen bg-background">
+        <Navigation onLogout={logout} />
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/cotacoes" element={<Cotacoes />} />
+          <Route path="/precificacao" element={<Precificacao />} />
+          <Route path="/orcamentos" element={<Orcamentos />} />
+          <Route path="/pedidos" element={<Pedidos />} />
+          <Route path="/inventario" element={<Inventario />} />
+          <Route path="/dashboard" element={<DashboardComercial />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
+  );
+};
+
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <div className="min-h-screen bg-background">
-            <Navigation />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/cotacoes" element={<Cotacoes />} />
-              <Route path="/precificacao" element={<Precificacao />} />
-              <Route path="/orcamentos" element={<Orcamentos />} />
-              <Route path="/pedidos" element={<Pedidos />} />
-              <Route path="/inventario" element={<Inventario />} />
-              <Route path="/dashboard" element={<DashboardComercial />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </div>
-        </BrowserRouter>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
