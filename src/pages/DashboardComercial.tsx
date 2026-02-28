@@ -97,6 +97,7 @@ export default function DashboardComercial() {
         rankingConsultores={rankingConsultores}
         produtosMaisVendidos={produtosMaisVendidos}
         mixVendas={mixVendas}
+        consultoresUnicos={todosConsultores}
       />
 
       {/* Pipeline */}
