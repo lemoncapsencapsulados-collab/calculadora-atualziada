@@ -17,15 +17,15 @@ interface UseOrcamentosPaginadosParams {
   page: number;
   pageSize: number;
   searchTerm: string;
+  consultorFilter?: string;
 }
 
-export function useOrcamentosPaginados({ page, pageSize, searchTerm }: UseOrcamentosPaginadosParams) {
+export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFilter }: UseOrcamentosPaginadosParams) {
   const trimmed = searchTerm.trim();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orcamentos-paginados', page, pageSize, trimmed],
+    queryKey: ['orcamentos-paginados', page, pageSize, trimmed, consultorFilter],
     queryFn: async () => {
-      // Count
       let countQuery = supabase
         .from('orcamentos')
         .select('id', { count: 'exact', head: true });
@@ -35,11 +35,13 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm }: UseOrcame
           `nome_cliente.ilike.%${trimmed}%,numero_orcamento.ilike.%${trimmed}%,consultor_responsavel.ilike.%${trimmed}%`
         );
       }
+      if (consultorFilter) {
+        countQuery = countQuery.eq('consultor_responsavel', consultorFilter);
+      }
 
       const { count, error: countError } = await countQuery;
       if (countError) throw countError;
 
-      // Data
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
@@ -53,6 +55,9 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm }: UseOrcame
         dataQuery = dataQuery.or(
           `nome_cliente.ilike.%${trimmed}%,numero_orcamento.ilike.%${trimmed}%,consultor_responsavel.ilike.%${trimmed}%`
         );
+      }
+      if (consultorFilter) {
+        dataQuery = dataQuery.eq('consultor_responsavel', consultorFilter);
       }
 
       const { data: rows, error: dataError } = await dataQuery;
@@ -73,4 +78,55 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm }: UseOrcame
     totalPages: data?.totalPages ?? 0,
     isLoading,
   };
+}
+
+// Hook for kanban: fetches all orcamentos (up to 200) without pagination
+export function useOrcamentosKanban({ searchTerm, consultorFilter }: { searchTerm: string; consultorFilter?: string }) {
+  const trimmed = searchTerm.trim();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['orcamentos-kanban', trimmed, consultorFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('orcamentos')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (trimmed) {
+        query = query.or(
+          `nome_cliente.ilike.%${trimmed}%,numero_orcamento.ilike.%${trimmed}%,consultor_responsavel.ilike.%${trimmed}%`
+        );
+      }
+      if (consultorFilter) {
+        query = query.eq('consultor_responsavel', consultorFilter);
+      }
+
+      const { data: rows, error } = await query;
+      if (error) throw error;
+      return (rows || []).map(parseOrcamento);
+    },
+  });
+
+  return { orcamentos: data ?? [], isLoading };
+}
+
+// Hook to get distinct consultors
+export function useConsultoresDisponiveis() {
+  const { data } = useQuery({
+    queryKey: ['consultores-disponiveis'],
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from('orcamentos')
+        .select('consultor_responsavel')
+        .not('consultor_responsavel', 'is', null)
+        .not('consultor_responsavel', 'eq', '');
+
+      if (error) throw error;
+      const unique = [...new Set((rows || []).map(r => r.consultor_responsavel).filter(Boolean))] as string[];
+      return unique.sort();
+    },
+  });
+
+  return data ?? [];
 }
