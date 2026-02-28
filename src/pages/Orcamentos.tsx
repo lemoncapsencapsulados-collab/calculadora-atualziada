@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
+import { useOrcamentosPaginados } from '@/hooks/useOrcamentosPaginados';
 import { Orcamento } from '@/types/orcamento';
-import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,13 @@ import {
   FileText,
   Plus,
   CheckCircle2,
-  FileCheck
+  FileCheck,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,41 +51,44 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
+const PAGE_SIZE = 15;
+
 export default function Orcamentos() {
-  const { orcamentos, isLoading, deleteOrcamento, updateStatus } = useOrcamentos();
+  const queryClient = useQueryClient();
+  const { deleteOrcamento, updateStatus } = useOrcamentos();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [editandoOrcamento, setEditandoOrcamento] = useState<Orcamento | null>(null);
   const [criandoNovo, setCriandoNovo] = useState(false);
-  
-  // Estados para os dialogs
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
 
-  // Filtrar orçamentos
-  const orcamentosFiltrados = orcamentos.filter(o => {
-    const termo = searchTerm.toLowerCase().trim();
-    if (!termo) return true;
-    return (
-      o.nome_cliente.toLowerCase().includes(termo) ||
-      o.numero_orcamento.toLowerCase().includes(termo) ||
-      (o.consultor_responsavel || '').toLowerCase().includes(termo)
-    );
+  const { orcamentos, totalCount, totalPages, isLoading } = useOrcamentosPaginados({
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    searchTerm,
   });
 
-  const handleOpenPreview = (orcamento: Orcamento) => {
-    setPreviewOrcamento(orcamento);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const invalidatePaginated = () => {
+    queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
   };
 
   const handleConfirmDelete = async () => {
     if (deletandoId) {
       await deleteOrcamento.mutateAsync(deletandoId);
       setDeletandoId(null);
+      invalidatePaginated();
     }
   };
 
   const handleStatusChange = async (orcamentoId: string, newStatus: Orcamento['status']) => {
     await updateStatus.mutateAsync({ id: orcamentoId, status: newStatus });
+    invalidatePaginated();
   };
 
   const formatCurrency = (value: number) => {
@@ -132,7 +138,7 @@ export default function Orcamentos() {
           </div>
 
           {/* Lista de Orçamentos */}
-          {orcamentosFiltrados.length === 0 ? (
+          {orcamentos.length === 0 ? (
             <div className="py-12 text-center border rounded-lg bg-muted/30">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
@@ -149,7 +155,7 @@ export default function Orcamentos() {
             </div>
           ) : (
             <div className="space-y-4">
-              {orcamentosFiltrados.map((orcamento) => {
+              {orcamentos.map((orcamento) => {
                 const isAprovado = orcamento.status === 'aprovado';
                 
                 return (
@@ -168,7 +174,6 @@ export default function Orcamentos() {
                           <div className="flex items-start justify-between gap-2 flex-wrap">
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                {/* Consultor como título principal */}
                                 <span className="font-semibold text-lg">
                                   {orcamento.consultor_responsavel || 'Sem consultor'}
                                 </span>
@@ -187,7 +192,6 @@ export default function Orcamentos() {
                               </p>
                             </div>
                             
-                            {/* Selector de Status */}
                             <Select
                               value={orcamento.status}
                               onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
@@ -208,7 +212,7 @@ export default function Orcamentos() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {format(new Date(orcamento.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                              {format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                             </div>
                             <div className="flex items-center gap-1">
                               <Package className="w-3 h-3" />
@@ -252,7 +256,7 @@ export default function Orcamentos() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleOpenPreview(orcamento)}
+                            onClick={() => setPreviewOrcamento(orcamento)}
                           >
                             <FileText className="w-4 h-4 mr-2" />
                             Gerar Orçamento
@@ -279,6 +283,38 @@ export default function Orcamentos() {
                   </Card>
                 );
               })}
+
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    {totalCount} resultado{totalCount !== 1 ? 's' : ''}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Anterior
+                    </Button>
+                    <span className="text-sm text-muted-foreground px-2">
+                      Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage >= totalPages}
+                    >
+                      Próxima
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -292,9 +328,9 @@ export default function Orcamentos() {
             setCriandoNovo(false);
             setEditandoOrcamento(null);
           }}
+          onSuccess={invalidatePaginated}
         />
       )}
-
 
       {/* Dialog de Preview do PDF */}
       {previewOrcamento && (
@@ -311,6 +347,7 @@ export default function Orcamentos() {
           onClose={() => setPropostaCompletaOrcamento(null)}
         />
       )}
+
       <AlertDialog open={!!deletandoId} onOpenChange={(open) => !open && setDeletandoId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
