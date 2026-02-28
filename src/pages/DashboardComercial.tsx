@@ -18,8 +18,8 @@ export default function DashboardComercial() {
   
   const [filtros, setFiltros] = useState<DashboardFiltros>({
     consultor: null,
-    periodoTipo: 'semestral',
-    dataInicio: startOfMonth(subMonths(hoje, 5)),
+    periodoTipo: 'mensal',
+    dataInicio: startOfMonth(hoje),
     dataFim: endOfMonth(hoje)
   });
 
