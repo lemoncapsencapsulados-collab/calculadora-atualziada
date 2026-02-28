@@ -65,6 +65,11 @@ export default function PrecificacoesSalvas({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
+
+  const handleEditClose = () => {
+    setEditandoPrecificacao(null);
+    queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+  };
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
 
@@ -279,7 +284,7 @@ export default function PrecificacoesSalvas({
           precificacao={editandoPrecificacao}
           configuracaoAtiva={configuracaoAtiva}
           margens={margens}
-          onClose={() => setEditandoPrecificacao(null)}
+          onClose={handleEditClose}
         />
       )}
 
