@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useFormulas } from '@/hooks/useFormulas';
+import { useState, useEffect } from 'react';
+import { useFormulasPaginadas } from '@/hooks/useFormulasPaginadas';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Formula } from '@/types/formula';
@@ -16,24 +16,42 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { gerarPropostaPDF } from '@/lib/propostaGenerator';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
+import { format } from 'date-fns';
+
+const PAGE_SIZE = 24;
 
 export default function Precificacao() {
-  const { formulas, loading: isLoadingFormulas } = useFormulas();
   const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
   const { salvarPrecificacao } = usePrecificacao();
 
   // Estado da aba ativa
   const [abaAtiva, setAbaAtiva] = useState('nova');
   
+  // Paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const { formulas: formulasPaginadas, totalCount, totalPages, isLoading: isLoadingFormulas } = useFormulasPaginadas({
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    searchTerm,
+  });
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+  
   // Estados principais
   const [formulaSelecionada, setFormulaSelecionada] = useState<Formula | null>(null);
+  const [modalAberta, setModalAberta] = useState(false);
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   
   // Estados para dialog de proposta
   const [propostaDialog, setPropostaDialog] = useState(false);
@@ -58,10 +76,6 @@ export default function Precificacao() {
 
   // Estado de cálculo
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
-
-  // Refs para scroll automático
-  const precificacaoRef = useRef<HTMLDivElement>(null);
-  const margemRef = useRef<HTMLDivElement>(null);
 
   // Carregar custos da configuração ativa
   useEffect(() => {
@@ -132,7 +146,6 @@ export default function Precificacao() {
         toast.error('Erro ao salvar alterações');
       }
     } else {
-      // Restaurar valores originais
       if (configuracaoAtiva) {
         setCustosIndiretos({
           maoObraDireta: Number(configuracaoAtiva.mao_obra_direta),
@@ -186,7 +199,7 @@ export default function Precificacao() {
         observacoes,
       });
       
-      // Redirecionar para aba de precificações salvas
+      setModalAberta(false);
       setFormulaSelecionada(null);
       setValorInput('30');
       setObservacoes('');
@@ -196,33 +209,23 @@ export default function Precificacao() {
     }
   };
 
-  // Validação de margem usando a nova função por tipo
   const validacaoMargem = resultado && formulaSelecionada
     ? validarMargemPorTipo(resultado.margemLucroPercentual, formulaSelecionada.tipo_produto)
     : null;
-
-  // Filtrar fórmulas pelo termo de pesquisa
-  const formulasFiltradas = formulas?.filter(formula => {
-    const termo = searchTerm.toLowerCase().trim();
-    if (!termo) return true;
-    return (
-      formula.nome_formula.toLowerCase().includes(termo) ||
-      formula.cliente.toLowerCase().includes(termo)
-    );
-  }) || [];
 
   const handleSelectFormula = (formula: Formula) => {
     setFormulaSelecionada(formula);
     setValorInput('');
     setObservacoes('');
-    
-    // Scroll suave para a seção de precificação
-    setTimeout(() => {
-      precificacaoRef.current?.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
-    }, 100);
+    setModalAberta(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalAberta(false);
+    setFormulaSelecionada(null);
+    setResultado(null);
+    setValorInput('30');
+    setObservacoes('');
   };
 
   if (isLoadingFormulas) {
@@ -245,7 +248,6 @@ export default function Precificacao() {
         </Button>
       </div>
 
-      {/* Sistema de Abas */}
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="nova" className="flex items-center gap-2">
@@ -259,440 +261,93 @@ export default function Precificacao() {
         </TabsList>
         
         <TabsContent value="nova" className="space-y-6 mt-6">
-          {/* Todas as Fórmulas */}
-          <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5" />
-            Todas as Fórmulas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Campo de Pesquisa */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Pesquisar por nome da fórmula ou cliente..."
-              className="pl-10"
-            />
-          </div>
-
-          {/* Grid de Fórmulas */}
-          {formulasFiltradas.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              {searchTerm ? 'Nenhuma fórmula encontrada.' : 'Nenhuma fórmula cadastrada.'}
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {formulasFiltradas.map((formula) => {
-                const custoTotal = Number(formula.total_mp) + Number(formula.total_embalagem);
-                const isSelected = formulaSelecionada?.id === formula.id;
-                
-                return (
-                  <Card
-                    key={formula.id}
-                    className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/50 ${
-                      isSelected ? 'border-primary bg-primary/5 shadow-md' : ''
-                    }`}
-                    onClick={() => handleSelectFormula(formula)}
-                  >
-                    <CardContent className="p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-foreground line-clamp-2">{formula.nome_formula}</h3>
-                        <Badge variant="secondary" className="shrink-0 text-xs">
-                          {formula.tipo_produto}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{formula.cliente}</p>
-                      <p className="text-lg font-bold text-primary">
-                        R$ {custoTotal.toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
-                      </p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {formulaSelecionada && (
-        <div ref={precificacaoRef}>
-          {/* Custos Diretos e Indiretos - Lado a Lado */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Custos Diretos */}
-            <Card>
-              <CardHeader>
-                <CardTitle>💊 Custos Diretos (por unidade)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Matéria-Prima</Label>
-                    <Input
-                      value={`R$ ${Number(formulaSelecionada.total_mp).toFixed(2)}`}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Embalagem</Label>
-                    <Input
-                      value={`R$ ${Number(formulaSelecionada.total_embalagem).toFixed(2)}`}
-                      disabled
-                      className="bg-muted"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Mão de Obra Direta</Label>
-                    {camposBloqueados ? (
-                      <Lock className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <Unlock className="w-4 h-4 text-green-600" />
-                    )}
-                  </div>
-                  <Input
-                    type="number"
-                    step="0.00001"
-                    value={custosIndiretos.maoObraDireta}
-                    onChange={(e) =>
-                      setCustosIndiretos({ ...custosIndiretos, maoObraDireta: parseFloat(e.target.value) || 0 })
-                    }
-                    disabled={camposBloqueados}
-                  />
-                </div>
-
-                <div className="p-3 bg-primary/5 rounded-lg">
-                  <p className="text-sm font-medium">
-                    Subtotal Diretos: R${' '}
-                    {(
-                      Number(formulaSelecionada.total_mp) +
-                      Number(formulaSelecionada.total_embalagem) +
-                      custosIndiretos.maoObraDireta
-                    ).toFixed(2)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Custos Indiretos */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>🏭 Custos Indiretos (por unidade)</CardTitle>
-                  {camposBloqueados ? (
-                    <Button variant="outline" size="sm" onClick={handleDesbloquear}>
-                      <Lock className="w-4 h-4 mr-2" />
-                      Desbloquear
-                    </Button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="salvar-permanente"
-                          checked={salvarPermanente}
-                          onChange={(e) => setSalvarPermanente(e.target.checked)}
-                          className="rounded"
-                        />
-                        <Label htmlFor="salvar-permanente" className="text-sm cursor-pointer">
-                          Salvar
-                        </Label>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={handleBloquear}>
-                        <Unlock className="w-4 h-4 mr-2" />
-                        Bloquear
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Energia Elétrica</Label>
-                    <Input
-                      type="number"
-                      step="0.00001"
-                      value={custosIndiretos.energia}
-                      onChange={(e) =>
-                        setCustosIndiretos({ ...custosIndiretos, energia: parseFloat(e.target.value) || 0 })
-                      }
-                      disabled={camposBloqueados}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Depreciação de Máquinas</Label>
-                    <Input
-                      type="number"
-                      step="0.00001"
-                      value={custosIndiretos.depreciacao}
-                      onChange={(e) =>
-                        setCustosIndiretos({ ...custosIndiretos, depreciacao: parseFloat(e.target.value) || 0 })
-                      }
-                      disabled={camposBloqueados}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Despesas Administrativas</Label>
-                    <Input
-                      type="number"
-                      step="0.00001"
-                      value={custosIndiretos.administrativo}
-                      onChange={(e) =>
-                        setCustosIndiretos({ ...custosIndiretos, administrativo: parseFloat(e.target.value) || 0 })
-                      }
-                      disabled={camposBloqueados}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 bg-primary/5 rounded-lg">
-                  <p className="text-sm font-medium">
-                    Subtotal Indiretos: R${' '}
-                    {(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Custos Base, Margem e Total - Lado a Lado */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-sm text-muted-foreground mb-2">Custos Base</p>
-                <p className="text-sm text-muted-foreground text-xs mb-1">(Diretos + Indiretos)</p>
-                <p className="text-2xl font-semibold">
-                  R${' '}
-                  {(
-                    Number(formulaSelecionada.total_mp) +
-                    Number(formulaSelecionada.total_embalagem) +
-                    custosIndiretos.maoObraDireta +
-                    custosIndiretos.energia +
-                    custosIndiretos.depreciacao +
-                    custosIndiretos.administrativo
-                  ).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-sm text-muted-foreground mb-2">Margem de Segurança</p>
-                <p className="text-sm text-muted-foreground text-xs mb-1">(20%)</p>
-                <p className="text-2xl font-semibold text-orange-600">
-                  R${' '}
-                  {(
-                    (Number(formulaSelecionada.total_mp) +
-                    Number(formulaSelecionada.total_embalagem) +
-                    custosIndiretos.maoObraDireta +
-                    custosIndiretos.energia +
-                    custosIndiretos.depreciacao +
-                    custosIndiretos.administrativo) * 0.20
-                  ).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-primary/50">
-              <CardContent className="pt-6 text-center">
-                <p className="text-sm text-muted-foreground mb-2">Total Custos de Produção</p>
-                <p className="text-sm text-muted-foreground text-xs mb-1">(Base + Margem)</p>
-                <p className="text-2xl font-bold text-primary">
-                  R${' '}
-                  {(
-                    (Number(formulaSelecionada.total_mp) +
-                    Number(formulaSelecionada.total_embalagem) +
-                    custosIndiretos.maoObraDireta +
-                    custosIndiretos.energia +
-                    custosIndiretos.depreciacao +
-                    custosIndiretos.administrativo) * 1.20
-                  ).toFixed(2)}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Cálculo de Precificação */}
           <Card>
             <CardHeader>
-              <CardTitle>💰 Cálculo de Precificação</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Todas as Fórmulas
+                </CardTitle>
+                <span className="text-sm text-muted-foreground">
+                  {totalCount} fórmula{totalCount !== 1 ? 's' : ''} encontrada{totalCount !== 1 ? 's' : ''}
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Preço de Venda (R$)</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  type="number"
-                  step="0.00001"
-                  value={valorInput}
-                  onChange={(e) => {
-                    setValorInput(e.target.value);
-                    // Scroll suave para a seção de margem quando digitar o preço
-                    if (e.target.value) {
-                      setTimeout(() => {
-                        margemRef.current?.scrollIntoView({ 
-                          behavior: 'smooth', 
-                          block: 'center' 
-                        });
-                      }, 300);
-                    }
-                  }}
-                  placeholder="0.00"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Pesquisar por nome da fórmula ou cliente..."
+                  className="pl-10"
                 />
               </div>
+
+              {formulasPaginadas.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  {searchTerm ? 'Nenhuma fórmula encontrada.' : 'Nenhuma fórmula cadastrada.'}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {formulasPaginadas.map((formula) => {
+                    const custoTotal = Number(formula.total_mp) + Number(formula.total_embalagem);
+                    
+                    return (
+                      <Card
+                        key={formula.id}
+                        className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
+                        onClick={() => handleSelectFormula(formula)}
+                      >
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-semibold text-foreground line-clamp-2">{formula.nome_formula}</h3>
+                            <Badge variant="secondary" className="shrink-0 text-xs">
+                              {formula.tipo_produto}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{formula.cliente}</p>
+                          <p className="text-lg font-bold text-primary">
+                            R$ {custoTotal.toFixed(2)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage(p => p - 1)}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage(p => p + 1)}
+                  >
+                    Próxima
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          {/* Resultado - Impostos e Precificação Final lado a lado */}
-          {resultado && (
-            <div ref={margemRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Impostos Calculados */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>📝 Impostos Calculados</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="font-medium">ICMS:</p>
-                      <div className="pl-4 space-y-1 text-sm">
-                        <p>Crédito NF ({configuracaoAtiva?.icms_credito_nf}%): R$ {resultado.icmsCreditoNF.toFixed(2)}</p>
-                        <p>Saída ({configuracaoAtiva?.icms_saida}%): R$ {resultado.icmsSaida.toFixed(2)}</p>
-                        <p>Crédito PRODEIC ({configuracaoAtiva?.credito_prodeic}%): R$ {resultado.icmsCreditoProdeic.toFixed(2)}</p>
-                        <p>FUNDEB/FUNDES ({configuracaoAtiva?.fundeb_fundes}%): R$ {resultado.fundebFundes.toFixed(2)}</p>
-                        <p className="font-medium text-primary">→ ICMS a Recolher: R$ {resultado.icmsRecolher.toFixed(2)}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="font-medium">PIS/COFINS:</p>
-                      <div className="pl-4 space-y-1 text-sm">
-                        <p>Saída ({configuracaoAtiva?.pis_cofins_saida}%): R$ {resultado.pisCOFINSSaida.toFixed(2)}</p>
-                        <p>Crédito ({configuracaoAtiva?.pis_cofins_credito}%): R$ {resultado.pisCOFINSCredito.toFixed(2)}</p>
-                        <p className="font-medium text-primary">→ PIS/COFINS a Recolher: R$ {resultado.pisCOFINSRecolher.toFixed(2)}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="font-medium">IPI ({configuracaoAtiva?.ipi_saida}%): R$ {resultado.ipiValor.toFixed(2)}</p>
-                    </div>
-
-                    <div className="space-y-1">
-                      <p className="font-medium">Base Cálculo IR/CS: R$ {resultado.baseCalculoIRPJCSLL.toFixed(2)}</p>
-                      <p className="font-medium">IRPJ e CSLL ({configuracaoAtiva?.irpj_csll}%): R$ {resultado.irpjCsllValor.toFixed(2)}</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                    <p className="text-lg font-bold text-primary">TOTAL IMPOSTOS: R$ {resultado.totalImpostos.toFixed(2)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Precificação Final */}
-              <Card className={validacaoMargem?.status === 'baixa' ? 'border-red-500' : validacaoMargem?.status === 'aceitavel' ? 'border-yellow-500' : 'border-green-500'}>
-                <CardHeader>
-                  <CardTitle>✅ Precificação Final</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center p-6 bg-primary/5 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-2">💵 Preço de Venda</p>
-                    <p className="text-4xl font-bold text-primary">R$ {resultado.precoVenda.toFixed(2)}</p>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Custos Produção</p>
-                      <p className="font-bold">R$ {resultado.totalCustosProducao.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {((resultado.totalCustosProducao / resultado.precoVenda) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Impostos</p>
-                      <p className="font-bold">R$ {resultado.totalImpostos.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {((resultado.totalImpostos / resultado.precoVenda) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                    
-                    {/* Bloco de Margem com cores dinâmicas e celebração */}
-                    <div className={`relative text-center p-6 rounded-lg border-2 overflow-hidden
-                      ${validacaoMargem?.borderColor || 'border-muted'}
-                      ${validacaoMargem?.status === 'excelente' ? 'gold-shimmer' : validacaoMargem?.bgColor || 'bg-muted'}
-                    `}>
-                      {/* Estrelinhas de celebração quando excelente */}
-                      {validacaoMargem?.status === 'excelente' && (
-                        <>
-                          <Sparkles className="absolute top-2 left-2 w-5 h-5 text-amber-400 sparkle" />
-                          <Sparkles className="absolute top-3 right-3 w-4 h-4 text-yellow-400 sparkle sparkle-delay-1" />
-                          <Sparkles className="absolute bottom-3 left-3 w-4 h-4 text-amber-300 sparkle sparkle-delay-2" />
-                          <Star className="absolute bottom-2 right-2 w-5 h-5 text-yellow-500 sparkle sparkle-delay-3" />
-                          <Star className="absolute top-1/2 left-1 w-3 h-3 text-amber-400 sparkle sparkle-delay-4" />
-                        </>
-                      )}
-                      
-                      <p className={`text-sm font-medium mb-2 ${validacaoMargem?.color || 'text-foreground'}`}>
-                        💰 Margem de Lucro
-                      </p>
-                      <p className={`text-3xl font-bold ${validacaoMargem?.color || 'text-foreground'}`}>
-                        {resultado.margemLucroPercentual.toFixed(1)}%
-                      </p>
-                      <p className={`text-sm font-semibold mt-1 ${validacaoMargem?.color || 'text-foreground'}`}>
-                        R$ {resultado.margemLucroValor.toFixed(2)}
-                      </p>
-                      
-                      {/* Mensagem de celebração */}
-                      {validacaoMargem?.status === 'excelente' && (
-                        <p className="mt-3 text-lg font-bold text-amber-700 animate-pulse">
-                          VOCÊ VAI FAZER A LEMON RICA
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Mensagem de validação */}
-                  {validacaoMargem && validacaoMargem.status !== 'excelente' && (
-                    <div className={`p-4 rounded-lg ${validacaoMargem.bgColor}`}>
-                      <p className={`font-medium ${validacaoMargem.color}`}>{validacaoMargem.mensagem}</p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label>Observações</Label>
-                    <Textarea
-                      value={observacoes}
-                      onChange={(e) => setObservacoes(e.target.value)}
-                      placeholder="Observações sobre esta precificação..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button onClick={handleSalvar} className="flex-1" disabled={salvarPrecificacao.isPending}>
-                      <Save className="w-4 h-4 mr-2" />
-                      Salvar Precificação
-                    </Button>
-                    <Button variant="outline" className="flex-1" onClick={() => setPropostaDialog(true)}>
-                      <FileDown className="w-4 h-4 mr-2" />
-                      Gerar Proposta
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
-      )}
         </TabsContent>
         
         <TabsContent value="salvas" className="mt-6">
@@ -702,6 +357,398 @@ export default function Precificacao() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Modal Fullscreen de Precificação */}
+      <Dialog open={modalAberta} onOpenChange={(open) => { if (!open) handleCloseModal(); }}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-[95vh] p-0 gap-0">
+          {formulaSelecionada && (
+            <>
+              {/* Header fixo */}
+              <div className="px-6 py-4 border-b bg-card">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl">{formulaSelecionada.nome_formula}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary">{formulaSelecionada.tipo_produto}</Badge>
+                      <Badge variant="outline">{formulaSelecionada.cliente}</Badge>
+                      <Badge variant="outline" className="text-muted-foreground">
+                        {format(formulaSelecionada.data, 'dd/MM/yyyy')}
+                      </Badge>
+                      <Badge className="bg-primary/10 text-primary border-primary/20">
+                        Custo Total: R$ {(Number(formulaSelecionada.total_mp) + Number(formulaSelecionada.total_embalagem)).toFixed(2)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={handleCloseModal} className="shrink-0">
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Conteúdo scrollável */}
+              <ScrollArea className="flex-1 px-6 py-6">
+                <div className="space-y-6 pb-6">
+                  {/* Custos Diretos e Indiretos */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Custos Diretos */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>💊 Custos Diretos (por unidade)</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Matéria-Prima</Label>
+                            <Input
+                              value={`R$ ${Number(formulaSelecionada.total_mp).toFixed(2)}`}
+                              disabled
+                              className="bg-muted"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Embalagem</Label>
+                            <Input
+                              value={`R$ ${Number(formulaSelecionada.total_embalagem).toFixed(2)}`}
+                              disabled
+                              className="bg-muted"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Mão de Obra Direta</Label>
+                            {camposBloqueados ? (
+                              <Lock className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <Unlock className="w-4 h-4 text-green-600" />
+                            )}
+                          </div>
+                          <Input
+                            type="number"
+                            step="0.00001"
+                            value={custosIndiretos.maoObraDireta}
+                            onChange={(e) =>
+                              setCustosIndiretos({ ...custosIndiretos, maoObraDireta: parseFloat(e.target.value) || 0 })
+                            }
+                            disabled={camposBloqueados}
+                          />
+                        </div>
+
+                        <div className="p-3 bg-primary/5 rounded-lg">
+                          <p className="text-sm font-medium">
+                            Subtotal Diretos: R${' '}
+                            {(
+                              Number(formulaSelecionada.total_mp) +
+                              Number(formulaSelecionada.total_embalagem) +
+                              custosIndiretos.maoObraDireta
+                            ).toFixed(2)}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Custos Indiretos */}
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle>🏭 Custos Indiretos (por unidade)</CardTitle>
+                          {camposBloqueados ? (
+                            <Button variant="outline" size="sm" onClick={handleDesbloquear}>
+                              <Lock className="w-4 h-4 mr-2" />
+                              Desbloquear
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id="salvar-permanente-modal"
+                                  checked={salvarPermanente}
+                                  onChange={(e) => setSalvarPermanente(e.target.checked)}
+                                  className="rounded"
+                                />
+                                <Label htmlFor="salvar-permanente-modal" className="text-sm cursor-pointer">
+                                  Salvar
+                                </Label>
+                              </div>
+                              <Button variant="outline" size="sm" onClick={handleBloquear}>
+                                <Unlock className="w-4 h-4 mr-2" />
+                                Bloquear
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>Energia Elétrica</Label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={custosIndiretos.energia}
+                              onChange={(e) =>
+                                setCustosIndiretos({ ...custosIndiretos, energia: parseFloat(e.target.value) || 0 })
+                              }
+                              disabled={camposBloqueados}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Depreciação de Máquinas</Label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={custosIndiretos.depreciacao}
+                              onChange={(e) =>
+                                setCustosIndiretos({ ...custosIndiretos, depreciacao: parseFloat(e.target.value) || 0 })
+                              }
+                              disabled={camposBloqueados}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Despesas Administrativas</Label>
+                            <Input
+                              type="number"
+                              step="0.00001"
+                              value={custosIndiretos.administrativo}
+                              onChange={(e) =>
+                                setCustosIndiretos({ ...custosIndiretos, administrativo: parseFloat(e.target.value) || 0 })
+                              }
+                              disabled={camposBloqueados}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-primary/5 rounded-lg">
+                          <p className="text-sm font-medium">
+                            Subtotal Indiretos: R${' '}
+                            {(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Custos Base, Margem e Total */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card>
+                      <CardContent className="pt-6 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Custos Base</p>
+                        <p className="text-sm text-muted-foreground text-xs mb-1">(Diretos + Indiretos)</p>
+                        <p className="text-2xl font-semibold">
+                          R${' '}
+                          {(
+                            Number(formulaSelecionada.total_mp) +
+                            Number(formulaSelecionada.total_embalagem) +
+                            custosIndiretos.maoObraDireta +
+                            custosIndiretos.energia +
+                            custosIndiretos.depreciacao +
+                            custosIndiretos.administrativo
+                          ).toFixed(2)}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="pt-6 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Margem de Segurança</p>
+                        <p className="text-sm text-muted-foreground text-xs mb-1">(20%)</p>
+                        <p className="text-2xl font-semibold text-orange-600">
+                          R${' '}
+                          {(
+                            (Number(formulaSelecionada.total_mp) +
+                            Number(formulaSelecionada.total_embalagem) +
+                            custosIndiretos.maoObraDireta +
+                            custosIndiretos.energia +
+                            custosIndiretos.depreciacao +
+                            custosIndiretos.administrativo) * 0.20
+                          ).toFixed(2)}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-primary/50">
+                      <CardContent className="pt-6 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">Total Custos de Produção</p>
+                        <p className="text-sm text-muted-foreground text-xs mb-1">(Base + Margem)</p>
+                        <p className="text-2xl font-bold text-primary">
+                          R${' '}
+                          {(
+                            (Number(formulaSelecionada.total_mp) +
+                            Number(formulaSelecionada.total_embalagem) +
+                            custosIndiretos.maoObraDireta +
+                            custosIndiretos.energia +
+                            custosIndiretos.depreciacao +
+                            custosIndiretos.administrativo) * 1.20
+                          ).toFixed(2)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Cálculo de Precificação */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>💰 Cálculo de Precificação</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Preço de Venda (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.00001"
+                          value={valorInput}
+                          onChange={(e) => setValorInput(e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Resultado - Impostos e Precificação Final */}
+                  {resultado && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Impostos Calculados */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>📝 Impostos Calculados</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <p className="font-medium">ICMS:</p>
+                              <div className="pl-4 space-y-1 text-sm">
+                                <p>Crédito NF ({configuracaoAtiva?.icms_credito_nf}%): R$ {resultado.icmsCreditoNF.toFixed(2)}</p>
+                                <p>Saída ({configuracaoAtiva?.icms_saida}%): R$ {resultado.icmsSaida.toFixed(2)}</p>
+                                <p>Crédito PRODEIC ({configuracaoAtiva?.credito_prodeic}%): R$ {resultado.icmsCreditoProdeic.toFixed(2)}</p>
+                                <p>FUNDEB/FUNDES ({configuracaoAtiva?.fundeb_fundes}%): R$ {resultado.fundebFundes.toFixed(2)}</p>
+                                <p className="font-medium text-primary">→ ICMS a Recolher: R$ {resultado.icmsRecolher.toFixed(2)}</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <p className="font-medium">PIS/COFINS:</p>
+                              <div className="pl-4 space-y-1 text-sm">
+                                <p>Saída ({configuracaoAtiva?.pis_cofins_saida}%): R$ {resultado.pisCOFINSSaida.toFixed(2)}</p>
+                                <p>Crédito ({configuracaoAtiva?.pis_cofins_credito}%): R$ {resultado.pisCOFINSCredito.toFixed(2)}</p>
+                                <p className="font-medium text-primary">→ PIS/COFINS a Recolher: R$ {resultado.pisCOFINSRecolher.toFixed(2)}</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <p className="font-medium">IPI ({configuracaoAtiva?.ipi_saida}%): R$ {resultado.ipiValor.toFixed(2)}</p>
+                            </div>
+
+                            <div className="space-y-1">
+                              <p className="font-medium">Base Cálculo IR/CS: R$ {resultado.baseCalculoIRPJCSLL.toFixed(2)}</p>
+                              <p className="font-medium">IRPJ e CSLL ({configuracaoAtiva?.irpj_csll}%): R$ {resultado.irpjCsllValor.toFixed(2)}</p>
+                            </div>
+                          </div>
+
+                          <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                            <p className="text-lg font-bold text-primary">TOTAL IMPOSTOS: R$ {resultado.totalImpostos.toFixed(2)}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Precificação Final */}
+                      <Card className={validacaoMargem?.status === 'baixa' ? 'border-red-500' : validacaoMargem?.status === 'aceitavel' ? 'border-yellow-500' : 'border-green-500'}>
+                        <CardHeader>
+                          <CardTitle>✅ Precificação Final</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="text-center p-6 bg-primary/5 rounded-lg">
+                            <p className="text-sm text-muted-foreground mb-2">💵 Preço de Venda</p>
+                            <p className="text-4xl font-bold text-primary">R$ {resultado.precoVenda.toFixed(2)}</p>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center p-4 bg-muted/50 rounded-lg">
+                              <p className="text-xs text-muted-foreground mb-1">Custos Produção</p>
+                              <p className="font-bold">R$ {resultado.totalCustosProducao.toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {((resultado.totalCustosProducao / resultado.precoVenda) * 100).toFixed(1)}%
+                              </p>
+                            </div>
+                            <div className="text-center p-4 bg-muted/50 rounded-lg">
+                              <p className="text-xs text-muted-foreground mb-1">Impostos</p>
+                              <p className="font-bold">R$ {resultado.totalImpostos.toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {((resultado.totalImpostos / resultado.precoVenda) * 100).toFixed(1)}%
+                              </p>
+                            </div>
+                            
+                            <div className={`relative text-center p-6 rounded-lg border-2 overflow-hidden
+                              ${validacaoMargem?.borderColor || 'border-muted'}
+                              ${validacaoMargem?.status === 'excelente' ? 'gold-shimmer' : validacaoMargem?.bgColor || 'bg-muted'}
+                            `}>
+                              {validacaoMargem?.status === 'excelente' && (
+                                <>
+                                  <Sparkles className="absolute top-2 left-2 w-5 h-5 text-amber-400 sparkle" />
+                                  <Sparkles className="absolute top-3 right-3 w-4 h-4 text-yellow-400 sparkle sparkle-delay-1" />
+                                  <Sparkles className="absolute bottom-3 left-3 w-4 h-4 text-amber-300 sparkle sparkle-delay-2" />
+                                  <Star className="absolute bottom-2 right-2 w-5 h-5 text-yellow-500 sparkle sparkle-delay-3" />
+                                  <Star className="absolute top-1/2 left-1 w-3 h-3 text-amber-400 sparkle sparkle-delay-4" />
+                                </>
+                              )}
+                              
+                              <p className={`text-sm font-medium mb-2 ${validacaoMargem?.color || 'text-foreground'}`}>
+                                💰 Margem de Lucro
+                              </p>
+                              <p className={`text-3xl font-bold ${validacaoMargem?.color || 'text-foreground'}`}>
+                                {resultado.margemLucroPercentual.toFixed(1)}%
+                              </p>
+                              <p className={`text-sm font-semibold mt-1 ${validacaoMargem?.color || 'text-foreground'}`}>
+                                R$ {resultado.margemLucroValor.toFixed(2)}
+                              </p>
+                              
+                              {validacaoMargem?.status === 'excelente' && (
+                                <p className="mt-3 text-lg font-bold text-amber-700 animate-pulse">
+                                  VOCÊ VAI FAZER A LEMON RICA
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {validacaoMargem && validacaoMargem.status !== 'excelente' && (
+                            <div className={`p-4 rounded-lg ${validacaoMargem.bgColor}`}>
+                              <p className={`font-medium ${validacaoMargem.color}`}>{validacaoMargem.mensagem}</p>
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            <Label>Observações</Label>
+                            <Textarea
+                              value={observacoes}
+                              onChange={(e) => setObservacoes(e.target.value)}
+                              placeholder="Observações sobre esta precificação..."
+                              rows={3}
+                            />
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Button onClick={handleSalvar} className="flex-1" disabled={salvarPrecificacao.isPending}>
+                              <Save className="w-4 h-4 mr-2" />
+                              Salvar Precificação
+                            </Button>
+                            <Button variant="outline" className="flex-1" onClick={() => setPropostaDialog(true)}>
+                              <FileDown className="w-4 h-4 mr-2" />
+                              Gerar Proposta
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de Senha */}
       <Dialog open={senhaDialog} onOpenChange={setSenhaDialog}>
@@ -788,7 +835,6 @@ export default function Precificacao() {
                   setGerandoPDF(true);
                   
                   try {
-                    // Pequeno delay para mostrar o loading
                     await new Promise(resolve => setTimeout(resolve, 500));
                     
                     await gerarPropostaPDF({
