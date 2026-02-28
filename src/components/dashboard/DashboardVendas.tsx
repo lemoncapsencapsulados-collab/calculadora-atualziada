@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy, Users, TrendingUp, Package } from 'lucide-react';
+import { Trophy, Users, TrendingUp, Package, AlertCircle } from 'lucide-react';
 import type { MetricaConsultor, ProdutoVendido, MixVendas } from '@/types/dashboard';
 import { Progress } from '@/components/ui/progress';
 
@@ -8,9 +8,10 @@ interface DashboardVendasProps {
   rankingConsultores: MetricaConsultor[];
   produtosMaisVendidos: ProdutoVendido[];
   mixVendas: MixVendas;
+  consultoresUnicos: string[];
 }
 
-export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas }: DashboardVendasProps) {
+export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos }: DashboardVendasProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -18,6 +19,16 @@ export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixV
       minimumFractionDigits: 2
     }).format(value);
   };
+
+  // Merge ranking with all consultants, adding zeros for those without sales
+  const rankingCompleto = (() => {
+    const comVendas = [...rankingConsultores].sort((a, b) => b.faturamento - a.faturamento);
+    const nomesComVendas = new Set(comVendas.map(c => c.consultor));
+    const semVendas: MetricaConsultor[] = consultoresUnicos
+      .filter(nome => !nomesComVendas.has(nome))
+      .map(nome => ({ consultor: nome, vendas: 0, faturamento: 0, ticketMedio: 0, clientesUnicos: 0 }));
+    return [...comVendas, ...semVendas];
+  })();
 
   const totalFaturamento = rankingConsultores.reduce((acc, c) => acc + c.faturamento, 0);
   const totalVendas = rankingConsultores.reduce((acc, c) => acc + c.vendas, 0);
@@ -33,9 +44,9 @@ export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixV
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {rankingConsultores.length === 0 ? (
+          {rankingCompleto.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              Nenhuma venda aprovada no período
+              Nenhum consultor encontrado
             </p>
           ) : (
             <Table>
@@ -49,25 +60,26 @@ export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixV
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rankingConsultores.map((consultor, index) => (
-                  <TableRow key={consultor.consultor}>
+                {rankingCompleto.map((consultor, index) => (
+                  <TableRow key={consultor.consultor} className={consultor.vendas === 0 ? 'opacity-60' : ''}>
                     <TableCell className="font-bold">
-                      {index === 0 && <span className="text-yellow-500">🥇</span>}
-                      {index === 1 && <span className="text-gray-400">🥈</span>}
-                      {index === 2 && <span className="text-amber-600">🥉</span>}
-                      {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
+                      {consultor.vendas > 0 && index === 0 && <span className="text-yellow-500">🥇</span>}
+                      {consultor.vendas > 0 && index === 1 && <span className="text-gray-400">🥈</span>}
+                      {consultor.vendas > 0 && index === 2 && <span className="text-amber-600">🥉</span>}
+                      {consultor.vendas > 0 && index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
+                      {consultor.vendas === 0 && <AlertCircle className="h-4 w-4 text-orange-500" />}
                     </TableCell>
                     <TableCell className="font-medium">{consultor.consultor}</TableCell>
                     <TableCell className="text-center">{consultor.vendas}</TableCell>
-                    <TableCell className="text-right font-semibold text-green-600">
+                    <TableCell className={`text-right font-semibold ${consultor.vendas > 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
                       {formatCurrency(consultor.faturamento)}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {formatCurrency(consultor.ticketMedio)}
+                      {consultor.vendas > 0 ? formatCurrency(consultor.ticketMedio) : '-'}
                     </TableCell>
                   </TableRow>
                 ))}
-                {rankingConsultores.length > 0 && (
+                {totalVendas > 0 && (
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell></TableCell>
                     <TableCell>TOTAL</TableCell>
