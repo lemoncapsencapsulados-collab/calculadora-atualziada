@@ -172,12 +172,13 @@ export default function Orcamentos() {
 
           {/* Kanban View */}
           {viewMode === 'kanban' && (
-            <OrcamentoKanbanView
+             <OrcamentoKanbanView
               orcamentos={kanbanOrcamentos}
               onEdit={setEditandoOrcamento}
               onDelete={setDeletandoId}
               onPreview={setPreviewOrcamento}
               onPropostaCompleta={setPropostaCompletaOrcamento}
+              onStatusChange={handleStatusChange}
             />
           )}
 

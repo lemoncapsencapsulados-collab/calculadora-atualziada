@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Orcamento } from '@/types/orcamento';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,21 +22,61 @@ interface Props {
   onDelete: (id: string) => void;
   onPreview: (o: Orcamento) => void;
   onPropostaCompleta: (o: Orcamento) => void;
+  onStatusChange: (id: string, newStatus: string) => void;
 }
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPreview, onPropostaCompleta }: Props) {
+export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPreview, onPropostaCompleta, onStatusChange }: Props) {
+  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
+
   const grouped = COLUMNS.map(col => ({
     ...col,
-    items: orcamentos.filter(o => o.status === col.status),
+    items: orcamentos
+      .filter(o => o.status === col.status)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
   }));
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, status: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStatus(status);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverStatus(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, status: string) => {
+    e.preventDefault();
+    setDragOverStatus(null);
+    const id = e.dataTransfer.getData('text/plain');
+    if (id) {
+      const orcamento = orcamentos.find(o => o.id === id);
+      if (orcamento && orcamento.status !== status) {
+        onStatusChange(id, status);
+      }
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       {grouped.map(col => (
-        <div key={col.status} className="flex flex-col rounded-lg border bg-card overflow-hidden">
+        <div
+          key={col.status}
+          className={`flex flex-col rounded-lg border bg-card overflow-hidden transition-all duration-200 ${
+            dragOverStatus === col.status ? 'ring-2 ring-primary border-primary bg-primary/5' : ''
+          }`}
+          onDragOver={(e) => handleDragOver(e, col.status)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, col.status)}
+        >
           <div className={`px-4 py-3 font-semibold text-sm flex items-center justify-between ${col.headerClass}`}>
             <span>{col.label}</span>
             <Badge variant={col.badgeVariant} className="text-xs">{col.items.length}</Badge>
@@ -46,7 +87,12 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                 <p className="text-xs text-muted-foreground text-center py-6">Nenhum orçamento</p>
               )}
               {col.items.map(o => (
-                <Card key={o.id} className="shadow-sm">
+                <Card
+                  key={o.id}
+                  className="shadow-sm cursor-grab active:cursor-grabbing"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, o.id)}
+                >
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-1">
                       <div className="min-w-0">
