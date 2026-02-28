@@ -1,44 +1,50 @@
 
+# Visualizacao Lista/Kanban e Filtro por Consultor em /orcamentos
 
-## Plano: Paginacao server-side na aba Precificacoes Salvas
+## Resumo
+Adicionar dois modos de visualizacao (Lista e Kanban) na tela de orcamentos, com toggle no topo direito, e um filtro por consultor responsavel. O modo Kanban agrupa os orcamentos em 4 colunas por status. O nome do consultor sera exibido nos cards de ambos os modos.
 
-### Mudancas
+## Alteracoes
 
-#### 1. Novo hook `usePrecificacoesPaginadas`
+### 1. Hook `useOrcamentosPaginados` - Adicionar filtro por consultor
+- Adicionar parametro `consultorFilter` ao hook
+- Quando preenchido, aplicar `.eq('consultor_responsavel', consultorFilter)` nas queries de contagem e dados
+- Para o modo Kanban, criar um novo hook (ou query separada) que busca TODOS os orcamentos sem paginacao (agrupados por status no frontend), respeitando os filtros de busca e consultor
 
-Criar um hook dedicado para buscar precificacoes com paginacao no banco:
+### 2. Novo hook `useConsultoresDisponiveis`
+- Query distinta em `orcamentos` para listar os valores unicos de `consultor_responsavel`
+- Alimenta o dropdown de filtro por consultor
 
-- Aceita `page`, `pageSize` (15) e `searchTerm`
-- Query de contagem com filtro por `nome_formula` ou `cliente` via join com `formulas`
-- Query de dados com `.range()`, `order('created_at', { ascending: false })` e join `formulas(nome_formula, cliente, tipo_produto)`
-- Retorna `{ precificacoes, totalCount, totalPages, isLoading }`
+### 3. Pagina `Orcamentos.tsx` - Refatoracao
+- **Estado de modo de visualizacao**: `viewMode: 'list' | 'kanban'`
+- **Estado de filtro consultor**: `consultorFilter: string`
+- **Barra de filtros**: Ao lado do campo de busca, adicionar:
+  - Select/dropdown para filtrar por consultor responsavel
+  - No topo direito (ao lado do botao "Novo Orcamento"), dois icones toggle: `List` (lucide) e `Columns` ou `LayoutGrid` (lucide) para alternar entre lista e kanban
+- **Modo Lista**: Manter implementacao atual com paginacao, passando o filtro de consultor ao hook
+- **Modo Kanban**: Renderizar 4 colunas (Rascunho, Enviado, Aprovado, Recusado), cada uma com scroll vertical, cards compactos com: nome cliente, consultor, numero orcamento, valor total, data/hora. Acoes de editar/excluir/gerar PDF acessiveis via botoes no card
 
-O filtro de busca sera feito no banco usando `or` na tabela `formulas` via relacionamento. Como o Supabase permite filtrar em colunas de tabelas relacionadas usando a sintaxe `formulas.nome_formula`, isso sera usado para manter a busca server-side.
+### 4. Componente `OrcamentoKanbanView` (novo)
+- Recebe lista completa de orcamentos filtrados
+- Agrupa por status em 4 colunas
+- Cards compactos com informacoes resumidas e acoes
+- Estilo visual com cores distintas no cabecalho de cada coluna (cinza para rascunho, azul para enviado, verde para aprovado, vermelho para recusado)
 
-#### 2. Atualizar `PrecificacoesSalvas.tsx`
+### 5. Nome do consultor nos cards
+- Ja esta parcialmente implementado (linha 178-179 mostra `consultor_responsavel`). Garantir que apareca de forma clara em ambos os modos com label "Consultor:"
 
-- Substituir `usePrecificacao` por `usePrecificacoesPaginadas` para a listagem
-- Manter `usePrecificacao` apenas para as mutations (deletar)
-- Adicionar estado `currentPage` (default 1), resetar para 1 ao mudar `searchTerm`
-- Remover filtragem client-side (`precificacoesFiltradas`)
-- Adicionar controles de paginacao abaixo da lista: botoes Anterior/Proxima + indicador "Pagina X de Y" + total de resultados
+## Detalhes Tecnicos
 
-### Detalhes tecnicos
+**Arquivos modificados:**
+- `src/hooks/useOrcamentosPaginados.ts` - adicionar `consultorFilter` como parametro
+- `src/pages/Orcamentos.tsx` - adicionar estados, filtros, toggle de visualizacao, e renderizacao condicional
 
-**Novo arquivo: `src/hooks/usePrecificacoesPaginadas.ts`**
+**Arquivos criados:**
+- `src/components/OrcamentoKanbanView.tsx` - componente do kanban
 
-```text
-usePrecificacoesPaginadas({ page, pageSize, searchTerm })
-  -> Query count: precificacoes com join formulas, filtro ilike
-  -> Query data: precificacoes com join formulas, order created_at DESC, range
-  -> Retorna: { precificacoes, totalCount, totalPages, isLoading }
-```
+**Kanban - busca de dados:**
+No modo kanban, a paginacao nao se aplica da mesma forma. Sera feita uma query sem `.range()` (limitada a 200 registros para performance) com os filtros de busca e consultor aplicados, e o agrupamento por status sera feito no frontend.
 
-**Arquivo modificado: `src/components/PrecificacoesSalvas.tsx`**
-
-- Importar e usar `usePrecificacoesPaginadas` em vez do `usePrecificacao` para listagem
-- Importar `usePrecificacao` apenas para `deletarPrecificacao`
-- Adicionar `currentPage` state + `useEffect` para resetar ao mudar busca
-- Adicionar componente de paginacao (botoes + indicador) apos a lista de cards
-- Invalidar queries de paginacao apos deletar
-
+**Icones sugeridos (lucide-react):**
+- Modo lista: `List`
+- Modo kanban: `Kanban` ou `Columns3`
