@@ -13,7 +13,8 @@ import type {
   InsightDashboard,
   EvolucaoTemporal,
   PerfilCliente,
-  DistribuicaoCanal
+  DistribuicaoCanal,
+  DistribuicaoConsultorStatus
 } from '@/types/dashboard';
 
 interface OrcamentoData {
@@ -325,6 +326,28 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .sort((a, b) => b.faturamento - a.faturamento);
   }, [orcamentosFiltrados]);
 
+  const distribuicaoConsultorStatus = useMemo((): DistribuicaoConsultorStatus[] => {
+    const porConsultor = new Map<string, { rascunho: number; enviado: number; aprovado: number; recusado: number }>();
+
+    orcamentosFiltrados.forEach(o => {
+      const consultor = o.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, aprovado: 0, recusado: 0 };
+      const status = o.status?.toLowerCase() || 'rascunho';
+      if (status in atual) {
+        (atual as Record<string, number>)[status] += 1;
+      }
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({
+        consultor,
+        ...dados,
+        total: dados.rascunho + dados.enviado + dados.aprovado + dados.recusado
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [orcamentosFiltrados]);
+
   return {
     orcamentos: orcamentosFiltrados,
     consultoresUnicos,
@@ -336,6 +359,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     insights,
     evolucaoTemporal,
     distribuicaoCanais,
+    distribuicaoConsultorStatus,
     isLoading: loadingOrcamentos
   };
 }

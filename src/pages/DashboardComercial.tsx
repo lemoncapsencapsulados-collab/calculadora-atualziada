@@ -30,6 +30,7 @@ export default function DashboardComercial() {
     kpis,
     rankingConsultores,
     pipelineConsultores,
+    distribuicaoConsultorStatus,
     produtosMaisVendidos,
     mixVendas,
     insights,
@@ -99,7 +100,7 @@ export default function DashboardComercial() {
       />
 
       {/* Pipeline */}
-      <DashboardPipeline pipelineConsultores={pipelineConsultores} />
+      <DashboardPipeline distribuicaoConsultorStatus={distribuicaoConsultorStatus} />
 
       {/* Gráficos */}
       <DashboardGraficos
