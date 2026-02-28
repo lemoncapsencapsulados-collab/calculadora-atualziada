@@ -1,63 +1,48 @@
 
-# Combobox de Consultor com tabela de Usuarios
 
-## Resumo
-Criar tabela `usuarios` no banco de dados e substituir o campo texto livre "Consultor Responsavel" por uma combobox com autocomplete/filtro, alimentada pela tabela de usuarios. Adicionar botao "+" para abrir modal de CRUD completo de usuarios.
+# Distribuicao de Orcamentos por Consultor e Status
 
-## Alteracoes no Banco de Dados
+## Problema Atual
+O card "Pipeline por Consultor" exibe apenas orcamentos com status "enviado" em formato de tabela, mostrando dados limitados (valor total, ticket medio, dias aberto). Isso nao fornece uma visao estrategica da performance completa dos consultores.
 
-### Nova tabela `usuarios`
-- `id` (uuid, PK, default gen_random_uuid())
-- `nome` (text, NOT NULL)
-- `cargo` (text, NOT NULL) - papel/cargo da pessoa
-- `email` (text)
-- `telefone` (text)
-- `ativo` (boolean, default true)
-- `created_at` (timestamptz, default now())
-- `updated_at` (timestamptz, default now())
-- RLS: politicas publicas (mesmo padrao das demais tabelas do projeto)
+## Proposta: Grafico de Barras Horizontais Empilhadas
 
-## Novos Arquivos
+Apos reflexao, o melhor modelo de grafico para esta situacao e o **grafico de barras horizontais empilhadas** (Stacked Horizontal Bar Chart). Justificativa:
 
-### 1. `src/hooks/useUsuarios.ts`
-- Hook com queries e mutations para CRUD da tabela `usuarios`
-- Query principal com filtros opcionais: `ativo` (boolean), `searchNome` (text)
-- Mutations: criar, atualizar, toggle ativo/inativo
+- **Comparacao direta entre consultores**: cada barra representa um consultor, facilitando a leitura de quem tem mais orcamentos
+- **Distribuicao por status visivel**: os segmentos coloridos dentro de cada barra mostram a proporcao de cada status (Rascunho, Enviado, Aprovado, Recusado)
+- **Leitura rapida**: permite identificar em segundos qual consultor converte mais, qual tem mais propostas paradas, qual tem mais recusas
+- **Escalabilidade**: funciona bem com 2 a 15+ consultores sem poluir a tela
+- **Cores intuitivas**: Rascunho (cinza), Enviado (laranja/amarelo), Aprovado (verde), Recusado (vermelho)
 
-### 2. `src/components/GerenciarUsuariosDialog.tsx`
-- Modal com CRUD completo de usuarios
-- Datatable listando usuarios com colunas: Nome, Cargo, Email, Telefone, Status
-- Filtro por nome (campo de busca)
-- Toggle para mostrar inativos (por padrao mostra somente ativos)
-- Botoes para incluir novo, editar existente, ativar/inativar
-- Formulario inline ou sub-modal para adicionar/editar usuario (campos: nome, cargo, email, telefone)
-- Ao fechar, retorna o nome do usuario recem-criado (se houver) via callback
+O card tera tambem um resumo em badges no header mostrando o total de orcamentos por status no periodo.
 
-### 3. `src/components/ConsultorCombobox.tsx`
-- Combobox com autocomplete e filtro usando `cmdk` (ja instalado no projeto via componente Command)
-- Lista usuarios ativos da tabela `usuarios`
-- Popover com input de busca e lista filtrada
-- Prop `value` (nome selecionado) e `onChange` (callback)
-- Botao "+" ao lado que abre `GerenciarUsuariosDialog`
-- Campo nao editavel manualmente - somente selecao da lista
+## Alteracoes
+
+### 1. Hook `useDashboardComercial.ts`
+- Criar novo `useMemo` chamado `distribuicaoConsultorStatus` que processa `orcamentosFiltrados` (ja respeita filtros de consultor e datas)
+- Agrupa por `consultor_responsavel` e conta orcamentos por status: `rascunho`, `enviado`, `aprovado`, `recusado`
+- Retorna array com: `{ consultor, rascunho, enviado, aprovado, recusado, total }`
+- Exportar no retorno do hook
+
+### 2. Componente `DashboardPipeline.tsx`
+- Substituir a tabela atual pelo grafico de barras horizontais empilhadas usando `recharts` (ja instalado)
+- Componentes do recharts: `BarChart`, `Bar`, `XAxis`, `YAxis`, `Tooltip`, `Legend`, `ResponsiveContainer` com `layout="vertical"`
+- 4 segmentos por barra: Rascunho (cinza), Enviado (amber), Aprovado (verde), Recusado (vermelho)
+- Tooltip customizado mostrando quantidade e percentual de cada status
+- Legendas coloridas na parte inferior
+- Badges no header com totais gerais por status
+- Titulo atualizado: "Distribuicao de Orcamentos por Consultor"
+
+### 3. Pagina `DashboardComercial.tsx`
+- Passar a nova prop `distribuicaoConsultorStatus` para `DashboardPipeline`
+
+### 4. Tipos `src/types/dashboard.ts`
+- Adicionar interface `DistribuicaoConsultorStatus` com campos: `consultor`, `rascunho`, `enviado`, `aprovado`, `recusado`, `total`
 
 ## Arquivos Modificados
+- `src/types/dashboard.ts` - nova interface
+- `src/hooks/useDashboardComercial.ts` - novo useMemo + exportacao
+- `src/components/dashboard/DashboardPipeline.tsx` - refatoracao completa do card
+- `src/pages/DashboardComercial.tsx` - passar nova prop
 
-### 4. `src/components/GerarOrcamentoDialog.tsx`
-- Substituir o `<Input>` do campo "Consultor Responsavel" (linhas 309-314) pelo novo `<ConsultorCombobox>`
-- Passar `value={consultorResponsavel}` e `onChange={setConsultorResponsavel}`
-- Remover a possibilidade de digitacao livre
-
-## Detalhes Tecnicos
-
-**Combobox**: Sera construida usando os componentes `Popover` + `Command` (cmdk) ja disponiveis no projeto, seguindo o padrao de combobox do shadcn/ui.
-
-**Fluxo do usuario**:
-1. Ao abrir "Gerar Orcamento - Passo 1 de 4", o campo Consultor Responsavel aparece como combobox
-2. Ao clicar, abre popover com lista filtrada de usuarios ativos
-3. Digitar filtra a lista em tempo real
-4. Se nao encontrar, clicar no botao "+" abre modal de gerenciamento
-5. Ao adicionar usuario e fechar a modal, o nome do novo usuario e automaticamente preenchido no campo
-6. O campo nao aceita digitacao manual - apenas selecao
-
-**Valor salvo**: Continua salvando apenas o nome (string) no campo `consultor_responsavel` da tabela `orcamentos`, sem foreign key.
