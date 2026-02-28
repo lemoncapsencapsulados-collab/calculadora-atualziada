@@ -313,6 +313,9 @@ export default function Precificacao() {
                           <p className="text-xs text-muted-foreground">
                             MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
                           </p>
+                          <p className="text-[10px] text-muted-foreground/60">
+                            {format(formula.data, 'dd/MM/yyyy HH:mm')}
+                          </p>
                         </CardContent>
                       </Card>
                     );
@@ -374,16 +377,13 @@ export default function Precificacao() {
                       <Badge variant="secondary">{formulaSelecionada.tipo_produto}</Badge>
                       <Badge variant="outline">{formulaSelecionada.cliente}</Badge>
                       <Badge variant="outline" className="text-muted-foreground">
-                        {format(formulaSelecionada.data, 'dd/MM/yyyy')}
+                        {format(formulaSelecionada.data, 'dd/MM/yyyy HH:mm')}
                       </Badge>
                       <Badge className="bg-primary/10 text-primary border-primary/20">
                         Custo Total: R$ {(Number(formulaSelecionada.total_mp) + Number(formulaSelecionada.total_embalagem)).toFixed(2)}
                       </Badge>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={handleCloseModal} className="shrink-0">
-                    <X className="w-5 h-5" />
-                  </Button>
                 </div>
               </div>
 
