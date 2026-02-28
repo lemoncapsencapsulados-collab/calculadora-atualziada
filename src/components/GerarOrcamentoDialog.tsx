@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento } from '@/types/orcamento';
@@ -306,11 +307,9 @@ export default function GerarOrcamentoDialog({
                   <UserCircle className="w-4 h-4" />
                   Consultor Responsável *
                 </Label>
-                <Input
-                  id="consultor"
+                <ConsultorCombobox
                   value={consultorResponsavel}
-                  onChange={(e) => setConsultorResponsavel(e.target.value)}
-                  placeholder="Nome do consultor responsável"
+                  onChange={setConsultorResponsavel}
                 />
               </div>
 
