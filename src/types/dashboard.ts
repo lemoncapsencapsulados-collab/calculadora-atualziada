@@ -102,3 +102,12 @@ export interface DistribuicaoCanal {
   faturamento: number;
   ticketMedio: number;
 }
+
+export interface DistribuicaoConsultorStatus {
+  consultor: string;
+  rascunho: number;
+  enviado: number;
+  aprovado: number;
+  recusado: number;
+  total: number;
+}
