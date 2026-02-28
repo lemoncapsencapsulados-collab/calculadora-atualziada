@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Pencil, Trash2, FileText, FileCheck, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -62,18 +63,40 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                     </div>
                     <p className="font-bold text-sm text-primary">{formatCurrency(o.valor_total)}</p>
                     <div className="flex flex-wrap gap-1">
-                      <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => onEdit(o)}>
-                        <Pencil className="w-3 h-3 mr-1" />Editar
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => onPreview(o)}>
-                        <FileText className="w-3 h-3 mr-1" />PDF
-                      </Button>
-                      <Button variant="default" size="sm" className="h-7 text-xs px-2" onClick={() => onPropostaCompleta(o)}>
-                        <FileCheck className="w-3 h-3 mr-1" />Proposta
-                      </Button>
-                      <Button variant="destructive" size="sm" className="h-7 text-xs px-2" onClick={() => onDelete(o.id)}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onEdit(o)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Editar</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPreview(o)}>
+                              <FileText className="w-3.5 h-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Gerar PDF</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="default" size="icon" className="h-7 w-7" onClick={() => onPropostaCompleta(o)}>
+                              <FileCheck className="w-3.5 h-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Proposta Completa</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => onDelete(o.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Excluir</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </CardContent>
                 </Card>
