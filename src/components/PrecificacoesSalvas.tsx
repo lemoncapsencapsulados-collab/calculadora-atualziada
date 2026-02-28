@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
+import { usePrecificacoesPaginadas } from '@/hooks/usePrecificacoesPaginadas';
 import { ConfiguracaoCustos, MargemLucro } from '@/types/precificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText } from 'lucide-react';
+import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import {
@@ -51,28 +53,32 @@ interface PrecificacaoComFormula {
   [key: string]: unknown;
 }
 
+const PAGE_SIZE = 15;
+
 export default function PrecificacoesSalvas({ 
   configuracaoAtiva, 
   margens 
 }: PrecificacoesSalvasProps) {
   const navigate = useNavigate();
-  const { precificacoes, isLoading, deletarPrecificacao } = usePrecificacao();
+  const queryClient = useQueryClient();
+  const { deletarPrecificacao } = usePrecificacao();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
 
-  // Filtrar precificações
-  const precificacoesFiltradas = (precificacoes as PrecificacaoComFormula[] | undefined)?.filter(p => {
-    const termo = searchTerm.toLowerCase().trim();
-    if (!termo) return true;
-    return (
-      p.formulas?.nome_formula?.toLowerCase().includes(termo) ||
-      p.formulas?.cliente?.toLowerCase().includes(termo)
-    );
-  }) || [];
+  const { precificacoes, totalCount, totalPages, isLoading } = usePrecificacoesPaginadas({
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+    searchTerm,
+  });
 
-  // Função para obter estilos da margem usando a nova validação por tipo
+  // Reset page on search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   const getMargemStyles = (margem: number, tipoProduto?: string) => {
     if (!tipoProduto) return { 
       color: 'text-foreground', 
@@ -94,6 +100,7 @@ export default function PrecificacoesSalvas({
     if (deletandoId) {
       await deletarPrecificacao.mutateAsync(deletandoId);
       setDeletandoId(null);
+      queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
     }
   };
 
@@ -104,6 +111,8 @@ export default function PrecificacoesSalvas({
       </div>
     );
   }
+
+  const typedPrecificacoes = precificacoes as PrecificacaoComFormula[];
 
   return (
     <div className="space-y-6">
@@ -125,7 +134,7 @@ export default function PrecificacoesSalvas({
       </div>
 
       {/* Lista de Precificações */}
-      {precificacoesFiltradas.length === 0 ? (
+      {typedPrecificacoes.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
@@ -136,7 +145,7 @@ export default function PrecificacoesSalvas({
         </Card>
       ) : (
         <div className="space-y-4">
-          {precificacoesFiltradas.map((precificacao) => (
+          {typedPrecificacoes.map((precificacao) => (
             <Card key={precificacao.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 p-4">
@@ -185,7 +194,6 @@ export default function PrecificacoesSalvas({
                         );
                         return (
                           <div className={`relative p-2 rounded-lg border overflow-hidden ${styles.bg} ${styles.border}`}>
-                            {/* Estrelinha quando excelente */}
                             {styles.isExcelente && (
                               <Sparkles className="absolute top-1 right-1 w-3 h-3 text-amber-400 sparkle" />
                             )}
@@ -198,7 +206,6 @@ export default function PrecificacoesSalvas({
                                 (R$ {Number(precificacao.margem_lucro_valor).toFixed(2)})
                               </span>
                             </div>
-                            {/* Badge de celebração */}
                             {styles.isExcelente && (
                               <p className="text-xs font-bold text-amber-600 animate-pulse mt-1">LEMON RICA!</p>
                             )}
@@ -231,6 +238,38 @@ export default function PrecificacoesSalvas({
               </CardContent>
             </Card>
           ))}
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-sm text-muted-foreground">
+                {totalCount} resultado{totalCount !== 1 ? 's' : ''}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => p - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Anterior
+                </Button>
+                <span className="text-sm text-muted-foreground px-2">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={currentPage >= totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
