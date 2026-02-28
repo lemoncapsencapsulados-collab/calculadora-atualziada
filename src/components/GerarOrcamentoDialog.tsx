@@ -42,11 +42,13 @@ import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 export default function GerarOrcamentoDialog({ 
   orcamentoExistente, 
-  onClose 
+  onClose,
+  onSuccess 
 }: GerarOrcamentoDialogProps) {
   const { createOrcamento, updateOrcamento, getNextNumeroOrcamento } = useOrcamentos();
   const { precificacoes } = usePrecificacao();
@@ -268,6 +270,7 @@ export default function GerarOrcamentoDialog({
       }
       
       onClose();
+      onSuccess?.();
     } catch (error) {
       console.error('Erro ao salvar orçamento:', error);
     } finally {

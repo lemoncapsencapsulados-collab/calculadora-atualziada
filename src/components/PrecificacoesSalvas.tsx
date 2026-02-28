@@ -292,6 +292,7 @@ export default function PrecificacoesSalvas({
       {showGerarOrcamento && (
         <GerarOrcamentoDialog
           onClose={() => setShowGerarOrcamento(false)}
+          onSuccess={() => navigate('/orcamentos')}
         />
       )}
 
