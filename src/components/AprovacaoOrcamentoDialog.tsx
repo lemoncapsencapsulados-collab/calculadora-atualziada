@@ -102,14 +102,37 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   };
 
   const handleConfirmAprovacao = async () => {
-    if (!dataPagamento) return;
+    // Validar campos obrigatórios
+    const camposFaltando: string[] = [];
+    if (!dadosCliente.nome_completo?.trim()) camposFaltando.push('Nome Completo');
+    if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
+    if (!dadosCliente.cpf?.trim()) camposFaltando.push('CPF');
+    if (!dadosCliente.cnpj?.trim()) camposFaltando.push('CNPJ');
+    if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone (WhatsApp)');
+    if (!dadosCliente.inscricao_estadual?.trim()) camposFaltando.push('Inscrição Estadual');
+    if (formaVenda === 'sem_informacao') camposFaltando.push('Forma de Venda');
+    if (!dataPagamento) camposFaltando.push('Data de Pagamento');
 
     const erros = validarCondicoesPagamento(condicoesPagamento);
     if (erros.length > 0) {
       setErrosPagamento(erros);
+      if (camposFaltando.length === 0) return;
+    } else {
+      setErrosPagamento([]);
+    }
+
+    if (camposFaltando.length > 0) {
+      const { toast } = await import('@/hooks/use-toast');
+      toast({
+        title: 'Campos obrigatórios não preenchidos',
+        description: camposFaltando.join(', '),
+        variant: 'destructive',
+      });
       return;
     }
-    setErrosPagamento([]);
+
+    if (erros.length > 0) return;
+
     setIsSubmitting(true);
 
     try {
@@ -186,29 +209,33 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Nome Completo</Label>
+                  <Label className="text-xs">Nome Completo <span className="text-destructive">*</span></Label>
                   <Input value={dadosCliente.nome_completo || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, nome_completo: e.target.value }))} placeholder="Nome completo" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Email</Label>
+                  <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
                   <Input type="email" value={dadosCliente.email || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, email: e.target.value }))} placeholder="email@exemplo.com" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Telefone</Label>
+                  <Label className="text-xs">Telefone (WhatsApp) <span className="text-destructive">*</span></Label>
                   <Input value={dadosCliente.telefone || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">CPF</Label>
+                  <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
                   <Input value={dadosCliente.cpf || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cpf: e.target.value }))} placeholder="000.000.000-00" />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">CNPJ</Label>
+                  <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
                   <div className="flex gap-2">
                     <Input value={dadosCliente.cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
                     <Button type="button" variant="outline" size="sm" onClick={handleBuscarCnpj} disabled={isSearchingCnpj || !dadosCliente.cnpj}>
                       {isSearchingCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                     </Button>
                   </div>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Inscrição Estadual <span className="text-destructive">*</span></Label>
+                  <Input value={dadosCliente.inscricao_estadual || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
                 </div>
                 <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Razão Social</Label>
@@ -235,7 +262,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4" />
-                2. Forma de Venda do Cliente
+                2. Forma de Venda do Cliente <span className="text-xs text-destructive font-normal">*</span>
               </CardTitle>
             </CardHeader>
             <CardContent>

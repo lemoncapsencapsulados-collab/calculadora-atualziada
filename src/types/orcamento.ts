@@ -32,6 +32,7 @@ export interface DadosCliente {
   telefone?: string;
   cpf?: string;
   cnpj?: string;
+  inscricao_estadual?: string;
   razao_social?: string;
   endereco_cnpj?: string;
   cep_cnpj?: string;
