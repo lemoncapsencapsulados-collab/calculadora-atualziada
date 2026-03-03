@@ -14,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -53,6 +54,16 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [detalhamentoEnvio, setDetalhamentoEnvio] = useState<DetalhamentoEnvio>({
     tipo: 'total_lemoncaps', descricao_parcial: '',
   });
+
+  // Detalhes de produção por item
+  const [detalhesProducao, setDetalhesProducao] = useState<Record<number, Record<string, string>>>({});
+
+  const updateDetalhe = (idx: number, campo: string, valor: string) => {
+    setDetalhesProducao(prev => ({
+      ...prev,
+      [idx]: { ...(prev[idx] || {}), [campo]: valor },
+    }));
+  };
 
   // Condições de pagamento
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>(
@@ -111,6 +122,22 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone (WhatsApp)');
     if (!dadosCliente.inscricao_estadual?.trim()) camposFaltando.push('Inscrição Estadual');
     if (formaVenda === 'sem_informacao') camposFaltando.push('Forma de Venda');
+
+    // Validar detalhes de produção por item
+    orcamento.itens_producao.forEach((item, idx) => {
+      const seg = (item.segmento || '').toLowerCase();
+      const d = detalhesProducao[idx] || {};
+      if (seg.includes('encapsulado')) {
+        if (!d.cor_tampa) camposFaltando.push(`Cor da Tampa (${item.nome_produto})`);
+        if (!d.cor_pote) camposFaltando.push(`Cor do Pote (${item.nome_produto})`);
+      } else if (seg.includes('gummy')) {
+        if (!d.cor_gummy) camposFaltando.push(`Cor da Gummy (${item.nome_produto})`);
+        if (!d.sabor_gummy) camposFaltando.push(`Sabor da Gummy (${item.nome_produto})`);
+      } else if (seg.includes('pó') || seg.includes('po') || seg.includes('solúvel') || seg.includes('soluvel')) {
+        if (!d.sabor_soluvel) camposFaltando.push(`Sabor Solúvel (${item.nome_produto})`);
+        if (!d.cor_soluvel) camposFaltando.push(`Cor Solúvel (${item.nome_produto})`);
+      }
+    });
     if (!dataPagamento) camposFaltando.push('Data de Pagamento');
 
     const erros = validarCondicoesPagamento(condicoesPagamento);
@@ -148,12 +175,18 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         detalhamento_envio: detalhamentoEnvio,
       };
 
+      // Merge detalhes_producao into itens
+      const itensComDetalhes = orcamento.itens_producao.map((item, idx) => ({
+        ...item,
+        detalhes_producao: detalhesProducao[idx] || undefined,
+      }));
+
       // Save all data to orcamento
       await updateDadosCliente.mutateAsync({ id: orcamento.id, dados_cliente: dadosClienteCompletos });
       await updateDetalhamentoFrete.mutateAsync({ id: orcamento.id, detalhamento_frete: detalhamentoFrete });
       await updateOrcamento.mutateAsync({
         id: orcamento.id,
-        updates: { condicoes_pagamento: condicoesPagamento },
+        updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
       });
 
       // Update status to approved
@@ -166,6 +199,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       // Auto-create pedido from orcamento
       const orcamentoCompleto = {
         ...orcamento,
+        itens_producao: itensComDetalhes,
         dados_cliente: dadosClienteCompletos,
         detalhamento_frete: detalhamentoFrete,
         condicoes_pagamento: condicoesPagamento,
@@ -257,12 +291,133 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             </CardContent>
           </Card>
 
-          {/* 2. Forma de Venda */}
+          {/* 2. Detalhes do Produto */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Beaker className="w-4 h-4" />
+                2. Detalhes do Produto <span className="text-xs text-destructive font-normal">(obrigatório)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {orcamento.itens_producao.map((item, idx) => {
+                const seg = (item.segmento || '').toLowerCase();
+                const isEncapsulado = seg.includes('encapsulado');
+                const isGummy = seg.includes('gummy');
+                const isSoluvel = seg.includes('pó') || seg.includes('po') || seg.includes('solúvel') || seg.includes('soluvel');
+                const d = detalhesProducao[idx] || {};
+
+                if (!isEncapsulado && !isGummy && !isSoluvel) {
+                  return (
+                    <div key={idx} className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-sm font-medium">{item.nome_produto}</p>
+                      <p className="text-xs text-muted-foreground">Qtd: {item.quantidade} — {item.segmento}</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium">{item.nome_produto}</p>
+                      <p className="text-xs text-muted-foreground">Qtd: {item.quantidade} — {item.segmento}</p>
+                      {item.dose_diaria_sugerida && (
+                        <p className="text-xs text-muted-foreground">Dose diária: {item.dose_diaria_sugerida}</p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {isEncapsulado && (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
+                            <Select value={d.cor_tampa || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Preta">Preta</SelectItem>
+                                <SelectItem value="Branca">Branca</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Cor do Pote <span className="text-destructive">*</span></Label>
+                            <Select value={d.cor_pote || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Preto">Preto</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+                      {isGummy && (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Cor da Gummy <span className="text-destructive">*</span></Label>
+                            <Select value={d.cor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Vermelho">Vermelho</SelectItem>
+                                <SelectItem value="Roxo">Roxo</SelectItem>
+                                <SelectItem value="Verde">Verde</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Sabor da Gummy <span className="text-destructive">*</span></Label>
+                            <Select value={d.sabor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_gummy', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Frutas vermelhas">Frutas vermelhas</SelectItem>
+                                <SelectItem value="Morango">Morango</SelectItem>
+                                <SelectItem value="Uva">Uva</SelectItem>
+                                <SelectItem value="Limão">Limão</SelectItem>
+                                <SelectItem value="Maçã verde">Maçã verde</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+                      {isSoluvel && (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Sabor <span className="text-destructive">*</span></Label>
+                            <Select value={d.sabor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_soluvel', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Limão">Limão</SelectItem>
+                                <SelectItem value="Frutas vermelhas">Frutas vermelhas</SelectItem>
+                                <SelectItem value="Morango">Morango</SelectItem>
+                                <SelectItem value="Uva">Uva</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Cor <span className="text-destructive">*</span></Label>
+                            <Select value={d.cor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_soluvel', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Verde">Verde</SelectItem>
+                                <SelectItem value="Vermelho">Vermelho</SelectItem>
+                                <SelectItem value="Roxo">Roxo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {/* 3. Forma de Venda */}
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4" />
-                2. Forma de Venda do Cliente <span className="text-xs text-destructive font-normal">*</span>
+                3. Forma de Venda do Cliente <span className="text-xs text-destructive font-normal">*</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -287,12 +442,12 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             </CardContent>
           </Card>
 
-          {/* 3. Detalhamento de Frete */}
+          {/* 4. Detalhamento de Frete */}
           <Card>
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Truck className="w-4 h-4" />
-                3. Detalhamento de Frete
+                4. Detalhamento de Frete
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -357,12 +512,12 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             </CardContent>
           </Card>
 
-          {/* 4. Condições de Pagamento */}
+          {/* 5. Condições de Pagamento */}
           <Card className={errosPagamento.length > 0 ? 'border-destructive' : ''}>
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wallet className="w-4 h-4" />
-                4. Condições de Pagamento
+                5. Condições de Pagamento
                 <span className="text-xs text-destructive font-normal">(obrigatório)</span>
               </CardTitle>
             </CardHeader>
@@ -391,7 +546,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4" />
-                5. Data do Pagamento do Cliente
+                6. Data do Pagamento do Cliente
                 <span className="text-xs text-destructive font-normal">(obrigatório)</span>
               </CardTitle>
             </CardHeader>

@@ -3,7 +3,6 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -110,6 +109,7 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
                   <InfoRow label="Email" value={dadosCliente.email} />
                   <InfoRow label="Telefone" value={dadosCliente.telefone} />
                   <InfoRow label="CNPJ" value={dadosCliente.cnpj} />
+                  <InfoRow label="Inscrição Estadual" value={dadosCliente.inscricao_estadual} />
                   <InfoRow label="Razão Social" value={dadosCliente.razao_social} />
                   {dadosCliente.cidade && (
                     <InfoRow label="Cidade/Estado" value={`${dadosCliente.cidade}/${dadosCliente.estado || ''}`} />
@@ -132,33 +132,56 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
           {/* Produtos / Fórmulas */}
           <Section icon={Package} title={isOrcamento ? 'Produtos' : 'Fórmula'}>
             {isOrcamento && itens.length > 0 ? (
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produto</TableHead>
-                      <TableHead className="text-center">Qtd</TableHead>
-                      <TableHead className="text-center">Modelo</TableHead>
-                      <TableHead className="text-right">Unit.</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itens.map((item: any, idx: number) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium">{item.nome_produto}</TableCell>
-                        <TableCell className="text-center">{item.modelo_negocio === 'print_on_demand' ? 'POD' : item.quantidade}</TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="text-xs">
-                            {item.modelo_negocio === 'print_on_demand' ? 'POD' : 'Estoque'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.preco_unitario)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(item.subtotal)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="space-y-3">
+                {itens.map((item: any, idx: number) => (
+                  <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium">{item.nome_produto}</p>
+                        <p className="text-xs text-muted-foreground">{item.segmento}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {item.modelo_negocio === 'print_on_demand' ? 'POD' : 'Estoque'}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                      <InfoRow label="Quantidade" value={item.modelo_negocio === 'print_on_demand' ? 'POD' : item.quantidade} />
+                      <InfoRow label="Preço Unit." value={formatCurrency(item.preco_unitario)} />
+                      <InfoRow label="Subtotal" value={formatCurrency(item.subtotal)} />
+                      {item.dose_diaria_sugerida && (
+                        <InfoRow label="Dose Diária" value={item.dose_diaria_sugerida} />
+                      )}
+                      {item.quantidade_por_pote && (
+                        <InfoRow label="Qtd por Pote" value={`${item.quantidade_por_pote} ${item.unidade_por_pote || ''}`} />
+                      )}
+                    </div>
+                    {item.detalhes_producao && (
+                      <div className="pt-1 border-t border-border/50">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Detalhes de Produção</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.detalhes_producao.cor_tampa && (
+                            <Badge variant="secondary" className="text-xs">Tampa: {item.detalhes_producao.cor_tampa}</Badge>
+                          )}
+                          {item.detalhes_producao.cor_pote && (
+                            <Badge variant="secondary" className="text-xs">Pote: {item.detalhes_producao.cor_pote}</Badge>
+                          )}
+                          {item.detalhes_producao.cor_gummy && (
+                            <Badge variant="secondary" className="text-xs">Cor Gummy: {item.detalhes_producao.cor_gummy}</Badge>
+                          )}
+                          {item.detalhes_producao.sabor_gummy && (
+                            <Badge variant="secondary" className="text-xs">Sabor: {item.detalhes_producao.sabor_gummy}</Badge>
+                          )}
+                          {item.detalhes_producao.sabor_soluvel && (
+                            <Badge variant="secondary" className="text-xs">Sabor: {item.detalhes_producao.sabor_soluvel}</Badge>
+                          )}
+                          {item.detalhes_producao.cor_soluvel && (
+                            <Badge variant="secondary" className="text-xs">Cor: {item.detalhes_producao.cor_soluvel}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             ) : !isOrcamento && formulaSnap ? (
               <div className="space-y-1 bg-muted/50 rounded-lg p-3">
