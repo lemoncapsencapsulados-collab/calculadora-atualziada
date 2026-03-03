@@ -1,44 +1,26 @@
 
 
-# Alertas de Atualização de Preço + Fornecedor Obrigatório no Inventário
+# Adicionar "Unidade" no select de unidades + Cápsula não obrigatória
 
 ## Alterações
 
-### 1. Migração SQL
-- Adicionar coluna `fornecedor` na tabela `embalagens` (text, nullable — para dados existentes, mas obrigatório no front)
-- As tabelas `insumos` e `embalagens` já possuem `updated_at` com trigger automático
+### 1. Adicionar "unidade" no select de unidades — `src/pages/Calculator.tsx`
+Na linha ~760, dentro do `<SelectContent>` de unidade dos itens da fórmula, adicionar:
+```
+<SelectItem value="unidade">Unidade</SelectItem>
+```
+Isso já é suportado pelo tipo `UnitType` e pela lógica de `calcularCustoInsumo` em `unitConversion.ts`.
 
-### 2. Tipos — `src/types/formula.ts`
-- Adicionar `updated_at?: string` em `Insumo` e `Embalagem`
-- Adicionar `fornecedor?: string` em `Embalagem`
-
-### 3. Hooks — `useInsumos.ts` e `useEmbalagens.ts`
-- Mapear `updated_at` do DB para os objetos
-- Mapear `fornecedor` no hook de embalagens
-
-### 4. Página Inventário — `src/pages/Inventario.tsx`
-
-**Fornecedor obrigatório (insumos):**
-- Tornar campo "Fornecedor" obrigatório no form (required, asterisco no label)
-- Validação no `handleSaveInsumo`: bloquear se fornecedor vazio
-
-**Fornecedor em embalagens:**
-- Adicionar campo "Fornecedor *" no form de embalagens (obrigatório)
-- Validação no `handleSaveEmbalagem`
-
-**Data de atualização nos cards:**
-- Exibir "Atualizado em: DD/MM/YYYY" em cada card de insumo e embalagem
-
-**Alertas visuais baseados em `updated_at`:**
-- Função utilitária que calcula dias desde última atualização
-- **Vermelho** (>= 60 dias): borda vermelha no card + badge "AJUSTE DE PREÇO NECESSÁRIO"
-- **Amarelo** (>= 53 dias e < 60 dias): borda amarela + badge "Restam X dias para a atualização de preço"
-- Aplicar tanto em insumos quanto em embalagens
+### 2. Remover obrigatoriedade da cápsula para Encapsulados — `src/pages/Calculator.tsx`
+Na linha ~441, remover a validação que bloqueia salvar sem cápsula selecionada:
+```typescript
+// REMOVER:
+if (tipoProduto === 'Encapsulados' && !selectedCapsula) {
+  toast.error('Selecione o tipo de cápsula');
+  return;
+}
+```
 
 ## Arquivos Modificados
-- Migração SQL (coluna `fornecedor` em `embalagens`)
-- `src/types/formula.ts`
-- `src/hooks/useInsumos.ts`
-- `src/hooks/useEmbalagens.ts`
-- `src/pages/Inventario.tsx`
+- `src/pages/Calculator.tsx` — 2 edições pontuais
 
