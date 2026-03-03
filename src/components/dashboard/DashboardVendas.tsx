@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy, Users, TrendingUp, Package, AlertCircle } from 'lucide-react';
+import { Trophy, Users, TrendingUp, Package, AlertCircle, Warehouse, Zap } from 'lucide-react';
 import type { MetricaConsultor, ProdutoVendido, MixVendas } from '@/types/dashboard';
 import { Progress } from '@/components/ui/progress';
 
@@ -10,15 +10,22 @@ interface VendaPorTipo {
   recompra: { qtd: number; valor: number };
 }
 
+interface ClientePorModelo {
+  consultor: string;
+  estoque: { qtd: number; valor: number };
+  pod: { qtd: number; valor: number };
+}
+
 interface DashboardVendasProps {
   rankingConsultores: MetricaConsultor[];
   produtosMaisVendidos: ProdutoVendido[];
   mixVendas: MixVendas;
   consultoresUnicos: string[];
   vendasPorTipo?: VendaPorTipo[];
+  clientesPorModelo?: ClientePorModelo[];
 }
 
-export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos, vendasPorTipo = [] }: DashboardVendasProps) {
+export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos, vendasPorTipo = [], clientesPorModelo = [] }: DashboardVendasProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -151,6 +158,65 @@ export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixV
                         <span className="text-sm">{vendasPorTipo.reduce((a, v) => a + v.recompra.qtd, 0)} vendas</span>
                         <br />
                         <span className="text-xs font-semibold text-orange-600">{formatCurrency(vendasPorTipo.reduce((a, v) => a + v.recompra.valor, 0))}</span>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Clientes com Estoque vs Print On Demand */}
+        {clientesPorModelo.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Warehouse className="h-5 w-5 text-emerald-500" />
+                Estoque vs Print On Demand
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Consultor</TableHead>
+                    <TableHead className="text-center text-emerald-600">
+                      <div className="flex items-center justify-center gap-1"><Warehouse className="h-3 w-3" /> Estoque</div>
+                    </TableHead>
+                    <TableHead className="text-center text-purple-600">
+                      <div className="flex items-center justify-center gap-1"><Zap className="h-3 w-3" /> POD</div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientesPorModelo.map(c => (
+                    <TableRow key={c.consultor}>
+                      <TableCell className="font-medium">{c.consultor}</TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{c.estoque.qtd} clientes</span>
+                        <br />
+                        <span className="text-xs font-semibold text-emerald-600">{formatCurrency(c.estoque.valor)}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{c.pod.qtd} clientes</span>
+                        <br />
+                        <span className="text-xs font-semibold text-purple-600">{formatCurrency(c.pod.valor)}</span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {clientesPorModelo.length > 1 && (
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell>TOTAL</TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{clientesPorModelo.reduce((a, c) => a + c.estoque.qtd, 0)} clientes</span>
+                        <br />
+                        <span className="text-xs font-semibold text-emerald-600">{formatCurrency(clientesPorModelo.reduce((a, c) => a + c.estoque.valor, 0))}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{clientesPorModelo.reduce((a, c) => a + c.pod.qtd, 0)} clientes</span>
+                        <br />
+                        <span className="text-xs font-semibold text-purple-600">{formatCurrency(clientesPorModelo.reduce((a, c) => a + c.pod.valor, 0))}</span>
                       </TableCell>
                     </TableRow>
                   )}

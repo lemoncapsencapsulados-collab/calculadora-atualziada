@@ -592,17 +592,40 @@ export default function GerarOrcamentoDialog({
                               <Badge variant={item.tipo === 'precificacao' ? 'default' : 'outline'} className="text-xs">
                                 {item.tipo === 'precificacao' ? 'Salvo' : 'Avulso'}
                               </Badge>
-                              {item.modelo_negocio === 'print_on_demand' && (
-                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                                  Print On Demand
-                                </Badge>
-                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">{item.segmento}</p>
                           </div>
                           
                           <div className="text-right text-sm">
                             <p className="text-muted-foreground">{formatCurrency(item.preco_unitario)}/un</p>
+                          </div>
+
+                          {/* Toggle Estoque / POD ao lado do preço */}
+                          <div className="flex rounded-lg border overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateModeloNegocio(index, 'estoque')}
+                              className={cn(
+                                'px-2.5 py-1 text-xs font-medium transition-all',
+                                item.modelo_negocio !== 'print_on_demand'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'hover:bg-muted'
+                              )}
+                            >
+                              Estoque
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateModeloNegocio(index, 'print_on_demand')}
+                              className={cn(
+                                'px-2.5 py-1 text-xs font-medium transition-all',
+                                item.modelo_negocio === 'print_on_demand'
+                                  ? 'bg-purple-600 text-white'
+                                  : 'hover:bg-muted'
+                              )}
+                            >
+                              POD
+                            </button>
                           </div>
                           
                           {item.modelo_negocio !== 'print_on_demand' && (
@@ -628,33 +651,6 @@ export default function GerarOrcamentoDialog({
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
-                        </div>
-
-                        {/* Seletor Modelo de Negócio */}
-                        <div className="flex items-center gap-4 pt-2 border-t">
-                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Modelo:</Label>
-                          <div className="flex gap-3">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`modelo-${index}`}
-                                checked={item.modelo_negocio !== 'print_on_demand'}
-                                onChange={() => handleUpdateModeloNegocio(index, 'estoque')}
-                                className="accent-primary"
-                              />
-                              <span className="text-xs">Estoque</span>
-                            </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`modelo-${index}`}
-                                checked={item.modelo_negocio === 'print_on_demand'}
-                                onChange={() => handleUpdateModeloNegocio(index, 'print_on_demand')}
-                                className="accent-primary"
-                              />
-                              <span className="text-xs">Print On Demand</span>
-                            </label>
-                          </div>
                         </div>
 
                         {/* Campos adicionais: quantidade por pote, unidade, dose diária - ocultos para POD */}
