@@ -6,18 +6,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   Search, Pencil, Trash2, Calendar, Package, Palette,
   FileText, Plus, CheckCircle2, FileCheck,
-  ChevronLeft, ChevronRight, List, Columns3
+  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -50,6 +56,10 @@ export default function Orcamentos() {
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
 
+  // State para popup de aprovação com data de pagamento
+  const [aprovandoOrcamento, setAprovandoOrcamento] = useState<{ id: string } | null>(null);
+  const [dataPagamento, setDataPagamento] = useState<Date | undefined>(undefined);
+
   const consultores = useConsultoresDisponiveis();
 
   const { orcamentos, totalCount, totalPages, isLoading: listLoading } = useOrcamentosPaginados({
@@ -74,6 +84,7 @@ export default function Orcamentos() {
     queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
     queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
     queryClient.invalidateQueries({ queryKey: ['consultores-disponiveis'] });
+    queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
   };
 
   const handleConfirmDelete = async () => {
@@ -85,7 +96,24 @@ export default function Orcamentos() {
   };
 
   const handleStatusChange = async (orcamentoId: string, newStatus: Orcamento['status']) => {
+    if (newStatus === 'aprovado') {
+      setAprovandoOrcamento({ id: orcamentoId });
+      setDataPagamento(undefined);
+      return;
+    }
     await updateStatus.mutateAsync({ id: orcamentoId, status: newStatus });
+    invalidateAll();
+  };
+
+  const handleConfirmAprovacao = async () => {
+    if (!aprovandoOrcamento || !dataPagamento) return;
+    await updateStatus.mutateAsync({
+      id: aprovandoOrcamento.id,
+      status: 'aprovado',
+      data_pagamento: dataPagamento.toISOString(),
+    });
+    setAprovandoOrcamento(null);
+    setDataPagamento(undefined);
     invalidateAll();
   };
 
@@ -117,7 +145,6 @@ export default function Orcamentos() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {/* View mode toggle */}
               <div className="flex items-center border rounded-md">
                 <Button
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
@@ -241,11 +268,17 @@ export default function Orcamentos() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
                                   {format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                 </div>
+                                {isAprovado && orcamento.data_pagamento && (
+                                  <div className="flex items-center gap-1 text-green-600">
+                                    <CalendarIcon className="w-3 h-3" />
+                                    Pgto: {format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-1">
                                   <Package className="w-3 h-3" />
                                   {orcamento.itens_producao?.length || 0} produto(s)
@@ -331,6 +364,7 @@ export default function Orcamentos() {
         <PropostaCompletaDialog orcamento={propostaCompletaOrcamento} onClose={() => setPropostaCompletaOrcamento(null)} />
       )}
 
+      {/* Dialog de confirmação de exclusão */}
       <AlertDialog open={!!deletandoId} onOpenChange={(open) => !open && setDeletandoId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -345,6 +379,56 @@ export default function Orcamentos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Data de Pagamento ao Aprovar */}
+      <Dialog open={!!aprovandoOrcamento} onOpenChange={(open) => { if (!open) { setAprovandoOrcamento(null); setDataPagamento(undefined); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              Aprovar Orçamento
+            </DialogTitle>
+            <DialogDescription>
+              Informe a data do pagamento do cliente para concluir a aprovação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <label className="text-sm font-medium">Data do Pagamento do Cliente</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dataPagamento && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dataPagamento ? format(dataPagamento, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={dataPagamento}
+                  onSelect={setDataPagamento}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAprovandoOrcamento(null); setDataPagamento(undefined); }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmAprovacao} disabled={!dataPagamento} className="bg-green-600 hover:bg-green-700 text-white">
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Confirmar Aprovação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

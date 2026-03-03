@@ -151,10 +151,14 @@ export function useOrcamentos() {
 
   // Update status
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: Orcamento['status'] }) => {
+    mutationFn: async ({ id, status, data_pagamento }: { id: string; status: Orcamento['status']; data_pagamento?: string }) => {
+      const updateData: any = { status };
+      if (data_pagamento !== undefined) {
+        updateData.data_pagamento = data_pagamento;
+      }
       const { data, error } = await supabase
         .from('orcamentos')
-        .update({ status })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();

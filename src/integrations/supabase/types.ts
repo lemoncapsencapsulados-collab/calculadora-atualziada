@@ -233,6 +233,7 @@ export type Database = {
           consultor_responsavel: string | null
           created_at: string | null
           dados_cliente: Json | null
+          data_pagamento: string | null
           detalhamento_frete: Json | null
           forma_pagamento: string | null
           id: string
@@ -253,6 +254,7 @@ export type Database = {
           consultor_responsavel?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
+          data_pagamento?: string | null
           detalhamento_frete?: Json | null
           forma_pagamento?: string | null
           id?: string
@@ -273,6 +275,7 @@ export type Database = {
           consultor_responsavel?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
+          data_pagamento?: string | null
           detalhamento_frete?: Json | null
           forma_pagamento?: string | null
           id?: string
