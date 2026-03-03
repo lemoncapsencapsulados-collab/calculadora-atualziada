@@ -20,11 +20,13 @@ import {
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
 import { StatusPedido } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
+  const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -365,6 +367,10 @@ const Pedidos = () => {
                   </div>
 
                   <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
+                      <Info className="h-4 w-4 mr-1" />
+                      Ver Detalhes
+                    </Button>
                     {!isOrcamento && (
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => gerarPDFOrdemProducao(pedido)}>
                         <Download className="h-4 w-4 mr-1" />
@@ -398,6 +404,11 @@ const Pedidos = () => {
           })
         )}
       </div>
+      <DetalhesPedidoDialog
+        pedido={pedidoDetalhe}
+        open={!!pedidoDetalhe}
+        onOpenChange={(open) => !open && setPedidoDetalhe(null)}
+      />
     </div>
   );
 };
