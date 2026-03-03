@@ -1,31 +1,51 @@
 
 
-# Print On Demand: Toggle mais visível + Métricas no Dashboard
+# Orçamento Aprovado → Proposta Completa no Popup + Auto-criar Pedido
 
-## Problema
-O seletor Estoque/Print On Demand existe no código mas está pouco visível (seção inferior do card, fácil de perder). O usuário quer que fique mais proeminente, ao lado do custo unitário. Além disso, a Dashboard precisa separar clientes por modelo de negócio.
+## Resumo
+Quando um orçamento for movido para "Aprovado", o popup atual (que só pede data de pagamento) será substituído pelo formulário completo da "Proposta Completa" (dados do cliente, forma de venda, frete, condições de pagamento + data de pagamento). Ao confirmar a aprovação, o sistema automaticamente cria um pedido em "Pedidos Gerados" com todos os dados do orçamento e da proposta comercial.
 
 ## Alterações
 
-### 1. Reposicionar toggle POD no card do item — `GerarOrcamentoDialog.tsx`
-- Mover o seletor Estoque / Print On Demand para **ao lado do preço unitário**, na linha principal do item (onde aparece "R$ 12,90/un")
-- Usar botões toggle estilizados (similar aos de Novo Produtor/Recompra) em vez de radio buttons discretos
-- Quando POD selecionado: esconder input de quantidade, subtotal = preço unitário (lógica já existe)
-- Remover a seção separada "Modelo:" que fica abaixo no card
+### 1. Migração SQL — expandir tabela `pedidos`
+Adicionar coluna `orcamento_id` (uuid, nullable) e `orcamento_snapshot` (jsonb, nullable) na tabela `pedidos` para armazenar referência e snapshot completo do orçamento aprovado (incluindo dados_cliente, frete, condições de pagamento, itens de produção, serviços).
 
-### 2. Dashboard — Clientes com Estoque vs Print On Demand — `useDashboardComercial.ts`
-- Analisar `itens_producao` dos orçamentos aprovados para classificar:
-  - **Estoque**: orçamentos onde TODOS os itens são `modelo_negocio !== 'print_on_demand'` (ou sem modelo definido)
-  - **Print On Demand**: orçamentos onde PELO MENOS UM item é `modelo_negocio === 'print_on_demand'`
-- Criar métrica `clientesPorModelo` com contagem e valor por consultor
+```sql
+ALTER TABLE public.pedidos ADD COLUMN orcamento_id uuid;
+ALTER TABLE public.pedidos ADD COLUMN orcamento_snapshot jsonb;
+-- Tornar formula_id e formula_snapshot opcionais para pedidos vindos de orçamentos
+ALTER TABLE public.pedidos ALTER COLUMN formula_id DROP NOT NULL;
+ALTER TABLE public.pedidos ALTER COLUMN formula_snapshot DROP NOT NULL;
+```
 
-### 3. Dashboard UI — `DashboardVendas.tsx`
-- Adicionar nova tabela/seção "Clientes com Estoque vs Print On Demand"
-- Mostrar por consultor: quantidade de clientes fechados com estoque, quantidade POD, e valores respectivos
-- Linha de total no rodapé
+### 2. Tipos — `src/types/formula.ts`
+Atualizar interface `Pedido` para incluir `orcamento_id?: string` e `orcamento_snapshot?: any` (contendo todos os dados do orçamento: itens_producao, servicos_marca, dados_cliente, detalhamento_frete, condicoes_pagamento, consultor, tipo_orcamento, etc).
+
+### 3. Popup de Aprovação — `src/pages/Orcamentos.tsx`
+Substituir o dialog simples de "Data de Pagamento" por um dialog maior que embute o formulário da Proposta Completa:
+- Reutilizar os campos do `PropostaCompletaDialog` (dados cliente, forma de venda, frete, condições de pagamento)
+- Adicionar campo de "Data de Pagamento" ao final
+- Ao confirmar: salvar dados_cliente + frete + condições de pagamento no orçamento, alterar status para "aprovado", e auto-criar um pedido na tabela `pedidos` com snapshot completo do orçamento
+
+### 4. Hook `usePedidos` — `src/hooks/usePedidos.ts`
+- Adicionar mutation `createPedidoFromOrcamento` que recebe um orçamento aprovado e cria o pedido com:
+  - `orcamento_id`: ID do orçamento
+  - `orcamento_snapshot`: snapshot completo (itens, cliente, frete, pagamento)
+  - `numero_pedido`: gerado automaticamente (PED-001, PED-002...)
+  - `data_pedido`: data atual
+  - `data_entrega`: pode ser data de pagamento + prazo ou data atual
+  - `status`: 'aguardando_producao'
+
+### 5. Página Pedidos — `src/pages/Pedidos.tsx`
+- Adaptar os cards para exibir pedidos vindos de orçamentos:
+  - Se tem `orcamento_snapshot`: mostrar nome do cliente, consultor, itens de produção, serviços de marca, dados do cliente, condições de pagamento, tipo de orçamento (Novo Produtor/Recompra), modelo (Estoque/POD)
+  - Se tem `formula_snapshot` (pedidos antigos): manter exibição atual
+- Expandir card com seções: Produtos, Dados do Cliente, Condições de Pagamento, Frete
 
 ## Arquivos Modificados
-- `src/components/GerarOrcamentoDialog.tsx` — reposicionar toggle POD
-- `src/hooks/useDashboardComercial.ts` — nova métrica por modelo de negócio
-- `src/components/dashboard/DashboardVendas.tsx` — nova tabela Estoque vs POD
+- Migração SQL (novas colunas em `pedidos`)
+- `src/types/formula.ts` — atualizar interface Pedido
+- `src/pages/Orcamentos.tsx` — substituir popup de aprovação
+- `src/hooks/usePedidos.ts` — novo mutation para criar pedido de orçamento
+- `src/pages/Pedidos.tsx` — adaptar exibição para pedidos de orçamento
 
