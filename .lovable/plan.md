@@ -1,52 +1,48 @@
 
 
-# Popup de Data de Pagamento ao Aprovar + Correção Dashboard por Consultor
+# Tipo de Orçamento: Novo Produtor vs Recompra
 
-## Problemas Identificados
+## Resumo
+Adicionar campo obrigatório no Passo 1 do orçamento para classificar como "Novo Produtor" ou "Recompra". Essa informação será exibida nos cards de orçamento e alimentará a Dashboard com métricas separadas por tipo.
 
-### 1. Falta popup de data de pagamento ao aprovar
-Quando o status muda para "aprovado", nada é perguntado. O usuario precisa registrar a data de pagamento do cliente.
+## Alterações
 
-### 2. Dados de consultores incompletos no Dashboard
-O dashboard filtra por periodo (mes atual). Os orcamentos "enviado" do Kilson sao de fevereiro, por isso nao aparecem. O problema e que a **distribuicao por status** (grafico de barras) deveria mostrar TODOS os orcamentos do consultor independente do periodo, ou o usuario precisa expandir o filtro. A solucao correta: a contagem de status por consultor no card Pipeline deve considerar todos os orcamentos (sem filtro de data), enquanto os KPIs e faturamento continuam filtrados por periodo.
-
-## Alteracoes
-
-### 1. Migração - adicionar coluna `data_pagamento` na tabela `orcamentos`
+### 1. Migração SQL
+Adicionar coluna `tipo_orcamento` na tabela `orcamentos`:
 ```sql
-ALTER TABLE orcamentos ADD COLUMN data_pagamento timestamp with time zone DEFAULT NULL;
+ALTER TABLE public.orcamentos ADD COLUMN tipo_orcamento text NOT NULL DEFAULT 'novo_produtor';
 ```
 
 ### 2. Tipos - `src/types/orcamento.ts`
-- Adicionar `data_pagamento?: string` na interface `Orcamento`
+- Adicionar `tipo_orcamento: 'novo_produtor' | 'recompra'` nas interfaces `Orcamento`, `OrcamentoInsert` e `OrcamentoUpdate`
 
-### 3. Popup de Data de Pagamento - `src/pages/Orcamentos.tsx`
-- Novo state `aprovandoOrcamento` para guardar o orcamento que esta sendo aprovado
-- Novo state `dataPagamento` (Date)
-- Modificar `handleStatusChange`: quando `newStatus === 'aprovado'`, ao inves de chamar `updateStatus` direto, abrir um Dialog pedindo a data de pagamento
-- O Dialog tera um DatePicker (Shadcn Calendar/Popover) com label "Data do Pagamento do Cliente"
-- Ao confirmar, chamar `updateStatus` + salvar `data_pagamento` no registro via update
+### 3. Componente - `src/components/GerarOrcamentoDialog.tsx`
+- Novo state `tipoOrcamento` com default `'novo_produtor'`
+- No Step 1, adicionar dois botões toggle estilizados (destacados, obrigatórios) logo no topo: "Novo Produtor" e "Recompra"
+- Carregar valor ao editar orçamento existente
+- Incluir `tipo_orcamento` no `handleSubmit` (tanto create quanto update)
+- Validação: `canGoNext` já exige campos preenchidos; `tipoOrcamento` terá default então sempre estará preenchido
 
-### 4. Kanban - `src/components/OrcamentoKanbanView.tsx`
-- Mesmo comportamento: ao dropar na coluna "Aprovado", interceptar e mostrar popup de data de pagamento
-- Passar callback `onApproveWithDate` ao inves de chamar `onStatusChange` direto quando target e "aprovado"
+### 4. Cards de orçamento - `src/pages/Orcamentos.tsx`
+- Exibir badge "Novo Produtor" (azul) ou "Recompra" (laranja) ao lado do status em cada card da lista
 
-### 5. Hook `useOrcamentos.ts`
-- Adicionar mutation ou ajustar `updateStatus` para aceitar `data_pagamento` opcional
+### 5. Kanban - `src/components/OrcamentoKanbanView.tsx`
+- Exibir badge de tipo no card do kanban também
 
 ### 6. Dashboard - `src/hooks/useDashboardComercial.ts`
-- **Correcao**: `distribuicaoConsultorStatus` deve usar `orcamentos` (sem filtro de data) ao inves de `orcamentosFiltrados`
-- Isso garante que a contagem por status de cada consultor mostra TODOS os orcamentos, independente do periodo selecionado
-- KPIs, ranking, pipeline continuam usando `orcamentosFiltrados` (comportamento correto)
+- Adicionar `tipo_orcamento` no select da query
+- Criar novas métricas por consultor: quantidade e valor de "novo_produtor" vs "recompra" nos orçamentos aprovados
+- Expor dados separados para o componente de vendas
 
-### 7. Dashboard Vendas - Exibir data de pagamento
-- No card de vendas aprovadas, mostrar `data_pagamento` quando disponivel
+### 7. Dashboard UI - `src/components/dashboard/DashboardVendas.tsx` ou `DashboardKPIs.tsx`
+- Exibir KPIs ou seção mostrando, por consultor, quanto veio de "Novo Produtor" e quanto de "Recompra"
 
 ## Arquivos Modificados
-- Migracao SQL (nova coluna `data_pagamento`)
+- Migração SQL (nova coluna)
 - `src/types/orcamento.ts`
+- `src/components/GerarOrcamentoDialog.tsx`
 - `src/pages/Orcamentos.tsx`
 - `src/components/OrcamentoKanbanView.tsx`
-- `src/hooks/useOrcamentos.ts`
 - `src/hooks/useDashboardComercial.ts`
+- `src/components/dashboard/DashboardVendas.tsx`
 
