@@ -1,48 +1,31 @@
 
 
-# Tipo de Orçamento: Novo Produtor vs Recompra
+# Print On Demand: Toggle mais visível + Métricas no Dashboard
 
-## Resumo
-Adicionar campo obrigatório no Passo 1 do orçamento para classificar como "Novo Produtor" ou "Recompra". Essa informação será exibida nos cards de orçamento e alimentará a Dashboard com métricas separadas por tipo.
+## Problema
+O seletor Estoque/Print On Demand existe no código mas está pouco visível (seção inferior do card, fácil de perder). O usuário quer que fique mais proeminente, ao lado do custo unitário. Além disso, a Dashboard precisa separar clientes por modelo de negócio.
 
 ## Alterações
 
-### 1. Migração SQL
-Adicionar coluna `tipo_orcamento` na tabela `orcamentos`:
-```sql
-ALTER TABLE public.orcamentos ADD COLUMN tipo_orcamento text NOT NULL DEFAULT 'novo_produtor';
-```
+### 1. Reposicionar toggle POD no card do item — `GerarOrcamentoDialog.tsx`
+- Mover o seletor Estoque / Print On Demand para **ao lado do preço unitário**, na linha principal do item (onde aparece "R$ 12,90/un")
+- Usar botões toggle estilizados (similar aos de Novo Produtor/Recompra) em vez de radio buttons discretos
+- Quando POD selecionado: esconder input de quantidade, subtotal = preço unitário (lógica já existe)
+- Remover a seção separada "Modelo:" que fica abaixo no card
 
-### 2. Tipos - `src/types/orcamento.ts`
-- Adicionar `tipo_orcamento: 'novo_produtor' | 'recompra'` nas interfaces `Orcamento`, `OrcamentoInsert` e `OrcamentoUpdate`
+### 2. Dashboard — Clientes com Estoque vs Print On Demand — `useDashboardComercial.ts`
+- Analisar `itens_producao` dos orçamentos aprovados para classificar:
+  - **Estoque**: orçamentos onde TODOS os itens são `modelo_negocio !== 'print_on_demand'` (ou sem modelo definido)
+  - **Print On Demand**: orçamentos onde PELO MENOS UM item é `modelo_negocio === 'print_on_demand'`
+- Criar métrica `clientesPorModelo` com contagem e valor por consultor
 
-### 3. Componente - `src/components/GerarOrcamentoDialog.tsx`
-- Novo state `tipoOrcamento` com default `'novo_produtor'`
-- No Step 1, adicionar dois botões toggle estilizados (destacados, obrigatórios) logo no topo: "Novo Produtor" e "Recompra"
-- Carregar valor ao editar orçamento existente
-- Incluir `tipo_orcamento` no `handleSubmit` (tanto create quanto update)
-- Validação: `canGoNext` já exige campos preenchidos; `tipoOrcamento` terá default então sempre estará preenchido
-
-### 4. Cards de orçamento - `src/pages/Orcamentos.tsx`
-- Exibir badge "Novo Produtor" (azul) ou "Recompra" (laranja) ao lado do status em cada card da lista
-
-### 5. Kanban - `src/components/OrcamentoKanbanView.tsx`
-- Exibir badge de tipo no card do kanban também
-
-### 6. Dashboard - `src/hooks/useDashboardComercial.ts`
-- Adicionar `tipo_orcamento` no select da query
-- Criar novas métricas por consultor: quantidade e valor de "novo_produtor" vs "recompra" nos orçamentos aprovados
-- Expor dados separados para o componente de vendas
-
-### 7. Dashboard UI - `src/components/dashboard/DashboardVendas.tsx` ou `DashboardKPIs.tsx`
-- Exibir KPIs ou seção mostrando, por consultor, quanto veio de "Novo Produtor" e quanto de "Recompra"
+### 3. Dashboard UI — `DashboardVendas.tsx`
+- Adicionar nova tabela/seção "Clientes com Estoque vs Print On Demand"
+- Mostrar por consultor: quantidade de clientes fechados com estoque, quantidade POD, e valores respectivos
+- Linha de total no rodapé
 
 ## Arquivos Modificados
-- Migração SQL (nova coluna)
-- `src/types/orcamento.ts`
-- `src/components/GerarOrcamentoDialog.tsx`
-- `src/pages/Orcamentos.tsx`
-- `src/components/OrcamentoKanbanView.tsx`
-- `src/hooks/useDashboardComercial.ts`
-- `src/components/dashboard/DashboardVendas.tsx`
+- `src/components/GerarOrcamentoDialog.tsx` — reposicionar toggle POD
+- `src/hooks/useDashboardComercial.ts` — nova métrica por modelo de negócio
+- `src/components/dashboard/DashboardVendas.tsx` — nova tabela Estoque vs POD
 
