@@ -13,6 +13,7 @@ export interface ItemProducao {
   quantidade: number;
   subtotal: number;
   insumos_formula?: InsumoSnapshot[];
+  modelo_negocio?: 'estoque' | 'print_on_demand';
   // Detalhes do produto
   quantidade_por_pote?: number;
   unidade_por_pote?: string;
