@@ -72,11 +72,14 @@ export interface DetalhamentoFrete {
   detalhamento_envio?: DetalhamentoEnvio;
 }
 
+export type TipoOrcamento = 'novo_produtor' | 'recompra';
+
 export interface Orcamento {
   id: string;
   numero_orcamento: string;
   nome_cliente: string;
   consultor_responsavel?: string;
+  tipo_orcamento: TipoOrcamento;
   itens_producao: ItemProducao[];
   servicos_marca: ServicoMarca[];
   dados_cliente?: DadosCliente;
@@ -98,6 +101,7 @@ export interface OrcamentoInsert {
   numero_orcamento: string;
   nome_cliente: string;
   consultor_responsavel?: string;
+  tipo_orcamento?: TipoOrcamento;
   itens_producao: ItemProducao[];
   servicos_marca: ServicoMarca[];
   dados_cliente?: DadosCliente;
@@ -115,6 +119,7 @@ export interface OrcamentoInsert {
 export interface OrcamentoUpdate {
   nome_cliente?: string;
   consultor_responsavel?: string;
+  tipo_orcamento?: TipoOrcamento;
   itens_producao?: ItemProducao[];
   servicos_marca?: ServicoMarca[];
   dados_cliente?: DadosCliente;

@@ -103,6 +103,13 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                         <p className="text-xs text-muted-foreground">{o.numero_orcamento}</p>
                       </div>
                     </div>
+                    <Badge variant="outline" className={
+                      (o as any).tipo_orcamento === 'recompra'
+                        ? 'border-orange-500 text-orange-700 dark:text-orange-300 text-[10px]'
+                        : 'border-blue-500 text-blue-700 dark:text-blue-300 text-[10px]'
+                    }>
+                      {(o as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
+                    </Badge>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Calendar className="w-3 h-3" />
                       {format(new Date(o.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}

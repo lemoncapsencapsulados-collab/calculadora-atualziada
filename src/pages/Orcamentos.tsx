@@ -246,6 +246,13 @@ export default function Orcamentos() {
                                     <Badge variant={STATUS_CONFIG[orcamento.status]?.variant || 'secondary'}>
                                       {STATUS_CONFIG[orcamento.status]?.label || orcamento.status}
                                     </Badge>
+                                    <Badge variant="outline" className={
+                                      (orcamento as any).tipo_orcamento === 'recompra'
+                                        ? 'border-orange-500 text-orange-700 dark:text-orange-300'
+                                        : 'border-blue-500 text-blue-700 dark:text-blue-300'
+                                    }>
+                                      {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
+                                    </Badge>
                                     {isAprovado && <CheckCircle2 className="w-5 h-5 text-green-600" />}
                                   </div>
                                   <p className="text-muted-foreground text-sm mt-1">

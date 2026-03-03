@@ -4,14 +4,21 @@ import { Trophy, Users, TrendingUp, Package, AlertCircle } from 'lucide-react';
 import type { MetricaConsultor, ProdutoVendido, MixVendas } from '@/types/dashboard';
 import { Progress } from '@/components/ui/progress';
 
+interface VendaPorTipo {
+  consultor: string;
+  novo_produtor: { qtd: number; valor: number };
+  recompra: { qtd: number; valor: number };
+}
+
 interface DashboardVendasProps {
   rankingConsultores: MetricaConsultor[];
   produtosMaisVendidos: ProdutoVendido[];
   mixVendas: MixVendas;
   consultoresUnicos: string[];
+  vendasPorTipo?: VendaPorTipo[];
 }
 
-export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos }: DashboardVendasProps) {
+export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos, vendasPorTipo = [] }: DashboardVendasProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -96,8 +103,63 @@ export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixV
         </CardContent>
       </Card>
 
-      {/* Mix de Vendas e Produtos */}
+      {/* Mix de Vendas, Tipo e Produtos */}
       <div className="space-y-6">
+        {/* Vendas por Tipo (Novo Produtor vs Recompra) */}
+        {vendasPorTipo.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="h-5 w-5 text-indigo-500" />
+                Novo Produtor vs Recompra
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Consultor</TableHead>
+                    <TableHead className="text-center text-blue-600">Novo Produtor</TableHead>
+                    <TableHead className="text-center text-orange-600">Recompra</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vendasPorTipo.map(v => (
+                    <TableRow key={v.consultor}>
+                      <TableCell className="font-medium">{v.consultor}</TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{v.novo_produtor.qtd} vendas</span>
+                        <br />
+                        <span className="text-xs font-semibold text-blue-600">{formatCurrency(v.novo_produtor.valor)}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{v.recompra.qtd} vendas</span>
+                        <br />
+                        <span className="text-xs font-semibold text-orange-600">{formatCurrency(v.recompra.valor)}</span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {vendasPorTipo.length > 1 && (
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell>TOTAL</TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{vendasPorTipo.reduce((a, v) => a + v.novo_produtor.qtd, 0)} vendas</span>
+                        <br />
+                        <span className="text-xs font-semibold text-blue-600">{formatCurrency(vendasPorTipo.reduce((a, v) => a + v.novo_produtor.valor, 0))}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm">{vendasPorTipo.reduce((a, v) => a + v.recompra.qtd, 0)} vendas</span>
+                        <br />
+                        <span className="text-xs font-semibold text-orange-600">{formatCurrency(vendasPorTipo.reduce((a, v) => a + v.recompra.valor, 0))}</span>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Mix de Vendas */}
         <Card>
           <CardHeader className="pb-3">
