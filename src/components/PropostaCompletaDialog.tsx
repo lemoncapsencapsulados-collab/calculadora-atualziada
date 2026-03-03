@@ -319,6 +319,14 @@ export default function PropostaCompletaDialog({
                   </div>
                 </div>
                 <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Inscrição Estadual</Label>
+                  <Input
+                    value={dadosCliente.inscricao_estadual || ''}
+                    onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))}
+                    placeholder="Inscrição estadual"
+                  />
+                </div>
+                <div className="col-span-2 space-y-1">
                   <Label className="text-xs">Razão Social</Label>
                   <Input
                     value={dadosCliente.razao_social || ''}
