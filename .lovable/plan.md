@@ -1,48 +1,52 @@
 
 
-# Print On Demand - Modelo de Orcamento no Passo 2
+# Popup de Data de Pagamento ao Aprovar + Correção Dashboard por Consultor
 
-## Contexto
-Atualmente, ao adicionar uma precificacao salva no Passo 2, o sistema assume modelo de Estoque (quantidade de produtos). O usuario precisa diferenciar entre dois modelos de negocio:
+## Problemas Identificados
 
-- **Estoque**: modelo atual, calcula quantidade de produtos, custo por volume
-- **Print On Demand (POD)**: sem compra de estoque, lucro apenas quando o produtor vende. Exibe apenas produto + custo unitario
+### 1. Falta popup de data de pagamento ao aprovar
+Quando o status muda para "aprovado", nada é perguntado. O usuario precisa registrar a data de pagamento do cliente.
+
+### 2. Dados de consultores incompletos no Dashboard
+O dashboard filtra por periodo (mes atual). Os orcamentos "enviado" do Kilson sao de fevereiro, por isso nao aparecem. O problema e que a **distribuicao por status** (grafico de barras) deveria mostrar TODOS os orcamentos do consultor independente do periodo, ou o usuario precisa expandir o filtro. A solucao correta: a contagem de status por consultor no card Pipeline deve considerar todos os orcamentos (sem filtro de data), enquanto os KPIs e faturamento continuam filtrados por periodo.
 
 ## Alteracoes
 
-### 1. Tipos - `src/types/orcamento.ts`
-- Adicionar campo `modelo_negocio?: 'estoque' | 'print_on_demand'` na interface `ItemProducao`
-- Quando nao preenchido, assume `'estoque'` (retrocompatibilidade)
+### 1. Migração - adicionar coluna `data_pagamento` na tabela `orcamentos`
+```sql
+ALTER TABLE orcamentos ADD COLUMN data_pagamento timestamp with time zone DEFAULT NULL;
+```
 
-### 2. Componente - `src/components/GerarOrcamentoDialog.tsx`
+### 2. Tipos - `src/types/orcamento.ts`
+- Adicionar `data_pagamento?: string` na interface `Orcamento`
 
-**Ao adicionar precificacao salva:**
-- Apos o item ser adicionado na lista, exibir um seletor de modelo (Radio Group ou Select) no card do item: "Estoque" ou "Print On Demand"
-- Default: `'estoque'`
-- Quando `print_on_demand` selecionado:
-  - Ocultar campo de quantidade (fixar em 1 ou remover)
-  - Exibir badge "Print On Demand" no card
-  - Subtotal = preco unitario (sem multiplicar por quantidade)
+### 3. Popup de Data de Pagamento - `src/pages/Orcamentos.tsx`
+- Novo state `aprovandoOrcamento` para guardar o orcamento que esta sendo aprovado
+- Novo state `dataPagamento` (Date)
+- Modificar `handleStatusChange`: quando `newStatus === 'aprovado'`, ao inves de chamar `updateStatus` direto, abrir um Dialog pedindo a data de pagamento
+- O Dialog tera um DatePicker (Shadcn Calendar/Popover) com label "Data do Pagamento do Cliente"
+- Ao confirmar, chamar `updateStatus` + salvar `data_pagamento` no registro via update
 
-**Na lista de itens (linhas ~532-610):**
-- Ao lado do badge "Salvo"/"Avulso", exibir badge "POD" em cor diferenciada se `modelo_negocio === 'print_on_demand'`
-- Quando POD: ocultar input de quantidade, mostrar apenas custo unitario
-- Quando POD: ocultar campos de "Qtd por Pote" e "Dose diaria" (nao aplicaveis)
+### 4. Kanban - `src/components/OrcamentoKanbanView.tsx`
+- Mesmo comportamento: ao dropar na coluna "Aprovado", interceptar e mostrar popup de data de pagamento
+- Passar callback `onApproveWithDate` ao inves de chamar `onStatusChange` direto quando target e "aprovado"
 
-### 3. PDF Orcamento - `src/lib/orcamentoGenerator.ts`
+### 5. Hook `useOrcamentos.ts`
+- Adicionar mutation ou ajustar `updateStatus` para aceitar `data_pagamento` opcional
 
-Na funcao `renderProdutos` (linhas ~255-350):
-- Se `item.modelo_negocio === 'print_on_demand'`:
-  - Adicionar badge/texto "PRINT ON DEMAND" ao lado do nome do produto no header do item
-  - Exibir "Custo Unitario: R$ X,XX" ao inves de "Quantidade X un. / Preco Unit. / Subtotal"
-  - Nao exibir composicao da formula (insumos)
-  - Nao exibir quantidade por pote nem dose diaria
+### 6. Dashboard - `src/hooks/useDashboardComercial.ts`
+- **Correcao**: `distribuicaoConsultorStatus` deve usar `orcamentos` (sem filtro de data) ao inves de `orcamentosFiltrados`
+- Isso garante que a contagem por status de cada consultor mostra TODOS os orcamentos, independente do periodo selecionado
+- KPIs, ranking, pipeline continuam usando `orcamentosFiltrados` (comportamento correto)
 
-### 4. PDF Proposta Completa - `src/lib/propostaGenerator.ts`
-- Verificar se a proposta completa referencia `itens_producao` (atualmente usa `PropostaData` separado, entao pode nao precisar de alteracao imediata - apenas se o fluxo de proposta completa consumir itens de orcamento)
+### 7. Dashboard Vendas - Exibir data de pagamento
+- No card de vendas aprovadas, mostrar `data_pagamento` quando disponivel
 
 ## Arquivos Modificados
-- `src/types/orcamento.ts` - novo campo `modelo_negocio`
-- `src/components/GerarOrcamentoDialog.tsx` - seletor de modelo + ajuste visual do card
-- `src/lib/orcamentoGenerator.ts` - renderizacao diferenciada no PDF
+- Migracao SQL (nova coluna `data_pagamento`)
+- `src/types/orcamento.ts`
+- `src/pages/Orcamentos.tsx`
+- `src/components/OrcamentoKanbanView.tsx`
+- `src/hooks/useOrcamentos.ts`
+- `src/hooks/useDashboardComercial.ts`
 
