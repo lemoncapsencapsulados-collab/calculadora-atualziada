@@ -89,6 +89,7 @@ export interface Orcamento {
   forma_pagamento?: string;
   validade_dias: number;
   status: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
+  data_pagamento?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -30,6 +30,7 @@ interface OrcamentoData {
   itens_producao: unknown;
   servicos_marca: unknown;
   dados_cliente: unknown;
+  data_pagamento: string | null;
 }
 
 interface ItemProducao {
@@ -47,7 +48,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orcamentos')
-        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, created_at, itens_producao, servicos_marca, dados_cliente')
+        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, created_at, itens_producao, servicos_marca, dados_cliente, data_pagamento')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -329,7 +330,12 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   const distribuicaoConsultorStatus = useMemo((): DistribuicaoConsultorStatus[] => {
     const porConsultor = new Map<string, { rascunho: number; enviado: number; aprovado: number; recusado: number }>();
 
-    orcamentosFiltrados.forEach(o => {
+    // Usar TODOS os orçamentos (sem filtro de data) para mostrar contagem completa por consultor
+    const orcamentosParaDistribuicao = filtros.consultor 
+      ? orcamentos.filter(o => o.consultor_responsavel === filtros.consultor)
+      : orcamentos;
+
+    orcamentosParaDistribuicao.forEach(o => {
       const consultor = o.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, aprovado: 0, recusado: 0 };
       const status = o.status?.toLowerCase() || 'rascunho';
@@ -346,7 +352,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         total: dados.rascunho + dados.enviado + dados.aprovado + dados.recusado
       }))
       .sort((a, b) => b.total - a.total);
-  }, [orcamentosFiltrados]);
+  }, [orcamentos, filtros.consultor]);
 
   return {
     orcamentos: orcamentosFiltrados,
