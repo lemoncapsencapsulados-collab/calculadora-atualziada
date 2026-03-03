@@ -1,32 +1,38 @@
 
 
-# Botão "VER DETALHES" com Popup Completo em Pedidos Gerados
-
-## Resumo
-Adicionar um botão "VER DETALHES" em cada card de pedido que abre um Dialog com todas as informações completas: dados do cliente, fórmulas/produtos com quantidades e valores, sistema de envio, condições de pagamento e plano/serviços contratados.
+# Campos Obrigatórios + Inscrição Estadual na Aprovação de Orçamento
 
 ## Alterações
 
-### 1. Criar componente `DetalhesPedidoDialog.tsx`
-Novo componente Dialog que recebe o pedido e exibe todas as informações organizadas em seções:
+### 1. Tipo `DadosCliente` — `src/types/orcamento.ts`
+- Adicionar campo `inscricao_estadual?: string`
 
-- **Informações Gerais**: número do pedido, data, status, consultor, tipo (Novo Produtor/Recompra)
-- **Dados do Cliente**: nome completo, email, telefone, CNPJ, razão social, cidade/estado, forma de venda
-- **Produtos/Fórmulas**: tabela com nome, quantidade, modelo de negócio, preço unitário, subtotal — ou dados da fórmula (itens, embalagens, custos) para pedidos antigos
-- **Serviços de Marca**: nome do plano, descrição, valor
-- **Condições de Pagamento**: valor de entrada, forma de pagamento entrada, valor no término, forma de pagamento término, data de pagamento
-- **Logística/Frete**: tipo de envio, descrição parcial, frete Lemon Caps, detalhes adicionais
-- **Totais**: subtotal produção, subtotal serviços, valor total
+### 2. `AprovacaoOrcamentoDialog.tsx` — Validação e UI
 
-O Dialog será scrollável (`max-h-[80vh] overflow-y-auto`) com seções bem separadas usando `Separator`.
+**Adicionar campo "Inscrição Estadual"** no formulário de Informações do Cliente (após CNPJ/Razão Social).
 
-### 2. Atualizar `src/pages/Pedidos.tsx`
-- Importar `DetalhesPedidoDialog`
-- Adicionar state `pedidoDetalhe` para controlar qual pedido está aberto
-- Adicionar botão "VER DETALHES" na área de ações de cada card (ao lado de "Baixar Ordem" e do botão de excluir)
-- Renderizar o Dialog condicionalmente
+**Validação obrigatória em `handleConfirmAprovacao`** — antes de prosseguir, verificar que os seguintes campos estão preenchidos:
+- `nome_completo`
+- `email`
+- `cpf`
+- `cnpj`
+- `telefone`
+- `inscricao_estadual`
+- `formaVenda` diferente de `'sem_informacao'`
+- `dataPagamento` (já validado)
+- Condições de pagamento (já validado)
+- Detalhamento de frete já é preenchido por padrão (radio groups), então basta manter
 
-## Arquivos
-- `src/components/DetalhesPedidoDialog.tsx` — **novo**
-- `src/pages/Pedidos.tsx` — adicionar botão e integrar dialog
+Se algum campo obrigatório estiver vazio, exibir toast de erro listando o que falta e não prosseguir.
+
+**Labels com asterisco** (`*`) nos campos obrigatórios para indicação visual.
+
+### 3. Também em `PropostaCompletaDialog.tsx`
+- Adicionar campo "Inscrição Estadual" no formulário (mesma posição)
+- Manter consistência entre os dois dialogs
+
+## Arquivos Modificados
+- `src/types/orcamento.ts` — adicionar `inscricao_estadual`
+- `src/components/AprovacaoOrcamentoDialog.tsx` — campo + validação obrigatória
+- `src/components/PropostaCompletaDialog.tsx` — campo Inscrição Estadual (consistência)
 
