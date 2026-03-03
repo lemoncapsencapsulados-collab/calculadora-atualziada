@@ -245,6 +245,7 @@ export type Database = {
           status: string
           subtotal_producao: number
           subtotal_servicos: number
+          tipo_orcamento: string
           updated_at: string | null
           validade_dias: number
           valor_total: number
@@ -266,6 +267,7 @@ export type Database = {
           status?: string
           subtotal_producao?: number
           subtotal_servicos?: number
+          tipo_orcamento?: string
           updated_at?: string | null
           validade_dias?: number
           valor_total?: number
@@ -287,6 +289,7 @@ export type Database = {
           status?: string
           subtotal_producao?: number
           subtotal_servicos?: number
+          tipo_orcamento?: string
           updated_at?: string | null
           validade_dias?: number
           valor_total?: number

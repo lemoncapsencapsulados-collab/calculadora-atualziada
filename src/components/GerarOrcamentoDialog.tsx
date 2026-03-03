@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento } from '@/types/orcamento';
+import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,7 @@ export default function GerarOrcamentoDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Step 1: Informações básicas
+  const [tipoOrcamento, setTipoOrcamento] = useState<TipoOrcamento>('novo_produtor');
   const [nomeCliente, setNomeCliente] = useState('');
   const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
@@ -89,6 +91,7 @@ export default function GerarOrcamentoDialog({
   // Carregar dados se editando
   useEffect(() => {
     if (orcamentoExistente) {
+      setTipoOrcamento(orcamentoExistente.tipo_orcamento || 'novo_produtor');
       setNomeCliente(orcamentoExistente.nome_cliente);
       setConsultorResponsavel(orcamentoExistente.consultor_responsavel || '');
       setValidadeDias(orcamentoExistente.validade_dias);
@@ -250,6 +253,7 @@ export default function GerarOrcamentoDialog({
           updates: {
             nome_cliente: nomeCliente,
             consultor_responsavel: consultorResponsavel,
+            tipo_orcamento: tipoOrcamento,
             validade_dias: validadeDias,
             forma_pagamento: formaPagamento || undefined,
             observacoes,
@@ -269,6 +273,7 @@ export default function GerarOrcamentoDialog({
           numero_orcamento: numeroOrcamento,
           nome_cliente: nomeCliente,
           consultor_responsavel: consultorResponsavel,
+          tipo_orcamento: tipoOrcamento,
           validade_dias: validadeDias,
           forma_pagamento: formaPagamento || undefined,
           observacoes,
@@ -325,6 +330,39 @@ export default function GerarOrcamentoDialog({
           {/* STEP 1: Informações Básicas */}
           {step === 1 && (
             <div className="space-y-4">
+              {/* Tipo de Orçamento */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Tipo de Orçamento *</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTipoOrcamento('novo_produtor')}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all',
+                      tipoOrcamento === 'novo_produtor'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400'
+                        : 'border-muted hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <User className="w-4 h-4" />
+                    Novo Produtor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoOrcamento('recompra')}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all',
+                      tipoOrcamento === 'recompra'
+                        ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-400'
+                        : 'border-muted hover:border-muted-foreground/30'
+                    )}
+                  >
+                    <Package className="w-4 h-4" />
+                    Recompra
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="consultor" className="flex items-center gap-2">
                   <UserCircle className="w-4 h-4" />

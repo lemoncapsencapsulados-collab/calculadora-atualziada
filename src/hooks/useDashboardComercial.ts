@@ -31,6 +31,7 @@ interface OrcamentoData {
   servicos_marca: unknown;
   dados_cliente: unknown;
   data_pagamento: string | null;
+  tipo_orcamento: string | null;
 }
 
 interface ItemProducao {
@@ -48,7 +49,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orcamentos')
-        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, created_at, itens_producao, servicos_marca, dados_cliente, data_pagamento')
+        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, created_at, itens_producao, servicos_marca, dados_cliente, data_pagamento, tipo_orcamento')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -130,6 +131,28 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         clientesUnicos: dados.clientes.size
       }))
       .sort((a, b) => b.faturamento - a.faturamento);
+  }, [orcamentosFiltrados]);
+
+  // Métricas por tipo de orçamento (novo produtor vs recompra) por consultor
+  const vendasPorTipo = useMemo(() => {
+    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const porConsultor = new Map<string, { novo_produtor: { qtd: number; valor: number }; recompra: { qtd: number; valor: number } }>();
+
+    aprovados.forEach(o => {
+      const consultor = o.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || {
+        novo_produtor: { qtd: 0, valor: 0 },
+        recompra: { qtd: 0, valor: 0 },
+      };
+      const tipo = o.tipo_orcamento === 'recompra' ? 'recompra' : 'novo_produtor';
+      atual[tipo].qtd += 1;
+      atual[tipo].valor += Number(o.valor_total);
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({ consultor, ...dados }))
+      .sort((a, b) => (b.novo_produtor.valor + b.recompra.valor) - (a.novo_produtor.valor + a.recompra.valor));
   }, [orcamentosFiltrados]);
 
   const pipelineConsultores = useMemo((): PipelineConsultor[] => {
@@ -366,6 +389,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     evolucaoTemporal,
     distribuicaoCanais,
     distribuicaoConsultorStatus,
+    vendasPorTipo,
     isLoading: loadingOrcamentos
   };
 }
