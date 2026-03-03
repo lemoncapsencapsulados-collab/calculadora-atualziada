@@ -301,11 +301,13 @@ export type Database = {
           created_at: string | null
           data_entrega: string
           data_pedido: string
-          formula_id: string
-          formula_snapshot: Json
+          formula_id: string | null
+          formula_snapshot: Json | null
           id: string
           numero_pedido: string
           observacoes: string | null
+          orcamento_id: string | null
+          orcamento_snapshot: Json | null
           quantidade_produto: number
           status: string
           unidade_produto: string
@@ -315,11 +317,13 @@ export type Database = {
           created_at?: string | null
           data_entrega: string
           data_pedido: string
-          formula_id: string
-          formula_snapshot: Json
+          formula_id?: string | null
+          formula_snapshot?: Json | null
           id?: string
           numero_pedido: string
           observacoes?: string | null
+          orcamento_id?: string | null
+          orcamento_snapshot?: Json | null
           quantidade_produto: number
           status?: string
           unidade_produto: string
@@ -329,11 +333,13 @@ export type Database = {
           created_at?: string | null
           data_entrega?: string
           data_pedido?: string
-          formula_id?: string
-          formula_snapshot?: Json
+          formula_id?: string | null
+          formula_snapshot?: Json | null
           id?: string
           numero_pedido?: string
           observacoes?: string | null
+          orcamento_id?: string | null
+          orcamento_snapshot?: Json | null
           quantidade_produto?: number
           status?: string
           unidade_produto?: string
