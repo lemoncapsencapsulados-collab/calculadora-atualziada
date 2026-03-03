@@ -350,6 +350,30 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .sort((a, b) => b.faturamento - a.faturamento);
   }, [orcamentosFiltrados]);
 
+  // Clientes com Estoque vs Print On Demand por consultor
+  const clientesPorModelo = useMemo(() => {
+    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const porConsultor = new Map<string, { estoque: { qtd: number; valor: number }; pod: { qtd: number; valor: number } }>();
+
+    aprovados.forEach(o => {
+      const consultor = o.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || {
+        estoque: { qtd: 0, valor: 0 },
+        pod: { qtd: 0, valor: 0 },
+      };
+      const itens = o.itens_producao as any[] | null;
+      const temPod = Array.isArray(itens) && itens.some((i: any) => i.modelo_negocio === 'print_on_demand');
+      const tipo = temPod ? 'pod' : 'estoque';
+      atual[tipo].qtd += 1;
+      atual[tipo].valor += Number(o.valor_total);
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({ consultor, ...dados }))
+      .sort((a, b) => (b.estoque.valor + b.pod.valor) - (a.estoque.valor + a.pod.valor));
+  }, [orcamentosFiltrados]);
+
   const distribuicaoConsultorStatus = useMemo((): DistribuicaoConsultorStatus[] => {
     const porConsultor = new Map<string, { rascunho: number; enviado: number; aprovado: number; recusado: number }>();
 
@@ -390,6 +414,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     distribuicaoCanais,
     distribuicaoConsultorStatus,
     vendasPorTipo,
+    clientesPorModelo,
     isLoading: loadingOrcamentos
   };
 }

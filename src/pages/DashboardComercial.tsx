@@ -37,6 +37,7 @@ export default function DashboardComercial() {
     evolucaoTemporal,
     distribuicaoCanais,
     vendasPorTipo,
+    clientesPorModelo,
     isLoading
   } = useDashboardComercial(filtros);
 
@@ -100,6 +101,7 @@ export default function DashboardComercial() {
         mixVendas={mixVendas}
         consultoresUnicos={todosConsultores}
         vendasPorTipo={vendasPorTipo}
+        clientesPorModelo={clientesPorModelo}
       />
 
       {/* Pipeline */}
