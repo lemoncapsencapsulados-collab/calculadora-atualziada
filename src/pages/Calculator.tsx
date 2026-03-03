@@ -438,10 +438,6 @@ export default function Calculator() {
       toast.error('Informe o nome do cliente');
       return;
     }
-    if (tipoProduto === 'Encapsulados' && !selectedCapsula) {
-      toast.error('Selecione o tipo de cápsula');
-      return;
-    }
     const validItems = calculatedItems.filter(item => item && !item.error && item.custo > 0);
     if (validItems.length === 0) {
       toast.error('Adicione pelo menos um item válido à fórmula');
@@ -758,6 +754,7 @@ export default function Calculator() {
                         <SelectItem value="mL">mL</SelectItem>
                         <SelectItem value="L">L</SelectItem>
                         <SelectItem value="UI">UI</SelectItem>
+                        <SelectItem value="unidade">Unidade</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
