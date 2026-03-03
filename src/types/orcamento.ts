@@ -18,6 +18,15 @@ export interface ItemProducao {
   quantidade_por_pote?: number;
   unidade_por_pote?: string;
   dose_diaria_sugerida?: string;
+  // Detalhes de produção (preenchidos na aprovação)
+  detalhes_producao?: {
+    cor_tampa?: string;
+    cor_pote?: string;
+    cor_gummy?: string;
+    sabor_gummy?: string;
+    sabor_soluvel?: string;
+    cor_soluvel?: string;
+  };
 }
 
 export interface ServicoMarca {
