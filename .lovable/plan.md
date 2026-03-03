@@ -1,26 +1,32 @@
 
 
-# Adicionar "Unidade" no select de unidades + Cápsula não obrigatória
+# Botão "VER DETALHES" com Popup Completo em Pedidos Gerados
+
+## Resumo
+Adicionar um botão "VER DETALHES" em cada card de pedido que abre um Dialog com todas as informações completas: dados do cliente, fórmulas/produtos com quantidades e valores, sistema de envio, condições de pagamento e plano/serviços contratados.
 
 ## Alterações
 
-### 1. Adicionar "unidade" no select de unidades — `src/pages/Calculator.tsx`
-Na linha ~760, dentro do `<SelectContent>` de unidade dos itens da fórmula, adicionar:
-```
-<SelectItem value="unidade">Unidade</SelectItem>
-```
-Isso já é suportado pelo tipo `UnitType` e pela lógica de `calcularCustoInsumo` em `unitConversion.ts`.
+### 1. Criar componente `DetalhesPedidoDialog.tsx`
+Novo componente Dialog que recebe o pedido e exibe todas as informações organizadas em seções:
 
-### 2. Remover obrigatoriedade da cápsula para Encapsulados — `src/pages/Calculator.tsx`
-Na linha ~441, remover a validação que bloqueia salvar sem cápsula selecionada:
-```typescript
-// REMOVER:
-if (tipoProduto === 'Encapsulados' && !selectedCapsula) {
-  toast.error('Selecione o tipo de cápsula');
-  return;
-}
-```
+- **Informações Gerais**: número do pedido, data, status, consultor, tipo (Novo Produtor/Recompra)
+- **Dados do Cliente**: nome completo, email, telefone, CNPJ, razão social, cidade/estado, forma de venda
+- **Produtos/Fórmulas**: tabela com nome, quantidade, modelo de negócio, preço unitário, subtotal — ou dados da fórmula (itens, embalagens, custos) para pedidos antigos
+- **Serviços de Marca**: nome do plano, descrição, valor
+- **Condições de Pagamento**: valor de entrada, forma de pagamento entrada, valor no término, forma de pagamento término, data de pagamento
+- **Logística/Frete**: tipo de envio, descrição parcial, frete Lemon Caps, detalhes adicionais
+- **Totais**: subtotal produção, subtotal serviços, valor total
 
-## Arquivos Modificados
-- `src/pages/Calculator.tsx` — 2 edições pontuais
+O Dialog será scrollável (`max-h-[80vh] overflow-y-auto`) com seções bem separadas usando `Separator`.
+
+### 2. Atualizar `src/pages/Pedidos.tsx`
+- Importar `DetalhesPedidoDialog`
+- Adicionar state `pedidoDetalhe` para controlar qual pedido está aberto
+- Adicionar botão "VER DETALHES" na área de ações de cada card (ao lado de "Baixar Ordem" e do botão de excluir)
+- Renderizar o Dialog condicionalmente
+
+## Arquivos
+- `src/components/DetalhesPedidoDialog.tsx` — **novo**
+- `src/pages/Pedidos.tsx` — adicionar botão e integrar dialog
 
