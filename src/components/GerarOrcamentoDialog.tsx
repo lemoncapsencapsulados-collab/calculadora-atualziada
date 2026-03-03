@@ -180,7 +180,22 @@ export default function GerarOrcamentoDialog({
         return {
           ...item,
           quantidade,
-          subtotal: item.preco_unitario * quantidade,
+          subtotal: item.modelo_negocio === 'print_on_demand' ? item.preco_unitario : item.preco_unitario * quantidade,
+        };
+      }
+      return item;
+    }));
+  };
+
+  const handleUpdateModeloNegocio = (index: number, modelo: 'estoque' | 'print_on_demand') => {
+    setItensProducao(prev => prev.map((item, i) => {
+      if (i === index) {
+        const quantidade = modelo === 'print_on_demand' ? 1 : item.quantidade;
+        return {
+          ...item,
+          modelo_negocio: modelo,
+          quantidade,
+          subtotal: modelo === 'print_on_demand' ? item.preco_unitario : item.preco_unitario * quantidade,
         };
       }
       return item;
@@ -539,6 +554,11 @@ export default function GerarOrcamentoDialog({
                               <Badge variant={item.tipo === 'precificacao' ? 'default' : 'outline'} className="text-xs">
                                 {item.tipo === 'precificacao' ? 'Salvo' : 'Avulso'}
                               </Badge>
+                              {item.modelo_negocio === 'print_on_demand' && (
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                                  Print On Demand
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">{item.segmento}</p>
                           </div>
@@ -547,15 +567,17 @@ export default function GerarOrcamentoDialog({
                             <p className="text-muted-foreground">{formatCurrency(item.preco_unitario)}/un</p>
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              min={1}
-                              className="w-20"
-                              value={item.quantidade}
-                              onChange={(e) => handleUpdateItemQuantidade(index, parseInt(e.target.value) || 1)}
-                            />
-                          </div>
+                          {item.modelo_negocio !== 'print_on_demand' && (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                className="w-20"
+                                value={item.quantidade}
+                                onChange={(e) => handleUpdateItemQuantidade(index, parseInt(e.target.value) || 1)}
+                              />
+                            </div>
+                          )}
                           
                           <div className="text-right min-w-[100px]">
                             <p className="font-semibold">{formatCurrency(item.subtotal)}</p>
@@ -570,44 +592,73 @@ export default function GerarOrcamentoDialog({
                           </Button>
                         </div>
 
-                        {/* Campos adicionais: quantidade por pote, unidade, dose diária */}
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Qtd por Pote</Label>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={item.quantidade_por_pote || ''}
-                              onChange={(e) => handleUpdateItemField(index, 'quantidade_por_pote', parseInt(e.target.value) || undefined)}
-                              placeholder="60"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Unidade</Label>
-                            <Select
-                              value={item.unidade_por_pote || ''}
-                              onValueChange={(value) => handleUpdateItemField(index, 'unidade_por_pote', value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecione" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="capsulas">Cápsulas</SelectItem>
-                                <SelectItem value="gummies">Gummies</SelectItem>
-                                <SelectItem value="ml">ML</SelectItem>
-                                <SelectItem value="g">Gramas</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Dose Diária</Label>
-                            <Input
-                              value={item.dose_diaria_sugerida || ''}
-                              onChange={(e) => handleUpdateItemField(index, 'dose_diaria_sugerida', e.target.value)}
-                              placeholder="2 cápsulas/dia"
-                            />
+                        {/* Seletor Modelo de Negócio */}
+                        <div className="flex items-center gap-4 pt-2 border-t">
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Modelo:</Label>
+                          <div className="flex gap-3">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`modelo-${index}`}
+                                checked={item.modelo_negocio !== 'print_on_demand'}
+                                onChange={() => handleUpdateModeloNegocio(index, 'estoque')}
+                                className="accent-primary"
+                              />
+                              <span className="text-xs">Estoque</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`modelo-${index}`}
+                                checked={item.modelo_negocio === 'print_on_demand'}
+                                onChange={() => handleUpdateModeloNegocio(index, 'print_on_demand')}
+                                className="accent-primary"
+                              />
+                              <span className="text-xs">Print On Demand</span>
+                            </label>
                           </div>
                         </div>
+
+                        {/* Campos adicionais: quantidade por pote, unidade, dose diária - ocultos para POD */}
+                        {item.modelo_negocio !== 'print_on_demand' && (
+                          <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Qtd por Pote</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={item.quantidade_por_pote || ''}
+                                onChange={(e) => handleUpdateItemField(index, 'quantidade_por_pote', parseInt(e.target.value) || undefined)}
+                                placeholder="60"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Unidade</Label>
+                              <Select
+                                value={item.unidade_por_pote || ''}
+                                onValueChange={(value) => handleUpdateItemField(index, 'unidade_por_pote', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="capsulas">Cápsulas</SelectItem>
+                                  <SelectItem value="gummies">Gummies</SelectItem>
+                                  <SelectItem value="ml">ML</SelectItem>
+                                  <SelectItem value="g">Gramas</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Dose Diária</Label>
+                              <Input
+                                value={item.dose_diaria_sugerida || ''}
+                                onChange={(e) => handleUpdateItemField(index, 'dose_diaria_sugerida', e.target.value)}
+                                placeholder="2 cápsulas/dia"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

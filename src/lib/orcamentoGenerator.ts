@@ -263,8 +263,10 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 
   // Renderizar cada produto detalhadamente
   orcamento.itens_producao.forEach((item, index) => {
+    const isPOD = item.modelo_negocio === 'print_on_demand';
+    
     // Verificar espaço - cada produto precisa de aprox. 30-50mm
-    const estimatedHeight = 25 + (item.insumos_formula?.length || 0) * 5;
+    const estimatedHeight = isPOD ? 20 : 25 + (item.insumos_formula?.length || 0) * 5;
     yPos = checkPageBreak(doc, yPos, estimatedHeight);
     
     // Número e nome do produto
@@ -274,7 +276,9 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     doc.setTextColor(...COLORS.darkGreen);
     doc.setFontSize(LAYOUT.fontSize.body + 1);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${index + 1}. ${item.nome_produto}`, LAYOUT.margin + 3, yPos + 2);
+    
+    const nomeLabel = isPOD ? `${index + 1}. ${item.nome_produto}  —  PRINT ON DEMAND` : `${index + 1}. ${item.nome_produto}`;
+    doc.text(nomeLabel, LAYOUT.margin + 3, yPos + 2);
     
     // Segmento
     doc.setTextColor(...COLORS.textMedium);
@@ -284,62 +288,77 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     
     yPos += 12;
     
-    // Detalhes do produto
-    if (item.quantidade_por_pote && item.unidade_por_pote) {
-      doc.setTextColor(...COLORS.textDark);
+    if (isPOD) {
+      // POD: apenas custo unitário, sem composição/quantidade/dose
+      const col3 = pageWidth - LAYOUT.margin - 3;
+      
       doc.setFontSize(LAYOUT.fontSize.body);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Quantidade por frasco: ${item.quantidade_por_pote} ${item.unidade_por_pote}`, LAYOUT.margin + 5, yPos);
-      yPos += LAYOUT.lineHeight;
-    }
-    
-    if (item.dose_diaria_sugerida) {
-      doc.text(`Dose diária sugerida: ${item.dose_diaria_sugerida}`, LAYOUT.margin + 5, yPos);
-      yPos += LAYOUT.lineHeight;
-    }
-    
-    // Composição completa
-    if (item.insumos_formula && item.insumos_formula.length > 0) {
-      yPos += 2;
       doc.setTextColor(...COLORS.textMedium);
-      doc.setFontSize(LAYOUT.fontSize.small);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Composição da Fórmula:', LAYOUT.margin + 5, yPos);
-      yPos += LAYOUT.lineHeight - 1;
-      
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...COLORS.textDark);
+      doc.text(`Custo Unitário: ${formatCurrency(item.preco_unitario)}`, LAYOUT.margin + 5, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text(`Subtotal: ${formatCurrency(item.subtotal)}`, col3, yPos, { align: 'right' });
       
-      // Sanitizar nomes - ocultar "Amido de Milho"
-      const sanitizarNome = (nome: string) => {
-        if (nome.toLowerCase().includes('amido') && nome.toLowerCase().includes('milho')) return 'Excipiente';
-        return nome;
-      };
-      
-      for (const insumo of item.insumos_formula) {
-        yPos = checkPageBreak(doc, yPos, 5);
-        doc.text(`• ${sanitizarNome(insumo.nome)} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 10, yPos);
-        yPos += 5;
+      yPos += LAYOUT.lineHeight + 5;
+    } else {
+      // Estoque: renderização completa
+      // Detalhes do produto
+      if (item.quantidade_por_pote && item.unidade_por_pote) {
+        doc.setTextColor(...COLORS.textDark);
+        doc.setFontSize(LAYOUT.fontSize.body);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Quantidade por frasco: ${item.quantidade_por_pote} ${item.unidade_por_pote}`, LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight;
       }
+      
+      if (item.dose_diaria_sugerida) {
+        doc.text(`Dose diária sugerida: ${item.dose_diaria_sugerida}`, LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight;
+      }
+      
+      // Composição completa
+      if (item.insumos_formula && item.insumos_formula.length > 0) {
+        yPos += 2;
+        doc.setTextColor(...COLORS.textMedium);
+        doc.setFontSize(LAYOUT.fontSize.small);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Composição da Fórmula:', LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight - 1;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.textDark);
+        
+        const sanitizarNome = (nome: string) => {
+          if (nome.toLowerCase().includes('amido') && nome.toLowerCase().includes('milho')) return 'Excipiente';
+          return nome;
+        };
+        
+        for (const insumo of item.insumos_formula) {
+          yPos = checkPageBreak(doc, yPos, 5);
+          doc.text(`• ${sanitizarNome(insumo.nome)} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 10, yPos);
+          yPos += 5;
+        }
+      }
+      
+      yPos += 3;
+      
+      // Valores do produto
+      const col1 = LAYOUT.margin + 5;
+      const col2 = pageWidth / 2;
+      const col3 = pageWidth - LAYOUT.margin - 3;
+      
+      doc.setFontSize(LAYOUT.fontSize.body);
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Quantidade: ${item.quantidade} un.`, col1, yPos);
+      doc.text(`Preço Unit.: ${formatCurrency(item.preco_unitario)}`, col2, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text(`Subtotal: ${formatCurrency(item.subtotal)}`, col3, yPos, { align: 'right' });
+      
+      yPos += LAYOUT.lineHeight + 5;
     }
-    
-    yPos += 3;
-    
-    // Valores do produto
-    const col1 = LAYOUT.margin + 5;
-    const col2 = pageWidth / 2;
-    const col3 = pageWidth - LAYOUT.margin - 3;
-    
-    doc.setFontSize(LAYOUT.fontSize.body);
-    doc.setTextColor(...COLORS.textMedium);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Quantidade: ${item.quantidade} un.`, col1, yPos);
-    doc.text(`Preço Unit.: ${formatCurrency(item.preco_unitario)}`, col2, yPos);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text(`Subtotal: ${formatCurrency(item.subtotal)}`, col3, yPos, { align: 'right' });
-    
-    yPos += LAYOUT.lineHeight + 5;
     
     // Linha divisória entre produtos
     if (index < orcamento.itens_producao.length - 1) {
