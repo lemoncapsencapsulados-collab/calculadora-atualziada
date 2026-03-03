@@ -58,7 +58,8 @@ export type StatusPedido =
 
 export interface Pedido {
   id: string;
-  formula_id: string;
+  formula_id?: string;
+  orcamento_id?: string;
   numero_pedido: string;
   data_pedido: Date;
   data_entrega: Date;
@@ -66,7 +67,8 @@ export interface Pedido {
   unidade_produto: string;
   observacoes?: string;
   status: StatusPedido;
-  formula_snapshot: Formula;
+  formula_snapshot?: Formula;
+  orcamento_snapshot?: any;
   created_at: Date;
   updated_at: Date;
 }
