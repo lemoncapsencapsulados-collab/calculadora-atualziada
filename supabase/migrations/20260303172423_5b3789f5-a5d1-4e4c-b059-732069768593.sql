@@ -1,0 +1,1 @@
+ALTER TABLE public.embalagens ADD COLUMN fornecedor text;

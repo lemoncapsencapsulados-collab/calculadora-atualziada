@@ -82,6 +82,7 @@ export type Database = {
           categoria: string | null
           created_at: string | null
           descricao: string
+          fornecedor: string | null
           id: string
           nome: string
           preco_unitario: number
@@ -92,6 +93,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string | null
           descricao: string
+          fornecedor?: string | null
           id?: string
           nome: string
           preco_unitario: number
@@ -102,6 +104,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string | null
           descricao?: string
+          fornecedor?: string | null
           id?: string
           nome?: string
           preco_unitario?: number

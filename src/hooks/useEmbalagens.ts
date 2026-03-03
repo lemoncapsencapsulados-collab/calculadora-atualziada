@@ -166,6 +166,8 @@ function mapEmbalagemFromDB(dbEmbalagem: any): Embalagem {
     preco_unitario: Number(dbEmbalagem.preco_unitario),
     categoria: dbEmbalagem.categoria || undefined,
     subcategoria: dbEmbalagem.subcategoria || undefined,
+    fornecedor: dbEmbalagem.fornecedor || undefined,
+    updated_at: dbEmbalagem.updated_at || undefined,
   };
 }
 
@@ -176,5 +178,6 @@ function mapEmbalagemToDB(embalagem: any) {
     preco_unitario: embalagem.preco_unitario,
     categoria: embalagem.categoria || null,
     subcategoria: embalagem.subcategoria || null,
+    fornecedor: embalagem.fornecedor || null,
   };
 }
