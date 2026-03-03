@@ -67,6 +67,7 @@ export default function GerarOrcamentoDialog({
   // Step 2: Itens de produção
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [showPrecificacaoSelector, setShowPrecificacaoSelector] = useState(false);
+  const [buscaPrecificacao, setBuscaPrecificacao] = useState('');
   const [selectedPrecificacoes, setSelectedPrecificacoes] = useState<string[]>([]);
   const [showProdutoAvulso, setShowProdutoAvulso] = useState(false);
   const [produtoAvulso, setProdutoAvulso] = useState({ nome: '', segmento: '', preco: 0, quantidade: 1 });
@@ -285,9 +286,16 @@ export default function GerarOrcamentoDialog({
   };
 
   // Precificações disponíveis (não já adicionadas)
-  const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => 
-    !itensProducao.some(item => item.precificacao_id === p.id)
-  ) || [];
+  const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
+    if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
+    if (buscaPrecificacao.trim()) {
+      const termo = buscaPrecificacao.toLowerCase();
+      const nomeFormula = (p.formulas?.nome_formula || '').toLowerCase();
+      const cliente = (p.formulas?.cliente || '').toLowerCase();
+      return nomeFormula.includes(termo) || cliente.includes(termo);
+    }
+    return true;
+  }) || [];
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
@@ -400,10 +408,17 @@ export default function GerarOrcamentoDialog({
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <Label>Selecionar Precificações</Label>
-                      <Button variant="ghost" size="sm" onClick={() => setShowPrecificacaoSelector(false)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setShowPrecificacaoSelector(false); setBuscaPrecificacao(''); }}>
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
+
+                    <Input
+                      value={buscaPrecificacao}
+                      onChange={(e) => setBuscaPrecificacao(e.target.value)}
+                      placeholder="Buscar por fórmula ou cliente..."
+                      className="h-9"
+                    />
                     
                     {precificacoesDisponiveis.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Nenhuma precificação disponível.</p>
