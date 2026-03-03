@@ -9,6 +9,7 @@ export interface Insumo {
   observacoes?: string;
   fornecedor?: string;
   categoria?: string;
+  updated_at?: string;
 }
 
 export interface Embalagem {
@@ -18,6 +19,8 @@ export interface Embalagem {
   preco_unitario: number;
   categoria?: string;
   subcategoria?: string;
+  fornecedor?: string;
+  updated_at?: string;
 }
 
 export interface FormulaItem {

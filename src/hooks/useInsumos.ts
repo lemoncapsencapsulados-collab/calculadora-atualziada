@@ -170,6 +170,7 @@ function mapInsumoFromDB(dbInsumo: any): Insumo {
     fornecedor: dbInsumo.fornecedor || undefined,
     categoria: dbInsumo.categoria || undefined,
     observacoes: dbInsumo.observacoes || undefined,
+    updated_at: dbInsumo.updated_at || undefined,
   };
 }
 

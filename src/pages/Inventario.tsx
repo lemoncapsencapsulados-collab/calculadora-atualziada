@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useInsumos } from "@/hooks/useInsumos";
 import { useEmbalagens } from "@/hooks/useEmbalagens";
 import { UnitType } from "@/types/formula";
@@ -15,10 +16,23 @@ import { formatCurrency, formatUnit } from "@/lib/unitConversion";
 import { toast } from "sonner";
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
+import { differenceInDays, format } from "date-fns";
+
+function getUpdateAlert(updatedAt?: string): { type: 'red' | 'yellow' | null; label: string; daysLeft?: number } {
+  if (!updatedAt) return { type: 'red', label: 'AJUSTE DE PREÇO NECESSÁRIO' };
+  const days = differenceInDays(new Date(), new Date(updatedAt));
+  if (days >= 60) return { type: 'red', label: 'AJUSTE DE PREÇO NECESSÁRIO' };
+  if (days >= 53) return { type: 'yellow', label: `Restam ${60 - days} dias para a atualização de preço`, daysLeft: 60 - days };
+  return { type: null, label: '' };
+}
+
+function formatUpdatedAt(updatedAt?: string): string {
+  if (!updatedAt) return '';
+  return format(new Date(updatedAt), 'dd/MM/yyyy');
+}
 
 export default function Inventario() {
   const { insumos, loading: loadingInsumos, addInsumo, updateInsumo, deleteInsumo } = useInsumos();
-
   const { embalagens, loading: loadingEmbalagens, addEmbalagem, updateEmbalagem, deleteEmbalagem } = useEmbalagens();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +116,11 @@ export default function Inventario() {
       return;
     }
 
+    if (!fornecedor || fornecedor.trim() === '') {
+      toast.error("O campo Fornecedor é obrigatório");
+      return;
+    }
+
     try {
       if (editingInsumo) {
         await updateInsumo(editingInsumo.id, {
@@ -144,17 +163,23 @@ export default function Inventario() {
     const preco = parseFloat(formData.get("preco") as string);
     const categoria = formData.get("categoria") as string;
     const subcategoria = formData.get("subcategoria") as string;
+    const fornecedor = formData.get("fornecedor") as string;
 
     if (!nome || !descricao || isNaN(preco) || preco < 0) {
       toast.error("Preencha todos os campos corretamente");
       return;
     }
 
+    if (!fornecedor || fornecedor.trim() === '') {
+      toast.error("O campo Fornecedor é obrigatório");
+      return;
+    }
+
     try {
       if (editingEmbalagem) {
-        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco, categoria, subcategoria });
+        await updateEmbalagem(editingEmbalagem.id, { nome, descricao, preco_unitario: preco, categoria, subcategoria, fornecedor });
       } else {
-        await addEmbalagem({ nome, descricao, preco_unitario: preco, categoria, subcategoria });
+        await addEmbalagem({ nome, descricao, preco_unitario: preco, categoria, subcategoria, fornecedor });
       }
 
       setEmbalagemDialogOpen(false);
@@ -291,12 +316,13 @@ export default function Inventario() {
                           </div>
 
                           <div>
-                            <Label htmlFor="fornecedor">Fornecedor</Label>
+                            <Label htmlFor="fornecedor">Fornecedor *</Label>
                             <Input
                               id="fornecedor"
                               name="fornecedor"
                               defaultValue={editingInsumo?.fornecedor}
                               placeholder="Nome do fornecedor"
+                              required
                             />
                           </div>
 
@@ -393,68 +419,98 @@ export default function Inventario() {
                     </p>
                   </Card>
                 ) : (
-                  filteredInsumos.map((insumo) => (
-                    <Card key={insumo.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="text-lg font-semibold text-foreground">{insumo.nome}</h3>
-                              {insumo.categoria && (
-                                <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                                  {insumo.categoria}
-                                </span>
+                  filteredInsumos.map((insumo) => {
+                    const alert = getUpdateAlert(insumo.updated_at);
+                    return (
+                      <Card
+                        key={insumo.id}
+                        className={`hover:shadow-md transition-shadow ${
+                          alert.type === 'red'
+                            ? 'border-2 border-red-500 bg-red-50/50'
+                            : alert.type === 'yellow'
+                            ? 'border-2 border-yellow-500 bg-yellow-50/50'
+                            : ''
+                        }`}
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              {alert.type && (
+                                <Badge
+                                  className={`mb-2 ${
+                                    alert.type === 'red'
+                                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                                      : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                  }`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  {alert.label}
+                                </Badge>
                               )}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">Preço</p>
-                                <p className="font-medium text-primary">
-                                  {formatCurrency(insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
-                                </p>
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="text-lg font-semibold text-foreground">{insumo.nome}</h3>
+                                {insumo.categoria && (
+                                  <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                                    {insumo.categoria}
+                                  </span>
+                                )}
                               </div>
-                              {insumo.densidade && (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 text-sm">
                                 <div>
-                                  <p className="text-muted-foreground">Densidade</p>
-                                  <p className="font-medium">{insumo.densidade} g/mL</p>
+                                  <p className="text-muted-foreground">Preço</p>
+                                  <p className="font-medium text-primary">
+                                    {formatCurrency(insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
+                                  </p>
                                 </div>
-                              )}
-                              {insumo.fornecedor && (
-                                <div>
-                                  <p className="text-muted-foreground">Fornecedor</p>
-                                  <p className="font-medium">{insumo.fornecedor}</p>
-                                </div>
+                                {insumo.densidade && (
+                                  <div>
+                                    <p className="text-muted-foreground">Densidade</p>
+                                    <p className="font-medium">{insumo.densidade} g/mL</p>
+                                  </div>
+                                )}
+                                {insumo.fornecedor && (
+                                  <div>
+                                    <p className="text-muted-foreground">Fornecedor</p>
+                                    <p className="font-medium">{insumo.fornecedor}</p>
+                                  </div>
+                                )}
+                                {insumo.updated_at && (
+                                  <div>
+                                    <p className="text-muted-foreground">Atualizado em</p>
+                                    <p className="font-medium">{formatUpdatedAt(insumo.updated_at)}</p>
+                                  </div>
+                                )}
+                              </div>
+                              {insumo.observacoes && (
+                                <p className="text-sm text-muted-foreground mt-2">{insumo.observacoes}</p>
                               )}
                             </div>
-                            {insumo.observacoes && (
-                              <p className="text-sm text-muted-foreground mt-2">{insumo.observacoes}</p>
-                            )}
-                          </div>
 
-                          <div className="flex gap-2 ml-4">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                setEditingInsumo(insumo);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleDeleteInsumo(insumo.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingInsumo(insumo);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleDeleteInsumo(insumo.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </>
@@ -532,6 +588,17 @@ export default function Inventario() {
                         <p className="text-xs text-muted-foreground mt-1">
                           Custo total do conjunto (pote + rótulo + lacre + tampa, etc.)
                         </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="fornecedor">Fornecedor *</Label>
+                        <Input
+                          id="fornecedor"
+                          name="fornecedor"
+                          defaultValue={editingEmbalagem?.fornecedor}
+                          placeholder="Nome do fornecedor"
+                          required
+                        />
                       </div>
 
                       <div>
@@ -619,53 +686,89 @@ export default function Inventario() {
                     </p>
                   </Card>
                 ) : (
-                  filteredEmbalagens.map((embalagem) => (
-                    <Card key={embalagem.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader>
-                        <div className="flex items-center gap-2 mb-1">
-                          <CardTitle className="text-lg">{embalagem.nome}</CardTitle>
-                          {embalagem.categoria && (
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                              {embalagem.categoria}
-                            </span>
+                  filteredEmbalagens.map((embalagem) => {
+                    const alert = getUpdateAlert(embalagem.updated_at);
+                    return (
+                      <Card
+                        key={embalagem.id}
+                        className={`hover:shadow-md transition-shadow ${
+                          alert.type === 'red'
+                            ? 'border-2 border-red-500 bg-red-50/50'
+                            : alert.type === 'yellow'
+                            ? 'border-2 border-yellow-500 bg-yellow-50/50'
+                            : ''
+                        }`}
+                      >
+                        <CardHeader>
+                          {alert.type && (
+                            <Badge
+                              className={`mb-2 w-fit ${
+                                alert.type === 'red'
+                                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                              }`}
+                            >
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              {alert.label}
+                            </Badge>
                           )}
-                        </div>
-                        {embalagem.subcategoria && (
-                          <p className="text-xs text-muted-foreground mt-1">{embalagem.subcategoria}</p>
-                        )}
-                        <CardDescription className="text-sm line-clamp-2 mt-1">{embalagem.descricao}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Custo</p>
-                            <p className="text-xl font-bold text-primary">{formatCurrency(embalagem.preco_unitario)}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <CardTitle className="text-lg">{embalagem.nome}</CardTitle>
+                            {embalagem.categoria && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                                {embalagem.categoria}
+                              </span>
+                            )}
                           </div>
+                          {embalagem.subcategoria && (
+                            <p className="text-xs text-muted-foreground mt-1">{embalagem.subcategoria}</p>
+                          )}
+                          <CardDescription className="text-sm line-clamp-2 mt-1">{embalagem.descricao}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Custo</p>
+                                <p className="text-xl font-bold text-primary">{formatCurrency(embalagem.preco_unitario)}</p>
+                              </div>
+                              {embalagem.fornecedor && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Fornecedor: {embalagem.fornecedor}</p>
+                                </div>
+                              )}
+                              {embalagem.updated_at && (
+                                <p className="text-xs text-muted-foreground">
+                                  Atualizado em: {formatUpdatedAt(embalagem.updated_at)}
+                                </p>
+                              )}
+                            </div>
 
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                setEditingEmbalagem(embalagem);
-                                setEmbalagemDialogOpen(true);
-                              }}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleDeleteEmbalagem(embalagem.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingEmbalagem(embalagem);
+                                  setEmbalagemDialogOpen(true);
+                                }}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleDeleteEmbalagem(embalagem.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </>
