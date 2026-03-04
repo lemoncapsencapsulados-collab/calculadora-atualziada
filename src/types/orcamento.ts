@@ -63,12 +63,27 @@ export interface DetalhamentoEnvio {
 
 // Condições de pagamento estruturadas
 export type FormaPagamentoTipo = 'pix' | 'cartao_credito' | 'cartao_debito' | 'boleto' | 'transferencia' | 'outro';
+export type MetodoPagamentoPrincipal = 'avista' | 'cartao_credito' | 'fracionado' | 'dois_cartoes';
+export type FormaPagamentoAvista = 'pix' | 'transferencia' | 'debito' | 'boleto';
 
 export interface CondicoesPagamento {
+  metodo_principal?: MetodoPagamentoPrincipal;
+  // À vista
+  forma_avista?: FormaPagamentoAvista;
+  // Cartão de crédito
+  parcelas_cartao?: number;
+  // Fracionado
+  valor_avista?: number;
+  forma_avista_fracionado?: FormaPagamentoAvista;
+  parcelas_cartao_fracionado?: number;
+  // 2 Cartões
+  valor_cartao1?: number;
+  parcelas_cartao1?: number;
+  parcelas_cartao2?: number;
+  // Campos legados (manter compatibilidade)
   valor_entrada?: number;
   forma_pagamento_entrada?: FormaPagamentoTipo;
   descricao_entrada?: string;
-  
   valor_termino?: number;
   usa_valor_restante?: boolean;
   forma_pagamento_termino?: FormaPagamentoTipo;

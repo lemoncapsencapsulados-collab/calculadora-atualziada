@@ -333,8 +333,8 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             <Select value={d.cor_tampa || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Preta">Preta</SelectItem>
-                                <SelectItem value="Branca">Branca</SelectItem>
+                              <SelectItem value="Preta">Preta</SelectItem>
+                                <SelectItem value="Transparente">Transparente</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -344,7 +344,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Preto">Preto</SelectItem>
-                                <SelectItem value="Branco">Branco</SelectItem>
+                                <SelectItem value="Transparente">Transparente</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
