@@ -5,10 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
-  Calendar, Info, User, Wallet, ShoppingBag, Layers
+  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,10 +27,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, deletePedido } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
+  const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -371,6 +376,9 @@ const Pedidos = () => {
                       <Info className="h-4 w-4 mr-1" />
                       Ver Detalhes
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => setEditingObs({ id: pedido.id, obs: pedido.observacoes || '' })}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     {!isOrcamento && (
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => gerarPDFOrdemProducao(pedido)}>
                         <Download className="h-4 w-4 mr-1" />
@@ -409,6 +417,35 @@ const Pedidos = () => {
         open={!!pedidoDetalhe}
         onOpenChange={(open) => !open && setPedidoDetalhe(null)}
       />
+
+      {/* Dialog de edição de observações */}
+      <Dialog open={!!editingObs} onOpenChange={(open) => !open && setEditingObs(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              Editar Observações
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={editingObs?.obs || ''}
+            onChange={(e) => setEditingObs(prev => prev ? { ...prev, obs: e.target.value } : null)}
+            placeholder="Observações para a equipe de produção..."
+            className="min-h-[120px]"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingObs(null)}>Cancelar</Button>
+            <Button onClick={async () => {
+              if (editingObs) {
+                await updateObservacoes({ id: editingObs.id, observacoes: editingObs.obs });
+                setEditingObs(null);
+              }
+            }}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

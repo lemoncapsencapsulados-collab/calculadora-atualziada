@@ -177,6 +177,41 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
                           {item.detalhes_producao.cor_soluvel && (
                             <Badge variant="secondary" className="text-xs">Cor: {item.detalhes_producao.cor_soluvel}</Badge>
                           )}
+                          {item.detalhes_producao.sabor_liquido && (
+                            <Badge variant="secondary" className="text-xs">Sabor: {item.detalhes_producao.sabor_liquido}</Badge>
+                          )}
+                          {item.detalhes_producao.cor_liquido && (
+                            <Badge variant="secondary" className="text-xs">Cor: {item.detalhes_producao.cor_liquido}</Badge>
+                          )}
+                          {item.detalhes_producao.observacao_producao && (
+                            <Badge variant="secondary" className="text-xs">Obs: {item.detalhes_producao.observacao_producao}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {/* Insumos da fórmula */}
+                    {item.insumos_formula && item.insumos_formula.length > 0 && (
+                      <div className="pt-1 border-t border-border/50">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Fórmula / Insumos</p>
+                        <div className="bg-background rounded p-2">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-muted-foreground border-b">
+                                <th className="text-left py-1">Insumo</th>
+                                <th className="text-right py-1">Quantidade</th>
+                                <th className="text-right py-1">Unidade</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {item.insumos_formula.map((ins: any, insIdx: number) => (
+                                <tr key={insIdx} className="border-b border-border/30">
+                                  <td className="py-1">{ins.nome || ins.nome_insumo || '-'}</td>
+                                  <td className="text-right py-1">{ins.quantidade ?? ins.qtd ?? '-'}</td>
+                                  <td className="text-right py-1">{ins.unidade || ins.unidade_medida || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
