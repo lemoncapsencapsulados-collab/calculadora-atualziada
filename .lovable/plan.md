@@ -1,34 +1,77 @@
 
 
-# Botão "Ficha Técnica" com Preview PDF nos Pedidos Gerados
+# Plano: Cor Transparente em Encapsulados + Novo Fluxo de Condições de Pagamento
 
-## Resumo
-Adicionar um botão com ícone de impressora em cada card de pedido que abre um popup de preview do PDF da Ficha Técnica. O popup permite visualizar, baixar ou imprimir.
+## 1. Encapsulados — Trocar "Branca/Branco" por "Transparente"
+**Arquivo:** `src/components/AprovacaoOrcamentoDialog.tsx`
+- Cor da Tampa: Preta / Transparente (em vez de Branca)
+- Cor do Pote: Preto / Transparente (em vez de Branco)
 
-## Alterações
+## 2. Novo fluxo de Condições de Pagamento
 
-### 1. Nova função `gerarFichaTecnicaPDFBlob` — `src/lib/pdfGenerator.ts`
-Criar função que gera um PDF A4 com jsPDF contendo:
-- **Cabeçalho**: "FICHA TÉCNICA" + número do pedido + data de geração
-- **Informações do Cliente**: nome, email, telefone, CNPJ, inscrição estadual, razão social, cidade/estado, forma de venda
-- **Consultor Responsável**
-- **Produtos**: para cada item — nome, segmento, quantidade, dose diária, detalhes de produção (cor tampa/pote, sabor, cor), e tabela de insumos da fórmula (nome, quantidade, unidade)
-- Retorna `Blob` (para preview) e uma variante que faz `doc.save()` (para download)
+Substituir completamente o `CondicoesPagamentoForm` com a seguinte lógica:
 
-### 2. Novo componente `FichaTecnicaDialog.tsx`
-Dialog com preview do PDF (padrão similar ao `PreviewPdfDialog`):
-- Gera o blob via `gerarFichaTecnicaPDFBlob`
-- Exibe em `<iframe>` 
-- Botões: "Fechar", "Baixar PDF", "Imprimir" (via `window.print()` ou `iframe.contentWindow.print()`)
-- Fallback "Abrir em nova aba" caso iframe não renderize
+### Pergunta inicial: "Método de Pagamento"
+4 opções: **À vista** | **Cartão de Crédito** | **Fracionado** | **2 Cartões diferentes**
 
-### 3. `src/pages/Pedidos.tsx` — Botão no card
-- Adicionar ícone `Printer` (lucide) ao lado dos botões existentes (Ver Detalhes, Editar Obs, Excluir)
-- Ao clicar, abre `FichaTecnicaDialog` passando o pedido
-- Visível apenas para pedidos com `orcamento_snapshot` (que têm dados completos)
+### Se "À vista"
+- Sub-opção: Pix, Transferência, Débito ou Boleto
+- Valor = valor total do orçamento
 
-## Arquivos
-- `src/lib/pdfGenerator.ts` — nova função de geração de Ficha Técnica
-- `src/components/FichaTecnicaDialog.tsx` — novo componente de preview
-- `src/pages/Pedidos.tsx` — botão com ícone Printer
+### Se "Cartão de Crédito"
+- Parcelas de 1x a 6x
+- Tabela de juros automática sobre o valor total:
+  - 1x a 3x: sem juros
+  - 4x: +7%
+  - 5x: +8%
+  - 6x: +9%
+- Exibe: valor de cada parcela, valor total corrigido
+
+### Se "Fracionado" (parte à vista + parte no cartão)
+- Input: valor à vista → sub-opção (Pix/Transferência/Débito/Boleto)
+- Valor restante automaticamente vai para o cartão → parcelas 1-6x com mesma tabela de juros
+- Exibe resumo com valor à vista + valor parcelado (corrigido) = total final
+
+### Se "2 Cartões diferentes"
+- Input: valor no Cartão 1 → parcelas 1-6x com juros
+- Valor restante automaticamente no Cartão 2 → parcelas 1-6x com juros
+- Exibe resumo com parcelas de cada cartão + total final corrigido
+
+## Alterações no tipo `CondicoesPagamento`
+**Arquivo:** `src/types/orcamento.ts`
+
+Atualizar a interface para suportar o novo modelo:
+```typescript
+export type MetodoPagamentoPrincipal = 'avista' | 'cartao_credito' | 'fracionado' | 'dois_cartoes';
+export type FormaPagamentoAvista = 'pix' | 'transferencia' | 'debito' | 'boleto';
+
+export interface CondicoesPagamento {
+  metodo_principal?: MetodoPagamentoPrincipal;
+  // À vista
+  forma_avista?: FormaPagamentoAvista;
+  // Cartão de crédito
+  parcelas_cartao?: number;
+  // Fracionado
+  valor_avista?: number;
+  forma_avista_fracionado?: FormaPagamentoAvista;
+  parcelas_cartao_fracionado?: number;
+  // 2 Cartões
+  valor_cartao1?: number;
+  parcelas_cartao1?: number;
+  parcelas_cartao2?: number;
+  // Campos legados (manter compatibilidade)
+  valor_entrada?: number;
+  forma_pagamento_entrada?: FormaPagamentoTipo;
+  descricao_entrada?: string;
+  valor_termino?: number;
+  usa_valor_restante?: boolean;
+  forma_pagamento_termino?: FormaPagamentoTipo;
+  descricao_termino?: string;
+}
+```
+
+## Arquivos modificados
+- `src/types/orcamento.ts` — novos tipos de pagamento
+- `src/components/CondicoesPagamentoForm.tsx` — reescrita completa do formulário
+- `src/components/AprovacaoOrcamentoDialog.tsx` — trocar Branca→Transparente nos Encapsulados
 
