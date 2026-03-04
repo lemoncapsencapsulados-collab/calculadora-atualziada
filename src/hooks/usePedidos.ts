@@ -157,6 +157,27 @@ export const usePedidos = () => {
     },
   });
 
+  const updateObservacoes = useMutation({
+    mutationFn: async ({ id, observacoes }: { id: string; observacoes: string }) => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .update({ observacoes })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast.success('Observações atualizadas com sucesso!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar observações');
+    },
+  });
+
   const deletePedido = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -181,6 +202,7 @@ export const usePedidos = () => {
     createPedido: createPedido.mutateAsync,
     createPedidoFromOrcamento: createPedidoFromOrcamento.mutateAsync,
     updateStatus: updateStatus.mutate,
+    updateObservacoes: updateObservacoes.mutateAsync,
     deletePedido: deletePedido.mutate,
   };
 };

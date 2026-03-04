@@ -136,6 +136,12 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       } else if (seg.includes('pó') || seg.includes('po') || seg.includes('solúvel') || seg.includes('soluvel')) {
         if (!d.sabor_soluvel) camposFaltando.push(`Sabor Solúvel (${item.nome_produto})`);
         if (!d.cor_soluvel) camposFaltando.push(`Cor Solúvel (${item.nome_produto})`);
+      } else if (seg.includes('líquido') || seg.includes('liquido')) {
+        if (!d.sabor_liquido) camposFaltando.push(`Sabor (${item.nome_produto})`);
+        if (!d.cor_liquido) camposFaltando.push(`Cor (${item.nome_produto})`);
+      } else {
+        // Segmento desconhecido — exigir observação
+        if (!d.observacao_producao) camposFaltando.push(`Observação de Produção (${item.nome_produto})`);
       }
     });
     if (!dataPagamento) camposFaltando.push('Data de Pagamento');
@@ -307,14 +313,8 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 const isSoluvel = seg.includes('pó') || seg.includes('po') || seg.includes('solúvel') || seg.includes('soluvel');
                 const d = detalhesProducao[idx] || {};
 
-                if (!isEncapsulado && !isGummy && !isSoluvel) {
-                  return (
-                    <div key={idx} className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-sm font-medium">{item.nome_produto}</p>
-                      <p className="text-xs text-muted-foreground">Qtd: {item.quantidade} — {item.segmento}</p>
-                    </div>
-                  );
-                }
+                const isLiquido = seg.includes('líquido') || seg.includes('liquido');
+                const isOutro = !isEncapsulado && !isGummy && !isSoluvel && !isLiquido;
 
                 return (
                   <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-3">
@@ -404,6 +404,44 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             </Select>
                           </div>
                         </>
+                      )}
+                      {isLiquido && (
+                        <>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Sabor <span className="text-destructive">*</span></Label>
+                            <Select value={d.sabor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_liquido', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Limão">Limão</SelectItem>
+                                <SelectItem value="Frutas vermelhas">Frutas vermelhas</SelectItem>
+                                <SelectItem value="Morango">Morango</SelectItem>
+                                <SelectItem value="Uva">Uva</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Cor <span className="text-destructive">*</span></Label>
+                            <Select value={d.cor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_liquido', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Verde">Verde</SelectItem>
+                                <SelectItem value="Vermelho">Vermelho</SelectItem>
+                                <SelectItem value="Roxo">Roxo</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+                      {isOutro && (
+                        <div className="col-span-2 space-y-1">
+                          <Label className="text-xs">Observação de Produção <span className="text-destructive">*</span></Label>
+                          <Textarea
+                            value={d.observacao_producao || ''}
+                            onChange={(e) => updateDetalhe(idx, 'observacao_producao', e.target.value)}
+                            placeholder="Descreva os detalhes de produção para este produto..."
+                            className="min-h-[60px]"
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
