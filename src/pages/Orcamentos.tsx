@@ -305,7 +305,7 @@ export default function Orcamentos() {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex lg:flex-col gap-2 justify-end flex-wrap">
+                            <div className="flex flex-wrap md:flex-col lg:flex-col gap-2 justify-end">
                               <Button variant="outline" size="sm" onClick={() => setEditandoOrcamento(orcamento)}>
                                 <Pencil className="w-4 h-4 mr-2" />Editar
                               </Button>
