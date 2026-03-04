@@ -247,11 +247,11 @@ export default function Orcamentos() {
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-0.5">{orcamento.numero_orcamento}</p>
                                 </div>
-                                <Select
+                              <Select
                                   value={orcamento.status}
                                   onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
                                 >
-                                  <SelectTrigger className="w-[140px]">
+                                  <SelectTrigger className="w-full sm:w-[140px]">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
