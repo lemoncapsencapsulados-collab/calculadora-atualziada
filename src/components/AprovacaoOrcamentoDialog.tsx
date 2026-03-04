@@ -118,10 +118,10 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     if (!dadosCliente.nome_completo?.trim()) camposFaltando.push('Nome Completo');
     if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
     if (!dadosCliente.cpf?.trim()) camposFaltando.push('CPF');
-    if (!dadosCliente.cnpj?.trim()) camposFaltando.push('CNPJ');
+    // CNPJ não é obrigatório
     if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone (WhatsApp)');
     
-    if (formaVenda === 'sem_informacao') camposFaltando.push('Forma de Venda');
+    // Forma de venda "Sem informação" é permitida
 
     // Validar detalhes de produção por item
     orcamento.itens_producao.forEach((item, idx) => {
@@ -265,7 +265,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                   <Input value={dadosCliente.cpf || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cpf: e.target.value }))} placeholder="000.000.000-00" />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">CNPJ</Label>
                   <div className="flex gap-2">
                     <Input value={dadosCliente.cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
                     <Button type="button" variant="outline" size="sm" onClick={handleBuscarCnpj} disabled={isSearchingCnpj || !dadosCliente.cnpj}>
@@ -334,7 +334,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
                               <SelectItem value="Preta">Preta</SelectItem>
-                                <SelectItem value="Transparente">Transparente</SelectItem>
+                                <SelectItem value="Branca">Branca</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
