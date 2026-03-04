@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
-  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil
+  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +25,7 @@ import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
 import { StatusPedido } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
+import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, deletePedido } = usePedidos();
@@ -32,6 +33,7 @@ const Pedidos = () => {
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
+  const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -379,6 +381,11 @@ const Pedidos = () => {
                     <Button variant="outline" size="sm" onClick={() => setEditingObs({ id: pedido.id, obs: pedido.observacoes || '' })}>
                       <Pencil className="h-4 w-4" />
                     </Button>
+                    {isOrcamento && (
+                      <Button variant="outline" size="sm" onClick={() => setFichaTecnicaPedido(pedido)} title="Ficha Técnica">
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    )}
                     {!isOrcamento && (
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => gerarPDFOrdemProducao(pedido)}>
                         <Download className="h-4 w-4 mr-1" />
@@ -446,6 +453,12 @@ const Pedidos = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FichaTecnicaDialog
+        pedido={fichaTecnicaPedido}
+        open={!!fichaTecnicaPedido}
+        onOpenChange={(open) => !open && setFichaTecnicaPedido(null)}
+      />
     </div>
   );
 };
