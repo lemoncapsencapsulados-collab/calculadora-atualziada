@@ -120,7 +120,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     if (!dadosCliente.cpf?.trim()) camposFaltando.push('CPF');
     if (!dadosCliente.cnpj?.trim()) camposFaltando.push('CNPJ');
     if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone (WhatsApp)');
-    if (!dadosCliente.inscricao_estadual?.trim()) camposFaltando.push('Inscrição Estadual');
+    
     if (formaVenda === 'sem_informacao') camposFaltando.push('Forma de Venda');
 
     // Validar detalhes de produção por item
@@ -274,7 +274,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                   </div>
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Inscrição Estadual <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">Inscrição Estadual</Label>
                   <Input value={dadosCliente.inscricao_estadual || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
                 </div>
                 <div className="col-span-2 space-y-1">
