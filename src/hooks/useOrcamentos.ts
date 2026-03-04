@@ -105,13 +105,54 @@ export function useOrcamentos() {
         .single();
 
       if (error) throw error;
-      return parseOrcamento(data);
+      const updatedOrcamento = parseOrcamento(data);
+
+      // Propagar alterações para pedidos vinculados
+      try {
+        const { data: pedidosVinculados } = await supabase
+          .from('pedidos')
+          .select('id')
+          .eq('orcamento_id', id);
+
+        if (pedidosVinculados && pedidosVinculados.length > 0) {
+          const snapshot = {
+            id: updatedOrcamento.id,
+            numero_orcamento: updatedOrcamento.numero_orcamento,
+            nome_cliente: updatedOrcamento.nome_cliente,
+            consultor_responsavel: updatedOrcamento.consultor_responsavel,
+            tipo_orcamento: updatedOrcamento.tipo_orcamento,
+            itens_producao: updatedOrcamento.itens_producao,
+            servicos_marca: updatedOrcamento.servicos_marca,
+            dados_cliente: updatedOrcamento.dados_cliente,
+            detalhamento_frete: updatedOrcamento.detalhamento_frete,
+            condicoes_pagamento: updatedOrcamento.condicoes_pagamento,
+            subtotal_producao: updatedOrcamento.subtotal_producao,
+            subtotal_servicos: updatedOrcamento.subtotal_servicos,
+            valor_total: updatedOrcamento.valor_total,
+            data_pagamento: updatedOrcamento.data_pagamento,
+            observacoes: updatedOrcamento.observacoes,
+            updated_at: updatedOrcamento.updated_at,
+          };
+
+          for (const pedido of pedidosVinculados) {
+            await supabase
+              .from('pedidos')
+              .update({ orcamento_snapshot: snapshot as any })
+              .eq('id', pedido.id);
+          }
+        }
+      } catch (syncError) {
+        console.error('Erro ao sincronizar pedidos:', syncError);
+      }
+
+      return updatedOrcamento;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({
         title: 'Orçamento atualizado',
-        description: 'As alterações foram salvas.',
+        description: 'As alterações foram salvas e propagadas para os pedidos vinculados.',
       });
     },
     onError: (error: any) => {

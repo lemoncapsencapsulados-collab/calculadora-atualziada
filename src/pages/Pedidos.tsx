@@ -150,6 +150,13 @@ const Pedidos = () => {
           </div>
         )}
 
+        {snap.updated_at && (
+          <div className="flex items-center gap-1 text-sm text-amber-600">
+            <Pencil className="w-3 h-3" />
+            Orçamento editado em: {format(new Date(snap.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+          </div>
+        )}
+
         {/* Dados do Cliente (collapsible) */}
         {dadosCliente.nome_completo && (
           <Collapsible>

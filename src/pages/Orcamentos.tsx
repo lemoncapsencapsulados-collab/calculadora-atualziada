@@ -262,11 +262,17 @@ export default function Orcamentos() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                                 <div className="flex items-center gap-1">
                                   <Calendar className="w-3 h-3" />
-                                  {format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                  Criado: {format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                 </div>
+                                {orcamento.updated_at && new Date(orcamento.updated_at).getTime() - new Date(orcamento.created_at).getTime() > 60000 && (
+                                  <div className="flex items-center gap-1 text-amber-600">
+                                    <Pencil className="w-3 h-3" />
+                                    Editado: {format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                  </div>
+                                )}
                                 {isAprovado && orcamento.data_pagamento && (
                                   <div className="flex items-center gap-1 text-green-600">
                                     <CalendarIcon className="w-3 h-3" />
