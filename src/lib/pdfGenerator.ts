@@ -10,6 +10,209 @@ declare module 'jspdf' {
   }
 }
 
+export function gerarFichaTecnicaPDFBlob(pedido: any): Blob {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const snap = pedido.orcamento_snapshot || {};
+  const dadosCliente = snap.dados_cliente || {};
+  const itens = snap.itens_producao || [];
+  let yPosition = 20;
+
+  const checkPageBreak = (needed: number) => {
+    if (yPosition + needed > pageHeight - 25) {
+      doc.addPage();
+      yPosition = 20;
+    }
+  };
+
+  // CABEÇALHO
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(34, 87, 50);
+  doc.text('FICHA TÉCNICA', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 8;
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Pedido ${pedido.numero_pedido}`, pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 6;
+  doc.text(`Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 4;
+
+  doc.setDrawColor(34, 87, 50);
+  doc.setLineWidth(0.6);
+  doc.line(15, yPosition, pageWidth - 15, yPosition);
+  yPosition += 10;
+
+  // INFORMAÇÕES DO CLIENTE
+  doc.setTextColor(0, 0, 0);
+  doc.setFillColor(240, 245, 240);
+  doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INFORMAÇÕES DO CLIENTE', 17, yPosition);
+  yPosition += 8;
+
+  doc.setFontSize(10);
+  const clienteFields: [string, string][] = [
+    ['Nome:', dadosCliente.nome_completo || snap.nome_cliente || '-'],
+    ['Email:', dadosCliente.email || '-'],
+    ['Telefone:', dadosCliente.telefone || '-'],
+    ['CNPJ:', dadosCliente.cnpj || '-'],
+    ['CPF:', dadosCliente.cpf || '-'],
+    ['Inscrição Estadual:', dadosCliente.inscricao_estadual || '-'],
+    ['Razão Social:', dadosCliente.razao_social || '-'],
+  ];
+  if (dadosCliente.cidade) {
+    clienteFields.push(['Cidade/Estado:', `${dadosCliente.cidade}/${dadosCliente.estado || ''}`]);
+  }
+  if (dadosCliente.forma_venda && dadosCliente.forma_venda !== 'sem_informacao') {
+    const fvMap: Record<string, string> = { locais_fisicos: 'Locais Físicos', venda_digital: 'Digital', ambas: 'Ambas' };
+    clienteFields.push(['Forma de Venda:', fvMap[dadosCliente.forma_venda] || dadosCliente.forma_venda]);
+  }
+
+  clienteFields.forEach(([label, value]) => {
+    if (value && value !== '-') {
+      doc.setFont('helvetica', 'bold');
+      doc.text(label, 17, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(String(value), 65, yPosition);
+      yPosition += 6;
+    }
+  });
+  yPosition += 4;
+
+  // CONSULTOR RESPONSÁVEL
+  if (snap.consultor_responsavel) {
+    checkPageBreak(16);
+    doc.setFillColor(240, 245, 240);
+    doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CONSULTOR RESPONSÁVEL', 17, yPosition);
+    yPosition += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(snap.consultor_responsavel, 17, yPosition);
+    yPosition += 10;
+  }
+
+  // PRODUTOS
+  checkPageBreak(16);
+  doc.setFillColor(240, 245, 240);
+  doc.rect(15, yPosition - 5, pageWidth - 30, 8, 'F');
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PRODUTOS', 17, yPosition);
+  yPosition += 8;
+
+  itens.forEach((item: any, idx: number) => {
+    checkPageBreak(30);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(34, 87, 50);
+    doc.text(`${idx + 1}. ${item.nome_produto}`, 17, yPosition);
+    yPosition += 6;
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    const detalhes: string[] = [];
+    if (item.segmento) detalhes.push(`Segmento: ${item.segmento}`);
+    if (item.quantidade) detalhes.push(`Quantidade: ${item.quantidade} un`);
+    if (item.quantidade_por_pote) detalhes.push(`Qtd por pote: ${item.quantidade_por_pote} ${item.unidade_por_pote || ''}`);
+    if (item.dose_diaria_sugerida) detalhes.push(`Dose diária: ${item.dose_diaria_sugerida}`);
+
+    detalhes.forEach(d => {
+      doc.text(`• ${d}`, 20, yPosition);
+      yPosition += 5;
+    });
+
+    // Detalhes de produção
+    const dp = item.detalhes_producao;
+    if (dp) {
+      const prodDetalhes: string[] = [];
+      if (dp.cor_tampa) prodDetalhes.push(`Cor tampa: ${dp.cor_tampa}`);
+      if (dp.cor_pote) prodDetalhes.push(`Cor pote: ${dp.cor_pote}`);
+      if (dp.sabor_gummy) prodDetalhes.push(`Sabor: ${dp.sabor_gummy}`);
+      if (dp.cor_gummy) prodDetalhes.push(`Cor: ${dp.cor_gummy}`);
+      if (dp.sabor_soluvel) prodDetalhes.push(`Sabor: ${dp.sabor_soluvel}`);
+      if (dp.cor_soluvel) prodDetalhes.push(`Cor: ${dp.cor_soluvel}`);
+      prodDetalhes.forEach(d => {
+        doc.text(`• ${d}`, 20, yPosition);
+        yPosition += 5;
+      });
+    }
+
+    // Insumos da fórmula
+    if (item.insumos_formula && item.insumos_formula.length > 0) {
+      checkPageBreak(15 + item.insumos_formula.length * 7);
+      yPosition += 2;
+      const insumosData = item.insumos_formula.map((ins: any) => [
+        ins.nome, String(ins.quantidade), ins.unidade
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [['Insumo', 'Quantidade', 'Unidade']],
+        body: insumosData,
+        theme: 'grid',
+        headStyles: { fillColor: [34, 87, 50], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        margin: { left: 20, right: 20 },
+      });
+      yPosition = (doc as any).lastAutoTable.finalY + 6;
+    } else {
+      yPosition += 4;
+    }
+  });
+
+  // Observações
+  if (pedido.observacoes?.trim()) {
+    checkPageBreak(20);
+    doc.setFillColor(255, 250, 205);
+    const obsLines = doc.splitTextToSize(pedido.observacoes, pageWidth - 40);
+    const obsH = obsLines.length * 5 + 10;
+    doc.rect(15, yPosition - 5, pageWidth - 30, obsH, 'F');
+    doc.setDrawColor(255, 193, 7);
+    doc.setLineWidth(0.8);
+    doc.rect(15, yPosition - 5, pageWidth - 30, obsH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('OBSERVAÇÕES:', 17, yPosition);
+    yPosition += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    obsLines.forEach((line: string) => { doc.text(line, 17, yPosition); yPosition += 5; });
+  }
+
+  // Rodapé
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, pageHeight - 18, pageWidth - 15, pageHeight - 18);
+    doc.setFontSize(7);
+    doc.setTextColor(128, 128, 128);
+    doc.text(`Ficha Técnica - ${pedido.numero_pedido} | Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 12, { align: 'center' });
+  }
+
+  return doc.output('blob') as unknown as Blob;
+}
+
+export function gerarFichaTecnicaDownload(pedido: any) {
+  const doc = gerarFichaTecnicaPDFBlob(pedido);
+  // Re-generate for download with save
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(doc);
+  link.download = `ficha_tecnica_${pedido.numero_pedido}.pdf`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 export function gerarPDFOrdemProducao(pedido: Pedido) {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
