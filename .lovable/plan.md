@@ -1,54 +1,36 @@
 
 
-# Seção "Detalhes do Produto" na Aprovação + Exibição em Pedidos Gerados
+# Plano: Validação obrigatória completa + Edição de Pedidos + Fórmulas detalhadas
 
-## Resumo
+## 3 Entregas
 
-Adicionar uma seção obrigatória "Detalhes do Produto" no dialog de aprovação de orçamento, entre "Informações do Cliente" e "Forma de Venda". Cada produto listado no orçamento mostrará seus dados (nome, quantidade, segmento) e campos adicionais condicionais ao tipo (`segmento`). Esses detalhes serão salvos no snapshot do orçamento e exibidos no "Ver Detalhes" dos Pedidos Gerados.
+### 1. Tornar TODOS os campos de produto obrigatórios na Aprovação
+Atualmente, produtos sem segmento reconhecido (Encapsulado/Gummy/Solúvel) passam sem validação. Corrigir para que **todos** os itens exijam seus campos condicionais preenchidos — e para produtos com segmento não reconhecido (ex: Líquido), também exigir alguma confirmação ou tratá-los explicitamente.
 
-## Campos condicionais por tipo de produto
+**Arquivo:** `src/components/AprovacaoOrcamentoDialog.tsx`
+- Na validação de `handleConfirmAprovacao`, garantir que itens com segmentos "Líquido" ou outros também sejam tratados (atualmente o `if/else if` ignora segmentos não mapeados)
+- Adicionar validação para segmento "Líquido" — se necessário, sem campos extras mas com confirmação implícita
 
-| Segmento | Campos extras |
-|---|---|
-| **Encapsulados** | Cor da tampa (Preta/Branca), Cor do pote (Preto/Branco) |
-| **Gummy** | Cor da Gummy (Vermelho/Roxo/Verde), Sabor (Frutas vermelhas/Morango/Uva/Limão/Maçã verde) |
-| **Solúvel** (Pó) | Sabor (Limão/Frutas vermelhas/Morango/Uva), Cor (Verde/Vermelho/Roxo) |
+### 2. Campo de Edição (observações editáveis) em cada Pedido Gerado
+Adicionar um botão "Editar" em cada card de pedido que permite editar as observações/notas do pedido para a equipe de produção ver alterações.
 
-## Alterações
+**Arquivos:**
+- `src/hooks/usePedidos.ts` — adicionar mutation `updateObservacoes` para atualizar o campo `observacoes` do pedido
+- `src/pages/Pedidos.tsx` — adicionar um botão "Editar Observações" que abre um campo Textarea inline ou um Dialog simples para editar as observações do pedido. Ao salvar, chama a mutation
 
-### 1. Tipo `ItemProducao` — `src/types/orcamento.ts`
-Adicionar campos opcionais para detalhes de produção:
-```typescript
-// Detalhes de produção (preenchidos na aprovação)
-detalhes_producao?: {
-  cor_tampa?: string;
-  cor_pote?: string;
-  cor_gummy?: string;
-  sabor_gummy?: string;
-  sabor_soluvel?: string;
-  cor_soluvel?: string;
-};
-```
+### 3. Puxar fórmulas completas com insumos na seção Produtos de "Ver Detalhes"
+O campo `insumos_formula` já existe no `ItemProducao` e é preenchido no momento da geração do orçamento (em `GerarOrcamentoDialog`). Preciso exibi-lo no `DetalhesPedidoDialog`.
 
-### 2. `AprovacaoOrcamentoDialog.tsx` — Nova seção "Detalhes do Produto"
-- Adicionar state `detalhesProducao` (mapa por índice do item)
-- Renderizar seção entre "Informações do Cliente" (seção 1) e "Forma de Venda" (seção 2), renumerando as seções seguintes (2→3, 3→4, 4→5, 5→6)
-- Para cada item em `orcamento.itens_producao`, exibir:
-  - Nome do produto, quantidade, segmento (read-only)
-  - Se `segmento` contém "Encapsulados": selects para cor da tampa e cor do pote
-  - Se `segmento` contém "Gummy": selects para cor e sabor
-  - Se `segmento` contém "Pó" ou "Solúvel": selects para sabor e cor
-- **Validação obrigatória** em `handleConfirmAprovacao`: verificar que todos os campos condicionais de cada item estão preenchidos
-- Ao confirmar, mesclar `detalhes_producao` nos `itens_producao` antes de salvar no orçamento e criar o pedido
+**Arquivo:** `src/components/DetalhesPedidoDialog.tsx`
+- Na seção de Produtos, para cada item, se `item.insumos_formula` existir e tiver itens, renderizar uma sub-tabela/lista com:
+  - Nome do insumo
+  - Quantidade
+  - Unidade
+- Mostrar também `dose_diaria_sugerida`, `quantidade_por_pote`, `unidade_por_pote` quando disponíveis
 
-### 3. `DetalhesPedidoDialog.tsx` — Exibir detalhes de produção
-- Na seção de Produtos, para cada item, além de nome/quantidade/modelo/preço, exibir:
-  - Dose diária sugerida (campo `dose_diaria_sugerida` do item)
-  - Detalhes de produção (cor tampa, cor pote, cor gummy, sabor, etc.) vindos de `item.detalhes_producao`
-- Usar badges ou InfoRows para cada campo preenchido
-
-## Arquivos Modificados
-- `src/types/orcamento.ts` — adicionar `detalhes_producao` em `ItemProducao`
-- `src/components/AprovacaoOrcamentoDialog.tsx` — nova seção + validação + salvar dados
-- `src/components/DetalhesPedidoDialog.tsx` — exibir detalhes de produção na tabela de produtos
+## Arquivos modificados
+- `src/components/AprovacaoOrcamentoDialog.tsx` — validação completa
+- `src/hooks/usePedidos.ts` — nova mutation de update observações
+- `src/pages/Pedidos.tsx` — botão/dialog de edição de observações
+- `src/components/DetalhesPedidoDialog.tsx` — exibir insumos da fórmula por produto
 
