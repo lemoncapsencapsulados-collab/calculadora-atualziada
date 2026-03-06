@@ -847,7 +847,7 @@ export default function Calculator() {
               📊 Análise da Composição do Pó
             </CardTitle>
             <CardDescription>
-              Breakdown detalhado dos insumos em miligramas (mg)
+              Breakdown detalhado das matérias-primas em miligramas (mg)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
