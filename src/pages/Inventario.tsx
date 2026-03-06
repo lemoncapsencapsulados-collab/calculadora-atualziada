@@ -611,12 +611,10 @@ export default function Inventario() {
                             <SelectValue placeholder="Selecione (opcional)" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Potes PET">Potes PET</SelectItem>
-                            <SelectItem value="Tampas Plásticas">Tampas Plásticas</SelectItem>
-                            <SelectItem value="Pote">Pote</SelectItem>
-                            <SelectItem value="Tampa">Tampa</SelectItem>
+                            <SelectItem value="Frascos e Potes">Frascos e Potes</SelectItem>
+                            <SelectItem value="Tampas">Tampas</SelectItem>
+                            <SelectItem value="Cápsulas">Cápsulas</SelectItem>
                             <SelectItem value="Sachê">Sachê</SelectItem>
-                            <SelectItem value="Frasco">Frasco</SelectItem>
                             <SelectItem value="Sílica">Sílica</SelectItem>
                             <SelectItem value="Acessórios">Acessórios</SelectItem>
                           </SelectContent>
