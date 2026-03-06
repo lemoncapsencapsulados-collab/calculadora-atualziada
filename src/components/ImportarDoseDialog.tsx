@@ -297,7 +297,7 @@ export default function ImportarDoseDialog({
             Importar Dose Copiada
           </DialogTitle>
           <DialogDescription>
-            Cole o texto ou anexe uma imagem com os insumos e quantidades.
+            Cole o texto ou anexe uma imagem com as matérias-primas e quantidades.
           </DialogDescription>
         </DialogHeader>
         
