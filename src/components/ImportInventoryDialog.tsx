@@ -73,7 +73,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
       // Mostrar toasts de sucesso
       if (data.insumos && data.insumos.criados + data.insumos.atualizados > 0) {
         toast.success(
-          `Insumos: ${data.insumos.criados} criados, ${data.insumos.atualizados} atualizados, ${data.insumos.duplicatas_mescladas} duplicatas mescladas`
+          `Matérias-Primas: ${data.insumos.criados} criadas, ${data.insumos.atualizados} atualizadas, ${data.insumos.duplicatas_mescladas} duplicatas mescladas`
         );
       }
 
