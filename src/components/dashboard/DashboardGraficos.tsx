@@ -60,7 +60,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
                   className="text-muted-foreground"
                 />
                 <YAxis 
-                  tickFormatter={formatCurrency}
+                  tickFormatter={formatCurrencyAxis}
                   tick={{ fontSize: 12 }}
                   className="text-muted-foreground"
                 />
