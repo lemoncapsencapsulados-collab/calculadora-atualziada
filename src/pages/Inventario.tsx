@@ -335,17 +335,19 @@ export default function Inventario() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Vitaminas">Vitaminas</SelectItem>
-                                <SelectItem value="Aminoácidos">Aminoácidos</SelectItem>
-                                <SelectItem value="Minerais">Minerais</SelectItem>
+                                <SelectItem value="Aminoácidos e Derivados">Aminoácidos e Derivados</SelectItem>
+                                <SelectItem value="Minerais e Compostos Quelados">Minerais e Compostos Quelados</SelectItem>
                                 <SelectItem value="Substâncias Bioativas">Substâncias Bioativas</SelectItem>
-                                <SelectItem value="Fibra Alimentar">Fibra Alimentar</SelectItem>
+                                <SelectItem value="Fibras e Carboidratos">Fibras e Carboidratos</SelectItem>
                                 <SelectItem value="Ativos Emagrecedores">Ativos Emagrecedores</SelectItem>
-                                <SelectItem value="Óleos">Óleos</SelectItem>
+                                <SelectItem value="Óleos e Lipídeos">Óleos e Lipídeos</SelectItem>
                                 <SelectItem value="Suplemento Alimentar">Suplemento Alimentar</SelectItem>
                                 <SelectItem value="Suplemento Ergogênico">Suplemento Ergogênico</SelectItem>
-                                <SelectItem value="Aromas">Aromas</SelectItem>
-                                <SelectItem value="Sacarose">Sacarose</SelectItem>
-                                <SelectItem value="Enzimas">Enzimas</SelectItem>
+                                <SelectItem value="Aromas e Corantes">Aromas e Corantes</SelectItem>
+                                <SelectItem value="Enzimas e Catalisadores">Enzimas e Catalisadores</SelectItem>
+                                <SelectItem value="Extratos e Fitoterápicos">Extratos e Fitoterápicos</SelectItem>
+                                <SelectItem value="Compostos Funcionais Ácidos e Bases">Compostos Funcionais</SelectItem>
+                                <SelectItem value="Compostos Alimentares e Espessantes">Espessantes</SelectItem>
                                 <SelectItem value="Outros">Outros</SelectItem>
                               </SelectContent>
                             </Select>
