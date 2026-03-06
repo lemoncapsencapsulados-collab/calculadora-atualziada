@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, PieChartIcon } from 'lucide-react';
 import type { EvolucaoTemporal, DistribuicaoCanal } from '@/types/dashboard';
+import { formatCurrency } from '@/lib/unitConversion';
 
 interface DashboardGraficosProps {
   evolucaoTemporal: EvolucaoTemporal[];
