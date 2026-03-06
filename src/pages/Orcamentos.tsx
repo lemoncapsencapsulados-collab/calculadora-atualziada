@@ -240,7 +240,7 @@ export default function Orcamentos() {
                                     }>
                                       {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
                                     </Badge>
-                                    {isAprovado && <CheckCircle2 className="w-5 h-5 text-green-600" />}
+                                    {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
                                   </div>
                                   <p className="text-muted-foreground text-sm mt-1">
                                     Consultor: <span className="font-medium text-foreground">{orcamento.consultor_responsavel || '—'}</span>
