@@ -244,10 +244,10 @@ const Cotacoes = () => {
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
                               <p className="text-muted-foreground">Unidades por dose:</p>
-                              <p className="font-medium">
-                                {formula.tipo_produto === 'Pó' && formula.unidade_po === 'g'
+                             <p className="font-medium">
+                                {formula.tipo_produto === 'Solúvel' && formula.unidade_soluvel === 'g'
                                   ? `${(formula.unidades_por_dose / 1000).toFixed(1)} g`
-                                  : formula.tipo_produto === 'Pó'
+                                  : formula.tipo_produto === 'Solúvel'
                                   ? `${formula.unidades_por_dose} mg`
                                   : formula.tipo_produto === 'Encapsulados' 
                                   ? `${formula.unidades_por_dose} cápsulas`
@@ -262,7 +262,7 @@ const Cotacoes = () => {
                             <div>
                               <p className="text-muted-foreground">Número de doses:</p>
                               <p className="font-medium">
-                                {Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses
+                                {Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)} doses
                               </p>
                             </div>
                           </div>

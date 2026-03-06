@@ -135,7 +135,7 @@ export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogP
             <h2 className="text-xl font-bold text-gray-900">{formula.nome_formula}</h2>
             <p className="text-gray-600">Cliente: {formula.cliente}</p>
             <p className="text-gray-500 text-sm">
-              {formula.tipo_produto} • {formula.qtd_capsulas} {
+              {formula.tipo_produto} • {formula.quantidade_por_pote} {
                 formula.tipo_produto === 'Encapsulados' ? 'cápsulas' :
                 formula.tipo_produto === 'Gummy' ? 'gummies' :
                 formula.tipo_produto === 'Líquido' ? 'mL' : 'g'

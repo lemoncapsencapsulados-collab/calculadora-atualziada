@@ -221,7 +221,7 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
             ) : !isOrcamento && formulaSnap ? (
               <div className="space-y-1 bg-muted/50 rounded-lg p-3">
                 <InfoRow label="Tipo" value={formulaSnap.tipo_produto} />
-                <InfoRow label="Qtd Cápsulas" value={formulaSnap.qtd_capsulas} />
+                <InfoRow label="Qtd por Pote" value={formulaSnap.quantidade_por_pote || formulaSnap.qtd_capsulas} />
                 <InfoRow label="Quantidade Pedido" value={`${pedido.quantidade_produto} ${pedido.unidade_produto}`} />
                 <InfoRow label="Custo MP" value={formatCurrency(formulaSnap.total_mp)} />
                 <InfoRow label="Custo Embalagem" value={formatCurrency(formulaSnap.total_embalagem)} />

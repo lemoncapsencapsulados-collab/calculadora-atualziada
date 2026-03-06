@@ -185,7 +185,7 @@ interface MargemConfig {
 
 const MARGENS_CONFIG: Record<string, MargemConfig> = {
   'Gummy': { minima: 25, idealInicio: 25.01, idealFim: 32 },
-  'Pó': { minima: 18, idealInicio: 20, idealFim: 25 },
+  'Solúvel': { minima: 18, idealInicio: 20, idealFim: 25 },
   'Encapsulados': { minima: 15, idealInicio: 18, idealFim: 23 },
   'Líquido': { minima: 15, idealInicio: 18, idealFim: 23 },
 };

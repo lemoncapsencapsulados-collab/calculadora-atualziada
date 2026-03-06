@@ -310,7 +310,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 const seg = (item.segmento || '').toLowerCase();
                 const isEncapsulado = seg.includes('encapsulado');
                 const isGummy = seg.includes('gummy');
-                const isSoluvel = seg.includes('pó') || seg.includes('po') || seg.includes('solúvel') || seg.includes('soluvel');
+                const isSoluvel = seg.includes('solúvel') || seg.includes('soluvel');
                 const d = detalhesProducao[idx] || {};
 
                 const isLiquido = seg.includes('líquido') || seg.includes('liquido');

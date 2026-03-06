@@ -839,12 +839,12 @@ export default function Calculator() {
           </CardContent>
         </Card>}
 
-      {/* NOVA SEÇÃO: Análise da Composição do Pó - só para Pó */}
-      {tipoProduto === 'Pó' && totaisInsumosMG.totalMG > 0 && <Card className="shadow-md border-l-4 border-l-primary">
+      {/* NOVA SEÇÃO: Análise da Composição do Solúvel */}
+      {tipoProduto === 'Solúvel' && totaisInsumosMG.totalMG > 0 && <Card className="shadow-md border-l-4 border-l-primary">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scale className="h-5 w-5 text-primary" />
-              📊 Análise da Composição do Pó
+              📊 Análise da Composição do Solúvel
             </CardTitle>
             <CardDescription>
               Breakdown detalhado das matérias-primas em miligramas (mg)

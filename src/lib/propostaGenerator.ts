@@ -339,8 +339,8 @@ export async function gerarPropostaPDF(data: PropostaData) {
       
       const dosesInfo = [
         { label: 'Dose Recomendada', valor: `${formula.unidades_por_dose} ${unidadeTexto}` },
-        { label: 'Doses por Frasco', valor: `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}` },
-        { label: 'Total de Doses (pedido)', valor: `${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)}` },
+        { label: 'Doses por Frasco', valor: `${Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)}` },
+        { label: 'Total de Doses (pedido)', valor: `${Math.floor((formula.quantidade_por_pote / formula.unidades_por_dose) * quantidadeFrascos)}` },
       ];
       
       doc.setFontSize(LAYOUT.fontSize.body);
