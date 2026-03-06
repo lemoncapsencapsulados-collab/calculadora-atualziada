@@ -124,6 +124,8 @@ export default function GerarOrcamentoDialog({
         
         // Buscar insumos da fórmula
         let insumos_formula: InsumoSnapshot[] = [];
+        const formulaData: Record<string, any> = {};
+
         if (prec?.formula_id) {
           const { data: formula } = await supabase
             .from('formulas')
@@ -139,18 +141,17 @@ export default function GerarOrcamentoDialog({
             }));
           }
 
-          // Derivar unidade com base no tipo de produto
-          const deriveUnidade = (tipo: string, unidadeSoluvel?: string | null): string => {
-            switch (tipo) {
-              case 'Encapsulados': return 'capsulas';
-              case 'Gummy': return 'gummies';
-              case 'Líquido': return 'ml';
-              case 'Solúvel': return unidadeSoluvel || 'g';
-              default: return 'capsulas';
-            }
-          };
-
           if (formula) {
+            const deriveUnidade = (tipo: string, unidadeSoluvel?: string | null): string => {
+              switch (tipo) {
+                case 'Encapsulados': return 'capsulas';
+                case 'Gummy': return 'gummies';
+                case 'Líquido': return 'ml';
+                case 'Solúvel': return unidadeSoluvel || 'g';
+                default: return 'capsulas';
+              }
+            };
+
             const tipoProd = formula.tipo_produto || '';
             const qtdPote = Number(formula.quantidade_por_pote) || undefined;
             const qtdDose = Number(formula.unidades_por_dose) || undefined;
@@ -169,8 +170,6 @@ export default function GerarOrcamentoDialog({
             });
           }
         }
-        
-        const formulaData: Record<string, any> = {};
 
         return {
           tipo: 'precificacao' as const,
