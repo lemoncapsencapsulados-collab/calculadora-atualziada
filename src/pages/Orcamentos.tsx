@@ -30,7 +30,7 @@ import OrcamentoKanbanView from '@/components/OrcamentoKanbanView';
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
   enviado: { label: 'Enviado', variant: 'default' },
-  aprovado: { label: 'Aprovado', variant: 'outline' },
+  pago: { label: 'Pago', variant: 'outline' },
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
