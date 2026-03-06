@@ -773,7 +773,7 @@ export default function Calculator() {
                     </p>
                     
                     {/* Conversões de unidades para Pó */}
-                    {tipoProduto === 'Pó' && <p className="text-muted-foreground text-xs">
+                    {tipoProduto === 'Solúvel' && <p className="text-muted-foreground text-xs">
                         Por dose: {item.quantidade}{item.unidade}
                         {item.unidade === 'mg' && ` = ${(parseFloat(item.quantidade) / 1000).toFixed(3)}g = ${(parseFloat(item.quantidade) / 1_000_000).toFixed(6)}kg`}
                         {item.unidade === 'g' && ` = ${(parseFloat(item.quantidade) * 1000).toFixed(2)}mg = ${(parseFloat(item.quantidade) / 1000).toFixed(6)}kg`}
