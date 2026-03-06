@@ -198,7 +198,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       // Update status to approved
       await updateStatus.mutateAsync({
         id: orcamento.id,
-        status: 'aprovado',
+        status: 'pago',
         data_pagamento: dataPagamento.toISOString(),
       });
 
