@@ -527,7 +527,7 @@ export default function Precificacao() {
                         <div className="p-3 bg-primary/5 rounded-lg">
                           <p className="text-sm font-medium">
                             Subtotal Indiretos: R${' '}
-                            {(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
+                            {arredondarReais(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
                           </p>
                         </div>
                       </CardContent>
