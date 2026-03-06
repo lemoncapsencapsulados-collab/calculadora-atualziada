@@ -273,7 +273,7 @@ export default function Orcamentos() {
                                     Editado: {format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                   </div>
                                 )}
-                                {isAprovado && orcamento.data_pagamento && (
+                                {isPago && orcamento.data_pagamento && (
                                   <div className="flex items-center gap-1 text-green-600">
                                     <CalendarIcon className="w-3 h-3" />
                                     Pgto: {format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
