@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
 import LotesPanel from "@/components/LotesPanel";
+import InventarioDashboard from "@/components/InventarioDashboard";
 import { differenceInDays, format } from "date-fns";
 
 function getUpdateAlert(updatedAt?: string): { type: 'red' | 'yellow' | null; label: string; daysLeft?: number } {
@@ -36,7 +37,7 @@ function formatUpdatedAt(updatedAt?: string): string {
 export default function Inventario() {
   const { insumos, loading: loadingInsumos, addInsumo, updateInsumo, deleteInsumo } = useInsumos();
   const { embalagens, loading: loadingEmbalagens, addEmbalagem, updateEmbalagem, deleteEmbalagem } = useEmbalagens();
-  const { getLotesForItem, getCustoMedioPonderado, addLote, updateLote, deleteLote } = useLotes();
+  const { lotes, getLotesForItem, getCustoMedioPonderado, addLote, updateLote, deleteLote } = useLotes();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
@@ -214,6 +215,8 @@ export default function Inventario() {
         <h1 className="text-3xl font-bold text-foreground">Inventário</h1>
         <p className="text-muted-foreground mt-1">Gerencie suas matérias-primas e embalagens</p>
       </div>
+
+      <InventarioDashboard lotes={lotes} materiasPrimas={insumos} embalagens={embalagens} />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "materias_primas" | "embalagens")}>
         <TabsList className="grid w-full max-w-md grid-cols-2">

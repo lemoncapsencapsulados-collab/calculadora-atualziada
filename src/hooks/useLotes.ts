@@ -51,6 +51,7 @@ export function useLotes() {
       const { error } = await supabase.from('lotes').insert({
         item_id: lote.item_id,
         item_tipo: lote.item_tipo,
+        codigo: lote.codigo || null,
         quantidade: lote.quantidade,
         validade: lote.validade || null,
         custo_unitario: lote.custo_unitario,
@@ -68,6 +69,7 @@ export function useLotes() {
   const updateLote = async (id: string, updates: Partial<Lote>) => {
     try {
       const dbUpdates: any = {};
+      if (updates.codigo !== undefined) dbUpdates.codigo = updates.codigo || null;
       if (updates.quantidade !== undefined) dbUpdates.quantidade = updates.quantidade;
       if (updates.validade !== undefined) dbUpdates.validade = updates.validade || null;
       if (updates.custo_unitario !== undefined) dbUpdates.custo_unitario = updates.custo_unitario;
@@ -102,6 +104,7 @@ function mapLoteFromDB(db: any): Lote {
     id: db.id,
     item_id: db.item_id,
     item_tipo: db.item_tipo,
+    codigo: db.codigo || undefined,
     quantidade: Number(db.quantidade),
     validade: db.validade || undefined,
     custo_unitario: Number(db.custo_unitario),

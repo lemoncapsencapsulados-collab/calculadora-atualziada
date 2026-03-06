@@ -19,6 +19,7 @@ export interface Lote {
   id: string;
   item_id: string;
   item_tipo: 'materia_prima' | 'embalagem';
+  codigo?: string;
   quantidade: number;
   validade?: string;
   custo_unitario: number;

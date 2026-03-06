@@ -42,6 +42,7 @@ export default function LotesPanel({
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const codigo = fd.get('codigo') as string;
     const quantidade = parseFloat(fd.get('quantidade') as string);
     const custo_unitario = parseFloat(fd.get('custo_unitario') as string);
     const validade = fd.get('validade') as string;
@@ -52,9 +53,9 @@ export default function LotesPanel({
 
     try {
       if (editingLote) {
-        await onUpdateLote(editingLote.id, { quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
+        await onUpdateLote(editingLote.id, { codigo: codigo || undefined, quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
       } else {
-        await onAddLote({ item_id: itemId, item_tipo: itemTipo, quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
+        await onAddLote({ item_id: itemId, item_tipo: itemTipo, codigo: codigo || undefined, quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
       }
       setDialogOpen(false);
       setEditingLote(null);
@@ -104,7 +105,8 @@ export default function LotesPanel({
                   'bg-muted/50'
                 }`}
               >
-                <div className="flex items-center gap-4 flex-1">
+                <div className="flex items-center gap-4 flex-1 flex-wrap">
+                  {lote.codigo && <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{lote.codigo}</span>}
                   <span className="font-medium w-20">Qtd: {lote.quantidade.toLocaleString('pt-BR')}</span>
                   <span className="text-muted-foreground w-28">{formatCurrency(lote.custo_unitario)}/un</span>
                   {lote.validade && (
@@ -140,6 +142,10 @@ export default function LotesPanel({
             <DialogTitle>{editingLote ? 'Editar Lote' : 'Novo Lote'} — {itemNome}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <Label>Código do Lote</Label>
+              <Input name="codigo" defaultValue={editingLote?.codigo ?? ''} placeholder="Ex: LT-2024-001" />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Quantidade *</Label>
