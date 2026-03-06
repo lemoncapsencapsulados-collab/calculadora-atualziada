@@ -191,7 +191,7 @@ export default function Calculator() {
 
   // Calcula totais de insumos em MG (para Encapsulados e Pó)
   const totaisInsumosMG = useMemo(() => {
-    if (tipoProduto !== 'Encapsulados' && tipoProduto !== 'Pó') return {
+    if (tipoProduto !== 'Encapsulados' && tipoProduto !== 'Solúvel') return {
       totalMG: 0,
       itensMG: []
     };
