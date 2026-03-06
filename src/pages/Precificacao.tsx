@@ -442,7 +442,7 @@ export default function Precificacao() {
                         <div className="p-3 bg-primary/5 rounded-lg">
                           <p className="text-sm font-medium">
                             Subtotal Diretos: R${' '}
-                            {(
+                            {arredondarReais(
                               Number(formulaSelecionada.total_mp) +
                               Number(formulaSelecionada.total_embalagem) +
                               custosIndiretos.maoObraDireta
