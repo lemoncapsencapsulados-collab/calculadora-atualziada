@@ -340,7 +340,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
     startY: yPosition,
     head: [['Item', 'Custo']],
     body: embData,
-    foot: [['TOTAL EMBALAGEM', `R$ ${formula.total_embalagem.toFixed(2)}`]],
+    foot: [['TOTAL EMBALAGEM', `R$ ${arredondarReais(formula.total_embalagem).toFixed(2)}`]],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 10 },
     footStyles: { fillColor: [236, 240, 241], textColor: 0, fontStyle: 'bold', fontSize: 10 },
