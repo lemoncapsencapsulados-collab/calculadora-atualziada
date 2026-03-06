@@ -112,7 +112,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value: number) => formatCurrencyFull(value)}
+                    formatter={(value: number) => formatCurrency(value)}
                   />
                 </PieChart>
               </ResponsiveContainer>
