@@ -412,7 +412,7 @@ export default function Precificacao() {
                           <div className="space-y-2">
                             <Label>Embalagem</Label>
                             <Input
-                              value={`R$ ${Number(formulaSelecionada.total_embalagem).toFixed(2)}`}
+                              value={`R$ ${arredondarReais(Number(formulaSelecionada.total_embalagem)).toFixed(2)}`}
                               disabled
                               className="bg-muted"
                             />
