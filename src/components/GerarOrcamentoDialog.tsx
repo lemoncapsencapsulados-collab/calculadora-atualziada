@@ -5,6 +5,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/unitConversion';
 import {
   Dialog,
   DialogContent,
