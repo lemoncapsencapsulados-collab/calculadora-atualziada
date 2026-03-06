@@ -357,7 +357,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('CUSTO TOTAL:', 20, yPosition + 8);
-  doc.text(`R$ ${formula.custo_total.toFixed(2)}`, pageWidth - 20, yPosition + 8, { align: 'right' });
+  doc.text(`R$ ${arredondarReais(formula.custo_total).toFixed(2)}`, pageWidth - 20, yPosition + 8, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 
   yPosition += 18;

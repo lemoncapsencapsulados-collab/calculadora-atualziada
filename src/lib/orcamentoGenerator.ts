@@ -47,12 +47,6 @@ const PAGE_WIDTH = 210;
 
 // ========== FUNÇÕES UTILITÁRIAS ==========
 
-function formatCurrency(value: number): string {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-}
 
 function getPageWidth(doc: jsPDF): number {
   return doc.internal.pageSize.getWidth();

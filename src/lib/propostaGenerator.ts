@@ -59,7 +59,8 @@ const PAGE_HEIGHT = 297;
 const PAGE_WIDTH = 210;
 
 const formatarMoeda = (valor: number): string => {
-  return valor.toLocaleString('pt-BR', { 
+  const rounded = arredondarReais(valor);
+  return rounded.toLocaleString('pt-BR', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   });
