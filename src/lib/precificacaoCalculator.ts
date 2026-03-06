@@ -1,4 +1,5 @@
 import { ConfiguracaoCustos, PrecificacaoCalculada } from '@/types/precificacao';
+import { arredondarReais } from '@/lib/utils';
 
 interface CustosBase {
   custoMateriaPrima: number;
