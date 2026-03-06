@@ -163,7 +163,7 @@ const Cotacoes = () => {
 
           {/* Filtros */}
           <div className="flex gap-2 flex-wrap">
-            {['Todos', 'Encapsulados', 'Pó', 'Gummy', 'Líquido'].map((tipo) => (
+            {['Todos', 'Encapsulados', 'Solúvel', 'Gummy', 'Líquido'].map((tipo) => (
               <Button
                 key={tipo}
                 variant={filterTipo === tipo ? 'default' : 'outline'}
