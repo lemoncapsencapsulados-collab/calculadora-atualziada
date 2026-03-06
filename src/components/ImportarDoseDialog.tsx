@@ -297,7 +297,7 @@ export default function ImportarDoseDialog({
             Importar Dose Copiada
           </DialogTitle>
           <DialogDescription>
-            Cole o texto ou anexe uma imagem com os insumos e quantidades.
+            Cole o texto ou anexe uma imagem com as matérias-primas e quantidades.
           </DialogDescription>
         </DialogHeader>
         
@@ -390,7 +390,7 @@ export default function ImportarDoseDialog({
           <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Cole aqui a lista de insumos e quantidades..."
+            placeholder="Cole aqui a lista de matérias-primas e quantidades..."
             className="min-h-[100px] font-mono text-sm"
             disabled={processandoImagem}
           />
@@ -400,7 +400,7 @@ export default function ImportarDoseDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">
-                  Prévia: {parsedItems.length} insumo{parsedItems.length !== 1 ? 's' : ''} reconhecido{parsedItems.length !== 1 ? 's' : ''}
+                  Prévia: {parsedItems.length} matéria{parsedItems.length !== 1 ? 's' : ''}-prima{parsedItems.length !== 1 ? 's' : ''} reconhecida{parsedItems.length !== 1 ? 's' : ''}
                 </p>
                 <div className="flex gap-2">
                   {itensEncontrados.length > 0 && (

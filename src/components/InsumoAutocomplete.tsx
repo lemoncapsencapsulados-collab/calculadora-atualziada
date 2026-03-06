@@ -19,7 +19,7 @@ export default function InsumoAutocomplete({
   insumos,
   value,
   onSelect,
-  placeholder = 'Selecione um insumo...',
+  placeholder = 'Selecione uma matéria-prima...',
   disabled = false,
 }: InsumoAutocompleteProps) {
   const [open, setOpen] = useState(false);
@@ -57,12 +57,12 @@ export default function InsumoAutocomplete({
       <PopoverContent className="w-[400px] p-0" align="start">
         <Command>
           <CommandInput
-            placeholder="Buscar insumo..."
+            placeholder="Buscar matéria-prima..."
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
-            <CommandEmpty>Nenhum insumo encontrado.</CommandEmpty>
+            <CommandEmpty>Nenhuma matéria-prima encontrada.</CommandEmpty>
             <CommandGroup>
               {filteredInsumos.map((insumo) => (
                 <CommandItem

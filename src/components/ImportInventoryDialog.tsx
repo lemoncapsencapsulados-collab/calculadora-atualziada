@@ -73,7 +73,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
       // Mostrar toasts de sucesso
       if (data.insumos && data.insumos.criados + data.insumos.atualizados > 0) {
         toast.success(
-          `Insumos: ${data.insumos.criados} criados, ${data.insumos.atualizados} atualizados, ${data.insumos.duplicatas_mescladas} duplicatas mescladas`
+          `Matérias-Primas: ${data.insumos.criados} criadas, ${data.insumos.atualizados} atualizadas, ${data.insumos.duplicatas_mescladas} duplicatas mescladas`
         );
       }
 
@@ -107,16 +107,16 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
         <DialogHeader>
           <DialogTitle>Importar Inventário Completo</DialogTitle>
           <DialogDescription>
-            Importe seus arquivos JSON de insumos e embalagens. O sistema irá automaticamente mesclar duplicatas e
+            Importe seus arquivos JSON de matérias-primas e embalagens. O sistema irá automaticamente mesclar duplicatas e
             converter unidades.
           </DialogDescription>
         </DialogHeader>
 
         {!result ? (
           <div className="space-y-6">
-            {/* Upload de Insumos */}
+            {/* Upload de Matérias-Primas */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Arquivo de Insumos (JSON)</label>
+              <label className="text-sm font-medium">Arquivo de Matérias-Primas (JSON)</label>
               <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                 {insumosFile ? (
                   <div className="flex items-center justify-between">
@@ -134,7 +134,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
                     <p className="text-sm text-muted-foreground mb-1">
                       Clique para selecionar ou arraste o arquivo
                     </p>
-                    <p className="text-xs text-muted-foreground">INSUMOS.json</p>
+                    <p className="text-xs text-muted-foreground">MATERIAS_PRIMAS.json</p>
                     <input
                       type="file"
                       accept=".json"
@@ -219,7 +219,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
             {/* Insumos */}
             {result.insumos && (
               <div className="space-y-2">
-                <h3 className="font-semibold">Insumos</h3>
+                <h3 className="font-semibold">Matérias-Primas</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="p-3 bg-green-50 dark:bg-green-950 rounded">
                     <div className="text-green-700 dark:text-green-300 font-medium">

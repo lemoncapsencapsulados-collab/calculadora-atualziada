@@ -431,7 +431,7 @@ export default function Calculator() {
       return [...semVazios, ...novosItens];
     });
     
-    toast.success(`${parsedItems.length} insumo${parsedItems.length !== 1 ? 's' : ''} importado${parsedItems.length !== 1 ? 's' : ''}!`);
+    toast.success(`${parsedItems.length} matéria${parsedItems.length !== 1 ? 's' : ''}-prima${parsedItems.length !== 1 ? 's' : ''} importada${parsedItems.length !== 1 ? 's' : ''}!`);
   };
   const handleSave = () => {
     if (!cliente.trim()) {
@@ -541,7 +541,7 @@ export default function Calculator() {
     const quantidadeLabel = tipoProduto === 'Pó' ? '1' : qtdCapsulas;
     let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nTipo: ${tipoProduto}\nQuantidade: ${quantidadeLabel} ${tipoProdutoLabel}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
     csv += `MATÉRIA-PRIMA (por ${tipoProduto === 'Pó' ? 'pote' : 'unidade'})\n`;
-    csv += 'Insumo,Quantidade,Unidade,Custo Unitário\n';
+    csv += 'Matéria-Prima,Quantidade,Unidade,Custo Unitário\n';
     calculatedItems.forEach(item => {
       if (item && !item.error) {
         csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrencyDetailed(item.custo)}\n`;
@@ -724,14 +724,14 @@ export default function Calculator() {
             return <div key={item.id} className="space-y-2">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-5">
-                    <Label>Insumo</Label>
+                    <Label>Matéria-Prima</Label>
                     <InsumoAutocomplete
                       insumos={insumos}
                       value={item.insumoNome}
                       onSelect={(insumo) => {
                         updateItem(item.id, 'insumoNome', insumo.nome);
                       }}
-                      placeholder="Selecione o insumo..."
+                      placeholder="Selecione a matéria-prima..."
                     />
                   </div>
 
@@ -847,13 +847,13 @@ export default function Calculator() {
               📊 Análise da Composição do Pó
             </CardTitle>
             <CardDescription>
-              Breakdown detalhado dos insumos em miligramas (mg)
+              Breakdown detalhado das matérias-primas em miligramas (mg)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Lista de insumos convertidos para MG */}
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground">Insumos da Fórmula (por dose diária):</p>
+              <p className="text-sm font-semibold text-muted-foreground">Matérias-Primas da Fórmula (por dose diária):</p>
               <div className="space-y-1 pl-3">
                 {totaisInsumosMG.itensMG.map((item: any, idx: number) => <div key={idx} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
@@ -896,7 +896,7 @@ export default function Calculator() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses = Total de insumos no pote
+                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses = Total de matérias-primas no pote
               </p>
             </div>
 

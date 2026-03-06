@@ -123,9 +123,9 @@ export default function ImportInsumosDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Importar Lista de Insumos</DialogTitle>
+          <DialogTitle>Importar Lista de Matérias-Primas</DialogTitle>
           <DialogDescription>
-            Importe múltiplos insumos de uma vez. Duplicatas serão atualizadas automaticamente.
+            Importe múltiplas matérias-primas de uma vez. Duplicatas serão atualizadas automaticamente.
           </DialogDescription>
         </DialogHeader>
 
@@ -144,9 +144,9 @@ export default function ImportInsumosDialog() {
                   {JSON.stringify(exampleJson, null, 2)}
                 </pre>
                 <p className="text-xs text-muted-foreground">
-                  • <strong>nome</strong>: Nome do insumo (obrigatório)<br />
+                  • <strong>nome</strong>: Nome da matéria-prima (obrigatório)<br />
                   • <strong>preco_por_kg</strong>: Preço em R$ por quilograma (obrigatório)<br />
-                  • <strong>segmento</strong>: Categoria do insumo (opcional)
+                  • <strong>segmento</strong>: Categoria da matéria-prima (opcional)
                 </p>
               </CardContent>
             </Card>
@@ -210,7 +210,7 @@ export default function ImportInsumosDialog() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-green-500" />
-                    Preview: {previewItems.length} insumos
+                    Preview: {previewItems.length} matérias-primas
                   </CardTitle>
                   <CardDescription>
                     Revise os dados antes de confirmar a importação

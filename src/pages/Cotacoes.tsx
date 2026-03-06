@@ -89,7 +89,7 @@ const Cotacoes = () => {
     csv += `Quantidade: ${formula.qtd_capsulas}\n\n`;
 
     csv += 'MATÉRIA-PRIMA\n';
-    csv += 'Insumo,Quantidade,Unidade,Custo\n';
+    csv += 'Matéria-Prima,Quantidade,Unidade,Custo\n';
     formula.itens.forEach((item: any) => {
       csv += `${item.nome_insumo_snapshot},${item.qtd_informada},${item.unidade_informada},${formatCurrency(item.custo_calculado)}\n`;
     });
