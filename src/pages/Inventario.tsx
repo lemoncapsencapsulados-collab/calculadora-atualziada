@@ -152,7 +152,7 @@ export default function Inventario() {
   };
 
   const handleDeleteInsumo = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este insumo?")) {
+    if (confirm("Tem certeza que deseja excluir esta matéria-prima?")) {
       await deleteInsumo(id);
     }
   };
