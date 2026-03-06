@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload, AlertTriangle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useInsumos } from "@/hooks/useInsumos";
 import { useEmbalagens } from "@/hooks/useEmbalagens";
+import { useLotes } from "@/hooks/useLotes";
 import { UnitType } from "@/types/formula";
 import { formatCurrency, formatUnit } from "@/lib/unitConversion";
 import { toast } from "sonner";
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
+import LotesPanel from "@/components/LotesPanel";
 import { differenceInDays, format } from "date-fns";
 
 function getUpdateAlert(updatedAt?: string): { type: 'red' | 'yellow' | null; label: string; daysLeft?: number } {
