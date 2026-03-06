@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Orcamento, DadosCliente, DetalhamentoFrete, CondicoesPagamento, FormaPagamentoTipo } from '@/types/orcamento';
+import { formatCurrency } from '@/lib/unitConversion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -46,12 +47,6 @@ const PAGE_WIDTH = 210;
 
 // ========== FUNÇÕES UTILITÁRIAS ==========
 
-function formatCurrency(value: number): string {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-}
 
 function getPageWidth(doc: jsPDF): number {
   return doc.internal.pageSize.getWidth();

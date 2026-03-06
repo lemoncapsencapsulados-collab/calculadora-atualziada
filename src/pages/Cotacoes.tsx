@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useFormulas } from '@/hooks/useFormulas';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatCurrency } from '@/lib/unitConversion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,12 +63,6 @@ const Cotacoes = () => {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const filteredFormulas = useMemo(() => {
     return formulas.filter((formula) => {

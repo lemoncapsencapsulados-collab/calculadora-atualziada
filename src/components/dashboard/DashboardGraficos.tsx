@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, PieChartIcon } from 'lucide-react';
 import type { EvolucaoTemporal, DistribuicaoCanal } from '@/types/dashboard';
+import { formatCurrency } from '@/lib/unitConversion';
 
 interface DashboardGraficosProps {
   evolucaoTemporal: EvolucaoTemporal[];
@@ -11,19 +12,11 @@ interface DashboardGraficosProps {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: DashboardGraficosProps) {
-  const formatCurrency = (value: number) => {
+  const formatCurrencyAxis = (value: number) => {
     if (value >= 1000) {
       return `R$ ${(value / 1000).toFixed(0)}K`;
     }
     return `R$ ${value.toFixed(0)}`;
-  };
-
-  const formatCurrencyFull = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2
-    }).format(value);
   };
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }) => {
@@ -33,7 +26,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
           <p className="font-medium mb-1">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }} className="text-sm">
-              {entry.name}: {formatCurrencyFull(entry.value)}
+              {entry.name}: {formatCurrency(entry.value)}
             </p>
           ))}
         </div>
@@ -67,7 +60,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
                   className="text-muted-foreground"
                 />
                 <YAxis 
-                  tickFormatter={formatCurrency}
+                  tickFormatter={formatCurrencyAxis}
                   tick={{ fontSize: 12 }}
                   className="text-muted-foreground"
                 />
@@ -119,7 +112,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value: number) => formatCurrencyFull(value)}
+                    formatter={(value: number) => formatCurrency(value)}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -133,7 +126,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
                     <div className="flex-1">
                       <p className="text-sm font-medium">{canal.canal}</p>
                       <p className="text-xs text-muted-foreground">
-                        {canal.clientes} cliente{canal.clientes !== 1 ? 's' : ''} • {formatCurrencyFull(canal.faturamento)}
+                        {canal.clientes} cliente{canal.clientes !== 1 ? 's' : ''} • {formatCurrency(canal.faturamento)}
                       </p>
                     </div>
                   </div>

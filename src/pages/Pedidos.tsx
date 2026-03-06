@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
+import { formatCurrency } from '@/lib/unitConversion';
 import { StatusPedido } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
@@ -35,9 +36,6 @@ const Pedidos = () => {
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
 
   const getStatusConfig = (status: StatusPedido) => {
     const configs = {

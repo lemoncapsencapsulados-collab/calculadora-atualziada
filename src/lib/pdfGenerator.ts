@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Pedido, Formula } from '@/types/formula';
+import { arredondarReais } from '@/lib/utils';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -305,14 +306,14 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
   const mpData = formula.itens.map((item: any) => [
     item.nome_insumo_snapshot,
     `${item.qtd_informada} ${item.unidade_informada}`,
-    `R$ ${item.custo_calculado.toFixed(2)}`,
+    `R$ ${arredondarReais(item.custo_calculado).toFixed(2)}`,
   ]);
 
   autoTable(doc, {
     startY: yPosition,
     head: [['Insumo', 'Quantidade', 'Custo']],
     body: mpData,
-    foot: [['TOTAL MATÉRIA-PRIMA', '', `R$ ${formula.total_mp.toFixed(2)}`]],
+    foot: [['TOTAL MATÉRIA-PRIMA', '', `R$ ${arredondarReais(formula.total_mp).toFixed(2)}`]],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 10 },
     footStyles: { fillColor: [236, 240, 241], textColor: 0, fontStyle: 'bold', fontSize: 10 },
@@ -332,14 +333,14 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
 
   const embData = formula.embalagens.map((item: any) => [
     item.descricao_snapshot,
-    `R$ ${item.custo_calculado.toFixed(2)}`,
+    `R$ ${arredondarReais(item.custo_calculado).toFixed(2)}`,
   ]);
 
   autoTable(doc, {
     startY: yPosition,
     head: [['Item', 'Custo']],
     body: embData,
-    foot: [['TOTAL EMBALAGEM', `R$ ${formula.total_embalagem.toFixed(2)}`]],
+    foot: [['TOTAL EMBALAGEM', `R$ ${arredondarReais(formula.total_embalagem).toFixed(2)}`]],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 10 },
     footStyles: { fillColor: [236, 240, 241], textColor: 0, fontStyle: 'bold', fontSize: 10 },
@@ -356,7 +357,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('CUSTO TOTAL:', 20, yPosition + 8);
-  doc.text(`R$ ${formula.custo_total.toFixed(2)}`, pageWidth - 20, yPosition + 8, { align: 'right' });
+  doc.text(`R$ ${arredondarReais(formula.custo_total).toFixed(2)}`, pageWidth - 20, yPosition + 8, { align: 'right' });
   doc.setTextColor(0, 0, 0);
 
   yPosition += 18;

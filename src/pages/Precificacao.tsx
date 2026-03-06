@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { formatCurrency } from '@/lib/unitConversion';
+import { arredondarReais } from '@/lib/utils';
 import { useFormulasPaginadas } from '@/hooks/useFormulasPaginadas';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
@@ -308,10 +310,10 @@ export default function Precificacao() {
                           </div>
                           <p className="text-sm text-muted-foreground">{formula.cliente}</p>
                           <p className="text-lg font-bold text-primary">
-                            R$ {custoTotal.toFixed(2)}
+                            R$ {arredondarReais(custoTotal).toFixed(2)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
+                            MP: R$ {arredondarReais(Number(formula.total_mp)).toFixed(2)} + Emb: R$ {arredondarReais(Number(formula.total_embalagem)).toFixed(2)}
                           </p>
                           <p className="text-[10px] text-muted-foreground/60">
                             {format(formula.data, 'dd/MM/yyyy HH:mm')}
@@ -380,7 +382,7 @@ export default function Precificacao() {
                         {format(formulaSelecionada.data, 'dd/MM/yyyy HH:mm')}
                       </Badge>
                       <Badge className="bg-primary/10 text-primary border-primary/20">
-                        Custo Total: R$ {(Number(formulaSelecionada.total_mp) + Number(formulaSelecionada.total_embalagem)).toFixed(2)}
+                        Custo Total: R$ {arredondarReais(Number(formulaSelecionada.total_mp) + Number(formulaSelecionada.total_embalagem)).toFixed(2)}
                       </Badge>
                     </div>
                   </div>
@@ -402,7 +404,7 @@ export default function Precificacao() {
                           <div className="space-y-2">
                             <Label>Matéria-Prima</Label>
                             <Input
-                              value={`R$ ${Number(formulaSelecionada.total_mp).toFixed(2)}`}
+                              value={`R$ ${arredondarReais(Number(formulaSelecionada.total_mp)).toFixed(2)}`}
                               disabled
                               className="bg-muted"
                             />
@@ -410,7 +412,7 @@ export default function Precificacao() {
                           <div className="space-y-2">
                             <Label>Embalagem</Label>
                             <Input
-                              value={`R$ ${Number(formulaSelecionada.total_embalagem).toFixed(2)}`}
+                              value={`R$ ${arredondarReais(Number(formulaSelecionada.total_embalagem)).toFixed(2)}`}
                               disabled
                               className="bg-muted"
                             />
@@ -440,7 +442,7 @@ export default function Precificacao() {
                         <div className="p-3 bg-primary/5 rounded-lg">
                           <p className="text-sm font-medium">
                             Subtotal Diretos: R${' '}
-                            {(
+                            {arredondarReais(
                               Number(formulaSelecionada.total_mp) +
                               Number(formulaSelecionada.total_embalagem) +
                               custosIndiretos.maoObraDireta
@@ -525,7 +527,7 @@ export default function Precificacao() {
                         <div className="p-3 bg-primary/5 rounded-lg">
                           <p className="text-sm font-medium">
                             Subtotal Indiretos: R${' '}
-                            {(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
+                            {arredondarReais(custosIndiretos.energia + custosIndiretos.depreciacao + custosIndiretos.administrativo).toFixed(2)}
                           </p>
                         </div>
                       </CardContent>
@@ -540,7 +542,7 @@ export default function Precificacao() {
                         <p className="text-sm text-muted-foreground text-xs mb-1">(Diretos + Indiretos)</p>
                         <p className="text-2xl font-semibold">
                           R${' '}
-                          {(
+                          {arredondarReais(
                             Number(formulaSelecionada.total_mp) +
                             Number(formulaSelecionada.total_embalagem) +
                             custosIndiretos.maoObraDireta +
@@ -558,7 +560,7 @@ export default function Precificacao() {
                         <p className="text-sm text-muted-foreground text-xs mb-1">(20%)</p>
                         <p className="text-2xl font-semibold text-orange-600">
                           R${' '}
-                          {(
+                          {arredondarReais(
                             (Number(formulaSelecionada.total_mp) +
                             Number(formulaSelecionada.total_embalagem) +
                             custosIndiretos.maoObraDireta +
@@ -576,7 +578,7 @@ export default function Precificacao() {
                         <p className="text-sm text-muted-foreground text-xs mb-1">(Base + Margem)</p>
                         <p className="text-2xl font-bold text-primary">
                           R${' '}
-                          {(
+                          {arredondarReais(
                             (Number(formulaSelecionada.total_mp) +
                             Number(formulaSelecionada.total_embalagem) +
                             custosIndiretos.maoObraDireta +

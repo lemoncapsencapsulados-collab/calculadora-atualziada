@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trophy, Users, TrendingUp, Package, AlertCircle, Warehouse, Zap } from 'lucide-react';
 import type { MetricaConsultor, ProdutoVendido, MixVendas } from '@/types/dashboard';
+import { formatCurrency } from '@/lib/unitConversion';
 import { Progress } from '@/components/ui/progress';
 
 interface VendaPorTipo {
@@ -26,13 +27,6 @@ interface DashboardVendasProps {
 }
 
 export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos, vendasPorTipo = [], clientesPorModelo = [] }: DashboardVendasProps) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2
-    }).format(value);
-  };
 
   // Merge ranking with all consultants, adding zeros for those without sales
   const rankingCompleto = (() => {

@@ -5,6 +5,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/unitConversion';
 import {
   Dialog,
   DialogContent,
@@ -114,9 +115,6 @@ export default function GerarOrcamentoDialog({
   const subtotalServicos = servicosMarca.reduce((acc, s) => acc + s.valor, 0);
   const valorTotal = subtotalProducao + subtotalServicos;
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   // Handlers
   const handleAddPrecificacoes = async () => {

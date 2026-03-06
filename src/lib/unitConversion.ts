@@ -1,4 +1,5 @@
 import { UnitType, Insumo, FormulaItem } from "@/types/formula";
+import { arredondarReais } from "@/lib/utils";
 
 /**
  * Convert value to base unit (g for mass, mL for volume)
@@ -125,29 +126,22 @@ export function calcularCustoInsumo(item: FormulaItem, insumo: Insumo): number {
 }
 
 /**
- * Format currency in BRL
+ * Format currency in BRL (always 2 decimal places, cascading rounding)
  */
 export function formatCurrency(value: number): string {
+  const rounded = arredondarReais(value);
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 2,
-    maximumFractionDigits: 13,
-  }).format(value);
+    maximumFractionDigits: 2,
+  }).format(rounded);
 }
 
 /**
- * Format currency in BRL with detailed precision (up to 8 decimal places)
- * Used for small quantities where precision is critical
+ * @deprecated Use formatCurrency instead - kept for backward compatibility
  */
-export function formatCurrencyDetailed(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 13,
-  }).format(value);
-}
+export const formatCurrencyDetailed = formatCurrency;
 
 /**
  * Format unit for display
