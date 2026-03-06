@@ -313,7 +313,7 @@ export default function Precificacao() {
                             R$ {arredondarReais(custoTotal).toFixed(2)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
+                            MP: R$ {arredondarReais(Number(formula.total_mp)).toFixed(2)} + Emb: R$ {arredondarReais(Number(formula.total_embalagem)).toFixed(2)}
                           </p>
                           <p className="text-[10px] text-muted-foreground/60">
                             {format(formula.data, 'dd/MM/yyyy HH:mm')}
