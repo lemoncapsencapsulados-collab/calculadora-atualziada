@@ -261,7 +261,7 @@ export default function Inventario() {
                       >
                         <div className="grid grid-cols-2 gap-4">
                           <div className="col-span-2">
-                            <Label htmlFor="nome">Nome do Insumo *</Label>
+                            <Label htmlFor="nome">Nome da Matéria-Prima *</Label>
                             <Input
                               id="nome"
                               name="nome"
