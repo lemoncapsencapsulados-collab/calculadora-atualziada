@@ -246,7 +246,6 @@ export default function Inventario() {
                         <Plus className="w-4 h-4 mr-2" />
                         Adicionar Matéria-Prima
                       </Button>
-                      </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
