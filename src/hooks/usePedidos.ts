@@ -129,7 +129,7 @@ export const usePedidos = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
-      toast.success('Pedido criado automaticamente a partir do orçamento aprovado!');
+      toast.success('Pedido criado automaticamente a partir do orçamento pago!');
     },
     onError: (error) => {
       console.error('Erro ao criar pedido do orçamento:', error);

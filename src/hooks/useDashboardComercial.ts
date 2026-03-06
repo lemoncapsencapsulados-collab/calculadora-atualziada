@@ -59,19 +59,15 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
 
   const orcamentosFiltrados = useMemo(() => {
     return orcamentos.filter(o => {
-      // Filtro por consultor
       if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) {
         return false;
       }
-      
-      // Filtro por período
       if (o.created_at) {
         const dataOrcamento = parseISO(o.created_at);
         if (dataOrcamento < filtros.dataInicio || dataOrcamento > filtros.dataFim) {
           return false;
         }
       }
-      
       return true;
     });
   }, [orcamentos, filtros]);
@@ -87,17 +83,17 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentos]);
 
   const kpis = useMemo((): KPIsGerais => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const enviados = orcamentosFiltrados.filter(o => o.status === 'enviado');
     const recusados = orcamentosFiltrados.filter(o => o.status === 'recusado');
     
-    const faturamentoTotal = aprovados.reduce((acc, o) => acc + Number(o.valor_total), 0);
+    const faturamentoTotal = pagos.reduce((acc, o) => acc + Number(o.valor_total), 0);
     const pipelineNegociacao = enviados.reduce((acc, o) => acc + Number(o.valor_total), 0);
-    const novasVendas = aprovados.length;
+    const novasVendas = pagos.length;
     const ticketMedio = novasVendas > 0 ? faturamentoTotal / novasVendas : 0;
     
-    const totalDecididos = aprovados.length + recusados.length;
-    const taxaConversao = totalDecididos > 0 ? (aprovados.length / totalDecididos) * 100 : 0;
+    const totalDecididos = pagos.length + recusados.length;
+    const taxaConversao = totalDecididos > 0 ? (pagos.length / totalDecididos) * 100 : 0;
     
     return {
       faturamentoTotal,
@@ -110,10 +106,10 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentosFiltrados]);
 
   const rankingConsultores = useMemo((): MetricaConsultor[] => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const porConsultor = new Map<string, { vendas: number; faturamento: number; clientes: Set<string> }>();
     
-    aprovados.forEach(o => {
+    pagos.forEach(o => {
       const consultor = o.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || { vendas: 0, faturamento: 0, clientes: new Set<string>() };
       atual.vendas += 1;
@@ -133,12 +129,11 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .sort((a, b) => b.faturamento - a.faturamento);
   }, [orcamentosFiltrados]);
 
-  // Métricas por tipo de orçamento (novo produtor vs recompra) por consultor
   const vendasPorTipo = useMemo(() => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const porConsultor = new Map<string, { novo_produtor: { qtd: number; valor: number }; recompra: { qtd: number; valor: number } }>();
 
-    aprovados.forEach(o => {
+    pagos.forEach(o => {
       const consultor = o.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || {
         novo_produtor: { qtd: 0, valor: 0 },
@@ -183,10 +178,10 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentosFiltrados]);
 
   const produtosMaisVendidos = useMemo((): ProdutoVendido[] => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const produtos = new Map<string, { quantidade: number; faturamento: number }>();
     
-    aprovados.forEach(o => {
+    pagos.forEach(o => {
       const itens = o.itens_producao as ItemProducao[] | null;
       if (Array.isArray(itens)) {
         itens.forEach(item => {
@@ -213,9 +208,9 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentosFiltrados]);
 
   const mixVendas = useMemo((): MixVendas => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
-    const totalProducao = aprovados.reduce((acc, o) => acc + Number(o.subtotal_producao), 0);
-    const totalServicos = aprovados.reduce((acc, o) => acc + Number(o.subtotal_servicos), 0);
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
+    const totalProducao = pagos.reduce((acc, o) => acc + Number(o.subtotal_producao), 0);
+    const totalServicos = pagos.reduce((acc, o) => acc + Number(o.subtotal_servicos), 0);
     const total = totalProducao + totalServicos;
     
     return {
@@ -235,7 +230,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     const resultado: InsightDashboard[] = [];
     const hoje = new Date();
     
-    // Pipeline parado há mais de 7 dias
     orcamentosFiltrados
       .filter(o => o.status === 'enviado' && o.created_at)
       .forEach(o => {
@@ -250,10 +244,9 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         }
       });
     
-    // Maior venda do período
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
-    if (aprovados.length > 0) {
-      const maiorVenda = aprovados.reduce((max, o) => 
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
+    if (pagos.length > 0) {
+      const maiorVenda = pagos.reduce((max, o) => 
         Number(o.valor_total) > Number(max.valor_total) ? o : max
       );
       resultado.push({
@@ -264,7 +257,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       });
     }
     
-    // Mix desbalanceado
     if (!mixVendas.equilibrado && mixVendas.producao.valor + mixVendas.servicos.valor > 0) {
       resultado.push({
         tipo: 'oportunidade',
@@ -272,7 +264,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       });
     }
     
-    // Consultores com ticket abaixo da média
     const ticketMedioGeral = kpis.ticketMedio;
     rankingConsultores.forEach(c => {
       if (c.ticketMedio < ticketMedioGeral * 0.8 && c.vendas >= 2) {
@@ -303,13 +294,13 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         return data >= inicio && data <= fim;
       });
       
-      const aprovados = orcamentosDoMes.filter(o => o.status === 'aprovado');
+      const pagos = orcamentosDoMes.filter(o => o.status === 'pago');
       
       meses.push({
         periodo: format(mesRef, 'MMM/yy', { locale: ptBR }),
-        faturamento: aprovados.reduce((acc, o) => acc + Number(o.valor_total), 0),
-        vendas: aprovados.length,
-        recorrencia: 0 // Será preenchido quando tivermos dados de recompras
+        faturamento: pagos.reduce((acc, o) => acc + Number(o.valor_total), 0),
+        vendas: pagos.length,
+        recorrencia: 0
       });
     }
     
@@ -317,10 +308,10 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentos]);
 
   const distribuicaoCanais = useMemo((): DistribuicaoCanal[] => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const canais = new Map<string, { clientes: Set<string>; faturamento: number }>();
     
-    aprovados.forEach(o => {
+    pagos.forEach(o => {
       const dados = o.dados_cliente as { locais_fisicos?: boolean; venda_digital?: boolean } | null;
       let canal = 'Não informado';
       
@@ -350,12 +341,11 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .sort((a, b) => b.faturamento - a.faturamento);
   }, [orcamentosFiltrados]);
 
-  // Clientes com Estoque vs Print On Demand por consultor
   const clientesPorModelo = useMemo(() => {
-    const aprovados = orcamentosFiltrados.filter(o => o.status === 'aprovado');
+    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const porConsultor = new Map<string, { estoque: { qtd: number; valor: number }; pod: { qtd: number; valor: number } }>();
 
-    aprovados.forEach(o => {
+    pagos.forEach(o => {
       const consultor = o.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || {
         estoque: { qtd: 0, valor: 0 },
@@ -375,16 +365,15 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentosFiltrados]);
 
   const distribuicaoConsultorStatus = useMemo((): DistribuicaoConsultorStatus[] => {
-    const porConsultor = new Map<string, { rascunho: number; enviado: number; aprovado: number; recusado: number }>();
+    const porConsultor = new Map<string, { rascunho: number; enviado: number; pago: number; recusado: number }>();
 
-    // Usar TODOS os orçamentos (sem filtro de data) para mostrar contagem completa por consultor
     const orcamentosParaDistribuicao = filtros.consultor 
       ? orcamentos.filter(o => o.consultor_responsavel === filtros.consultor)
       : orcamentos;
 
     orcamentosParaDistribuicao.forEach(o => {
       const consultor = o.consultor_responsavel || 'Sem Consultor';
-      const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, aprovado: 0, recusado: 0 };
+      const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, pago: 0, recusado: 0 };
       const status = o.status?.toLowerCase() || 'rascunho';
       if (status in atual) {
         (atual as Record<string, number>)[status] += 1;
@@ -396,7 +385,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .map(([consultor, dados]) => ({
         consultor,
         ...dados,
-        total: dados.rascunho + dados.enviado + dados.aprovado + dados.recusado
+        total: dados.rascunho + dados.enviado + dados.pago + dados.recusado
       }))
       .sort((a, b) => b.total - a.total);
   }, [orcamentos, filtros.consultor]);
