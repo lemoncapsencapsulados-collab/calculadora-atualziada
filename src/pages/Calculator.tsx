@@ -541,7 +541,7 @@ export default function Calculator() {
     const quantidadeLabel = tipoProduto === 'Pó' ? '1' : qtdCapsulas;
     let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nTipo: ${tipoProduto}\nQuantidade: ${quantidadeLabel} ${tipoProdutoLabel}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
     csv += `MATÉRIA-PRIMA (por ${tipoProduto === 'Pó' ? 'pote' : 'unidade'})\n`;
-    csv += 'Insumo,Quantidade,Unidade,Custo Unitário\n';
+    csv += 'Matéria-Prima,Quantidade,Unidade,Custo Unitário\n';
     calculatedItems.forEach(item => {
       if (item && !item.error) {
         csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrencyDetailed(item.custo)}\n`;
