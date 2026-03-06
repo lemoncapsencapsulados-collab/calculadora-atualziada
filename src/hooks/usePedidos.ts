@@ -104,7 +104,7 @@ export const usePedidos = () => {
         observacoes: orcamento.observacoes,
       };
 
-      const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item: any) => sum + (item.quantidade || 1), 0);
+      const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item) => sum + (item.quantidade || 1), 0);
 
       const { data, error } = await supabase
         .from('pedidos')
