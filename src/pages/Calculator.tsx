@@ -118,17 +118,17 @@ export default function Calculator() {
     }
   }, [embalagens]);
 
-  // Clear selectedCapsula when changing to Pó, Gummy or Líquido
+  // Clear selectedCapsula when changing to Solúvel, Gummy or Líquido
   useEffect(() => {
-    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') {
+    if (tipoProduto === 'Solúvel' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') {
       setSelectedCapsula(null);
     }
   }, [tipoProduto]);
 
   // Ajustar valores padrão ao trocar tipo de produto
   useEffect(() => {
-    if (tipoProduto === 'Pó') {
-      // Se estava em outro tipo e mudou para Pó, sugerir valores padrão
+    if (tipoProduto === 'Solúvel') {
+      // Se estava em outro tipo e mudou para Solúvel, sugerir valores padrão
       if (qtdCapsulas === '60' || qtdCapsulas === '1') {
         setQtdCapsulas('300');
       }
