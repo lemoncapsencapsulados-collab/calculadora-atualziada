@@ -214,7 +214,7 @@ export default function Inventario() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="insumos" className="space-y-6 mt-6">
+        <TabsContent value="materias_primas" className="space-y-6 mt-6">
           {loadingInsumos ? (
             <div className="flex items-center justify-center p-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
