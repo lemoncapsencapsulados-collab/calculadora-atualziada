@@ -333,7 +333,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
 
   const embData = formula.embalagens.map((item: any) => [
     item.descricao_snapshot,
-    `R$ ${item.custo_calculado.toFixed(2)}`,
+    `R$ ${arredondarReais(item.custo_calculado).toFixed(2)}`,
   ]);
 
   autoTable(doc, {
