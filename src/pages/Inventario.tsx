@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload, AlertTriangle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, FlaskConical, Upload, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useInsumos } from "@/hooks/useInsumos";
 import { useEmbalagens } from "@/hooks/useEmbalagens";
+import { useLotes } from "@/hooks/useLotes";
 import { UnitType } from "@/types/formula";
 import { formatCurrency, formatUnit } from "@/lib/unitConversion";
 import { toast } from "sonner";
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
+import LotesPanel from "@/components/LotesPanel";
 import { differenceInDays, format } from "date-fns";
 
 function getUpdateAlert(updatedAt?: string): { type: 'red' | 'yellow' | null; label: string; daysLeft?: number } {
@@ -34,6 +36,7 @@ function formatUpdatedAt(updatedAt?: string): string {
 export default function Inventario() {
   const { insumos, loading: loadingInsumos, addInsumo, updateInsumo, deleteInsumo } = useInsumos();
   const { embalagens, loading: loadingEmbalagens, addEmbalagem, updateEmbalagem, deleteEmbalagem } = useEmbalagens();
+  const { getLotesForItem, getCustoMedioPonderado, addLote, updateLote, deleteLote } = useLotes();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
@@ -45,6 +48,16 @@ export default function Inventario() {
   const [embalagemDialogOpen, setEmbalagemDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"materias_primas" | "embalagens">("materias_primas");
   const [importInventoryOpen, setImportInventoryOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const categories = useMemo(() => {
     const cats = new Set(insumos.map((i) => i.categoria).filter(Boolean));
@@ -461,8 +474,11 @@ export default function Inventario() {
                                 <div>
                                   <p className="text-muted-foreground">Preço</p>
                                   <p className="font-medium text-primary">
-                                    {formatCurrency(insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
+                                    {formatCurrency(getCustoMedioPonderado(insumo.id, 'materia_prima') ?? insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
                                   </p>
+                                  {getCustoMedioPonderado(insumo.id, 'materia_prima') !== null && (
+                                    <p className="text-xs text-muted-foreground">Custo médio ponderado</p>
+                                  )}
                                 </div>
                                 {insumo.densidade && (
                                   <div>
@@ -492,6 +508,14 @@ export default function Inventario() {
                               <Button
                                 variant="outline"
                                 size="icon"
+                                onClick={() => toggleExpand(insumo.id)}
+                                title="Ver Lotes"
+                              >
+                                {expandedItems.has(insumo.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
                                 onClick={() => {
                                   setEditingInsumo(insumo);
                                   setDialogOpen(true);
@@ -509,6 +533,19 @@ export default function Inventario() {
                               </Button>
                             </div>
                           </div>
+                          {expandedItems.has(insumo.id) && (
+                            <LotesPanel
+                              itemId={insumo.id}
+                              itemTipo="materia_prima"
+                              itemNome={insumo.nome}
+                              lotes={getLotesForItem(insumo.id, 'materia_prima')}
+                              custoMedio={getCustoMedioPonderado(insumo.id, 'materia_prima')}
+                              precoManual={insumo.preco_por_unidade_compra}
+                              onAddLote={addLote}
+                              onUpdateLote={updateLote}
+                              onDeleteLote={deleteLote}
+                            />
+                          )}
                         </CardContent>
                       </Card>
                     );
@@ -678,7 +715,7 @@ export default function Inventario() {
                 </CardContent>
               </Card>
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4">
                 {filteredEmbalagens.length === 0 ? (
                   <Card className="col-span-full p-12 text-center shadow-sm">
                     <p className="text-muted-foreground">
@@ -699,52 +736,67 @@ export default function Inventario() {
                             : ''
                         }`}
                       >
-                        <CardHeader>
-                          {alert.type && (
-                            <Badge
-                              className={`mb-2 w-fit ${
-                                alert.type === 'red'
-                                  ? 'bg-red-500 hover:bg-red-600 text-white'
-                                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                              }`}
-                            >
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              {alert.label}
-                            </Badge>
-                          )}
-                          <div className="flex items-center gap-2 mb-1">
-                            <CardTitle className="text-lg">{embalagem.nome}</CardTitle>
-                            {embalagem.categoria && (
-                              <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                                {embalagem.categoria}
-                              </span>
-                            )}
-                          </div>
-                          {embalagem.subcategoria && (
-                            <p className="text-xs text-muted-foreground mt-1">{embalagem.subcategoria}</p>
-                          )}
-                          <CardDescription className="text-sm line-clamp-2 mt-1">{embalagem.descricao}</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Custo</p>
-                                <p className="text-xl font-bold text-primary">{formatCurrency(embalagem.preco_unitario)}</p>
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              {alert.type && (
+                                <Badge
+                                  className={`mb-2 w-fit ${
+                                    alert.type === 'red'
+                                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                                      : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                  }`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  {alert.label}
+                                </Badge>
+                              )}
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-semibold text-foreground">{embalagem.nome}</h3>
+                                {embalagem.categoria && (
+                                  <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                                    {embalagem.categoria}
+                                  </span>
+                                )}
                               </div>
-                              {embalagem.fornecedor && (
+                              {embalagem.subcategoria && (
+                                <p className="text-xs text-muted-foreground">{embalagem.subcategoria}</p>
+                              )}
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{embalagem.descricao}</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-3 text-sm">
                                 <div>
-                                  <p className="text-xs text-muted-foreground">Fornecedor: {embalagem.fornecedor}</p>
+                                  <p className="text-muted-foreground">Custo</p>
+                                  <p className="text-lg font-bold text-primary">
+                                    {formatCurrency(getCustoMedioPonderado(embalagem.id, 'embalagem') ?? embalagem.preco_unitario)}
+                                  </p>
+                                  {getCustoMedioPonderado(embalagem.id, 'embalagem') !== null && (
+                                    <p className="text-xs text-muted-foreground">Custo médio ponderado</p>
+                                  )}
                                 </div>
-                              )}
-                              {embalagem.updated_at && (
-                                <p className="text-xs text-muted-foreground">
-                                  Atualizado em: {formatUpdatedAt(embalagem.updated_at)}
-                                </p>
-                              )}
+                                {embalagem.fornecedor && (
+                                  <div>
+                                    <p className="text-muted-foreground">Fornecedor</p>
+                                    <p className="font-medium">{embalagem.fornecedor}</p>
+                                  </div>
+                                )}
+                                {embalagem.updated_at && (
+                                  <div>
+                                    <p className="text-muted-foreground">Atualizado em</p>
+                                    <p className="font-medium">{formatUpdatedAt(embalagem.updated_at)}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => toggleExpand(`emb-${embalagem.id}`)}
+                                title="Ver Lotes"
+                              >
+                                {expandedItems.has(`emb-${embalagem.id}`) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="icon"
@@ -765,6 +817,19 @@ export default function Inventario() {
                               </Button>
                             </div>
                           </div>
+                          {expandedItems.has(`emb-${embalagem.id}`) && (
+                            <LotesPanel
+                              itemId={embalagem.id}
+                              itemTipo="embalagem"
+                              itemNome={embalagem.nome}
+                              lotes={getLotesForItem(embalagem.id, 'embalagem')}
+                              custoMedio={getCustoMedioPonderado(embalagem.id, 'embalagem')}
+                              precoManual={embalagem.preco_unitario}
+                              onAddLote={addLote}
+                              onUpdateLote={updateLote}
+                              onDeleteLote={deleteLote}
+                            />
+                          )}
                         </CardContent>
                       </Card>
                     );
