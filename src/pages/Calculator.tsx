@@ -38,10 +38,10 @@ export default function Calculator() {
   }]);
   const [selectedEmbalagens, setSelectedEmbalagens] = useState<Set<string>>(new Set());
   const [selectedCapsula, setSelectedCapsula] = useState<string | null>(null);
-  const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido'>('Encapsulados');
+  const [tipoProduto, setTipoProduto] = useState<'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido'>('Encapsulados');
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   const [unidadesPorDose, setUnidadesPorDose] = useState<string>('2');
-  const [unidadePo, setUnidadePo] = useState<'mg' | 'g'>('mg'); // Unidade de medida para produtos em Pó
+  const [unidadeSoluvel, setUnidadeSoluvel] = useState<'mg' | 'g'>('mg'); // Unidade de medida para produtos Solúveis
   const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const {
