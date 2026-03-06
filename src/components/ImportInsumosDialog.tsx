@@ -144,9 +144,9 @@ export default function ImportInsumosDialog() {
                   {JSON.stringify(exampleJson, null, 2)}
                 </pre>
                 <p className="text-xs text-muted-foreground">
-                  • <strong>nome</strong>: Nome do insumo (obrigatório)<br />
+                  • <strong>nome</strong>: Nome da matéria-prima (obrigatório)<br />
                   • <strong>preco_por_kg</strong>: Preço em R$ por quilograma (obrigatório)<br />
-                  • <strong>segmento</strong>: Categoria do insumo (opcional)
+                  • <strong>segmento</strong>: Categoria da matéria-prima (opcional)
                 </p>
               </CardContent>
             </Card>
