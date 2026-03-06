@@ -70,7 +70,7 @@ export const usePedidos = () => {
   });
 
   const createPedidoFromOrcamento = useMutation({
-    mutationFn: async (orcamento: any) => {
+    mutationFn: async (orcamento: Orcamento) => {
       // Get next pedido number
       const { data: existingPedidos } = await supabase
         .from('pedidos')
