@@ -29,7 +29,7 @@ export const usePedidos = () => {
         observacoes: p.observacoes || undefined,
         status: p.status as Pedido['status'],
         formula_snapshot: p.formula_snapshot as any || undefined,
-        orcamento_snapshot: p.orcamento_snapshot as OrcamentoSnapshot | undefined,
+        orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];

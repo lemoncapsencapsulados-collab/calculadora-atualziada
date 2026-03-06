@@ -218,7 +218,7 @@ export default function Orcamentos() {
                       <Card
                         key={orcamento.id}
                         className={`overflow-hidden transition-all ${
-                          isAprovado
+                          isPago
                             ? 'border-green-500 bg-green-50 dark:bg-green-950/20 shadow-green-100 dark:shadow-green-900/20 shadow-md'
                             : ''
                         }`}
