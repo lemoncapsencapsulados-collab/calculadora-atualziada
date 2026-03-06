@@ -30,7 +30,7 @@ import OrcamentoKanbanView from '@/components/OrcamentoKanbanView';
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
   enviado: { label: 'Enviado', variant: 'default' },
-  aprovado: { label: 'Aprovado', variant: 'outline' },
+  pago: { label: 'Pago', variant: 'outline' },
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
@@ -91,7 +91,7 @@ export default function Orcamentos() {
   };
 
   const handleStatusChange = async (orcamentoId: string, newStatus: Orcamento['status']) => {
-    if (newStatus === 'aprovado') {
+    if (newStatus === 'pago') {
       // Find the full orcamento data
       const allOrcamentos = viewMode === 'list' ? orcamentos : kanbanOrcamentos;
       const orc = allOrcamentos.find(o => o.id === orcamentoId);
@@ -213,12 +213,12 @@ export default function Orcamentos() {
               ) : (
                 <div className="space-y-4">
                   {orcamentos.map((orcamento) => {
-                    const isAprovado = orcamento.status === 'aprovado';
+                    const isPago = orcamento.status === 'pago';
                     return (
                       <Card
                         key={orcamento.id}
                         className={`overflow-hidden transition-all ${
-                          isAprovado
+                          isPago
                             ? 'border-green-500 bg-green-50 dark:bg-green-950/20 shadow-green-100 dark:shadow-green-900/20 shadow-md'
                             : ''
                         }`}
@@ -240,7 +240,7 @@ export default function Orcamentos() {
                                     }>
                                       {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
                                     </Badge>
-                                    {isAprovado && <CheckCircle2 className="w-5 h-5 text-green-600" />}
+                                    {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
                                   </div>
                                   <p className="text-muted-foreground text-sm mt-1">
                                     Consultor: <span className="font-medium text-foreground">{orcamento.consultor_responsavel || '—'}</span>
@@ -257,7 +257,7 @@ export default function Orcamentos() {
                                   <SelectContent>
                                     <SelectItem value="rascunho">Rascunho</SelectItem>
                                     <SelectItem value="enviado">Enviado</SelectItem>
-                                    <SelectItem value="aprovado">Aprovado</SelectItem>
+                                    <SelectItem value="pago">Pago</SelectItem>
                                     <SelectItem value="recusado">Recusado</SelectItem>
                                   </SelectContent>
                                 </Select>
@@ -273,7 +273,7 @@ export default function Orcamentos() {
                                     Editado: {format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                   </div>
                                 )}
-                                {isAprovado && orcamento.data_pagamento && (
+                                {isPago && orcamento.data_pagamento && (
                                   <div className="flex items-center gap-1 text-green-600">
                                     <CalendarIcon className="w-3 h-3" />
                                     Pgto: {format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
@@ -299,7 +299,7 @@ export default function Orcamentos() {
                                 </div>
                                 <div>
                                   <p className="text-muted-foreground text-xs">Total</p>
-                                  <p className={`font-bold text-lg ${isAprovado ? 'text-green-600' : 'text-primary'}`}>
+                                  <p className={`font-bold text-lg ${isPago ? 'text-green-600' : 'text-primary'}`}>
                                     {formatCurrency(orcamento.valor_total)}
                                   </p>
                                 </div>

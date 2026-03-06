@@ -755,13 +755,13 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
 
   const statusLabels: Record<string, string> = {
     enviado: 'ENVIADO',
-    aprovado: 'APROVADO',
+    pago: 'PAGO',
     recusado: 'RECUSADO',
   };
   
   const statusColors: Record<string, [number, number, number]> = {
     enviado: [59, 130, 246],
-    aprovado: [34, 197, 94],
+    pago: [34, 197, 94],
     recusado: [239, 68, 68],
   };
 

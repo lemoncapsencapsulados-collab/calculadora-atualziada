@@ -4,6 +4,18 @@ export interface InsumoSnapshot {
   unidade: string;
 }
 
+export interface DetalhesProducao {
+  cor_tampa?: string;
+  cor_pote?: string;
+  cor_gummy?: string;
+  sabor_gummy?: string;
+  sabor_soluvel?: string;
+  cor_soluvel?: string;
+  sabor_liquido?: string;
+  cor_liquido?: string;
+  observacao_producao?: string;
+}
+
 export interface ItemProducao {
   tipo: 'precificacao' | 'avulso';
   precificacao_id?: string;
@@ -15,18 +27,15 @@ export interface ItemProducao {
   insumos_formula?: InsumoSnapshot[];
   modelo_negocio?: 'estoque' | 'print_on_demand';
   // Detalhes do produto
+  tipo_produto?: string;
   quantidade_por_pote?: number;
   unidade_por_pote?: string;
+  quantidade_por_dose?: number;
+  unidade_por_dose?: string;
+  quantidade_doses?: number;
   dose_diaria_sugerida?: string;
   // Detalhes de produção (preenchidos na aprovação)
-  detalhes_producao?: {
-    cor_tampa?: string;
-    cor_pote?: string;
-    cor_gummy?: string;
-    sabor_gummy?: string;
-    sabor_soluvel?: string;
-    cor_soluvel?: string;
-  };
+  detalhes_producao?: DetalhesProducao;
 }
 
 export interface ServicoMarca {
@@ -99,6 +108,25 @@ export interface DetalhamentoFrete {
 
 export type TipoOrcamento = 'novo_produtor' | 'recompra';
 
+export interface OrcamentoSnapshot {
+  id: string;
+  numero_orcamento: string;
+  nome_cliente: string;
+  consultor_responsavel?: string;
+  tipo_orcamento: TipoOrcamento;
+  itens_producao: ItemProducao[];
+  servicos_marca: ServicoMarca[];
+  dados_cliente?: DadosCliente;
+  detalhamento_frete?: DetalhamentoFrete;
+  condicoes_pagamento?: CondicoesPagamento;
+  subtotal_producao: number;
+  subtotal_servicos: number;
+  valor_total: number;
+  data_pagamento?: string;
+  observacoes?: string;
+  updated_at?: string;
+}
+
 export interface Orcamento {
   id: string;
   numero_orcamento: string;
@@ -116,7 +144,7 @@ export interface Orcamento {
   observacoes?: string;
   forma_pagamento?: string;
   validade_dias: number;
-  status: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
+  status: 'rascunho' | 'enviado' | 'pago' | 'recusado';
   data_pagamento?: string | null;
   created_at: string;
   updated_at: string;
@@ -138,7 +166,7 @@ export interface OrcamentoInsert {
   observacoes?: string;
   forma_pagamento?: string;
   validade_dias?: number;
-  status?: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
+  status?: 'rascunho' | 'enviado' | 'pago' | 'recusado';
 }
 
 export interface OrcamentoUpdate {
@@ -156,7 +184,7 @@ export interface OrcamentoUpdate {
   observacoes?: string;
   forma_pagamento?: string;
   validade_dias?: number;
-  status?: 'rascunho' | 'enviado' | 'aprovado' | 'recusado';
+  status?: 'rascunho' | 'enviado' | 'pago' | 'recusado';
 }
 
 // Tabelas de frete padrão

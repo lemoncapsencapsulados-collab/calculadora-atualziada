@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Pedido } from '@/types/formula';
+import { Orcamento, OrcamentoSnapshot } from '@/types/orcamento';
 
 export const usePedidos = () => {
   const queryClient = useQueryClient();
@@ -19,7 +20,7 @@ export const usePedidos = () => {
       return (data || []).map(p => ({
         id: p.id,
         formula_id: p.formula_id || undefined,
-        orcamento_id: (p as any).orcamento_id || undefined,
+        orcamento_id: p.orcamento_id || undefined,
         numero_pedido: p.numero_pedido,
         data_pedido: new Date(p.data_pedido),
         data_entrega: new Date(p.data_entrega),
@@ -28,7 +29,7 @@ export const usePedidos = () => {
         observacoes: p.observacoes || undefined,
         status: p.status as Pedido['status'],
         formula_snapshot: p.formula_snapshot as any || undefined,
-        orcamento_snapshot: (p as any).orcamento_snapshot as any || undefined,
+        orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];
@@ -69,7 +70,7 @@ export const usePedidos = () => {
   });
 
   const createPedidoFromOrcamento = useMutation({
-    mutationFn: async (orcamento: any) => {
+    mutationFn: async (orcamento: Orcamento) => {
       // Get next pedido number
       const { data: existingPedidos } = await supabase
         .from('pedidos')
@@ -85,7 +86,7 @@ export const usePedidos = () => {
         }
       }
 
-      const snapshot = {
+      const snapshot: OrcamentoSnapshot = {
         id: orcamento.id,
         numero_orcamento: orcamento.numero_orcamento,
         nome_cliente: orcamento.nome_cliente,
@@ -99,11 +100,11 @@ export const usePedidos = () => {
         subtotal_producao: orcamento.subtotal_producao,
         subtotal_servicos: orcamento.subtotal_servicos,
         valor_total: orcamento.valor_total,
-        data_pagamento: orcamento.data_pagamento,
+        data_pagamento: orcamento.data_pagamento || undefined,
         observacoes: orcamento.observacoes,
       };
 
-      const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item: any) => sum + (item.quantidade || 1), 0);
+      const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item) => sum + (item.quantidade || 1), 0);
 
       const { data, error } = await supabase
         .from('pedidos')
@@ -128,7 +129,7 @@ export const usePedidos = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
-      toast.success('Pedido criado automaticamente a partir do orçamento aprovado!');
+      toast.success('Pedido criado automaticamente a partir do orçamento pago!');
     },
     onError: (error) => {
       console.error('Erro ao criar pedido do orçamento:', error);

@@ -1,3 +1,5 @@
+import { OrcamentoSnapshot } from '@/types/orcamento';
+
 export type UnitType = 'mcg' | 'mg' | 'g' | 'kg' | 'mL' | 'L' | 'UI' | 'unidade';
 
 export interface MateriaPrima {
@@ -90,7 +92,7 @@ export interface Pedido {
   observacoes?: string;
   status: StatusPedido;
   formula_snapshot?: Formula;
-  orcamento_snapshot?: any;
+  orcamento_snapshot?: OrcamentoSnapshot;
   created_at: Date;
   updated_at: Date;
 }

@@ -198,7 +198,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       // Update status to approved
       await updateStatus.mutateAsync({
         id: orcamento.id,
-        status: 'aprovado',
+        status: 'pago',
         data_pagamento: dataPagamento.toISOString(),
       });
 
@@ -229,13 +229,13 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-green-600" />
-            Aprovar Orçamento — {orcamento.nome_cliente}
+            Confirmar Pagamento — {orcamento.nome_cliente}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
-            Preencha os dados da proposta comercial para aprovar o orçamento. Um pedido será criado automaticamente.
+            Preencha os dados da proposta comercial para confirmar o pagamento. Um pedido será criado automaticamente.
           </p>
 
           {/* 1. Informações do Cliente */}
@@ -604,6 +604,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     mode="single"
                     selected={dataPagamento}
                     onSelect={setDataPagamento}
+                    disabled={(date) => date > new Date()}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
@@ -621,9 +622,9 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aprovando...</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Confirmando...</>
             ) : (
-              <><CheckCircle2 className="w-4 h-4 mr-2" />Confirmar Aprovação</>
+              <><CheckCircle2 className="w-4 h-4 mr-2" />Confirmar Pagamento</>
             )}
           </Button>
         </DialogFooter>

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Orcamento, OrcamentoInsert, OrcamentoUpdate, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
+import { Orcamento, OrcamentoInsert, OrcamentoUpdate, OrcamentoSnapshot, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to parse JSONB fields
@@ -115,7 +115,7 @@ export function useOrcamentos() {
           .eq('orcamento_id', id);
 
         if (pedidosVinculados && pedidosVinculados.length > 0) {
-          const snapshot = {
+          const snapshot: OrcamentoSnapshot = {
             id: updatedOrcamento.id,
             numero_orcamento: updatedOrcamento.numero_orcamento,
             nome_cliente: updatedOrcamento.nome_cliente,
@@ -129,7 +129,7 @@ export function useOrcamentos() {
             subtotal_producao: updatedOrcamento.subtotal_producao,
             subtotal_servicos: updatedOrcamento.subtotal_servicos,
             valor_total: updatedOrcamento.valor_total,
-            data_pagamento: updatedOrcamento.data_pagamento,
+            data_pagamento: updatedOrcamento.data_pagamento || undefined,
             observacoes: updatedOrcamento.observacoes,
             updated_at: updatedOrcamento.updated_at,
           };
