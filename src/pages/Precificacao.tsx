@@ -310,7 +310,7 @@ export default function Precificacao() {
                           </div>
                           <p className="text-sm text-muted-foreground">{formula.cliente}</p>
                           <p className="text-lg font-bold text-primary">
-                            R$ {custoTotal.toFixed(2)}
+                            R$ {arredondarReais(custoTotal).toFixed(2)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             MP: R$ {Number(formula.total_mp).toFixed(2)} + Emb: R$ {Number(formula.total_embalagem).toFixed(2)}
