@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Orcamento, OrcamentoInsert, OrcamentoUpdate, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
+import { Orcamento, OrcamentoInsert, OrcamentoUpdate, OrcamentoSnapshot, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to parse JSONB fields
