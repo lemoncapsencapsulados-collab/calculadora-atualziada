@@ -5,7 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Aliases para normalização de nomes
 const ALIASES: Record<string, string> = {
   'acido citrico': 'ácido cítrico',
   'acido lactico': 'ácido láctico',
@@ -13,7 +12,7 @@ const ALIASES: Record<string, string> = {
   'agua purificada': 'água purificada',
 };
 
-interface InsumoImport {
+interface MateriaPrimaImport {
   id?: string;
   nome: string;
   categoria?: string;
@@ -34,7 +33,7 @@ interface EmbalagemImport {
 }
 
 interface ImportResult {
-  insumos: {
+  materias_primas: {
     criados: number;
     atualizados: number;
     ignorados: number;
@@ -49,22 +48,20 @@ interface ImportResult {
   };
 }
 
-// Normalizar nome de insumo (usa a função do banco)
-function normalizeInsumoName(nome: string): string {
+function normalizeMPName(nome: string): string {
   return nome
     .toLowerCase()
     .trim()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove acentos
-    .replace(/[%/(),.-]/g, ' ') // substitui caracteres especiais por espaço
-    .replace(/\s+/g, ' ') // remove múltiplos espaços
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[%/(),.-]/g, ' ')
+    .replace(/\s+/g, ' ')
     .replace(/\s+(po|liquido|em po|100%|99%|98%|95%|90%|80%|50%|35%|20%|8%)\s*/g, ' ')
     .replace(/\s+(ext|extrato|soluvel)\s*/g, ' ')
     .replace(/tipo\s*2/g, 'tipo ii')
     .trim();
 }
 
-// Aplicar aliases
 function applyAliases(normalizedName: string): { final: string; aliasUsed?: string } {
   for (const [key, value] of Object.entries(ALIASES)) {
     if (normalizedName === key) {
@@ -74,26 +71,14 @@ function applyAliases(normalizedName: string): { final: string; aliasUsed?: stri
   return { final: normalizedName };
 }
 
-// Converter unidade e preço
 function normalizeUnit(unidade_compra: string, preco_compra: number): { unidade: string; preco: number } {
   const unidade = unidade_compra.toLowerCase().trim();
-  
-  // Converter g → kg
-  if (unidade === 'g') {
-    return { unidade: 'kg', preco: preco_compra * 1000 };
-  }
-  
-  // Converter mL → L
-  if (unidade === 'ml') {
-    return { unidade: 'L', preco: preco_compra * 1000 };
-  }
-  
-  // Manter outras unidades
+  if (unidade === 'g') return { unidade: 'kg', preco: preco_compra * 1000 };
+  if (unidade === 'ml') return { unidade: 'L', preco: preco_compra * 1000 };
   return { unidade: unidade_compra, preco: preco_compra };
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -104,88 +89,57 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { insumos, embalagens } = await req.json();
+    const body = await req.json();
+    // Support both old and new field names
+    const materiasPrimas = body.materias_primas || body.insumos;
+    const embalagens = body.embalagens;
 
     const result: ImportResult = {
-      insumos: {
-        criados: 0,
-        atualizados: 0,
-        ignorados: 0,
-        duplicatas_mescladas: 0,
-        erros: [],
-      },
-      embalagens: {
-        criados: 0,
-        atualizados: 0,
-        ignorados: 0,
-        erros: [],
-      },
+      materias_primas: { criados: 0, atualizados: 0, ignorados: 0, duplicatas_mescladas: 0, erros: [] },
+      embalagens: { criados: 0, atualizados: 0, ignorados: 0, erros: [] },
     };
 
-    // ==================== PROCESSAR INSUMOS ====================
-    if (insumos && Array.isArray(insumos)) {
-      console.log(`Processando ${insumos.length} insumos...`);
+    // ==================== PROCESSAR MATÉRIAS-PRIMAS ====================
+    if (materiasPrimas && Array.isArray(materiasPrimas)) {
+      console.log(`Processando ${materiasPrimas.length} matérias-primas...`);
 
-      // Buscar insumos existentes
-      const { data: existingInsumos } = await supabase
-        .from('insumos')
+      const { data: existingMPs } = await supabase
+        .from('materias_primas')
         .select('id, nome, normalized_name, categoria, preco_compra, observacoes');
 
       const existingMap = new Map();
-      (existingInsumos || []).forEach((ins: any) => {
-        existingMap.set(ins.normalized_name, ins);
+      (existingMPs || []).forEach((mp: any) => {
+        existingMap.set(mp.normalized_name, mp);
       });
 
-      // Agrupar por nome normalizado para detectar duplicatas no JSON
-      const groupedInsumos = new Map<string, InsumoImport[]>();
+      const groupedMPs = new Map<string, MateriaPrimaImport[]>();
       
-      insumos.forEach((insumo: InsumoImport) => {
-        const normalized = normalizeInsumoName(insumo.nome);
+      materiasPrimas.forEach((mp: MateriaPrimaImport) => {
+        const normalized = normalizeMPName(mp.nome);
         const { final } = applyAliases(normalized);
-        
-        if (!groupedInsumos.has(final)) {
-          groupedInsumos.set(final, []);
-        }
-        groupedInsumos.get(final)!.push(insumo);
+        if (!groupedMPs.has(final)) groupedMPs.set(final, []);
+        groupedMPs.get(final)!.push(mp);
       });
 
-      // Processar cada grupo
-      for (const [normalizedName, items] of groupedInsumos.entries()) {
+      for (const [normalizedName, items] of groupedMPs.entries()) {
         try {
-          // Mesclar duplicatas do JSON
-          let merged: InsumoImport;
+          let merged: MateriaPrimaImport;
           
           if (items.length > 1) {
-            console.log(`Mesclando ${items.length} duplicatas: ${items.map(i => i.nome).join(', ')}`);
-            result.insumos.duplicatas_mescladas += items.length - 1;
-            
-            // Escolher o item com categoria mais específica
+            result.materias_primas.duplicatas_mescladas += items.length - 1;
             merged = items.reduce((best, current) => {
-              const bestCatLength = best.categoria?.length || 0;
-              const currentCatLength = current.categoria?.length || 0;
-              return currentCatLength > bestCatLength ? current : best;
+              return (current.categoria?.length || 0) > (best.categoria?.length || 0) ? current : best;
             });
-            
-            // Média de preços
-            const avgPreco = items.reduce((sum, item) => sum + item.preco_compra, 0) / items.length;
-            merged.preco_compra = avgPreco;
-            
-            // Mesclar observações
-            const observacoes = items
-              .map(i => i.observacoes)
-              .filter(Boolean)
-              .join('; ');
-            if (observacoes) {
-              merged.observacoes = observacoes;
-            }
+            merged.preco_compra = items.reduce((sum, item) => sum + item.preco_compra, 0) / items.length;
+            const obs = items.map(i => i.observacoes).filter(Boolean).join('; ');
+            if (obs) merged.observacoes = obs;
           } else {
             merged = items[0];
           }
 
-          // Normalizar unidade e preço
           const { unidade, preco } = normalizeUnit(merged.unidade_compra, merged.preco_compra);
 
-          const insumoData = {
+          const mpData = {
             nome: merged.nome,
             normalized_name: normalizedName,
             categoria: merged.categoria || null,
@@ -196,34 +150,24 @@ Deno.serve(async (req) => {
             observacoes: merged.observacoes || null,
           };
 
-          // Verificar se já existe
           const existing = existingMap.get(normalizedName);
 
           if (existing) {
-            // Atualizar preço se diferente
             if (Math.abs(existing.preco_compra - preco) > 0.00001) {
-              const { error } = await supabase
-                .from('insumos')
-                .update({ preco_compra: preco })
-                .eq('id', existing.id);
-
+              const { error } = await supabase.from('materias_primas').update({ preco_compra: preco }).eq('id', existing.id);
               if (error) throw error;
-              result.insumos.atualizados++;
+              result.materias_primas.atualizados++;
             } else {
-              result.insumos.ignorados++;
+              result.materias_primas.ignorados++;
             }
           } else {
-            // Criar novo
-            const { error } = await supabase
-              .from('insumos')
-              .insert([insumoData]);
-
+            const { error } = await supabase.from('materias_primas').insert([mpData]);
             if (error) throw error;
-            result.insumos.criados++;
+            result.materias_primas.criados++;
           }
         } catch (error: any) {
-          console.error('Erro ao processar insumo:', error);
-          result.insumos.erros.push(`${items[0].nome}: ${error.message}`);
+          console.error('Erro ao processar matéria-prima:', error);
+          result.materias_primas.erros.push(`${items[0].nome}: ${error.message}`);
         }
       }
     }
@@ -232,7 +176,6 @@ Deno.serve(async (req) => {
     if (embalagens && Array.isArray(embalagens)) {
       console.log(`Processando ${embalagens.length} embalagens...`);
 
-      // Buscar embalagens existentes
       const { data: existingEmbalagens } = await supabase
         .from('embalagens')
         .select('id, nome, preco_unitario');
@@ -244,11 +187,9 @@ Deno.serve(async (req) => {
 
       for (const embalagem of embalagens) {
         try {
-          // Limpar nome
           const nomeLimpo = embalagem.nome.trim();
           const nomeLower = nomeLimpo.toLowerCase();
 
-          // Validar preço
           if (!embalagem.preco_unitario || embalagem.preco_unitario <= 0) {
             result.embalagens.erros.push(`${nomeLimpo}: preço inválido`);
             continue;
@@ -262,28 +203,18 @@ Deno.serve(async (req) => {
             preco_unitario: embalagem.preco_unitario,
           };
 
-          // Verificar se já existe
           const existing = existingEmbMap.get(nomeLower);
 
           if (existing) {
-            // Atualizar preço se diferente
             if (Math.abs(existing.preco_unitario - embalagem.preco_unitario) > 0.00001) {
-              const { error } = await supabase
-                .from('embalagens')
-                .update({ preco_unitario: embalagem.preco_unitario })
-                .eq('id', existing.id);
-
+              const { error } = await supabase.from('embalagens').update({ preco_unitario: embalagem.preco_unitario }).eq('id', existing.id);
               if (error) throw error;
               result.embalagens.atualizados++;
             } else {
               result.embalagens.ignorados++;
             }
           } else {
-            // Criar nova
-            const { error } = await supabase
-              .from('embalagens')
-              .insert([embalagemData]);
-
+            const { error } = await supabase.from('embalagens').insert([embalagemData]);
             if (error) throw error;
             result.embalagens.criados++;
           }
@@ -296,17 +227,20 @@ Deno.serve(async (req) => {
 
     console.log('Importação concluída:', result);
 
-    return new Response(JSON.stringify(result), {
+    // Return with backward-compatible field names too
+    const responseData = {
+      ...result,
+      insumos: result.materias_primas,
+    };
+
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
     console.error('Erro na importação:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

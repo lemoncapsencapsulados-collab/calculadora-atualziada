@@ -164,7 +164,70 @@ export type Database = {
         }
         Relationships: []
       }
-      insumos: {
+      lotes: {
+        Row: {
+          created_at: string | null
+          custo_unitario: number
+          fornecedor: string | null
+          id: string
+          item_id: string
+          item_tipo: string
+          observacoes: string | null
+          quantidade: number
+          updated_at: string | null
+          validade: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custo_unitario: number
+          fornecedor?: string | null
+          id?: string
+          item_id: string
+          item_tipo: string
+          observacoes?: string | null
+          quantidade?: number
+          updated_at?: string | null
+          validade?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custo_unitario?: number
+          fornecedor?: string | null
+          id?: string
+          item_id?: string
+          item_tipo?: string
+          observacoes?: string | null
+          quantidade?: number
+          updated_at?: string | null
+          validade?: string | null
+        }
+        Relationships: []
+      }
+      margens_lucro: {
+        Row: {
+          created_at: string | null
+          id: string
+          margem_ideal: number
+          margem_minima: number
+          tipo_produto: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          margem_ideal: number
+          margem_minima: number
+          tipo_produto: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          margem_ideal?: number
+          margem_minima?: number
+          tipo_produto?: string
+        }
+        Relationships: []
+      }
+      materias_primas: {
         Row: {
           categoria: string | null
           created_at: string | null
@@ -203,30 +266,6 @@ export type Database = {
           preco_compra?: number
           unidade_compra?: string
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      margens_lucro: {
-        Row: {
-          created_at: string | null
-          id: string
-          margem_ideal: number
-          margem_minima: number
-          tipo_produto: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          margem_ideal: number
-          margem_minima: number
-          tipo_produto: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          margem_ideal?: number
-          margem_minima?: number
-          tipo_produto?: string
         }
         Relationships: []
       }
@@ -556,6 +595,7 @@ export type Database = {
     }
     Functions: {
       normalize_insumo_name: { Args: { input_name: string }; Returns: string }
+      normalize_mp_name: { Args: { input_name: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {

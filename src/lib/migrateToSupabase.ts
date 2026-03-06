@@ -5,33 +5,33 @@ export async function migrateLocalDataToSupabase() {
   try {
     console.log('Iniciando migração de dados locais para o banco de dados...');
 
-    // Migrar Insumos
-    const localInsumos = getInsumos();
-    if (localInsumos.length > 0) {
-      const { data: existingInsumos } = await supabase
-        .from('insumos')
+    // Migrar Matérias-Primas
+    const localMPs = getInsumos();
+    if (localMPs.length > 0) {
+      const { data: existingMPs } = await supabase
+        .from('materias_primas')
         .select('nome');
 
-      const existingNames = new Set(existingInsumos?.map(i => i.nome) || []);
+      const existingNames = new Set((existingMPs as any[])?.map(i => i.nome) || []);
       
-      const insumosToMigrate = localInsumos
-        .filter(insumo => !existingNames.has(insumo.nome))
-        .map(({ id, ...insumo }) => ({
-          nome: insumo.nome,
-          unidade_compra: insumo.unidade_compra,
-          preco_compra: insumo.preco_por_unidade_compra,
-          densidade: insumo.densidade || null,
-          fornecedor: insumo.fornecedor || null,
-          categoria: insumo.categoria || null,
-          observacoes: insumo.observacoes || null,
+      const mpsToMigrate = localMPs
+        .filter(mp => !existingNames.has(mp.nome))
+        .map(({ id, ...mp }) => ({
+          nome: mp.nome,
+          unidade_compra: mp.unidade_compra,
+          preco_compra: mp.preco_por_unidade_compra,
+          densidade: mp.densidade || null,
+          fornecedor: mp.fornecedor || null,
+          categoria: mp.categoria || null,
+          observacoes: mp.observacoes || null,
         }));
 
-      if (insumosToMigrate.length > 0) {
-        const { error } = await supabase.from('insumos').insert(insumosToMigrate);
+      if (mpsToMigrate.length > 0) {
+        const { error } = await supabase.from('materias_primas').insert(mpsToMigrate as any);
         if (error) throw error;
-        console.log(`✅ ${insumosToMigrate.length} insumos migrados`);
+        console.log(`✅ ${mpsToMigrate.length} matérias-primas migradas`);
       } else {
-        console.log('✅ Nenhum insumo novo para migrar');
+        console.log('✅ Nenhuma matéria-prima nova para migrar');
       }
     }
 

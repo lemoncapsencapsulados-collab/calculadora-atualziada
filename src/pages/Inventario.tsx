@@ -43,7 +43,7 @@ export default function Inventario() {
   const [editingEmbalagem, setEditingEmbalagem] = useState<any | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [embalagemDialogOpen, setEmbalagemDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"insumos" | "embalagens">("insumos");
+  const [activeTab, setActiveTab] = useState<"materias_primas" | "embalagens">("materias_primas");
   const [importInventoryOpen, setImportInventoryOpen] = useState(false);
 
   const categories = useMemo(() => {
@@ -152,7 +152,7 @@ export default function Inventario() {
   };
 
   const handleDeleteInsumo = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este insumo?")) {
+    if (confirm("Tem certeza que deseja excluir esta matéria-prima?")) {
       await deleteInsumo(id);
     }
   };
@@ -199,14 +199,14 @@ export default function Inventario() {
     <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Inventário</h1>
-        <p className="text-muted-foreground mt-1">Gerencie seus insumos e embalagens</p>
+        <p className="text-muted-foreground mt-1">Gerencie suas matérias-primas e embalagens</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "insumos" | "embalagens")}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "materias_primas" | "embalagens")}>
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="insumos">
+          <TabsTrigger value="materias_primas">
             <Package className="w-4 h-4 mr-2" />
-            Insumos ({insumos.length})
+            Matérias-Primas ({insumos.length})
           </TabsTrigger>
           <TabsTrigger value="embalagens">
             <FlaskConical className="w-4 h-4 mr-2" />
@@ -214,7 +214,7 @@ export default function Inventario() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="insumos" className="space-y-6 mt-6">
+        <TabsContent value="materias_primas" className="space-y-6 mt-6">
           {loadingInsumos ? (
             <div className="flex items-center justify-center p-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -244,12 +244,12 @@ export default function Inventario() {
                         onClick={() => setEditingInsumo(null)}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Adicionar Insumo
+                        Adicionar Matéria-Prima
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
-                        <DialogTitle>{editingInsumo ? "Editar Insumo" : "Adicionar Novo Insumo"}</DialogTitle>
+                        <DialogTitle>{editingInsumo ? "Editar Matéria-Prima" : "Adicionar Nova Matéria-Prima"}</DialogTitle>
                       </DialogHeader>
                       <form
                         onSubmit={(e) => {
@@ -260,7 +260,7 @@ export default function Inventario() {
                       >
                         <div className="grid grid-cols-2 gap-4">
                           <div className="col-span-2">
-                            <Label htmlFor="nome">Nome do Insumo *</Label>
+                            <Label htmlFor="nome">Nome da Matéria-Prima *</Label>
                             <Input
                               id="nome"
                               name="nome"
@@ -334,17 +334,19 @@ export default function Inventario() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Vitaminas">Vitaminas</SelectItem>
-                                <SelectItem value="Aminoácidos">Aminoácidos</SelectItem>
-                                <SelectItem value="Minerais">Minerais</SelectItem>
+                                <SelectItem value="Aminoácidos e Derivados">Aminoácidos e Derivados</SelectItem>
+                                <SelectItem value="Minerais e Compostos Quelados">Minerais e Compostos Quelados</SelectItem>
                                 <SelectItem value="Substâncias Bioativas">Substâncias Bioativas</SelectItem>
-                                <SelectItem value="Fibra Alimentar">Fibra Alimentar</SelectItem>
+                                <SelectItem value="Fibras e Carboidratos">Fibras e Carboidratos</SelectItem>
                                 <SelectItem value="Ativos Emagrecedores">Ativos Emagrecedores</SelectItem>
-                                <SelectItem value="Óleos">Óleos</SelectItem>
+                                <SelectItem value="Óleos e Lipídeos">Óleos e Lipídeos</SelectItem>
                                 <SelectItem value="Suplemento Alimentar">Suplemento Alimentar</SelectItem>
                                 <SelectItem value="Suplemento Ergogênico">Suplemento Ergogênico</SelectItem>
-                                <SelectItem value="Aromas">Aromas</SelectItem>
-                                <SelectItem value="Sacarose">Sacarose</SelectItem>
-                                <SelectItem value="Enzimas">Enzimas</SelectItem>
+                                <SelectItem value="Aromas e Corantes">Aromas e Corantes</SelectItem>
+                                <SelectItem value="Enzimas e Catalisadores">Enzimas e Catalisadores</SelectItem>
+                                <SelectItem value="Extratos e Fitoterápicos">Extratos e Fitoterápicos</SelectItem>
+                                <SelectItem value="Compostos Funcionais Ácidos e Bases">Compostos Funcionais</SelectItem>
+                                <SelectItem value="Compostos Alimentares e Espessantes">Espessantes</SelectItem>
                                 <SelectItem value="Outros">Outros</SelectItem>
                               </SelectContent>
                             </Select>
@@ -378,16 +380,16 @@ export default function Inventario() {
 
               <Card className="shadow-md">
                 <CardHeader>
-                  <CardTitle>Pesquisar Insumos</CardTitle>
+                <CardTitle>Pesquisar Matérias-Primas</CardTitle>
                   <CardDescription>
-                    {filteredInsumos.length} de {insumos.length} insumo(s) encontrado(s)
+                    {filteredInsumos.length} de {insumos.length} matéria(s)-prima(s) encontrada(s)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nome do insumo..."
+                      placeholder="Buscar por nome da matéria-prima..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
@@ -415,7 +417,7 @@ export default function Inventario() {
                 {filteredInsumos.length === 0 ? (
                   <Card className="p-12 text-center shadow-sm">
                     <p className="text-muted-foreground">
-                      {searchTerm ? "Nenhum insumo encontrado" : "Nenhum insumo cadastrado ainda"}
+                      {searchTerm ? "Nenhuma matéria-prima encontrada" : "Nenhuma matéria-prima cadastrada ainda"}
                     </p>
                   </Card>
                 ) : (
@@ -608,12 +610,10 @@ export default function Inventario() {
                             <SelectValue placeholder="Selecione (opcional)" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Potes PET">Potes PET</SelectItem>
-                            <SelectItem value="Tampas Plásticas">Tampas Plásticas</SelectItem>
-                            <SelectItem value="Pote">Pote</SelectItem>
-                            <SelectItem value="Tampa">Tampa</SelectItem>
+                            <SelectItem value="Frascos e Potes">Frascos e Potes</SelectItem>
+                            <SelectItem value="Tampas">Tampas</SelectItem>
+                            <SelectItem value="Cápsulas">Cápsulas</SelectItem>
                             <SelectItem value="Sachê">Sachê</SelectItem>
-                            <SelectItem value="Frasco">Frasco</SelectItem>
                             <SelectItem value="Sílica">Sílica</SelectItem>
                             <SelectItem value="Acessórios">Acessórios</SelectItem>
                           </SelectContent>

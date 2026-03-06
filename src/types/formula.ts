@@ -1,6 +1,6 @@
 export type UnitType = 'mcg' | 'mg' | 'g' | 'kg' | 'mL' | 'L' | 'UI' | 'unidade';
 
-export interface Insumo {
+export interface MateriaPrima {
   id: string;
   nome: string;
   unidade_compra: UnitType;
@@ -11,6 +11,9 @@ export interface Insumo {
   categoria?: string;
   updated_at?: string;
 }
+
+// Alias for backward compatibility
+export type Insumo = MateriaPrima;
 
 export interface Embalagem {
   id: string;
