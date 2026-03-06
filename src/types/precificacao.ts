@@ -26,7 +26,7 @@ export interface ConfiguracaoCustos {
 
 export interface MargemLucro {
   id: string;
-  tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido';
+  tipo_produto: 'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido';
   margem_ideal: number;
   margem_minima: number;
   created_at: string;
