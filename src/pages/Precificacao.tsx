@@ -382,7 +382,7 @@ export default function Precificacao() {
                         {format(formulaSelecionada.data, 'dd/MM/yyyy HH:mm')}
                       </Badge>
                       <Badge className="bg-primary/10 text-primary border-primary/20">
-                        Custo Total: R$ {(Number(formulaSelecionada.total_mp) + Number(formulaSelecionada.total_embalagem)).toFixed(2)}
+                        Custo Total: R$ {arredondarReais(Number(formulaSelecionada.total_mp) + Number(formulaSelecionada.total_embalagem)).toFixed(2)}
                       </Badge>
                     </div>
                   </div>
