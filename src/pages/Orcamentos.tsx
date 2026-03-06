@@ -91,7 +91,7 @@ export default function Orcamentos() {
   };
 
   const handleStatusChange = async (orcamentoId: string, newStatus: Orcamento['status']) => {
-    if (newStatus === 'aprovado') {
+    if (newStatus === 'pago') {
       // Find the full orcamento data
       const allOrcamentos = viewMode === 'list' ? orcamentos : kanbanOrcamentos;
       const orc = allOrcamentos.find(o => o.id === orcamentoId);
