@@ -51,6 +51,7 @@ export function useLotes() {
       const { error } = await supabase.from('lotes').insert({
         item_id: lote.item_id,
         item_tipo: lote.item_tipo,
+        codigo: lote.codigo || null,
         quantidade: lote.quantidade,
         validade: lote.validade || null,
         custo_unitario: lote.custo_unitario,
