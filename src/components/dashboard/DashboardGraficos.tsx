@@ -26,7 +26,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
           <p className="font-medium mb-1">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }} className="text-sm">
-              {entry.name}: {formatCurrencyFull(entry.value)}
+              {entry.name}: {formatCurrency(entry.value)}
             </p>
           ))}
         </div>
