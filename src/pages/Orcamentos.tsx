@@ -213,7 +213,7 @@ export default function Orcamentos() {
               ) : (
                 <div className="space-y-4">
                   {orcamentos.map((orcamento) => {
-                    const isAprovado = orcamento.status === 'aprovado';
+                    const isPago = orcamento.status === 'pago';
                     return (
                       <Card
                         key={orcamento.id}
