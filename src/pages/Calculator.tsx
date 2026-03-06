@@ -790,8 +790,8 @@ export default function Calculator() {
         </CardContent>
       </Card>
 
-      {/* NOVA SEÇÃO: Conversões Rápidas - só para Pó */}
-      {tipoProduto === 'Pó' && parseFloat(qtdCapsulas) > 0 && parseFloat(unidadesPorDose) > 0 && <Card className="shadow-md border-l-4 border-l-orange-500">
+      {/* NOVA SEÇÃO: Conversões Rápidas - só para Solúvel */}
+      {tipoProduto === 'Solúvel' && parseFloat(qtdCapsulas) > 0 && parseFloat(unidadesPorDose) > 0 && <Card className="shadow-md border-l-4 border-l-orange-500">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               🔄 Conversões Rápidas
@@ -806,13 +806,13 @@ export default function Calculator() {
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground mb-2">Quantidade total (pote)</p>
                 <p className="font-bold text-lg">
-                  {qtdCapsulas}{unidadePo}
+                  {qtdCapsulas}{unidadeSoluvel}
                 </p>
                 <p className="text-sm text-primary">
-                  {unidadePo === 'mg' ? `${(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g` : `${(parseFloat(qtdCapsulas) * 1000).toFixed(0)}mg`}
+                  {unidadeSoluvel === 'mg' ? `${(parseFloat(qtdCapsulas) / 1000).toFixed(2)}g` : `${(parseFloat(qtdCapsulas) * 1000).toFixed(0)}mg`}
                 </p>
                 <p className="text-sm text-primary">
-                  {unidadePo === 'mg' ? `${(parseFloat(qtdCapsulas) / 1_000_000).toFixed(6)}kg` : `${(parseFloat(qtdCapsulas) / 1000).toFixed(6)}kg`}
+                  {unidadeSoluvel === 'mg' ? `${(parseFloat(qtdCapsulas) / 1_000_000).toFixed(6)}kg` : `${(parseFloat(qtdCapsulas) / 1000).toFixed(6)}kg`}
                 </p>
               </div>
               
@@ -820,13 +820,13 @@ export default function Calculator() {
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-xs text-muted-foreground mb-2">Dose diária</p>
                 <p className="font-bold text-lg">
-                  {unidadesPorDose}{unidadePo}
+                  {unidadesPorDose}{unidadeSoluvel}
                 </p>
                 <p className="text-sm text-primary">
-                  {unidadePo === 'mg' ? `${(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g` : `${(parseFloat(unidadesPorDose) * 1000).toFixed(0)}mg`}
+                  {unidadeSoluvel === 'mg' ? `${(parseFloat(unidadesPorDose) / 1000).toFixed(2)}g` : `${(parseFloat(unidadesPorDose) * 1000).toFixed(0)}mg`}
                 </p>
                 <p className="text-sm text-primary">
-                  {unidadePo === 'mg' ? `${(parseFloat(unidadesPorDose) / 1_000_000).toFixed(6)}kg` : `${(parseFloat(unidadesPorDose) / 1000).toFixed(6)}kg`}
+                  {unidadeSoluvel === 'mg' ? `${(parseFloat(unidadesPorDose) / 1_000_000).toFixed(6)}kg` : `${(parseFloat(unidadesPorDose) / 1000).toFixed(6)}kg`}
                 </p>
               </div>
             </div>
