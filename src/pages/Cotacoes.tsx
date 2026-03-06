@@ -120,7 +120,7 @@ const Cotacoes = () => {
     switch (tipo) {
       case 'Encapsulados':
         return 'default';
-      case 'Pó':
+      case 'Solúvel':
         return 'secondary';
       case 'Gummy':
         return 'outline';
