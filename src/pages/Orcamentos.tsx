@@ -257,7 +257,7 @@ export default function Orcamentos() {
                                   <SelectContent>
                                     <SelectItem value="rascunho">Rascunho</SelectItem>
                                     <SelectItem value="enviado">Enviado</SelectItem>
-                                    <SelectItem value="aprovado">Aprovado</SelectItem>
+                                    <SelectItem value="pago">Pago</SelectItem>
                                     <SelectItem value="recusado">Recusado</SelectItem>
                                   </SelectContent>
                                 </Select>
