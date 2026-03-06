@@ -122,11 +122,11 @@ export type Database = {
           id: string
           itens: Json
           nome_formula: string
-          qtd_capsulas: number
+          quantidade_por_pote: number
           tipo_produto: string
           total_embalagem: number
           total_mp: number
-          unidade_po: string | null
+          unidade_soluvel: string | null
           unidades_por_dose: number | null
           updated_at: string | null
         }
@@ -138,11 +138,11 @@ export type Database = {
           id?: string
           itens: Json
           nome_formula: string
-          qtd_capsulas: number
+          quantidade_por_pote: number
           tipo_produto: string
           total_embalagem: number
           total_mp: number
-          unidade_po?: string | null
+          unidade_soluvel?: string | null
           unidades_por_dose?: number | null
           updated_at?: string | null
         }
@@ -154,11 +154,11 @@ export type Database = {
           id?: string
           itens?: Json
           nome_formula?: string
-          qtd_capsulas?: number
+          quantidade_por_pote?: number
           tipo_produto?: string
           total_embalagem?: number
           total_mp?: number
-          unidade_po?: string | null
+          unidade_soluvel?: string | null
           unidades_por_dose?: number | null
           updated_at?: string | null
         }
