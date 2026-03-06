@@ -244,7 +244,8 @@ export default function Inventario() {
                         onClick={() => setEditingInsumo(null)}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Adicionar Insumo
+                        Adicionar Matéria-Prima
+                      </Button>
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
