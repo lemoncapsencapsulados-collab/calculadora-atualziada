@@ -474,8 +474,11 @@ export default function Inventario() {
                                 <div>
                                   <p className="text-muted-foreground">Preço</p>
                                   <p className="font-medium text-primary">
-                                    {formatCurrency(insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
+                                    {formatCurrency(getCustoMedioPonderado(insumo.id, 'materia_prima') ?? insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
                                   </p>
+                                  {getCustoMedioPonderado(insumo.id, 'materia_prima') !== null && (
+                                    <p className="text-xs text-muted-foreground">Custo médio ponderado</p>
+                                  )}
                                 </div>
                                 {insumo.densidade && (
                                   <div>
@@ -505,6 +508,14 @@ export default function Inventario() {
                               <Button
                                 variant="outline"
                                 size="icon"
+                                onClick={() => toggleExpand(insumo.id)}
+                                title="Ver Lotes"
+                              >
+                                {expandedItems.has(insumo.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
                                 onClick={() => {
                                   setEditingInsumo(insumo);
                                   setDialogOpen(true);
@@ -522,6 +533,19 @@ export default function Inventario() {
                               </Button>
                             </div>
                           </div>
+                          {expandedItems.has(insumo.id) && (
+                            <LotesPanel
+                              itemId={insumo.id}
+                              itemTipo="materia_prima"
+                              itemNome={insumo.nome}
+                              lotes={getLotesForItem(insumo.id, 'materia_prima')}
+                              custoMedio={getCustoMedioPonderado(insumo.id, 'materia_prima')}
+                              precoManual={insumo.preco_por_unidade_compra}
+                              onAddLote={addLote}
+                              onUpdateLote={updateLote}
+                              onDeleteLote={deleteLote}
+                            />
+                          )}
                         </CardContent>
                       </Card>
                     );
