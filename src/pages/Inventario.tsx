@@ -715,7 +715,7 @@ export default function Inventario() {
                 </CardContent>
               </Card>
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4">
                 {filteredEmbalagens.length === 0 ? (
                   <Card className="col-span-full p-12 text-center shadow-sm">
                     <p className="text-muted-foreground">
@@ -736,52 +736,67 @@ export default function Inventario() {
                             : ''
                         }`}
                       >
-                        <CardHeader>
-                          {alert.type && (
-                            <Badge
-                              className={`mb-2 w-fit ${
-                                alert.type === 'red'
-                                  ? 'bg-red-500 hover:bg-red-600 text-white'
-                                  : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                              }`}
-                            >
-                              <AlertTriangle className="w-3 h-3 mr-1" />
-                              {alert.label}
-                            </Badge>
-                          )}
-                          <div className="flex items-center gap-2 mb-1">
-                            <CardTitle className="text-lg">{embalagem.nome}</CardTitle>
-                            {embalagem.categoria && (
-                              <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                                {embalagem.categoria}
-                              </span>
-                            )}
-                          </div>
-                          {embalagem.subcategoria && (
-                            <p className="text-xs text-muted-foreground mt-1">{embalagem.subcategoria}</p>
-                          )}
-                          <CardDescription className="text-sm line-clamp-2 mt-1">{embalagem.descricao}</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-1">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Custo</p>
-                                <p className="text-xl font-bold text-primary">{formatCurrency(embalagem.preco_unitario)}</p>
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              {alert.type && (
+                                <Badge
+                                  className={`mb-2 w-fit ${
+                                    alert.type === 'red'
+                                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                                      : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                  }`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 mr-1" />
+                                  {alert.label}
+                                </Badge>
+                              )}
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-semibold text-foreground">{embalagem.nome}</h3>
+                                {embalagem.categoria && (
+                                  <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
+                                    {embalagem.categoria}
+                                  </span>
+                                )}
                               </div>
-                              {embalagem.fornecedor && (
+                              {embalagem.subcategoria && (
+                                <p className="text-xs text-muted-foreground">{embalagem.subcategoria}</p>
+                              )}
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{embalagem.descricao}</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-3 text-sm">
                                 <div>
-                                  <p className="text-xs text-muted-foreground">Fornecedor: {embalagem.fornecedor}</p>
+                                  <p className="text-muted-foreground">Custo</p>
+                                  <p className="text-lg font-bold text-primary">
+                                    {formatCurrency(getCustoMedioPonderado(embalagem.id, 'embalagem') ?? embalagem.preco_unitario)}
+                                  </p>
+                                  {getCustoMedioPonderado(embalagem.id, 'embalagem') !== null && (
+                                    <p className="text-xs text-muted-foreground">Custo médio ponderado</p>
+                                  )}
                                 </div>
-                              )}
-                              {embalagem.updated_at && (
-                                <p className="text-xs text-muted-foreground">
-                                  Atualizado em: {formatUpdatedAt(embalagem.updated_at)}
-                                </p>
-                              )}
+                                {embalagem.fornecedor && (
+                                  <div>
+                                    <p className="text-muted-foreground">Fornecedor</p>
+                                    <p className="font-medium">{embalagem.fornecedor}</p>
+                                  </div>
+                                )}
+                                {embalagem.updated_at && (
+                                  <div>
+                                    <p className="text-muted-foreground">Atualizado em</p>
+                                    <p className="font-medium">{formatUpdatedAt(embalagem.updated_at)}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 ml-4">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => toggleExpand(`emb-${embalagem.id}`)}
+                                title="Ver Lotes"
+                              >
+                                {expandedItems.has(`emb-${embalagem.id}`) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="icon"
@@ -802,6 +817,19 @@ export default function Inventario() {
                               </Button>
                             </div>
                           </div>
+                          {expandedItems.has(`emb-${embalagem.id}`) && (
+                            <LotesPanel
+                              itemId={embalagem.id}
+                              itemTipo="embalagem"
+                              itemNome={embalagem.nome}
+                              lotes={getLotesForItem(embalagem.id, 'embalagem')}
+                              custoMedio={getCustoMedioPonderado(embalagem.id, 'embalagem')}
+                              precoManual={embalagem.preco_unitario}
+                              onAddLote={addLote}
+                              onUpdateLote={updateLote}
+                              onDeleteLote={deleteLote}
+                            />
+                          )}
                         </CardContent>
                       </Card>
                     );
