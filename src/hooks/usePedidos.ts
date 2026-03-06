@@ -86,7 +86,7 @@ export const usePedidos = () => {
         }
       }
 
-      const snapshot = {
+      const snapshot: OrcamentoSnapshot = {
         id: orcamento.id,
         numero_orcamento: orcamento.numero_orcamento,
         nome_cliente: orcamento.nome_cliente,
@@ -100,7 +100,7 @@ export const usePedidos = () => {
         subtotal_producao: orcamento.subtotal_producao,
         subtotal_servicos: orcamento.subtotal_servicos,
         valor_total: orcamento.valor_total,
-        data_pagamento: orcamento.data_pagamento,
+        data_pagamento: orcamento.data_pagamento || undefined,
         observacoes: orcamento.observacoes,
       };
 
