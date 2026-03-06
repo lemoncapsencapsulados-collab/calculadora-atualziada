@@ -81,7 +81,7 @@ const Cotacoes = () => {
     csv += `Cliente: ${formula.cliente}\n`;
     csv += `Data: ${format(new Date(formula.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}\n`;
     csv += `Tipo: ${formula.tipo_produto}\n`;
-    csv += `Quantidade: ${formula.qtd_capsulas}\n\n`;
+    csv += `Quantidade: ${formula.quantidade_por_pote}\n\n`;
 
     csv += 'MATÉRIA-PRIMA\n';
     csv += 'Matéria-Prima,Quantidade,Unidade,Custo\n';
