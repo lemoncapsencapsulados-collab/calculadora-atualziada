@@ -105,7 +105,8 @@ export default function LotesPanel({
                   'bg-muted/50'
                 }`}
               >
-                <div className="flex items-center gap-4 flex-1">
+                <div className="flex items-center gap-4 flex-1 flex-wrap">
+                  {lote.codigo && <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{lote.codigo}</span>}
                   <span className="font-medium w-20">Qtd: {lote.quantidade.toLocaleString('pt-BR')}</span>
                   <span className="text-muted-foreground w-28">{formatCurrency(lote.custo_unitario)}/un</span>
                   {lote.validade && (
