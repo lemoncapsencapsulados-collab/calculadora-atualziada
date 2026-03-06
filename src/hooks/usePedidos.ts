@@ -20,7 +20,7 @@ export const usePedidos = () => {
       return (data || []).map(p => ({
         id: p.id,
         formula_id: p.formula_id || undefined,
-        orcamento_id: (p as any).orcamento_id || undefined,
+        orcamento_id: p.orcamento_id || undefined,
         numero_pedido: p.numero_pedido,
         data_pedido: new Date(p.data_pedido),
         data_entrega: new Date(p.data_entrega),
@@ -29,7 +29,7 @@ export const usePedidos = () => {
         observacoes: p.observacoes || undefined,
         status: p.status as Pedido['status'],
         formula_snapshot: p.formula_snapshot as any || undefined,
-        orcamento_snapshot: (p as any).orcamento_snapshot as any || undefined,
+        orcamento_snapshot: p.orcamento_snapshot as OrcamentoSnapshot | undefined,
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];
