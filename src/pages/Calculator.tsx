@@ -339,8 +339,8 @@ export default function Calculator() {
     return custoUnitarioMP * numDoses;
   }, [custoUnitarioMP, qtdCapsulas, unidadesPorDose, tipoProduto, qtdCapsulasEmMG, unidadesPorDoseEmMG]);
   const custoCapsulas = useMemo(() => {
-    // Se for Pó, Gummy ou Líquido, não há custo de cápsulas
-    if (tipoProduto === 'Pó' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') return 0;
+    // Se for Solúvel, Gummy ou Líquido, não há custo de cápsulas
+    if (tipoProduto === 'Solúvel' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') return 0;
     if (!selectedCapsula) return 0;
     const capsula = embalagens.find(e => e.id === selectedCapsula);
     if (!capsula) return 0;
