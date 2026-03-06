@@ -381,9 +381,9 @@ export default function Inventario() {
 
               <Card className="shadow-md">
                 <CardHeader>
-                  <CardTitle>Pesquisar Insumos</CardTitle>
+                <CardTitle>Pesquisar Matérias-Primas</CardTitle>
                   <CardDescription>
-                    {filteredInsumos.length} de {insumos.length} insumo(s) encontrado(s)
+                    {filteredInsumos.length} de {insumos.length} matéria(s)-prima(s) encontrada(s)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
