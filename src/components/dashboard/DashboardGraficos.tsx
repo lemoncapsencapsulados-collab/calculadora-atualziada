@@ -12,19 +12,11 @@ interface DashboardGraficosProps {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: DashboardGraficosProps) {
-  const formatCurrency = (value: number) => {
+  const formatCurrencyAxis = (value: number) => {
     if (value >= 1000) {
       return `R$ ${(value / 1000).toFixed(0)}K`;
     }
     return `R$ ${value.toFixed(0)}`;
-  };
-
-  const formatCurrencyFull = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-      minimumFractionDigits: 2
-    }).format(value);
   };
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color: string }>; label?: string }) => {
