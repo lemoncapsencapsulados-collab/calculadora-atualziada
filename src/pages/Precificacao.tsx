@@ -542,7 +542,7 @@ export default function Precificacao() {
                         <p className="text-sm text-muted-foreground text-xs mb-1">(Diretos + Indiretos)</p>
                         <p className="text-2xl font-semibold">
                           R${' '}
-                          {(
+                          {arredondarReais(
                             Number(formulaSelecionada.total_mp) +
                             Number(formulaSelecionada.total_embalagem) +
                             custosIndiretos.maoObraDireta +
