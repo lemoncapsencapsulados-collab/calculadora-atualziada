@@ -418,7 +418,7 @@ export default function Inventario() {
                 {filteredInsumos.length === 0 ? (
                   <Card className="p-12 text-center shadow-sm">
                     <p className="text-muted-foreground">
-                      {searchTerm ? "Nenhum insumo encontrado" : "Nenhum insumo cadastrado ainda"}
+                      {searchTerm ? "Nenhuma matéria-prima encontrada" : "Nenhuma matéria-prima cadastrada ainda"}
                     </p>
                   </Card>
                 ) : (
