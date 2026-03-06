@@ -66,16 +66,16 @@ export default function Calculator() {
         // Preencher campos básicos
         setCliente(formula.cliente || '');
         setNomeFormula(formula.nome_formula || '');
-        setTipoProduto(formula.tipo_produto || 'Encapsulados');
+        setTipoProduto(formula.tipo_produto === 'Pó' ? 'Solúvel' : formula.tipo_produto || 'Encapsulados');
         
-        // Para Pó, converter de volta para a unidade original se necessário
-        if (formula.tipo_produto === 'Pó' && formula.unidade_po === 'g') {
-          setUnidadePo('g');
-          setQtdCapsulas((formula.qtd_capsulas / 1000).toString());
-          setUnidadesPorDose((formula.unidades_por_dose / 1000).toString());
+        // Para Solúvel, converter de volta para a unidade original se necessário
+        if ((formula.tipo_produto === 'Solúvel' || formula.tipo_produto === 'Pó') && (formula.unidade_soluvel === 'g' || formula.unidade_po === 'g')) {
+          setUnidadeSoluvel('g');
+          setQtdCapsulas(((formula.quantidade_por_pote || formula.qtd_capsulas) / 1000).toString());
+          setUnidadesPorDose(((formula.unidades_por_dose || 0) / 1000).toString());
         } else {
-          setUnidadePo(formula.unidade_po || 'mg');
-          setQtdCapsulas(formula.qtd_capsulas?.toString() || '60');
+          setUnidadeSoluvel((formula.unidade_soluvel || formula.unidade_po || 'mg') as 'mg' | 'g');
+          setQtdCapsulas((formula.quantidade_por_pote || formula.qtd_capsulas)?.toString() || '60');
           setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
         }
 
