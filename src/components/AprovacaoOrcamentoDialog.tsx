@@ -235,7 +235,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
         <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
-            Preencha os dados da proposta comercial para aprovar o orçamento. Um pedido será criado automaticamente.
+            Preencha os dados da proposta comercial para confirmar o pagamento. Um pedido será criado automaticamente.
           </p>
 
           {/* 1. Informações do Cliente */}
