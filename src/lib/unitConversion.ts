@@ -1,4 +1,5 @@
 import { UnitType, Insumo, FormulaItem } from "@/types/formula";
+import { arredondarReais } from "@/lib/utils";
 
 /**
  * Convert value to base unit (g for mass, mL for volume)
