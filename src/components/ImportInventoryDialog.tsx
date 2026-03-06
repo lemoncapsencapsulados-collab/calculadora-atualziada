@@ -134,7 +134,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
                     <p className="text-sm text-muted-foreground mb-1">
                       Clique para selecionar ou arraste o arquivo
                     </p>
-                    <p className="text-xs text-muted-foreground">INSUMOS.json</p>
+                    <p className="text-xs text-muted-foreground">MATERIAS_PRIMAS.json</p>
                     <input
                       type="file"
                       accept=".json"
