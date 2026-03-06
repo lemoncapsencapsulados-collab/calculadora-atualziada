@@ -629,24 +629,24 @@ export default function Calculator() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="tipoProduto">Tipo de Produto *</Label>
-            <Select value={tipoProduto} onValueChange={value => setTipoProduto(value as 'Encapsulados' | 'Pó' | 'Gummy')}>
+            <Select value={tipoProduto} onValueChange={value => setTipoProduto(value as 'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido')}>
               <SelectTrigger id="tipoProduto">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Encapsulados">Encapsulados</SelectItem>
-                <SelectItem value="Pó">Pó</SelectItem>
+                <SelectItem value="Solúvel">Solúvel</SelectItem>
                 <SelectItem value="Gummy">Gummy</SelectItem>
                 <SelectItem value="Líquido">Líquido</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Seletor de unidade para produtos em Pó */}
-          {tipoProduto === 'Pó' && <div className="space-y-2">
-              <Label htmlFor="unidadePo">Unidade de Medida *</Label>
-              <Select value={unidadePo} onValueChange={value => setUnidadePo(value as 'mg' | 'g')}>
-                <SelectTrigger id="unidadePo">
+          {/* Seletor de unidade para produtos Solúveis */}
+          {tipoProduto === 'Solúvel' && <div className="space-y-2">
+              <Label htmlFor="unidadeSoluvel">Unidade de Medida *</Label>
+              <Select value={unidadeSoluvel} onValueChange={value => setUnidadeSoluvel(value as 'mg' | 'g')}>
+                <SelectTrigger id="unidadeSoluvel">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -664,11 +664,11 @@ export default function Calculator() {
               {tipoProduto === 'Encapsulados' && 'Quantidade de Cápsulas *'}
               {tipoProduto === 'Gummy' && 'Quantidade de Gummies *'}
               {tipoProduto === 'Líquido' && 'Quantidade em mL *'}
-              {tipoProduto === 'Pó' && `Quantidade Total de Pó (${unidadePo}) *`}
+              {tipoProduto === 'Solúvel' && `Quantidade Total de Solúvel (${unidadeSoluvel}) *`}
             </Label>
-            <Input id="qtdCapsulas" type="number" min="1" step={tipoProduto === 'Pó' ? unidadePo === 'mg' ? '100' : '1' : '0.1'} value={qtdCapsulas} onChange={e => setQtdCapsulas(e.target.value)} placeholder={tipoProduto === 'Encapsulados' ? 'Ex: 60' : tipoProduto === 'Gummy' ? 'Ex: 30' : tipoProduto === 'Líquido' ? 'Ex: 100' : unidadePo === 'mg' ? 'Ex: 300000' : 'Ex: 300'} />
+            <Input id="qtdCapsulas" type="number" min="1" step={tipoProduto === 'Solúvel' ? unidadeSoluvel === 'mg' ? '100' : '1' : '0.1'} value={qtdCapsulas} onChange={e => setQtdCapsulas(e.target.value)} placeholder={tipoProduto === 'Encapsulados' ? 'Ex: 60' : tipoProduto === 'Gummy' ? 'Ex: 30' : tipoProduto === 'Líquido' ? 'Ex: 100' : unidadeSoluvel === 'mg' ? 'Ex: 300000' : 'Ex: 300'} />
             <p className="text-sm text-muted-foreground">
-              {tipoProduto === 'Pó' ? unidadePo === 'mg' ? 'Informe a quantidade total de pó no produto em miligramas (ex: 300000mg = 300g)' : 'Informe a quantidade total de pó no produto em gramas (ex: 300g = 300000mg)' : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'}
+              {tipoProduto === 'Solúvel' ? unidadeSoluvel === 'mg' ? 'Informe a quantidade total de solúvel no produto em miligramas (ex: 300000mg = 300g)' : 'Informe a quantidade total de solúvel no produto em gramas (ex: 300g = 300000mg)' : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'}
             </p>
           </div>
           
@@ -678,23 +678,23 @@ export default function Calculator() {
                 {tipoProduto === 'Encapsulados' && 'Cápsulas por Dose *'}
                 {tipoProduto === 'Gummy' && 'Gummies por Dose *'}
                 {tipoProduto === 'Líquido' && 'mL por Dose *'}
-                {tipoProduto === 'Pó' && `${unidadePo === 'mg' ? 'Miligramas' : 'Gramas'} por Dose (Dose Diária) *`}
+                {tipoProduto === 'Solúvel' && `${unidadeSoluvel === 'mg' ? 'Miligramas' : 'Gramas'} por Dose (Dose Diária) *`}
               </Label>
-              <Input id="unidadesPorDose" type="number" min="0.1" step={tipoProduto === 'Pó' && unidadePo === 'g' ? '0.1' : '1'} value={unidadesPorDose} onChange={e => setUnidadesPorDose(e.target.value)} placeholder={tipoProduto === 'Encapsulados' ? 'Ex: 2' : tipoProduto === 'Gummy' ? 'Ex: 1' : tipoProduto === 'Líquido' ? 'Ex: 5' : unidadePo === 'mg' ? 'Ex: 3000' : 'Ex: 3'} />
+              <Input id="unidadesPorDose" type="number" min="0.1" step={tipoProduto === 'Solúvel' && unidadeSoluvel === 'g' ? '0.1' : '1'} value={unidadesPorDose} onChange={e => setUnidadesPorDose(e.target.value)} placeholder={tipoProduto === 'Encapsulados' ? 'Ex: 2' : tipoProduto === 'Gummy' ? 'Ex: 1' : tipoProduto === 'Líquido' ? 'Ex: 5' : unidadeSoluvel === 'mg' ? 'Ex: 3000' : 'Ex: 3'} />
               <p className="text-sm text-muted-foreground">
                 {tipoProduto === 'Encapsulados' && 'Quantas cápsulas compõem uma dose? Ex: 2 cápsulas = 1 dose'}
                 {tipoProduto === 'Gummy' && 'Quantos gummies compõem uma dose? Ex: 1 gummy = 1 dose'}
                 {tipoProduto === 'Líquido' && 'Quantos mL compõem uma dose? Ex: 5 mL = 1 dose'}
-                {tipoProduto === 'Pó' && unidadePo === 'mg' && 'Quantos miligramas por dose diária? Ex: 3000mg por dose (essa é a dose base da sua tabela de MP)'}
-                {tipoProduto === 'Pó' && unidadePo === 'g' && 'Quantas gramas por dose diária? Ex: 3g por dose (essa é a dose base da sua tabela de MP)'}
+                {tipoProduto === 'Solúvel' && unidadeSoluvel === 'mg' && 'Quantos miligramas por dose diária? Ex: 3000mg por dose (essa é a dose base da sua tabela de MP)'}
+                {tipoProduto === 'Solúvel' && unidadeSoluvel === 'g' && 'Quantas gramas por dose diária? Ex: 3g por dose (essa é a dose base da sua tabela de MP)'}
               </p>
               
               {/* Exibir cálculo do número de doses */}
               <div className="p-2 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-950 dark:border-blue-800">
                 <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                  📊 Número de doses: {Math.floor((tipoProduto === 'Pó' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 0) / (tipoProduto === 'Pó' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1))}
+                  📊 Número de doses: {Math.floor((tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 0) / (tipoProduto === 'Solúvel' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1))}
                 </p>
-                {tipoProduto === 'Pó' && <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                {tipoProduto === 'Solúvel' && <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                     O custo de matéria-prima será: custo por dose × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses
                   </p>}
               </div>
