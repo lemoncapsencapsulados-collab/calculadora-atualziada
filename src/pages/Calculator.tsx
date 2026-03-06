@@ -853,7 +853,7 @@ export default function Calculator() {
           <CardContent className="space-y-4">
             {/* Lista de insumos convertidos para MG */}
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-muted-foreground">Insumos da Fórmula (por dose diária):</p>
+              <p className="text-sm font-semibold text-muted-foreground">Matérias-Primas da Fórmula (por dose diária):</p>
               <div className="space-y-1 pl-3">
                 {totaisInsumosMG.itensMG.map((item: any, idx: number) => <div key={idx} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
