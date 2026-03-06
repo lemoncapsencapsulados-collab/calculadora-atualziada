@@ -19,7 +19,7 @@ export default function InsumoAutocomplete({
   insumos,
   value,
   onSelect,
-  placeholder = 'Selecione um insumo...',
+  placeholder = 'Selecione uma matéria-prima...',
   disabled = false,
 }: InsumoAutocompleteProps) {
   const [open, setOpen] = useState(false);
