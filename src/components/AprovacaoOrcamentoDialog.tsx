@@ -604,6 +604,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     mode="single"
                     selected={dataPagamento}
                     onSelect={setDataPagamento}
+                    disabled={(date) => date > new Date()}
                     initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
