@@ -36,6 +36,7 @@ function formatUpdatedAt(updatedAt?: string): string {
 export default function Inventario() {
   const { insumos, loading: loadingInsumos, addInsumo, updateInsumo, deleteInsumo } = useInsumos();
   const { embalagens, loading: loadingEmbalagens, addEmbalagem, updateEmbalagem, deleteEmbalagem } = useEmbalagens();
+  const { getLotesForItem, getCustoMedioPonderado, addLote, updateLote, deleteLote } = useLotes();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
@@ -47,6 +48,16 @@ export default function Inventario() {
   const [embalagemDialogOpen, setEmbalagemDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"materias_primas" | "embalagens">("materias_primas");
   const [importInventoryOpen, setImportInventoryOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const categories = useMemo(() => {
     const cats = new Set(insumos.map((i) => i.categoria).filter(Boolean));
