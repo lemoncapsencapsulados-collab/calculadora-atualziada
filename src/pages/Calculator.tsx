@@ -896,7 +896,7 @@ export default function Calculator() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses = Total de insumos no pote
+                {totaisInsumosMG.totalMG.toFixed(2)}mg × {Math.floor((qtdCapsulasEmMG || 0) / (unidadesPorDoseEmMG || 1))} doses = Total de matérias-primas no pote
               </p>
             </div>
 
