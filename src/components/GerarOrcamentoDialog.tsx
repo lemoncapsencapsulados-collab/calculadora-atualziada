@@ -115,9 +115,6 @@ export default function GerarOrcamentoDialog({
   const subtotalServicos = servicosMarca.reduce((acc, s) => acc + s.valor, 0);
   const valorTotal = subtotalProducao + subtotalServicos;
 
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   // Handlers
   const handleAddPrecificacoes = async () => {

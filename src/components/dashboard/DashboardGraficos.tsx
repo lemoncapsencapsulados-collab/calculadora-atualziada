@@ -126,7 +126,7 @@ export function DashboardGraficos({ evolucaoTemporal, distribuicaoCanais }: Dash
                     <div className="flex-1">
                       <p className="text-sm font-medium">{canal.canal}</p>
                       <p className="text-xs text-muted-foreground">
-                        {canal.clientes} cliente{canal.clientes !== 1 ? 's' : ''} • {formatCurrencyFull(canal.faturamento)}
+                        {canal.clientes} cliente{canal.clientes !== 1 ? 's' : ''} • {formatCurrency(canal.faturamento)}
                       </p>
                     </div>
                   </div>

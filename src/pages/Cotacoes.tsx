@@ -63,12 +63,6 @@ const Cotacoes = () => {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const filteredFormulas = useMemo(() => {
     return formulas.filter((formula) => {

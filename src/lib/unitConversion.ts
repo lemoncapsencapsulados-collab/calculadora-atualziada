@@ -139,6 +139,11 @@ export function formatCurrency(value: number): string {
 }
 
 /**
+ * @deprecated Use formatCurrency instead - kept for backward compatibility
+ */
+export const formatCurrencyDetailed = formatCurrency;
+
+/**
  * Format unit for display
  */
 export function formatUnit(unit: UnitType): string {

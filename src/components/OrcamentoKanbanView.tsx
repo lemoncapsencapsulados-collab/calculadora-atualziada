@@ -26,8 +26,6 @@ interface Props {
   onStatusChange: (id: string, newStatus: string) => void;
 }
 
-const formatCurrency = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPreview, onPropostaCompleta, onStatusChange }: Props) {
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);

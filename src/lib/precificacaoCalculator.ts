@@ -79,40 +79,41 @@ export function calcularPrecificacaoPorPreco(
   // 13. Markup Bruto
   const markupBruto = ((precoVenda - totalCustosProducao) / totalCustosProducao) * 100;
 
+  const r = arredondarReais;
   return {
-    custoMateriaPrima: custosBase.custoMateriaPrima,
-    custoEmbalagem: custosBase.custoEmbalagem,
-    custoMaoObraDireta: custosIndiretos.maoObraDireta,
-    custoEnergia: custosIndiretos.energia,
-    custoDepreciacao: custosIndiretos.depreciacao,
-    custoAdministrativo: custosIndiretos.administrativo,
+    custoMateriaPrima: r(custosBase.custoMateriaPrima),
+    custoEmbalagem: r(custosBase.custoEmbalagem),
+    custoMaoObraDireta: r(custosIndiretos.maoObraDireta),
+    custoEnergia: r(custosIndiretos.energia),
+    custoDepreciacao: r(custosIndiretos.depreciacao),
+    custoAdministrativo: r(custosIndiretos.administrativo),
     
-    subtotalCustosDiretos,
-    subtotalCustosIndiretos,
-    margemSeguranca,
-    totalCustosProducao,
+    subtotalCustosDiretos: r(subtotalCustosDiretos),
+    subtotalCustosIndiretos: r(subtotalCustosIndiretos),
+    margemSeguranca: r(margemSeguranca),
+    totalCustosProducao: r(totalCustosProducao),
     
-    icmsCreditoNF,
-    icmsSaida,
-    icmsCreditoProdeic,
-    fundebFundes,
-    icmsRecolher,
+    icmsCreditoNF: r(icmsCreditoNF),
+    icmsSaida: r(icmsSaida),
+    icmsCreditoProdeic: r(icmsCreditoProdeic),
+    fundebFundes: r(fundebFundes),
+    icmsRecolher: r(icmsRecolher),
     
-    pisCOFINSSaida,
-    pisCOFINSCredito,
-    pisCOFINSRecolher,
+    pisCOFINSSaida: r(pisCOFINSSaida),
+    pisCOFINSCredito: r(pisCOFINSCredito),
+    pisCOFINSRecolher: r(pisCOFINSRecolher),
     
-    ipiValor,
+    ipiValor: r(ipiValor),
     
-    baseCalculoIRPJCSLL,
-    irpjCsllValor,
+    baseCalculoIRPJCSLL: r(baseCalculoIRPJCSLL),
+    irpjCsllValor: r(irpjCsllValor),
     
-    totalImpostos,
+    totalImpostos: r(totalImpostos),
     
-    precoVenda,
-    markupBruto,
-    margemLucroPercentual,
-    margemLucroValor,
+    precoVenda: r(precoVenda),
+    markupBruto: r(markupBruto),
+    margemLucroPercentual: r(margemLucroPercentual),
+    margemLucroValor: r(margemLucroValor),
   };
 }
 

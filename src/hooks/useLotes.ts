@@ -45,7 +45,7 @@ export function useLotes() {
     if (itemLotes.length === 0) return null;
     const totalQtd = itemLotes.reduce((sum, l) => sum + l.quantidade, 0);
     const totalCusto = itemLotes.reduce((sum, l) => sum + l.quantidade * l.custo_unitario, 0);
-    return totalCusto / totalQtd;
+    return arredondarReais(totalCusto / totalQtd);
   }, [lotes]);
 
   const addLote = async (lote: Omit<Lote, 'id' | 'created_at' | 'updated_at'>) => {
