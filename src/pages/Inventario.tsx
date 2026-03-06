@@ -37,7 +37,7 @@ function formatUpdatedAt(updatedAt?: string): string {
 export default function Inventario() {
   const { insumos, loading: loadingInsumos, addInsumo, updateInsumo, deleteInsumo } = useInsumos();
   const { embalagens, loading: loadingEmbalagens, addEmbalagem, updateEmbalagem, deleteEmbalagem } = useEmbalagens();
-  const { getLotesForItem, getCustoMedioPonderado, addLote, updateLote, deleteLote } = useLotes();
+  const { lotes, getLotesForItem, getCustoMedioPonderado, addLote, updateLote, deleteLote } = useLotes();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
