@@ -683,9 +683,9 @@ export default function GerarOrcamentoDialog({
                           </Button>
                         </div>
 
-                        {/* Campos adicionais: quantidade por pote, unidade, dose diária - ocultos para POD */}
+                        {/* Campos adicionais: quantidade por pote, unidade, dose por dose, doses totais - ocultos para POD */}
                         {item.modelo_negocio !== 'print_on_demand' && (
-                          <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                          <div className="grid grid-cols-4 gap-2 pt-2 border-t">
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Qtd por Pote</Label>
                               <Input
@@ -694,31 +694,59 @@ export default function GerarOrcamentoDialog({
                                 value={item.quantidade_por_pote || ''}
                                 onChange={(e) => handleUpdateItemField(index, 'quantidade_por_pote', parseInt(e.target.value) || undefined)}
                                 placeholder="60"
+                                readOnly={item.tipo === 'precificacao'}
+                                disabled={item.tipo === 'precificacao'}
+                                className={item.tipo === 'precificacao' ? 'bg-muted cursor-not-allowed' : ''}
                               />
                             </div>
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Unidade</Label>
-                              <Select
-                                value={item.unidade_por_pote || ''}
-                                onValueChange={(value) => handleUpdateItemField(index, 'unidade_por_pote', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="capsulas">Cápsulas</SelectItem>
-                                  <SelectItem value="gummies">Gummies</SelectItem>
-                                  <SelectItem value="ml">ML</SelectItem>
-                                  <SelectItem value="g">Gramas</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              {item.tipo === 'precificacao' ? (
+                                <Input
+                                  value={item.unidade_por_pote === 'capsulas' ? 'Cápsulas' : item.unidade_por_pote === 'gummies' ? 'Gummies' : item.unidade_por_pote === 'ml' ? 'ML' : item.unidade_por_pote === 'g' ? 'Gramas' : item.unidade_por_pote || ''}
+                                  readOnly
+                                  disabled
+                                  className="bg-muted cursor-not-allowed"
+                                />
+                              ) : (
+                                <Select
+                                  value={item.unidade_por_pote || ''}
+                                  onValueChange={(value) => handleUpdateItemField(index, 'unidade_por_pote', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="capsulas">Cápsulas</SelectItem>
+                                    <SelectItem value="gummies">Gummies</SelectItem>
+                                    <SelectItem value="ml">ML</SelectItem>
+                                    <SelectItem value="g">Gramas</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Dose Diária</Label>
+                              <Label className="text-xs text-muted-foreground">Qtd por Dose</Label>
                               <Input
-                                value={item.dose_diaria_sugerida || ''}
-                                onChange={(e) => handleUpdateItemField(index, 'dose_diaria_sugerida', e.target.value)}
-                                placeholder="2 cápsulas/dia"
+                                type="number"
+                                min={1}
+                                value={item.quantidade_por_dose || ''}
+                                onChange={(e) => handleUpdateItemField(index, 'quantidade_por_dose', parseInt(e.target.value) || undefined)}
+                                placeholder="2"
+                                readOnly={item.tipo === 'precificacao'}
+                                disabled={item.tipo === 'precificacao'}
+                                className={item.tipo === 'precificacao' ? 'bg-muted cursor-not-allowed' : ''}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Total Doses</Label>
+                              <Input
+                                type="number"
+                                value={item.quantidade_doses || ''}
+                                readOnly
+                                disabled
+                                className="bg-muted cursor-not-allowed"
+                                placeholder="—"
                               />
                             </div>
                           </div>
