@@ -202,11 +202,11 @@ export default function Inventario() {
         <p className="text-muted-foreground mt-1">Gerencie suas matérias-primas e embalagens</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "insumos" | "embalagens")}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "materias_primas" | "embalagens")}>
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="insumos">
+          <TabsTrigger value="materias_primas">
             <Package className="w-4 h-4 mr-2" />
-            Insumos ({insumos.length})
+            Matérias-Primas ({insumos.length})
           </TabsTrigger>
           <TabsTrigger value="embalagens">
             <FlaskConical className="w-4 h-4 mr-2" />
