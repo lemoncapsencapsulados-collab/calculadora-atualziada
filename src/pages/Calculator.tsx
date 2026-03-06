@@ -331,8 +331,8 @@ export default function Calculator() {
     return custoInsumos + custoExcipiente;
   }, [calculatedItems, calcularExcipiente]);
   const totalMP = useMemo(() => {
-    const qtdTotal = tipoProduto === 'Pó' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 1;
-    const unidadesDose = tipoProduto === 'Pó' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1;
+    const qtdTotal = tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 1;
+    const unidadesDose = tipoProduto === 'Solúvel' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1;
 
     // Calcula número de doses e multiplica pelo custo unitário por dose
     const numDoses = qtdTotal / unidadesDose;
