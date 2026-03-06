@@ -57,7 +57,7 @@ export default function InsumoAutocomplete({
       <PopoverContent className="w-[400px] p-0" align="start">
         <Command>
           <CommandInput
-            placeholder="Buscar insumo..."
+            placeholder="Buscar matéria-prima..."
             value={search}
             onValueChange={setSearch}
           />
