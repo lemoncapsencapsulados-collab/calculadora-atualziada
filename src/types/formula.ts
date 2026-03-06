@@ -15,6 +15,19 @@ export interface MateriaPrima {
 // Alias for backward compatibility
 export type Insumo = MateriaPrima;
 
+export interface Lote {
+  id: string;
+  item_id: string;
+  item_tipo: 'materia_prima' | 'embalagem';
+  quantidade: number;
+  validade?: string;
+  custo_unitario: number;
+  fornecedor?: string;
+  observacoes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Embalagem {
   id: string;
   nome: string;
