@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Orcamento, DadosCliente, DetalhamentoFrete, CondicoesPagamento, FormaPagamentoTipo } from '@/types/orcamento';
+import { formatCurrency } from '@/lib/unitConversion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
