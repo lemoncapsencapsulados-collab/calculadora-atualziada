@@ -170,6 +170,8 @@ export default function GerarOrcamentoDialog({
           }
         }
         
+        const formulaData: Record<string, any> = {};
+
         return {
           tipo: 'precificacao' as const,
           precificacao_id: precId,
@@ -179,7 +181,8 @@ export default function GerarOrcamentoDialog({
           quantidade: 1,
           subtotal: Number(prec?.preco_venda) || 0,
           insumos_formula,
-        };
+          ...formulaData,
+        } as ItemProducao;
       })
     );
     
