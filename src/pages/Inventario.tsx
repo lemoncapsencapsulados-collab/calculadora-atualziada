@@ -250,7 +250,7 @@ export default function Inventario() {
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
-                        <DialogTitle>{editingInsumo ? "Editar Insumo" : "Adicionar Novo Insumo"}</DialogTitle>
+                        <DialogTitle>{editingInsumo ? "Editar Matéria-Prima" : "Adicionar Nova Matéria-Prima"}</DialogTitle>
                       </DialogHeader>
                       <form
                         onSubmit={(e) => {
