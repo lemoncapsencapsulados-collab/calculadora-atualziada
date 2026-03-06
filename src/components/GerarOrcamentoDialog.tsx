@@ -127,7 +127,7 @@ export default function GerarOrcamentoDialog({
         if (prec?.formula_id) {
           const { data: formula } = await supabase
             .from('formulas')
-            .select('itens')
+            .select('itens, tipo_produto, quantidade_por_pote, unidades_por_dose, unidade_soluvel')
             .eq('id', prec.formula_id)
             .maybeSingle();
           
@@ -137,6 +137,36 @@ export default function GerarOrcamentoDialog({
               quantidade: item.qtd_informada || 0,
               unidade: item.unidade_informada || '',
             }));
+          }
+
+          // Derivar unidade com base no tipo de produto
+          const deriveUnidade = (tipo: string, unidadeSoluvel?: string | null): string => {
+            switch (tipo) {
+              case 'Encapsulados': return 'capsulas';
+              case 'Gummy': return 'gummies';
+              case 'Líquido': return 'ml';
+              case 'Solúvel': return unidadeSoluvel || 'g';
+              default: return 'capsulas';
+            }
+          };
+
+          if (formula) {
+            const tipoProd = formula.tipo_produto || '';
+            const qtdPote = Number(formula.quantidade_por_pote) || undefined;
+            const qtdDose = Number(formula.unidades_por_dose) || undefined;
+            const unidade = deriveUnidade(tipoProd, formula.unidade_soluvel);
+            const qtdDoses = qtdPote && qtdDose ? Math.floor(qtdPote / qtdDose) : undefined;
+            const doseTexto = qtdDose ? `${qtdDose} ${unidade}/dia` : undefined;
+
+            Object.assign(formulaData, {
+              tipo_produto: tipoProd,
+              quantidade_por_pote: qtdPote,
+              unidade_por_pote: unidade,
+              quantidade_por_dose: qtdDose,
+              unidade_por_dose: unidade,
+              quantidade_doses: qtdDoses,
+              dose_diaria_sugerida: doseTexto,
+            });
           }
         }
         
