@@ -506,7 +506,7 @@ export default function Calculator() {
     setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
     setUnidadesPorDose('2');
-    setUnidadePo('mg');
+    setUnidadeSoluvel('mg');
     setItems([{
       id: Date.now().toString(),
       insumoNome: '',
