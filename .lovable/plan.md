@@ -1,17 +1,34 @@
 
-# Plano: 3 ajustes na Aprovação de Orçamento
 
-## 1. CNPJ não obrigatório
-Remover a validação que exige CNPJ (linha 121) e remover o asterisco vermelho do label (linha 268).
+# Auto-preenchimento de características do produto no GerarOrcamentoDialog
 
-## 2. Encapsulados — Cores corretas
-- **Tampa do Pote**: Preta / Branca (atualmente Preta / Transparente)
-- **Cor do Pote**: Preta / Transparente (já está correto, sem alteração)
+## Contexto
+O campo `quantidade_por_dose` no `ItemProducao` deve vir diretamente do campo `unidades_por_dose` da fórmula (armazenado no banco como `unidades_por_dose`). A nomenclatura no orçamento será padronizada como `quantidade_por_dose`.
 
-Arquivo: `src/components/AprovacaoOrcamentoDialog.tsx`, linhas 336-338 — trocar "Transparente" por "Branca" na tampa.
+## Implementação
 
-## 3. Forma de Venda aceitar "Sem informação"
-Remover a validação da linha 124 que bloqueia quando `formaVenda === 'sem_informacao'`.
+### Arquivo: `src/components/GerarOrcamentoDialog.tsx`
 
-## Arquivo modificado
-- `src/components/AprovacaoOrcamentoDialog.tsx`
+**1. Expandir query da fórmula** (linha 130)
+Na `handleAddPrecificacoes`, buscar campos adicionais:
+```sql
+SELECT itens, tipo_produto, quantidade_por_pote, unidades_por_dose, unidade_soluvel
+```
+
+**2. Preencher campos automaticamente** (linhas 143-152)
+Ao construir o `ItemProducao`, derivar:
+- `tipo_produto` ← `formula.tipo_produto`
+- `quantidade_por_pote` ← `formula.quantidade_por_pote`
+- `unidade_por_pote` ← derivado do tipo (Encapsulados→"capsulas", Gummy→"gummies", Líquido→"ml", Solúvel→`formula.unidade_soluvel || "g"`)
+- `quantidade_por_dose` ← `formula.unidades_por_dose`
+- `unidade_por_dose` ← mesmo que `unidade_por_pote`
+- `quantidade_doses` ← `Math.floor(quantidade_por_pote / unidades_por_dose)`
+- `dose_diaria_sugerida` ← texto gerado para compatibilidade (ex: "2 cápsulas/dia")
+
+**3. Campos read-only para itens de precificação** (linhas 654-693)
+- Se `item.tipo === 'precificacao'`: inputs com `readOnly`, `disabled`, estilo `bg-muted`
+- Se `item.tipo === 'avulso'`: mantém editável
+
+### Arquivo modificado
+- `src/components/GerarOrcamentoDialog.tsx`
+
