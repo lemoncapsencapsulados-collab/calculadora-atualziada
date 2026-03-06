@@ -107,7 +107,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
         <DialogHeader>
           <DialogTitle>Importar Inventário Completo</DialogTitle>
           <DialogDescription>
-            Importe seus arquivos JSON de insumos e embalagens. O sistema irá automaticamente mesclar duplicatas e
+            Importe seus arquivos JSON de matérias-primas e embalagens. O sistema irá automaticamente mesclar duplicatas e
             converter unidades.
           </DialogDescription>
         </DialogHeader>
