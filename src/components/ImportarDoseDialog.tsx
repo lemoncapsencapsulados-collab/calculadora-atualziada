@@ -390,7 +390,7 @@ export default function ImportarDoseDialog({
           <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Cole aqui a lista de insumos e quantidades..."
+            placeholder="Cole aqui a lista de matérias-primas e quantidades..."
             className="min-h-[100px] font-mono text-sm"
             disabled={processandoImagem}
           />
