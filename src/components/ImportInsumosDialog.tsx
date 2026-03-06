@@ -210,7 +210,7 @@ export default function ImportInsumosDialog() {
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-green-500" />
-                    Preview: {previewItems.length} insumos
+                    Preview: {previewItems.length} matérias-primas
                   </CardTitle>
                   <CardDescription>
                     Revise os dados antes de confirmar a importação

@@ -219,7 +219,7 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
             {/* Insumos */}
             {result.insumos && (
               <div className="space-y-2">
-                <h3 className="font-semibold">Insumos</h3>
+                <h3 className="font-semibold">Matérias-Primas</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="p-3 bg-green-50 dark:bg-green-950 rounded">
                     <div className="text-green-700 dark:text-green-300 font-medium">

@@ -62,7 +62,7 @@ export default function InsumoAutocomplete({
             onValueChange={setSearch}
           />
           <CommandList>
-            <CommandEmpty>Nenhum insumo encontrado.</CommandEmpty>
+            <CommandEmpty>Nenhuma matéria-prima encontrada.</CommandEmpty>
             <CommandGroup>
               {filteredInsumos.map((insumo) => (
                 <CommandItem

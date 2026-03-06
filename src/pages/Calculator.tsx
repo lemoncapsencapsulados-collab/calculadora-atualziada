@@ -431,7 +431,7 @@ export default function Calculator() {
       return [...semVazios, ...novosItens];
     });
     
-    toast.success(`${parsedItems.length} insumo${parsedItems.length !== 1 ? 's' : ''} importado${parsedItems.length !== 1 ? 's' : ''}!`);
+    toast.success(`${parsedItems.length} matéria${parsedItems.length !== 1 ? 's' : ''}-prima${parsedItems.length !== 1 ? 's' : ''} importada${parsedItems.length !== 1 ? 's' : ''}!`);
   };
   const handleSave = () => {
     if (!cliente.trim()) {

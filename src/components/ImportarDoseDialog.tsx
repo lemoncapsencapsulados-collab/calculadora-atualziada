@@ -400,7 +400,7 @@ export default function ImportarDoseDialog({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">
-                  Prévia: {parsedItems.length} insumo{parsedItems.length !== 1 ? 's' : ''} reconhecido{parsedItems.length !== 1 ? 's' : ''}
+                  Prévia: {parsedItems.length} matéria{parsedItems.length !== 1 ? 's' : ''}-prima{parsedItems.length !== 1 ? 's' : ''} reconhecida{parsedItems.length !== 1 ? 's' : ''}
                 </p>
                 <div className="flex gap-2">
                   {itensEncontrados.length > 0 && (
