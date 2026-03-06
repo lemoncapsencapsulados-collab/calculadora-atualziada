@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
 import LotesPanel from "@/components/LotesPanel";
+import InventarioDashboard from "@/components/InventarioDashboard";
 import { differenceInDays, format } from "date-fns";
 
 function getUpdateAlert(updatedAt?: string): { type: 'red' | 'yellow' | null; label: string; daysLeft?: number } {
