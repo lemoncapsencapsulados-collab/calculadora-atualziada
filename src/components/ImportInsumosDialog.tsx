@@ -123,9 +123,9 @@ export default function ImportInsumosDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Importar Lista de Insumos</DialogTitle>
+          <DialogTitle>Importar Lista de Matérias-Primas</DialogTitle>
           <DialogDescription>
-            Importe múltiplos insumos de uma vez. Duplicatas serão atualizadas automaticamente.
+            Importe múltiplas matérias-primas de uma vez. Duplicatas serão atualizadas automaticamente.
           </DialogDescription>
         </DialogHeader>
 
