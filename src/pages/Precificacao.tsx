@@ -404,7 +404,7 @@ export default function Precificacao() {
                           <div className="space-y-2">
                             <Label>Matéria-Prima</Label>
                             <Input
-                              value={`R$ ${Number(formulaSelecionada.total_mp).toFixed(2)}`}
+                              value={`R$ ${arredondarReais(Number(formulaSelecionada.total_mp)).toFixed(2)}`}
                               disabled
                               className="bg-muted"
                             />
