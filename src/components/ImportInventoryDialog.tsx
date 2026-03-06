@@ -114,9 +114,9 @@ export default function ImportInventoryDialog({ open, onOpenChange }: ImportInve
 
         {!result ? (
           <div className="space-y-6">
-            {/* Upload de Insumos */}
+            {/* Upload de Matérias-Primas */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Arquivo de Insumos (JSON)</label>
+              <label className="text-sm font-medium">Arquivo de Matérias-Primas (JSON)</label>
               <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                 {insumosFile ? (
                   <div className="flex items-center justify-between">
