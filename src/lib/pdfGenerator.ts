@@ -376,7 +376,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
                          formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
     doc.text(`• Unidades por dose: ${formula.unidades_por_dose} ${unidadeTexto}`, 17, yPosition);
     yPosition += 5;
-    doc.text(`• Número total de doses: ${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses`, 17, yPosition);
+    doc.text(`• Número total de doses: ${Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)} doses`, 17, yPosition);
   }
 
   // RODAPÉ

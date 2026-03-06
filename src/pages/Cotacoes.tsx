@@ -81,7 +81,7 @@ const Cotacoes = () => {
     csv += `Cliente: ${formula.cliente}\n`;
     csv += `Data: ${format(new Date(formula.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}\n`;
     csv += `Tipo: ${formula.tipo_produto}\n`;
-    csv += `Quantidade: ${formula.qtd_capsulas}\n\n`;
+    csv += `Quantidade: ${formula.quantidade_por_pote}\n\n`;
 
     csv += 'MATÉRIA-PRIMA\n';
     csv += 'Matéria-Prima,Quantidade,Unidade,Custo\n';
@@ -120,7 +120,7 @@ const Cotacoes = () => {
     switch (tipo) {
       case 'Encapsulados':
         return 'default';
-      case 'Pó':
+      case 'Solúvel':
         return 'secondary';
       case 'Gummy':
         return 'outline';
@@ -163,7 +163,7 @@ const Cotacoes = () => {
 
           {/* Filtros */}
           <div className="flex gap-2 flex-wrap">
-            {['Todos', 'Encapsulados', 'Pó', 'Gummy', 'Líquido'].map((tipo) => (
+            {['Todos', 'Encapsulados', 'Solúvel', 'Gummy', 'Líquido'].map((tipo) => (
               <Button
                 key={tipo}
                 variant={filterTipo === tipo ? 'default' : 'outline'}
@@ -205,21 +205,21 @@ const Cotacoes = () => {
                             {formula.tipo_produto}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
-                            {formula.tipo_produto === 'Pó' 
-                              ? `${formula.unidade_po === 'g' ? (formula.qtd_capsulas / 1000).toFixed(0) : formula.qtd_capsulas} ${formula.unidade_po || 'mg'}`
+                            {formula.tipo_produto === 'Solúvel' 
+                              ? `${formula.unidade_soluvel === 'g' ? (formula.quantidade_por_pote / 1000).toFixed(0) : formula.quantidade_por_pote} ${formula.unidade_soluvel || 'mg'}`
                               : formula.tipo_produto === 'Encapsulados'
-                              ? `${formula.qtd_capsulas} cápsulas`
+                              ? `${formula.quantidade_por_pote} cápsulas`
                               : formula.tipo_produto === 'Gummy'
-                              ? `${formula.qtd_capsulas} gummies`
+                              ? `${formula.quantidade_por_pote} gummies`
                               : formula.tipo_produto === 'Líquido'
-                              ? `${formula.qtd_capsulas} mL`
-                              : `${formula.qtd_capsulas} pote(s)`}
+                              ? `${formula.quantidade_por_pote} mL`
+                              : `${formula.quantidade_por_pote} pote(s)`}
                           </span>
                           {formula.unidades_por_dose && (
                             <>
                               <span className="text-muted-foreground">•</span>
                               <span className="text-sm text-muted-foreground">
-                                {Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses
+                                {Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)} doses
                               </span>
                             </>
                           )}
@@ -244,10 +244,10 @@ const Cotacoes = () => {
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
                               <p className="text-muted-foreground">Unidades por dose:</p>
-                              <p className="font-medium">
-                                {formula.tipo_produto === 'Pó' && formula.unidade_po === 'g'
+                             <p className="font-medium">
+                                {formula.tipo_produto === 'Solúvel' && formula.unidade_soluvel === 'g'
                                   ? `${(formula.unidades_por_dose / 1000).toFixed(1)} g`
-                                  : formula.tipo_produto === 'Pó'
+                                  : formula.tipo_produto === 'Solúvel'
                                   ? `${formula.unidades_por_dose} mg`
                                   : formula.tipo_produto === 'Encapsulados' 
                                   ? `${formula.unidades_por_dose} cápsulas`
@@ -262,7 +262,7 @@ const Cotacoes = () => {
                             <div>
                               <p className="text-muted-foreground">Número de doses:</p>
                               <p className="font-medium">
-                                {Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)} doses
+                                {Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)} doses
                               </p>
                             </div>
                           </div>

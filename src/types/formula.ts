@@ -54,14 +54,16 @@ export interface EmbalagemItem {
   custo_calculado: number;
 }
 
+export type TipoProduto = 'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido';
+
 export interface Formula {
   id: string;
   cliente: string;
   nome_formula: string;
-  tipo_produto: 'Encapsulados' | 'Pó' | 'Gummy' | 'Líquido';
-  qtd_capsulas: number;
+  tipo_produto: TipoProduto;
+  quantidade_por_pote: number;
   unidades_por_dose?: number;
-  unidade_po?: 'mg' | 'g'; // Unidade para produtos em Pó
+  unidade_soluvel?: 'mg' | 'g'; // Unidade para produtos Solúveis
   itens: FormulaItem[];
   embalagens: EmbalagemItem[];
   total_mp: number;

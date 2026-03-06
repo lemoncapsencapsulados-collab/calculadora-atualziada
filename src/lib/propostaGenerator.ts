@@ -160,7 +160,7 @@ export async function gerarPropostaPDF(data: PropostaData) {
     const campos = [
       { label: 'Cliente', valor: formula.cliente },
       { label: 'Tipo de Produto', valor: formula.tipo_produto },
-      { label: 'Unidades/Frasco', valor: `${formula.qtd_capsulas}` },
+      { label: 'Unidades/Frasco', valor: `${formula.quantidade_por_pote}` },
     ];
     
     if (formula.unidades_por_dose) {
@@ -168,7 +168,7 @@ export async function gerarPropostaPDF(data: PropostaData) {
                            formula.tipo_produto === 'Gummy' ? 'gummies' :
                            formula.tipo_produto === 'Líquido' ? 'mL' : 'g';
       campos.push({ label: 'Dose Sugerida', valor: `${formula.unidades_por_dose} ${unidadeTexto}` });
-      campos.push({ label: 'Doses por Frasco', valor: `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}` });
+      campos.push({ label: 'Doses por Frasco', valor: `${Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)}` });
     }
     
     for (const campo of campos) {
@@ -339,8 +339,8 @@ export async function gerarPropostaPDF(data: PropostaData) {
       
       const dosesInfo = [
         { label: 'Dose Recomendada', valor: `${formula.unidades_por_dose} ${unidadeTexto}` },
-        { label: 'Doses por Frasco', valor: `${Math.floor(formula.qtd_capsulas / formula.unidades_por_dose)}` },
-        { label: 'Total de Doses (pedido)', valor: `${Math.floor((formula.qtd_capsulas / formula.unidades_por_dose) * quantidadeFrascos)}` },
+        { label: 'Doses por Frasco', valor: `${Math.floor(formula.quantidade_por_pote / formula.unidades_por_dose)}` },
+        { label: 'Total de Doses (pedido)', valor: `${Math.floor((formula.quantidade_por_pote / formula.unidades_por_dose) * quantidadeFrascos)}` },
       ];
       
       doc.setFontSize(LAYOUT.fontSize.body);
