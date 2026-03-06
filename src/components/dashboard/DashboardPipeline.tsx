@@ -11,7 +11,7 @@ interface DashboardPipelineProps {
 const STATUS_CONFIG = [
   { key: 'rascunho', label: 'Rascunho', color: '#94a3b8' },
   { key: 'enviado', label: 'Enviado', color: '#f59e0b' },
-  { key: 'aprovado', label: 'Aprovado', color: '#22c55e' },
+  { key: 'pago', label: 'Pago', color: '#22c55e' },
   { key: 'recusado', label: 'Recusado', color: '#ef4444' },
 ] as const;
 
