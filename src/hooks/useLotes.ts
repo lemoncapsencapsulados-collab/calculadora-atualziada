@@ -69,6 +69,7 @@ export function useLotes() {
   const updateLote = async (id: string, updates: Partial<Lote>) => {
     try {
       const dbUpdates: any = {};
+      if (updates.codigo !== undefined) dbUpdates.codigo = updates.codigo || null;
       if (updates.quantidade !== undefined) dbUpdates.quantidade = updates.quantidade;
       if (updates.validade !== undefined) dbUpdates.validade = updates.validade || null;
       if (updates.custo_unitario !== undefined) dbUpdates.custo_unitario = updates.custo_unitario;
