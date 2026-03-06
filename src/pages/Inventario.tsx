@@ -216,6 +216,8 @@ export default function Inventario() {
         <p className="text-muted-foreground mt-1">Gerencie suas matérias-primas e embalagens</p>
       </div>
 
+      <InventarioDashboard lotes={lotes} materiasPrimas={insumos} embalagens={embalagens} />
+
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "materias_primas" | "embalagens")}>
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="materias_primas">

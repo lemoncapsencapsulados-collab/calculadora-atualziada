@@ -104,6 +104,7 @@ function mapLoteFromDB(db: any): Lote {
     id: db.id,
     item_id: db.item_id,
     item_tipo: db.item_tipo,
+    codigo: db.codigo || undefined,
     quantidade: Number(db.quantidade),
     validade: db.validade || undefined,
     custo_unitario: Number(db.custo_unitario),

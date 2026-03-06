@@ -142,6 +142,10 @@ export default function LotesPanel({
             <DialogTitle>{editingLote ? 'Editar Lote' : 'Novo Lote'} — {itemNome}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <Label>Código do Lote</Label>
+              <Input name="codigo" defaultValue={editingLote?.codigo ?? ''} placeholder="Ex: LT-2024-001" />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Quantidade *</Label>

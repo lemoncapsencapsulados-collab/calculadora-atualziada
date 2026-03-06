@@ -166,6 +166,7 @@ export type Database = {
       }
       lotes: {
         Row: {
+          codigo: string | null
           created_at: string | null
           custo_unitario: number
           fornecedor: string | null
@@ -178,6 +179,7 @@ export type Database = {
           validade: string | null
         }
         Insert: {
+          codigo?: string | null
           created_at?: string | null
           custo_unitario: number
           fornecedor?: string | null
@@ -190,6 +192,7 @@ export type Database = {
           validade?: string | null
         }
         Update: {
+          codigo?: string | null
           created_at?: string | null
           custo_unitario?: number
           fornecedor?: string | null
