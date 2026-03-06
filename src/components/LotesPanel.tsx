@@ -42,6 +42,7 @@ export default function LotesPanel({
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const codigo = fd.get('codigo') as string;
     const quantidade = parseFloat(fd.get('quantidade') as string);
     const custo_unitario = parseFloat(fd.get('custo_unitario') as string);
     const validade = fd.get('validade') as string;
@@ -52,9 +53,9 @@ export default function LotesPanel({
 
     try {
       if (editingLote) {
-        await onUpdateLote(editingLote.id, { quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
+        await onUpdateLote(editingLote.id, { codigo: codigo || undefined, quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
       } else {
-        await onAddLote({ item_id: itemId, item_tipo: itemTipo, quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
+        await onAddLote({ item_id: itemId, item_tipo: itemTipo, codigo: codigo || undefined, quantidade, custo_unitario, validade: validade || undefined, fornecedor: fornecedor || undefined, observacoes: observacoes || undefined });
       }
       setDialogOpen(false);
       setEditingLote(null);
