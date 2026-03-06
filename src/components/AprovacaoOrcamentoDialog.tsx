@@ -133,7 +133,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       } else if (seg.includes('gummy')) {
         if (!d.cor_gummy) camposFaltando.push(`Cor da Gummy (${item.nome_produto})`);
         if (!d.sabor_gummy) camposFaltando.push(`Sabor da Gummy (${item.nome_produto})`);
-      } else if (seg.includes('pó') || seg.includes('po') || seg.includes('solúvel') || seg.includes('soluvel')) {
+      } else if (seg.includes('solúvel') || seg.includes('soluvel')) {
         if (!d.sabor_soluvel) camposFaltando.push(`Sabor Solúvel (${item.nome_produto})`);
         if (!d.cor_soluvel) camposFaltando.push(`Cor Solúvel (${item.nome_produto})`);
       } else if (seg.includes('líquido') || seg.includes('liquido')) {
