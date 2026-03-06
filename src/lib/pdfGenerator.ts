@@ -306,7 +306,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
   const mpData = formula.itens.map((item: any) => [
     item.nome_insumo_snapshot,
     `${item.qtd_informada} ${item.unidade_informada}`,
-    `R$ ${item.custo_calculado.toFixed(2)}`,
+    `R$ ${arredondarReais(item.custo_calculado).toFixed(2)}`,
   ]);
 
   autoTable(doc, {
