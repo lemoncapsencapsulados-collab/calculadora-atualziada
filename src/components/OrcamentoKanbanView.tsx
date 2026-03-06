@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Pencil, Trash2, FileText, FileCheck, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatCurrency } from '@/lib/unitConversion';
 
 const COLUMNS = [
   { status: 'rascunho', label: 'Rascunho', headerClass: 'bg-muted text-muted-foreground', badgeVariant: 'secondary' as const },
