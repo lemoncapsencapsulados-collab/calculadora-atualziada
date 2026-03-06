@@ -724,14 +724,14 @@ export default function Calculator() {
             return <div key={item.id} className="space-y-2">
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-5">
-                    <Label>Insumo</Label>
+                    <Label>Matéria-Prima</Label>
                     <InsumoAutocomplete
                       insumos={insumos}
                       value={item.insumoNome}
                       onSelect={(insumo) => {
                         updateItem(item.id, 'insumoNome', insumo.nome);
                       }}
-                      placeholder="Selecione o insumo..."
+                      placeholder="Selecione a matéria-prima..."
                     />
                   </div>
 
