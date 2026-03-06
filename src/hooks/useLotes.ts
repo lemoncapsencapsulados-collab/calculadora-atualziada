@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Lote } from '@/types/formula';
 import { toast } from 'sonner';
 import { arredondarReais } from '@/lib/utils';
-import { toast } from 'sonner';
 
 export function useLotes() {
   const [lotes, setLotes] = useState<Lote[]>([]);
