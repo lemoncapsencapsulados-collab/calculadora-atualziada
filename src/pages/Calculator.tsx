@@ -138,17 +138,17 @@ export default function Calculator() {
     }
   }, [tipoProduto]);
 
-  // Converter valores para mg quando necessário (produtos em Pó)
+  // Converter valores para mg quando necessário (produtos Solúveis)
   const qtdCapsulasEmMG = useMemo(() => {
-    if (tipoProduto !== 'Pó') return parseFloat(qtdCapsulas) || 0;
+    if (tipoProduto !== 'Solúvel') return parseFloat(qtdCapsulas) || 0;
     const valor = parseFloat(qtdCapsulas) || 0;
-    return unidadePo === 'g' ? valor * 1000 : valor;
-  }, [qtdCapsulas, tipoProduto, unidadePo]);
+    return unidadeSoluvel === 'g' ? valor * 1000 : valor;
+  }, [qtdCapsulas, tipoProduto, unidadeSoluvel]);
   const unidadesPorDoseEmMG = useMemo(() => {
-    if (tipoProduto !== 'Pó') return parseFloat(unidadesPorDose) || 0;
+    if (tipoProduto !== 'Solúvel') return parseFloat(unidadesPorDose) || 0;
     const valor = parseFloat(unidadesPorDose) || 0;
-    return unidadePo === 'g' ? valor * 1000 : valor;
-  }, [unidadesPorDose, tipoProduto, unidadePo]);
+    return unidadeSoluvel === 'g' ? valor * 1000 : valor;
+  }, [unidadesPorDose, tipoProduto, unidadeSoluvel]);
 
   // Calculate costs
   const calculatedItems = useMemo(() => {
