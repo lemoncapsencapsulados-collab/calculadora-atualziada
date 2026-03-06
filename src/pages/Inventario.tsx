@@ -43,7 +43,7 @@ export default function Inventario() {
   const [editingEmbalagem, setEditingEmbalagem] = useState<any | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [embalagemDialogOpen, setEmbalagemDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"insumos" | "embalagens">("insumos");
+  const [activeTab, setActiveTab] = useState<"materias_primas" | "embalagens">("materias_primas");
   const [importInventoryOpen, setImportInventoryOpen] = useState(false);
 
   const categories = useMemo(() => {
