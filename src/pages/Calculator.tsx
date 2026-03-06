@@ -537,18 +537,18 @@ export default function Calculator() {
     }
   };
   const handleExport = () => {
-    const tipoProdutoLabel = tipoProduto === 'Pó' ? 'Pote' : tipoProduto === 'Gummy' ? 'Gummies' : tipoProduto === 'Líquido' ? 'mL' : 'Cápsulas';
-    const quantidadeLabel = tipoProduto === 'Pó' ? '1' : qtdCapsulas;
+    const tipoProdutoLabel = tipoProduto === 'Solúvel' ? 'Pote' : tipoProduto === 'Gummy' ? 'Gummies' : tipoProduto === 'Líquido' ? 'mL' : 'Cápsulas';
+    const quantidadeLabel = tipoProduto === 'Solúvel' ? '1' : qtdCapsulas;
     let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nTipo: ${tipoProduto}\nQuantidade: ${quantidadeLabel} ${tipoProdutoLabel}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
-    csv += `MATÉRIA-PRIMA (por ${tipoProduto === 'Pó' ? 'pote' : 'unidade'})\n`;
+    csv += `MATÉRIA-PRIMA (por ${tipoProduto === 'Solúvel' ? 'pote' : 'unidade'})\n`;
     csv += 'Matéria-Prima,Quantidade,Unidade,Custo Unitário\n';
     calculatedItems.forEach(item => {
       if (item && !item.error) {
         csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrencyDetailed(item.custo)}\n`;
       }
     });
-    csv += `\nCusto por ${tipoProduto === 'Pó' ? 'pote' : 'unidade'}:,${formatCurrencyDetailed(custoUnitarioMP)}\n`;
-    if (tipoProduto !== 'Pó') {
+    csv += `\nCusto por ${tipoProduto === 'Solúvel' ? 'pote' : 'unidade'}:,${formatCurrencyDetailed(custoUnitarioMP)}\n`;
+    if (tipoProduto !== 'Solúvel') {
       csv += `Quantidade de ${tipoProdutoLabel}:,${qtdCapsulas}\n`;
     }
     csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
