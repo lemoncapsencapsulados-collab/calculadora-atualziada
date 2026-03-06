@@ -299,7 +299,7 @@ export default function Orcamentos() {
                                 </div>
                                 <div>
                                   <p className="text-muted-foreground text-xs">Total</p>
-                                  <p className={`font-bold text-lg ${isAprovado ? 'text-green-600' : 'text-primary'}`}>
+                                  <p className={`font-bold text-lg ${isPago ? 'text-green-600' : 'text-primary'}`}>
                                     {formatCurrency(orcamento.valor_total)}
                                   </p>
                                 </div>

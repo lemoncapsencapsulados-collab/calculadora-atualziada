@@ -54,12 +54,12 @@ export function DashboardPipeline({ distribuicaoConsultorStatus }: DashboardPipe
     (acc, c) => ({
       rascunho: acc.rascunho + c.rascunho,
       enviado: acc.enviado + c.enviado,
-      aprovado: acc.aprovado + c.aprovado,
+      pago: acc.pago + c.pago,
       recusado: acc.recusado + c.recusado,
     }),
-    { rascunho: 0, enviado: 0, aprovado: 0, recusado: 0 }
+    { rascunho: 0, enviado: 0, pago: 0, recusado: 0 }
   );
-  const totalGeral = totais.rascunho + totais.enviado + totais.aprovado + totais.recusado;
+  const totalGeral = totais.rascunho + totais.enviado + totais.pago + totais.recusado;
 
   const chartHeight = Math.max(200, distribuicaoConsultorStatus.length * 50 + 40);
 

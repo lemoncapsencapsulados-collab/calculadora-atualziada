@@ -622,9 +622,9 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aprovando...</>
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Confirmando...</>
             ) : (
-              <><CheckCircle2 className="w-4 h-4 mr-2" />Confirmar Aprovação</>
+              <><CheckCircle2 className="w-4 h-4 mr-2" />Confirmar Pagamento</>
             )}
           </Button>
         </DialogFooter>
