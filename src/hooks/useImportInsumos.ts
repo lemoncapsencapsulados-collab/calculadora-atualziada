@@ -1,11 +1,13 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export interface InsumoImport {
+export interface MateriaPrimaImport {
   nome: string;
   segmento?: string;
   preco_por_kg: number;
 }
+
+export type InsumoImport = MateriaPrimaImport;
 
 export interface ImportResult {
   nome_original: string;
@@ -28,18 +30,17 @@ export interface ImportResponse {
   };
 }
 
-export function useImportInsumos() {
+export function useImportMateriasPrimas() {
   const { toast } = useToast();
 
-  const importInsumos = async (itens: InsumoImport[]): Promise<ImportResponse> => {
+  const importMateriasPrimas = async (itens: MateriaPrimaImport[]): Promise<ImportResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke('import-insumos', {
+      const { data, error } = await supabase.functions.invoke('import-materias-primas', {
         body: { itens },
       });
 
       if (error) throw error;
 
-      // Mostrar toast de sucesso
       toast({
         title: 'Importação concluída',
         description: `${data.resumo.criados} criados, ${data.resumo.atualizados} atualizados`,
@@ -50,12 +51,14 @@ export function useImportInsumos() {
       console.error('Erro na importação:', error);
       toast({
         title: 'Erro na importação',
-        description: error.message || 'Não foi possível importar os insumos',
+        description: error.message || 'Não foi possível importar as matérias-primas',
         variant: 'destructive',
       });
       throw error;
     }
   };
 
-  return { importInsumos };
+  return { importMateriasPrimas, importInsumos: importMateriasPrimas };
 }
+
+export const useImportInsumos = useImportMateriasPrimas;

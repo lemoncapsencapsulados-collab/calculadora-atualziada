@@ -1,47 +1,43 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Insumo } from '@/types/formula';
+import { MateriaPrima } from '@/types/formula';
 import { useToast } from '@/hooks/use-toast';
 
-export function useInsumos() {
-  const [insumos, setInsumos] = useState<Insumo[]>([]);
+export function useMateriasPrimas() {
+  const [materiasPrimas, setMateriasPrimas] = useState<MateriaPrima[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Buscar insumos iniciais
   useEffect(() => {
-    fetchInsumos();
+    fetchMateriasPrimas();
   }, []);
 
-  // Configurar realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel('insumos-changes')
+      .channel('materias-primas-changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'insumos',
+          table: 'materias_primas',
         },
         (payload) => {
-          console.log('Insumo change:', payload);
-          
           if (payload.eventType === 'INSERT') {
-            setInsumos((prev) => [...prev, mapInsumoFromDB(payload.new)]);
+            setMateriasPrimas((prev) => [...prev, mapFromDB(payload.new)]);
             toast({
-              title: 'Novo insumo adicionado',
-              description: `${payload.new.nome} foi adicionado ao inventário`,
+              title: 'Nova matéria-prima adicionada',
+              description: `${payload.new.nome} foi adicionada ao inventário`,
             });
           } else if (payload.eventType === 'UPDATE') {
-            setInsumos((prev) =>
-              prev.map((i) => (i.id === payload.new.id ? mapInsumoFromDB(payload.new) : i))
+            setMateriasPrimas((prev) =>
+              prev.map((i) => (i.id === payload.new.id ? mapFromDB(payload.new) : i))
             );
           } else if (payload.eventType === 'DELETE') {
-            setInsumos((prev) => prev.filter((i) => i.id !== payload.old.id));
+            setMateriasPrimas((prev) => prev.filter((i) => i.id !== payload.old.id));
             toast({
-              title: 'Insumo removido',
-              description: 'Um insumo foi removido do inventário',
+              title: 'Matéria-prima removida',
+              description: 'Uma matéria-prima foi removida do inventário',
             });
           }
         }
@@ -53,21 +49,21 @@ export function useInsumos() {
     };
   }, [toast]);
 
-  const fetchInsumos = async () => {
+  const fetchMateriasPrimas = async () => {
     try {
       const { data, error } = await supabase
-        .from('insumos')
+        .from('materias_primas')
         .select('*')
         .order('nome');
 
       if (error) throw error;
 
-      setInsumos(data.map(mapInsumoFromDB));
+      setMateriasPrimas(data.map(mapFromDB));
     } catch (error) {
-      console.error('Error fetching insumos:', error);
+      console.error('Error fetching materias primas:', error);
       toast({
-        title: 'Erro ao carregar insumos',
-        description: 'Não foi possível carregar os insumos do banco de dados',
+        title: 'Erro ao carregar matérias-primas',
+        description: 'Não foi possível carregar as matérias-primas do banco de dados',
         variant: 'destructive',
       });
     } finally {
@@ -75,113 +71,88 @@ export function useInsumos() {
     }
   };
 
-  const addInsumo = async (insumo: Omit<Insumo, 'id'>) => {
+  const addMateriaPrima = async (mp: Omit<MateriaPrima, 'id'>) => {
     try {
-      const { error } = await supabase.from('insumos').insert(mapInsumoToDB(insumo));
-
+      const { error } = await supabase.from('materias_primas').insert(mapToDB(mp));
       if (error) throw error;
-
       toast({
-        title: 'Insumo adicionado',
-        description: `${insumo.nome} foi adicionado com sucesso`,
+        title: 'Matéria-prima adicionada',
+        description: `${mp.nome} foi adicionada com sucesso`,
       });
     } catch (error: any) {
-      console.error('Error adding insumo:', error);
-      
+      console.error('Error adding materia prima:', error);
       if (error.code === '23505') {
-        toast({
-          title: 'Erro',
-          description: 'Já existe um insumo com este nome',
-          variant: 'destructive',
-        });
+        toast({ title: 'Erro', description: 'Já existe uma matéria-prima com este nome', variant: 'destructive' });
       } else {
-        toast({
-          title: 'Erro ao adicionar insumo',
-          description: error.message,
-          variant: 'destructive',
-        });
+        toast({ title: 'Erro ao adicionar matéria-prima', description: error.message, variant: 'destructive' });
       }
       throw error;
     }
   };
 
-  const updateInsumo = async (id: string, updates: Partial<Insumo>) => {
+  const updateMateriaPrima = async (id: string, updates: Partial<MateriaPrima>) => {
     try {
-      const { error } = await supabase
-        .from('insumos')
-        .update(mapInsumoToDB(updates))
-        .eq('id', id);
-
+      const { error } = await supabase.from('materias_primas').update(mapToDB(updates)).eq('id', id);
       if (error) throw error;
-
-      toast({
-        title: 'Insumo atualizado',
-        description: 'As alterações foram salvas com sucesso',
-      });
+      toast({ title: 'Matéria-prima atualizada', description: 'As alterações foram salvas com sucesso' });
     } catch (error: any) {
-      console.error('Error updating insumo:', error);
-      toast({
-        title: 'Erro ao atualizar insumo',
-        description: error.message,
-        variant: 'destructive',
-      });
+      console.error('Error updating materia prima:', error);
+      toast({ title: 'Erro ao atualizar matéria-prima', description: error.message, variant: 'destructive' });
       throw error;
     }
   };
 
-  const deleteInsumo = async (id: string) => {
+  const deleteMateriaPrima = async (id: string) => {
     try {
-      const { error } = await supabase.from('insumos').delete().eq('id', id);
-
+      const { error } = await supabase.from('materias_primas').delete().eq('id', id);
       if (error) throw error;
-
-      toast({
-        title: 'Insumo excluído',
-        description: 'O insumo foi removido do inventário',
-      });
+      toast({ title: 'Matéria-prima excluída', description: 'A matéria-prima foi removida do inventário' });
     } catch (error: any) {
-      console.error('Error deleting insumo:', error);
-      toast({
-        title: 'Erro ao excluir insumo',
-        description: error.message,
-        variant: 'destructive',
-      });
+      console.error('Error deleting materia prima:', error);
+      toast({ title: 'Erro ao excluir matéria-prima', description: error.message, variant: 'destructive' });
       throw error;
     }
   };
 
   return {
-    insumos,
+    materiasPrimas,
+    insumos: materiasPrimas,
     loading,
-    addInsumo,
-    updateInsumo,
-    deleteInsumo,
-    refreshInsumos: fetchInsumos,
+    addMateriaPrima,
+    addInsumo: addMateriaPrima,
+    updateMateriaPrima,
+    updateInsumo: updateMateriaPrima,
+    deleteMateriaPrima,
+    deleteInsumo: deleteMateriaPrima,
+    refreshMateriasPrimas: fetchMateriasPrimas,
+    refreshInsumos: fetchMateriasPrimas,
   };
 }
 
-function mapInsumoFromDB(dbInsumo: any): Insumo {
+export const useInsumos = useMateriasPrimas;
+
+function mapFromDB(db: any): MateriaPrima {
   return {
-    id: dbInsumo.id,
-    nome: dbInsumo.nome,
-    unidade_compra: dbInsumo.unidade_compra,
-    preco_por_unidade_compra: Number(dbInsumo.preco_compra),
-    densidade: dbInsumo.densidade ? Number(dbInsumo.densidade) : undefined,
-    fornecedor: dbInsumo.fornecedor || undefined,
-    categoria: dbInsumo.categoria || undefined,
-    observacoes: dbInsumo.observacoes || undefined,
-    updated_at: dbInsumo.updated_at || undefined,
+    id: db.id,
+    nome: db.nome,
+    unidade_compra: db.unidade_compra,
+    preco_por_unidade_compra: Number(db.preco_compra),
+    densidade: db.densidade ? Number(db.densidade) : undefined,
+    fornecedor: db.fornecedor || undefined,
+    categoria: db.categoria || undefined,
+    observacoes: db.observacoes || undefined,
+    updated_at: db.updated_at || undefined,
   };
 }
 
-function mapInsumoToDB(insumo: any) {
+function mapToDB(mp: any) {
   return {
-    nome: insumo.nome,
-    unidade_compra: insumo.unidade_compra,
-    preco_compra: insumo.preco_por_unidade_compra,
-    densidade: insumo.densidade || null,
-    fornecedor: insumo.fornecedor || null,
-    categoria: insumo.categoria || null,
-    observacoes: insumo.observacoes || null,
+    nome: mp.nome,
+    unidade_compra: mp.unidade_compra,
+    preco_compra: mp.preco_por_unidade_compra,
+    densidade: mp.densidade || null,
+    fornecedor: mp.fornecedor || null,
+    categoria: mp.categoria || null,
+    observacoes: mp.observacoes || null,
   };
 }
