@@ -313,7 +313,7 @@ export function gerarPDFOrdemProducao(pedido: Pedido) {
     startY: yPosition,
     head: [['Insumo', 'Quantidade', 'Custo']],
     body: mpData,
-    foot: [['TOTAL MATÉRIA-PRIMA', '', `R$ ${formula.total_mp.toFixed(2)}`]],
+    foot: [['TOTAL MATÉRIA-PRIMA', '', `R$ ${arredondarReais(formula.total_mp).toFixed(2)}`]],
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 10 },
     footStyles: { fillColor: [236, 240, 241], textColor: 0, fontStyle: 'bold', fontSize: 10 },
