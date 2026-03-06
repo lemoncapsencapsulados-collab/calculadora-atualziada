@@ -107,7 +107,7 @@ export interface DistribuicaoConsultorStatus {
   consultor: string;
   rascunho: number;
   enviado: number;
-  aprovado: number;
+  pago: number;
   recusado: number;
   total: number;
 }

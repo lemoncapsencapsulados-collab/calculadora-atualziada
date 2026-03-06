@@ -1,3 +1,5 @@
+import { OrcamentoSnapshot } from '@/types/orcamento';
+
 export type UnitType = 'mcg' | 'mg' | 'g' | 'kg' | 'mL' | 'L' | 'UI' | 'unidade';
 
 export interface MateriaPrima {
