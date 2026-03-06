@@ -229,7 +229,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-green-600" />
-            Aprovar Orçamento — {orcamento.nome_cliente}
+            Confirmar Pagamento — {orcamento.nome_cliente}
           </DialogTitle>
         </DialogHeader>
 
