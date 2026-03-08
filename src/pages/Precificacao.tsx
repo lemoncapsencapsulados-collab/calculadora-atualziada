@@ -56,6 +56,10 @@ export default function Precificacao() {
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
 
+  // Estados editáveis de nome (para duplicação)
+  const [nomeClienteEdit, setNomeClienteEdit] = useState('');
+  const [nomeFormulaEdit, setNomeFormulaEdit] = useState('');
+
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
     maoObraDireta: 0,
