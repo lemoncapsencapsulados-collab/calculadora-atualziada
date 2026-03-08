@@ -3,32 +3,56 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { FlaskConical, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { FlaskConical, Lock, Mail, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [isSignup, setIsSignup] = useState(false);
+  const { login, signup } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = login(username.trim(), password);
-      if (!success) {
-        toast({
-          title: 'Credenciais inválidas',
-          description: 'Usuário ou senha incorretos. Tente novamente.',
-          variant: 'destructive',
-        });
+    try {
+      if (isSignup) {
+        const result = await signup(email.trim(), password);
+        if (!result.success) {
+          toast({
+            title: 'Erro ao criar conta',
+            description: result.error || 'Tente novamente.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Conta criada com sucesso!',
+            description: 'Você já está logado.',
+          });
+        }
+      } else {
+        const success = await login(email.trim(), password);
+        if (!success) {
+          toast({
+            title: 'Credenciais inválidas',
+            description: 'Email ou senha incorretos. Tente novamente.',
+            variant: 'destructive',
+          });
+        }
       }
+    } catch {
+      toast({
+        title: 'Erro',
+        description: 'Ocorreu um erro inesperado.',
+        variant: 'destructive',
+      });
+    } finally {
       setIsLoading(false);
-    }, 600);
+    }
   };
 
   return (
@@ -53,18 +77,19 @@ export default function Login() {
         <CardContent className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="username">
-                Usuário
+              <label className="text-sm font-medium text-foreground" htmlFor="email">
+                Email
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Digite seu usuário"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Digite seu email"
                   className="pl-10"
-                  autoComplete="username"
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -83,8 +108,9 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Digite sua senha"
                   className="pl-10 pr-10"
-                  autoComplete="current-password"
+                  autoComplete={isSignup ? 'new-password' : 'current-password'}
                   required
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -100,12 +126,25 @@ export default function Login() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Entrando...
+                  {isSignup ? 'Criando conta...' : 'Entrando...'}
                 </div>
               ) : (
-                'Entrar'
+                <div className="flex items-center gap-2">
+                  {isSignup ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
+                  {isSignup ? 'Criar Conta' : 'Entrar'}
+                </div>
               )}
             </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsSignup(!isSignup)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {isSignup ? 'Já tem conta? Entrar' : 'Não tem conta? Criar conta'}
+              </button>
+            </div>
           </form>
         </CardContent>
       </Card>

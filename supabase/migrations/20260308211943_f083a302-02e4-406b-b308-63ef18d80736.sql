@@ -1,0 +1,11 @@
+CREATE SCHEMA IF NOT EXISTS extensions;
+DROP EXTENSION IF EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA extensions;
+
+CREATE OR REPLACE FUNCTION public.unaccent(text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE STRICT
+AS $$
+  SELECT extensions.unaccent($1);
+$$;
