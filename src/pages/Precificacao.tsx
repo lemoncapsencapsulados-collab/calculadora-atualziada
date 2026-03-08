@@ -732,13 +732,9 @@ export default function Precificacao() {
                           </div>
 
                           <div className="flex gap-3">
-                            <Button onClick={handleSalvar} className="flex-1" disabled={salvarPrecificacao.isPending}>
+                            <Button onClick={handleSalvar} className="w-full" disabled={salvarPrecificacao.isPending}>
                               <Save className="w-4 h-4 mr-2" />
                               Salvar Precificação
-                            </Button>
-                            <Button variant="outline" className="flex-1" onClick={() => setPropostaDialog(true)}>
-                              <FileDown className="w-4 h-4 mr-2" />
-                              Gerar Proposta
                             </Button>
                           </div>
                         </CardContent>
