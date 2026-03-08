@@ -312,7 +312,7 @@ export default function Precificacao() {
           </TabsTrigger>
           <TabsTrigger value="salvas" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
-            Precificações Salvas
+            Produtos Precificados
           </TabsTrigger>
         </TabsList>
 
