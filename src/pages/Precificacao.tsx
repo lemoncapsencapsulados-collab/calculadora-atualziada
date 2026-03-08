@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency } from '@/lib/unitConversion';
+import { supabase } from '@/integrations/supabase/client';
 import { arredondarReais } from '@/lib/utils';
 import { useFormulas } from '@/hooks/useFormulas';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
@@ -31,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Lock, Unlock, Save, Settings, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign } from 'lucide-react';
+import { Lock, Unlock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
@@ -55,6 +56,10 @@ export default function Precificacao() {
   const [modalAberta, setModalAberta] = useState(false);
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
+
+  // Estados editáveis de nome (para duplicação)
+  const [nomeClienteEdit, setNomeClienteEdit] = useState('');
+  const [nomeFormulaEdit, setNomeFormulaEdit] = useState('');
 
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
@@ -174,8 +179,38 @@ export default function Precificacao() {
     }
 
     try {
+      let formulaIdParaSalvar = formulaSelecionada.id;
+
+      // Se o nome do cliente ou fórmula mudou, duplicar a fórmula
+      const nomeClienteMudou = nomeClienteEdit.trim() !== formulaSelecionada.cliente.trim();
+      const nomeFormulaMudou = nomeFormulaEdit.trim() !== formulaSelecionada.nome_formula.trim();
+
+      if (nomeClienteMudou || nomeFormulaMudou) {
+        const { data: novaFormula, error: erroDuplicacao } = await supabase
+          .from('formulas')
+          .insert({
+            cliente: nomeClienteEdit.trim(),
+            nome_formula: nomeFormulaEdit.trim(),
+            tipo_produto: formulaSelecionada.tipo_produto,
+            quantidade_por_pote: formulaSelecionada.quantidade_por_pote,
+            itens: formulaSelecionada.itens as any,
+            embalagens: formulaSelecionada.embalagens as any,
+            total_mp: formulaSelecionada.total_mp,
+            total_embalagem: formulaSelecionada.total_embalagem,
+            custo_total: formulaSelecionada.custo_total,
+            unidades_por_dose: formulaSelecionada.unidades_por_dose,
+            unidade_soluvel: formulaSelecionada.unidade_soluvel,
+          })
+          .select()
+          .single();
+
+        if (erroDuplicacao) throw erroDuplicacao;
+        formulaIdParaSalvar = novaFormula.id;
+        toast.success('Produto duplicado com novos nomes!');
+      }
+
       await salvarPrecificacao.mutateAsync({
-        formula_id: formulaSelecionada.id,
+        formula_id: formulaIdParaSalvar,
         configuracao_custos_id: configuracaoAtiva.id,
         custo_materia_prima: resultado.custoMateriaPrima,
         custo_embalagem: resultado.custoEmbalagem,
@@ -222,6 +257,8 @@ export default function Precificacao() {
 
   const handleSelectFormula = (formula: Formula) => {
     setFormulaSelecionada(formula);
+    setNomeClienteEdit(formula.cliente);
+    setNomeFormulaEdit(formula.nome_formula);
     setValorInput('');
     setObservacoes('');
     setModalAberta(true);
@@ -233,6 +270,8 @@ export default function Precificacao() {
     setResultado(null);
     setValorInput('30');
     setObservacoes('');
+    setNomeClienteEdit('');
+    setNomeFormulaEdit('');
   };
 
   const handleExport = (formula: any) => {
@@ -302,9 +341,6 @@ export default function Precificacao() {
           <h1 className="text-3xl font-bold text-foreground">Precificação de Produto</h1>
           <p className="text-muted-foreground">Gerencie seus produtos e calcule preços de venda</p>
         </div>
-        <Button variant="outline" size="icon">
-          <Settings className="w-4 h-4" />
-        </Button>
       </div>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
@@ -315,7 +351,7 @@ export default function Precificacao() {
           </TabsTrigger>
           <TabsTrigger value="salvas" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
-            Precificações Salvas
+            Produtos Precificados
           </TabsTrigger>
         </TabsList>
 
@@ -504,13 +540,30 @@ export default function Precificacao() {
               {/* Header fixo */}
               <div className="px-6 py-4 border-b bg-card">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-3 w-full">
                     <DialogHeader>
-                      <DialogTitle className="text-2xl">{formulaSelecionada.nome_formula}</DialogTitle>
+                      <DialogTitle className="text-lg text-muted-foreground">Precificar Produto</DialogTitle>
                     </DialogHeader>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Nome da Fórmula</Label>
+                        <Input
+                          value={nomeFormulaEdit}
+                          onChange={(e) => setNomeFormulaEdit(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Nome do Cliente</Label>
+                        <Input
+                          value={nomeClienteEdit}
+                          onChange={(e) => setNomeClienteEdit(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary">{formulaSelecionada.tipo_produto}</Badge>
-                      <Badge variant="outline">{formulaSelecionada.cliente}</Badge>
                       <Badge variant="outline" className="text-muted-foreground">
                         {format(formulaSelecionada.data, 'dd/MM/yyyy HH:mm')}
                       </Badge>
