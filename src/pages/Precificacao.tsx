@@ -302,9 +302,6 @@ export default function Precificacao() {
           <h1 className="text-3xl font-bold text-foreground">Precificação de Produto</h1>
           <p className="text-muted-foreground">Gerencie seus produtos e calcule preços de venda</p>
         </div>
-        <Button variant="outline" size="icon">
-          <Settings className="w-4 h-4" />
-        </Button>
       </div>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
