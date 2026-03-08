@@ -14,9 +14,8 @@ export function Navigation({ onLogout }: NavigationProps) {
   const [open, setOpen] = useState(false);
   
   const links = [
-    { to: '/', label: 'Calcular Fórmula', icon: Calculator },
-    { to: '/cotacoes', label: 'Cotações Salvas', icon: FileText },
-    { to: '/precificacao', label: 'Precificação Final', icon: DollarSign },
+    { to: '/', label: 'Criação de Produto', icon: Calculator },
+    { to: '/precificacao', label: 'Precificação de Produto', icon: DollarSign },
     { to: '/orcamentos', label: 'Orçamentos', icon: Receipt },
     { to: '/pedidos', label: 'Pedidos Gerados', icon: ClipboardList },
     { to: '/inventario', label: 'Inventário', icon: Package },

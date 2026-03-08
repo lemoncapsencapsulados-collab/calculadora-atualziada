@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import Index from "./pages/Index";
 import Inventario from "./pages/Inventario";
-import Cotacoes from "./pages/Cotacoes";
+
 import Pedidos from "./pages/Pedidos";
 import Precificacao from "./pages/Precificacao";
 import Orcamentos from "./pages/Orcamentos";
@@ -62,7 +62,6 @@ const AppContent = () => {
         <Navigation onLogout={logout} />
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/precificacao" element={<Precificacao />} />
           <Route path="/orcamentos" element={<Orcamentos />} />
           <Route path="/pedidos" element={<Pedidos />} />

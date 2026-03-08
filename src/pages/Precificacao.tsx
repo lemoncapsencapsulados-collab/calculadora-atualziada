@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formatCurrency } from '@/lib/unitConversion';
 import { arredondarReais } from '@/lib/utils';
-import { useFormulasPaginadas } from '@/hooks/useFormulasPaginadas';
+import { useFormulas } from '@/hooks/useFormulas';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { Formula } from '@/types/formula';
@@ -19,41 +19,42 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Lock, Unlock, Save, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Lock, Unlock, Save, Settings, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
+import { VerFormulaDialog } from '@/components/VerFormulaDialog';
 import { format } from 'date-fns';
-
-const PAGE_SIZE = 24;
+import { ptBR } from 'date-fns/locale';
 
 export default function Precificacao() {
+  const { formulas, loading: loadingFormulas, deleteFormula, updateFormula } = useFormulas();
   const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
   const { salvarPrecificacao } = usePrecificacao();
 
   // Estado da aba ativa
-  const [abaAtiva, setAbaAtiva] = useState('nova');
-  
-  // Paginação
-  const [currentPage, setCurrentPage] = useState(1);
+  const [abaAtiva, setAbaAtiva] = useState('produtos');
+
+  // Busca e filtros para "Produtos Criados"
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterTipo, setFilterTipo] = useState<string>('Todos');
 
-  const { formulas: formulasPaginadas, totalCount, totalPages, isLoading: isLoadingFormulas } = useFormulasPaginadas({
-    page: currentPage,
-    pageSize: PAGE_SIZE,
-    searchTerm,
-  });
-
-  // Reset page when search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-  
-  // Estados principais
+  // Estados principais de precificação
   const [formulaSelecionada, setFormulaSelecionada] = useState<Formula | null>(null);
   const [modalAberta, setModalAberta] = useState(false);
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
-  
 
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
@@ -110,6 +111,17 @@ export default function Precificacao() {
       setResultado(null);
     }
   }, [formulaSelecionada, configuracaoAtiva, custosIndiretos, valorInput]);
+
+  // Filtro de fórmulas
+  const filteredFormulas = useMemo(() => {
+    return formulas.filter((formula) => {
+      const matchesSearch =
+        formula.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        formula.nome_formula.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesTipo = filterTipo === 'Todos' || formula.tipo_produto === filterTipo;
+      return matchesSearch && matchesTipo;
+    });
+  }, [formulas, searchTerm, filterTipo]);
 
   const handleDesbloquear = () => {
     setSenhaDialog(true);
@@ -193,7 +205,7 @@ export default function Precificacao() {
         margem_lucro_valor: resultado.margemLucroValor,
         observacoes,
       });
-      
+
       setModalAberta(false);
       setFormulaSelecionada(null);
       setValorInput('30');
@@ -223,7 +235,59 @@ export default function Precificacao() {
     setObservacoes('');
   };
 
-  if (isLoadingFormulas) {
+  const handleExport = (formula: any) => {
+    let csv = `COTAÇÃO - ${formula.nome_formula}\n`;
+    csv += `Cliente: ${formula.cliente}\n`;
+    csv += `Data: ${format(new Date(formula.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}\n`;
+    csv += `Tipo: ${formula.tipo_produto}\n`;
+    csv += `Quantidade: ${formula.quantidade_por_pote}\n\n`;
+    csv += 'MATÉRIA-PRIMA\n';
+    csv += 'Matéria-Prima,Quantidade,Unidade,Custo\n';
+    formula.itens.forEach((item: any) => {
+      csv += `${item.nome_insumo_snapshot},${item.qtd_informada},${item.unidade_informada},${formatCurrency(item.custo_calculado)}\n`;
+    });
+    csv += `TOTAL MP,,,${formatCurrency(formula.total_mp)}\n\n`;
+    csv += 'EMBALAGEM\n';
+    csv += 'Item,Descrição,Custo\n';
+    formula.embalagens.forEach((item: any) => {
+      csv += `${item.descricao_snapshot},,${formatCurrency(item.custo_calculado)}\n`;
+    });
+    csv += `TOTAL EMBALAGEM,,${formatCurrency(formula.total_embalagem)}\n\n`;
+    csv += `CUSTO TOTAL,,${formatCurrency(formula.custo_total)}\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `cotacao_${formula.cliente}_${formula.nome_formula}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const getTipoBadgeVariant = (tipo: string) => {
+    switch (tipo) {
+      case 'Encapsulados': return 'default';
+      case 'Solúvel': return 'secondary';
+      case 'Gummy': return 'outline';
+      default: return 'default';
+    }
+  };
+
+  const getQuantidadeLabel = (formula: Formula) => {
+    if (formula.tipo_produto === 'Solúvel') {
+      return formula.unidade_soluvel === 'g'
+        ? `${(formula.quantidade_por_pote / 1000).toFixed(0)} g`
+        : `${formula.quantidade_por_pote} mg`;
+    }
+    if (formula.tipo_produto === 'Encapsulados') return `${formula.quantidade_por_pote} cápsulas`;
+    if (formula.tipo_produto === 'Gummy') return `${formula.quantidade_por_pote} gummies`;
+    if (formula.tipo_produto === 'Líquido') return `${formula.quantidade_por_pote} mL`;
+    return `${formula.quantidade_por_pote} un`;
+  };
+
+  if (loadingFormulas) {
     return (
       <div className="container mx-auto p-6">
         <p className="text-muted-foreground">Carregando...</p>
@@ -235,8 +299,8 @@ export default function Precificacao() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Precificação Final</h1>
-          <p className="text-muted-foreground">Calcule o preço de venda com impostos e margem de lucro</p>
+          <h1 className="text-3xl font-bold text-foreground">Precificação de Produto</h1>
+          <p className="text-muted-foreground">Gerencie seus produtos e calcule preços de venda</p>
         </div>
         <Button variant="outline" size="icon">
           <Settings className="w-4 h-4" />
@@ -245,111 +309,187 @@ export default function Precificacao() {
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="nova" className="flex items-center gap-2">
-            <Calculator className="w-4 h-4" />
-            Nova Precificação
+          <TabsTrigger value="produtos" className="flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            Produtos Criados
           </TabsTrigger>
           <TabsTrigger value="salvas" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             Precificações Salvas
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="nova" className="space-y-6 mt-6">
+
+        {/* ===== ABA 1: PRODUTOS CRIADOS ===== */}
+        <TabsContent value="produtos" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Todas as Fórmulas
-                </CardTitle>
-                <span className="text-sm text-muted-foreground">
-                  {totalCount} fórmula{totalCount !== 1 ? 's' : ''} encontrada{totalCount !== 1 ? 's' : ''}
-                </span>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Produtos Criados
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Busca */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Pesquisar por nome da fórmula ou cliente..."
+                  placeholder="Buscar por cliente ou fórmula..."
                   className="pl-10"
                 />
               </div>
 
-              {formulasPaginadas.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">
-                  {searchTerm ? 'Nenhuma fórmula encontrada.' : 'Nenhuma fórmula cadastrada.'}
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {formulasPaginadas.map((formula) => {
-                    const custoTotal = Number(formula.total_mp) + Number(formula.total_embalagem);
-                    
-                    return (
-                      <Card
-                        key={formula.id}
-                        className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
-                        onClick={() => handleSelectFormula(formula)}
-                      >
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <h3 className="font-semibold text-foreground line-clamp-2">{formula.nome_formula}</h3>
-                            <Badge variant="secondary" className="shrink-0 text-xs">
-                              {formula.tipo_produto}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{formula.cliente}</p>
-                          <p className="text-lg font-bold text-primary">
-                            R$ {arredondarReais(custoTotal).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            MP: R$ {arredondarReais(Number(formula.total_mp)).toFixed(2)} + Emb: R$ {arredondarReais(Number(formula.total_embalagem)).toFixed(2)}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground/60">
-                            {format(formula.data, 'dd/MM/yyyy HH:mm')}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Paginação */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 pt-4">
+              {/* Filtros por tipo */}
+              <div className="flex gap-2 flex-wrap">
+                {['Todos', 'Encapsulados', 'Solúvel', 'Gummy', 'Líquido'].map((tipo) => (
                   <Button
-                    variant="outline"
+                    key={tipo}
+                    variant={filterTipo === tipo ? 'default' : 'outline'}
                     size="sm"
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage(p => p - 1)}
+                    onClick={() => setFilterTipo(tipo)}
                   >
-                    <ChevronLeft className="w-4 h-4 mr-1" />
-                    Anterior
+                    {tipo}
                   </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Página {currentPage} de {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(p => p + 1)}
-                  >
-                    Próxima
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              )}
+                ))}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Lista de Produtos */}
+          <div className="space-y-4">
+            {filteredFormulas.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  {searchTerm || filterTipo !== 'Todos'
+                    ? 'Nenhum produto encontrado com os filtros aplicados.'
+                    : 'Nenhum produto criado ainda. Crie um na tela de Criação de Produto!'}
+                </CardContent>
+              </Card>
+            ) : (
+              <Accordion type="single" collapsible className="space-y-4">
+                {filteredFormulas.map((formula) => (
+                  <AccordionItem key={formula.id} value={formula.id} className="border rounded-lg">
+                    <Card>
+                      <AccordionTrigger className="hover:no-underline px-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-4">
+                          <div className="flex flex-col items-start gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{formula.cliente}</span>
+                              <span className="text-muted-foreground">•</span>
+                              <span>{formula.nome_formula}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant={getTipoBadgeVariant(formula.tipo_produto)}>
+                                {formula.tipo_produto}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {getQuantidadeLabel(formula)}
+                              </span>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-sm text-muted-foreground">
+                                {format(new Date(formula.data), "dd/MM/yyyy", { locale: ptBR })}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-xl font-bold text-primary">
+                            {formatCurrency(formula.custo_total)}
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+
+                      <AccordionContent>
+                        <CardContent className="space-y-6 pt-4">
+                          {/* Matéria-Prima */}
+                          <div>
+                            <h4 className="font-semibold mb-2">Custo de Matéria-Prima</h4>
+                            <div className="space-y-2">
+                              {formula.itens.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    {item.nome_insumo_snapshot} ({item.qtd_informada} {item.unidade_informada})
+                                  </span>
+                                  <span>{formatCurrency(item.custo_calculado)}</span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between font-semibold pt-2 border-t">
+                                <span>Total MP:</span>
+                                <span>{formatCurrency(formula.total_mp)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Embalagens */}
+                          <div>
+                            <h4 className="font-semibold mb-2">Custo de Embalagem</h4>
+                            <div className="space-y-2">
+                              {formula.embalagens.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">{item.descricao_snapshot}</span>
+                                  <span>{formatCurrency(item.custo_calculado)}</span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between font-semibold pt-2 border-t">
+                                <span>Total Embalagem:</span>
+                                <span>{formatCurrency(formula.total_embalagem)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Ações */}
+                          <div className="flex gap-2 flex-wrap pt-4 border-t">
+                            <VerFormulaDialog
+                              formula={formula as Formula}
+                              onUpdateFormula={updateFormula}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleSelectFormula(formula as Formula)}
+                            >
+                              <DollarSign className="h-4 w-4 mr-2" />
+                              Precificar
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleExport(formula)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Exportar CSV
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir "{formula.nome_formula}" do
+                                    cliente {formula.cliente}? Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteFormula(formula.id)}>
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </CardContent>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+          </div>
         </TabsContent>
-        
+
+        {/* ===== ABA 2: PRECIFICAÇÕES SALVAS ===== */}
         <TabsContent value="salvas" className="mt-6">
-          <PrecificacoesSalvas 
+          <PrecificacoesSalvas
             configuracaoAtiva={configuracaoAtiva}
             margens={margens}
           />
@@ -675,7 +815,7 @@ export default function Precificacao() {
                                 {((resultado.totalImpostos / resultado.precoVenda) * 100).toFixed(1)}%
                               </p>
                             </div>
-                            
+
                             <div className={`relative text-center p-6 rounded-lg border-2 overflow-hidden
                               ${validacaoMargem?.borderColor || 'border-muted'}
                               ${validacaoMargem?.status === 'excelente' ? 'gold-shimmer' : validacaoMargem?.bgColor || 'bg-muted'}
@@ -689,7 +829,7 @@ export default function Precificacao() {
                                   <Star className="absolute top-1/2 left-1 w-3 h-3 text-amber-400 sparkle sparkle-delay-4" />
                                 </>
                               )}
-                              
+
                               <p className={`text-sm font-medium mb-2 ${validacaoMargem?.color || 'text-foreground'}`}>
                                 💰 Margem de Lucro
                               </p>
@@ -699,7 +839,7 @@ export default function Precificacao() {
                               <p className={`text-sm font-semibold mt-1 ${validacaoMargem?.color || 'text-foreground'}`}>
                                 R$ {resultado.margemLucroValor.toFixed(2)}
                               </p>
-                              
+
                               {validacaoMargem?.status === 'excelente' && (
                                 <p className="mt-3 text-lg font-bold text-amber-700 animate-pulse">
                                   VOCÊ VAI FAZER A LEMON RICA
@@ -769,7 +909,6 @@ export default function Precificacao() {
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
