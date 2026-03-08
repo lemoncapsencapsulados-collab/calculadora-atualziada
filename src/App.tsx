@@ -62,7 +62,6 @@ const AppContent = () => {
         <Navigation onLogout={logout} />
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/cotacoes" element={<Cotacoes />} />
           <Route path="/precificacao" element={<Precificacao />} />
           <Route path="/orcamentos" element={<Orcamentos />} />
           <Route path="/pedidos" element={<Pedidos />} />

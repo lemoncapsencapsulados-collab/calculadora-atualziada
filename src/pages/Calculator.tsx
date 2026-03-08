@@ -355,7 +355,7 @@ export default function Calculator() {
       return sum + (emb ? emb.preco_unitario : 0);
     }, 0);
   }, [selectedEmbalagens, embalagens]);
-  const custoRotulo = 0.5; // Custo fixo do rótulo
+  const custoRotulo = 1.00; // Custo fixo do rótulo
 
   const totalEmbalagem = custoEmbalagensExtras + custoCapsulas + custoRotulo;
   const custoTotal = totalMP + totalEmbalagem;
