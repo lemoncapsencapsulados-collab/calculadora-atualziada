@@ -256,6 +256,8 @@ export default function Precificacao() {
 
   const handleSelectFormula = (formula: Formula) => {
     setFormulaSelecionada(formula);
+    setNomeClienteEdit(formula.cliente);
+    setNomeFormulaEdit(formula.nome_formula);
     setValorInput('');
     setObservacoes('');
     setModalAberta(true);
