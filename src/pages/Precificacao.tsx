@@ -19,9 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Lock, Unlock, Save, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { gerarPropostaPDF } from '@/lib/propostaGenerator';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { format } from 'date-fns';
 
