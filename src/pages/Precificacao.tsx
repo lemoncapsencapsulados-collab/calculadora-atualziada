@@ -178,8 +178,38 @@ export default function Precificacao() {
     }
 
     try {
+      let formulaIdParaSalvar = formulaSelecionada.id;
+
+      // Se o nome do cliente ou fórmula mudou, duplicar a fórmula
+      const nomeClienteMudou = nomeClienteEdit.trim() !== formulaSelecionada.cliente.trim();
+      const nomeFormulaMudou = nomeFormulaEdit.trim() !== formulaSelecionada.nome_formula.trim();
+
+      if (nomeClienteMudou || nomeFormulaMudou) {
+        const { data: novaFormula, error: erroDuplicacao } = await supabase
+          .from('formulas')
+          .insert({
+            cliente: nomeClienteEdit.trim(),
+            nome_formula: nomeFormulaEdit.trim(),
+            tipo_produto: formulaSelecionada.tipo_produto,
+            quantidade_por_pote: formulaSelecionada.quantidade_por_pote,
+            itens: formulaSelecionada.itens as any,
+            embalagens: formulaSelecionada.embalagens as any,
+            total_mp: formulaSelecionada.total_mp,
+            total_embalagem: formulaSelecionada.total_embalagem,
+            custo_total: formulaSelecionada.custo_total,
+            unidades_por_dose: formulaSelecionada.unidades_por_dose,
+            unidade_soluvel: formulaSelecionada.unidade_soluvel,
+          })
+          .select()
+          .single();
+
+        if (erroDuplicacao) throw erroDuplicacao;
+        formulaIdParaSalvar = novaFormula.id;
+        toast.success('Produto duplicado com novos nomes!');
+      }
+
       await salvarPrecificacao.mutateAsync({
-        formula_id: formulaSelecionada.id,
+        formula_id: formulaIdParaSalvar,
         configuracao_custos_id: configuracaoAtiva.id,
         custo_materia_prima: resultado.custoMateriaPrima,
         custo_embalagem: resultado.custoEmbalagem,
