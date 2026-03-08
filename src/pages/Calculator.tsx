@@ -536,61 +536,6 @@ export default function Calculator() {
       clearCalculatorState();
     }
   };
-  const handleExport = () => {
-    const tipoProdutoLabel = tipoProduto === 'Solúvel' ? 'Pote' : tipoProduto === 'Gummy' ? 'Gummies' : tipoProduto === 'Líquido' ? 'mL' : 'Cápsulas';
-    const quantidadeLabel = tipoProduto === 'Solúvel' ? '1' : qtdCapsulas;
-    let csv = `Cliente: ${cliente}\nFórmula: ${nomeFormula}\nTipo: ${tipoProduto}\nQuantidade: ${quantidadeLabel} ${tipoProdutoLabel}\nData: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
-    csv += `MATÉRIA-PRIMA (por ${tipoProduto === 'Solúvel' ? 'pote' : 'unidade'})\n`;
-    csv += 'Matéria-Prima,Quantidade,Unidade,Custo Unitário\n';
-    calculatedItems.forEach(item => {
-      if (item && !item.error) {
-        csv += `${item.insumoNome},${item.quantidade},${item.unidade},${formatCurrencyDetailed(item.custo)}\n`;
-      }
-    });
-    csv += `\nCusto por ${tipoProduto === 'Solúvel' ? 'pote' : 'unidade'}:,${formatCurrencyDetailed(custoUnitarioMP)}\n`;
-    if (tipoProduto !== 'Solúvel') {
-      csv += `Quantidade de ${tipoProdutoLabel}:,${qtdCapsulas}\n`;
-    }
-    csv += `Total Matéria-Prima:,${formatCurrency(totalMP)}\n\n`;
-    csv += 'EMBALAGEM\n';
-    csv += 'Item,Categoria,Subcategoria,Descrição,Custo\n';
-
-    // Adicionar cápsula selecionada (SOMENTE para Encapsulados)
-    if (selectedCapsula && tipoProduto === 'Encapsulados') {
-      const capsula = embalagens.find(e => e.id === selectedCapsula);
-      if (capsula) {
-        csv += `${capsula.nome},${capsula.categoria || 'Cápsulas'},${capsula.subcategoria || '-'},"${qtdCapsulas || 0} unidades",${formatCurrency(custoCapsulas)}\n`;
-      }
-    }
-
-    // Group by categoria > subcategoria in export
-    Object.entries(embalagensPorCategoria).filter(([categoria]) => categoria !== 'Cápsulas').forEach(([categoria, subcategorias]) => {
-      Object.entries(subcategorias).forEach(([subcategoria, itens]) => {
-        itens.forEach(emb => {
-          if (selectedEmbalagens.has(emb.id)) {
-            csv += `${emb.nome},${categoria},${subcategoria},"${emb.descricao}",${formatCurrency(emb.preco_unitario)}\n`;
-          }
-        });
-      });
-    });
-    csv += `\nSubtotais por Categoria/Subcategoria:\n`;
-    Object.entries(custosPorSubcategoria).filter(([categoria]) => categoria !== 'Cápsulas').forEach(([categoria, subcategorias]) => {
-      csv += `\n${categoria}:\n`;
-      Object.entries(subcategorias).forEach(([subcategoria, custo]) => {
-        csv += `  ${subcategoria},${formatCurrency(custo)}\n`;
-      });
-    });
-    csv += `\nTotal Embalagem:,${formatCurrency(totalEmbalagem)}\n`;
-    csv += `\nPREÇO TOTAL:,${formatCurrency(custoTotal)}\n`;
-    const blob = new Blob([csv], {
-      type: 'text/csv;charset=utf-8;'
-    });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `orcamento_${cliente || 'sem_nome'}_${Date.now()}.csv`;
-    link.click();
-    toast.success('Orçamento exportado com sucesso!');
-  };
   return <div className="container mx-auto p-6 space-y-6">
       {loadingInsumos || loadingEmbalagens ? <Card className="p-12 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
