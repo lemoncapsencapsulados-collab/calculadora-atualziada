@@ -540,13 +540,30 @@ export default function Precificacao() {
               {/* Header fixo */}
               <div className="px-6 py-4 border-b bg-card">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+                  <div className="space-y-3 w-full">
                     <DialogHeader>
-                      <DialogTitle className="text-2xl">{formulaSelecionada.nome_formula}</DialogTitle>
+                      <DialogTitle className="text-lg text-muted-foreground">Precificar Produto</DialogTitle>
                     </DialogHeader>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Nome da Fórmula</Label>
+                        <Input
+                          value={nomeFormulaEdit}
+                          onChange={(e) => setNomeFormulaEdit(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Nome do Cliente</Label>
+                        <Input
+                          value={nomeClienteEdit}
+                          onChange={(e) => setNomeClienteEdit(e.target.value)}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary">{formulaSelecionada.tipo_produto}</Badge>
-                      <Badge variant="outline">{formulaSelecionada.cliente}</Badge>
                       <Badge variant="outline" className="text-muted-foreground">
                         {format(formulaSelecionada.data, 'dd/MM/yyyy HH:mm')}
                       </Badge>
