@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { FlaskConical, Lock, Mail, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { FlaskConical, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
@@ -11,8 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignup, setIsSignup] = useState(false);
-  const { login, signup } = useAuth();
+  const { login } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,29 +19,13 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      if (isSignup) {
-        const result = await signup(email.trim(), password);
-        if (!result.success) {
-          toast({
-            title: 'Erro ao criar conta',
-            description: result.error || 'Tente novamente.',
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Conta criada com sucesso!',
-            description: 'Você já está logado.',
-          });
-        }
-      } else {
-        const success = await login(email.trim(), password);
-        if (!success) {
-          toast({
-            title: 'Credenciais inválidas',
-            description: 'Email ou senha incorretos. Tente novamente.',
-            variant: 'destructive',
-          });
-        }
+      const success = await login(email.trim(), password);
+      if (!success) {
+        toast({
+          title: 'Credenciais inválidas',
+          description: 'Email ou senha incorretos. Tente novamente.',
+          variant: 'destructive',
+        });
       }
     } catch {
       toast({
@@ -108,7 +91,7 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Digite sua senha"
                   className="pl-10 pr-10"
-                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                  autoComplete="current-password"
                   required
                   minLength={6}
                 />
@@ -126,25 +109,15 @@ export default function Login() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  {isSignup ? 'Criando conta...' : 'Entrando...'}
+                  Entrando...
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  {isSignup ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
-                  {isSignup ? 'Criar Conta' : 'Entrar'}
+                  <LogIn className="w-4 h-4" />
+                  Entrar
                 </div>
               )}
             </Button>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => setIsSignup(!isSignup)}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isSignup ? 'Já tem conta? Entrar' : 'Não tem conta? Criar conta'}
-              </button>
-            </div>
           </form>
         </CardContent>
       </Card>
