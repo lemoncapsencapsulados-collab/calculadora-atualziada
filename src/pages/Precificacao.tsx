@@ -269,6 +269,8 @@ export default function Precificacao() {
     setResultado(null);
     setValorInput('30');
     setObservacoes('');
+    setNomeClienteEdit('');
+    setNomeFormulaEdit('');
   };
 
   const handleExport = (formula: any) => {

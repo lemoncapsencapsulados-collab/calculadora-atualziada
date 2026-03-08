@@ -62,11 +62,14 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) {
         return false;
       }
-      if (o.created_at) {
-        const dataOrcamento = parseISO(o.created_at);
-        if (dataOrcamento < filtros.dataInicio || dataOrcamento > filtros.dataFim) {
+      if (o.data_pagamento) {
+        const dataPagamento = parseISO(o.data_pagamento);
+        if (dataPagamento < filtros.dataInicio || dataPagamento > filtros.dataFim) {
           return false;
         }
+      } else {
+        // Sem data de pagamento → fora do filtro temporal
+        return false;
       }
       return true;
     });
