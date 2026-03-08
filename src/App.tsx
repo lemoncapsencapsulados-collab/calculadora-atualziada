@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import Index from "./pages/Index";
 import Inventario from "./pages/Inventario";
-import Cotacoes from "./pages/Cotacoes";
+
 import Pedidos from "./pages/Pedidos";
 import Precificacao from "./pages/Precificacao";
 import Orcamentos from "./pages/Orcamentos";
