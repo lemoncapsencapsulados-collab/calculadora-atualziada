@@ -19,9 +19,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Lock, Unlock, Save, FileDown, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Lock, Unlock, Save, Settings, Loader2, Search, Package, Calculator, FileText, Sparkles, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { gerarPropostaPDF } from '@/lib/propostaGenerator';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { format } from 'date-fns';
 
@@ -55,12 +54,6 @@ export default function Precificacao() {
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
   
-  // Estados para dialog de proposta
-  const [propostaDialog, setPropostaDialog] = useState(false);
-  const [quantidadeFrascos, setQuantidadeFrascos] = useState('');
-  const [temServicosExtras, setTemServicosExtras] = useState(false);
-  const [valorServicosExtras, setValorServicosExtras] = useState('');
-  const [gerandoPDF, setGerandoPDF] = useState(false);
 
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
@@ -732,13 +725,9 @@ export default function Precificacao() {
                           </div>
 
                           <div className="flex gap-3">
-                            <Button onClick={handleSalvar} className="flex-1" disabled={salvarPrecificacao.isPending}>
+                            <Button onClick={handleSalvar} className="w-full" disabled={salvarPrecificacao.isPending}>
                               <Save className="w-4 h-4 mr-2" />
                               Salvar Precificação
-                            </Button>
-                            <Button variant="outline" className="flex-1" onClick={() => setPropostaDialog(true)}>
-                              <FileDown className="w-4 h-4 mr-2" />
-                              Gerar Proposta
                             </Button>
                           </div>
                         </CardContent>
@@ -781,111 +770,6 @@ export default function Precificacao() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de Gerar Proposta */}
-      <Dialog open={propostaDialog} onOpenChange={setPropostaDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Gerar Proposta Comercial</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Quantidade de Frascos</Label>
-              <Input
-                type="number"
-                value={quantidadeFrascos}
-                onChange={(e) => setQuantidadeFrascos(e.target.value)}
-                placeholder="Ex: 100"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="servicos-extras"
-                  checked={temServicosExtras}
-                  onChange={(e) => setTemServicosExtras(e.target.checked)}
-                  className="rounded"
-                />
-                <Label htmlFor="servicos-extras" className="cursor-pointer">
-                  Algum outro serviço adquirido? (Ex: pacote de brand, etc)
-                </Label>
-              </div>
-              
-              {temServicosExtras && (
-                <div className="space-y-2 pl-6">
-                  <Label>Valor dos Serviços Extras (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.00001"
-                    value={valorServicosExtras}
-                    onChange={(e) => setValorServicosExtras(e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Button 
-                onClick={async () => {
-                  if (!quantidadeFrascos || !formulaSelecionada || !resultado) {
-                    toast.error('Preencha todos os campos obrigatórios');
-                    return;
-                  }
-                  
-                  setGerandoPDF(true);
-                  
-                  try {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    
-                    await gerarPropostaPDF({
-                      formula: formulaSelecionada,
-                      precoUnitario: resultado.precoVenda,
-                      quantidadeFrascos: parseInt(quantidadeFrascos),
-                      valorServicosExtras: temServicosExtras ? parseFloat(valorServicosExtras) || 0 : 0,
-                    });
-                    
-                    setPropostaDialog(false);
-                    setQuantidadeFrascos('');
-                    setTemServicosExtras(false);
-                    setValorServicosExtras('');
-                    toast.success('Proposta gerada com sucesso!');
-                  } catch (error) {
-                    toast.error('Erro ao gerar proposta');
-                    console.error(error);
-                  } finally {
-                    setGerandoPDF(false);
-                  }
-                }} 
-                className="flex-1"
-                disabled={gerandoPDF}
-              >
-                {gerandoPDF ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Gerando PDF...
-                  </>
-                ) : (
-                  'Gerar PDF'
-                )}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setPropostaDialog(false);
-                  setQuantidadeFrascos('');
-                  setTemServicosExtras(false);
-                  setValorServicosExtras('');
-                }} 
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

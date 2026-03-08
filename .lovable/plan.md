@@ -1,18 +1,17 @@
 
+# Plano: 3 ajustes na Aprovação de Orçamento
 
-# Remover botões "Baixar Orçamento" e "Gerar Proposta"
+## 1. CNPJ não obrigatório
+Remover a validação que exige CNPJ (linha 121) e remover o asterisco vermelho do label (linha 268).
 
-## Mudanças
+## 2. Encapsulados — Cores corretas
+- **Tampa do Pote**: Preta / Branca (atualmente Preta / Transparente)
+- **Cor do Pote**: Preta / Transparente (já está correto, sem alteração)
 
-### 1. `src/pages/Calculator.tsx` (linha 1315-1318)
-- Remover o botão "Baixar Orçamento" e a função `handleExport` associada
+Arquivo: `src/components/AprovacaoOrcamentoDialog.tsx`, linhas 336-338 — trocar "Transparente" por "Branca" na tampa.
 
-### 2. `src/pages/Precificacao.tsx` (linhas 739-742)
-- Remover o botão "Gerar Proposta" da modal de precificação
-- O botão "Salvar Precificação" passa a ocupar largura total (`flex-1` → `w-full`)
-- Remover o dialog de "Gerar Proposta" (linhas 784-891) e states/imports relacionados (`propostaDialog`, `propostaData`, etc.)
+## 3. Forma de Venda aceitar "Sem informação"
+Remover a validação da linha 124 que bloqueia quando `formaVenda === 'sem_informacao'`.
 
-### Arquivos modificados
-- `src/pages/Calculator.tsx`
-- `src/pages/Precificacao.tsx`
-
+## Arquivo modificado
+- `src/components/AprovacaoOrcamentoDialog.tsx`
