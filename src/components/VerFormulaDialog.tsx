@@ -69,8 +69,6 @@ export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogP
       nome_insumo_snapshot: '',
       qtd_informada: 0,
       unidade_informada: 'mg' as UnitType,
-      preco_unitario_snapshot: 0,
-      unidade_compra_snapshot: 'kg',
       custo_calculado: 0,
     }]);
   };
