@@ -1,14 +1,17 @@
 
+# Plano: 3 ajustes na Aprovação de Orçamento
 
-# Remover opção de criar conta da tela de login
+## 1. CNPJ não obrigatório
+Remover a validação que exige CNPJ (linha 121) e remover o asterisco vermelho do label (linha 268).
 
-Remover o toggle de signup e toda a lógica associada em `src/pages/Login.tsx`, mantendo apenas o formulário de login.
+## 2. Encapsulados — Cores corretas
+- **Tampa do Pote**: Preta / Branca (atualmente Preta / Transparente)
+- **Cor do Pote**: Preta / Transparente (já está correto, sem alteração)
 
-## Alterações
+Arquivo: `src/components/AprovacaoOrcamentoDialog.tsx`, linhas 336-338 — trocar "Transparente" por "Branca" na tampa.
 
-**`src/pages/Login.tsx`**
-- Remover estado `isSignup` e função `signup`
-- Remover botão "Não tem conta? Criar conta"
-- Remover lógica condicional de signup no `handleSubmit`
-- Manter apenas o fluxo de login com email/senha
+## 3. Forma de Venda aceitar "Sem informação"
+Remover a validação da linha 124 que bloqueia quando `formaVenda === 'sem_informacao'`.
 
+## Arquivo modificado
+- `src/components/AprovacaoOrcamentoDialog.tsx`
