@@ -3,9 +3,30 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Pedido } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot } from '@/types/orcamento';
+import { useEffect, useRef } from 'react';
+
+const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
+  id: o.id,
+  numero_orcamento: o.numero_orcamento,
+  nome_cliente: o.nome_cliente,
+  consultor_responsavel: o.consultor_responsavel || undefined,
+  tipo_orcamento: o.tipo_orcamento || 'novo_produtor',
+  itens_producao: o.itens_producao || [],
+  servicos_marca: o.servicos_marca || [],
+  dados_cliente: o.dados_cliente || undefined,
+  detalhamento_frete: o.detalhamento_frete || undefined,
+  condicoes_pagamento: o.condicoes_pagamento || undefined,
+  subtotal_producao: Number(o.subtotal_producao) || 0,
+  subtotal_servicos: Number(o.subtotal_servicos) || 0,
+  valor_total: Number(o.valor_total) || 0,
+  data_pagamento: o.data_pagamento || undefined,
+  observacoes: o.observacoes || undefined,
+  updated_at: o.updated_at || undefined,
+});
 
 export const usePedidos = () => {
   const queryClient = useQueryClient();
+  const syncDone = useRef(false);
 
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['pedidos'],
@@ -35,6 +56,97 @@ export const usePedidos = () => {
       })) as Pedido[];
     },
   });
+
+  // Sync: ensure all paid orcamentos have corresponding pedidos with full snapshots
+  useEffect(() => {
+    if (syncDone.current || isLoading) return;
+    syncDone.current = true;
+
+    (async () => {
+      try {
+        const { data: orcamentosPagos, error: errOrc } = await supabase
+          .from('orcamentos')
+          .select('*')
+          .eq('status', 'pago');
+        if (errOrc || !orcamentosPagos?.length) return;
+
+        const { data: allPedidos, error: errPed } = await supabase
+          .from('pedidos')
+          .select('id, orcamento_id, orcamento_snapshot');
+        if (errPed) return;
+
+        const pedidosByOrcId = new Map<string, any>();
+        (allPedidos || []).forEach(p => {
+          if (p.orcamento_id) pedidosByOrcId.set(p.orcamento_id, p);
+        });
+
+        // Get next pedido number
+        const { data: lastPedido } = await supabase
+          .from('pedidos')
+          .select('numero_pedido')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        let nextNum = 1;
+        if (lastPedido?.[0]) {
+          const match = lastPedido[0].numero_pedido.match(/PED-(\d+)/);
+          if (match) nextNum = parseInt(match[1], 10) + 1;
+        }
+
+        const toInsert: any[] = [];
+        const toUpdate: { id: string; snapshot: any }[] = [];
+
+        for (const orc of orcamentosPagos) {
+          const snapshot = buildSnapshotFromOrcamento(orc);
+          const existing = pedidosByOrcId.get(orc.id);
+
+          if (existing) {
+            // Update snapshot with full data
+            toUpdate.push({ id: existing.id, snapshot });
+          } else {
+            // Create new pedido
+            const totalQtd = (orc.itens_producao as any[] || []).reduce(
+              (sum: number, item: any) => sum + (item.quantidade || 1), 0
+            );
+            toInsert.push({
+              orcamento_id: orc.id,
+              orcamento_snapshot: snapshot as any,
+              numero_pedido: `PED-${nextNum.toString().padStart(3, '0')}`,
+              data_pedido: new Date().toISOString(),
+              data_entrega: orc.data_pagamento || new Date().toISOString(),
+              quantidade_produto: totalQtd,
+              unidade_produto: 'potes',
+              status: 'aguardando_producao',
+              formula_id: null,
+              formula_snapshot: null,
+              observacoes: orc.observacoes || null,
+            });
+            nextNum++;
+          }
+        }
+
+        // Batch updates
+        for (const u of toUpdate) {
+          await supabase
+            .from('pedidos')
+            .update({ orcamento_snapshot: u.snapshot as any })
+            .eq('id', u.id);
+        }
+
+        // Batch inserts
+        if (toInsert.length > 0) {
+          await supabase.from('pedidos').insert(toInsert);
+        }
+
+        if (toInsert.length > 0 || toUpdate.length > 0) {
+          queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+          console.log(`Sync: ${toInsert.length} pedidos criados, ${toUpdate.length} atualizados`);
+        }
+      } catch (err) {
+        console.error('Erro no sync de pedidos:', err);
+      }
+    })();
+  }, [isLoading, queryClient]);
 
   const createPedido = useMutation({
     mutationFn: async (pedido: Omit<Pedido, 'id' | 'created_at' | 'updated_at'>) => {
@@ -71,7 +183,6 @@ export const usePedidos = () => {
 
   const createPedidoFromOrcamento = useMutation({
     mutationFn: async (orcamento: Orcamento) => {
-      // Get next pedido number
       const { data: existingPedidos } = await supabase
         .from('pedidos')
         .select('numero_pedido')
@@ -86,24 +197,7 @@ export const usePedidos = () => {
         }
       }
 
-      const snapshot: OrcamentoSnapshot = {
-        id: orcamento.id,
-        numero_orcamento: orcamento.numero_orcamento,
-        nome_cliente: orcamento.nome_cliente,
-        consultor_responsavel: orcamento.consultor_responsavel,
-        tipo_orcamento: orcamento.tipo_orcamento,
-        itens_producao: orcamento.itens_producao,
-        servicos_marca: orcamento.servicos_marca,
-        dados_cliente: orcamento.dados_cliente,
-        detalhamento_frete: orcamento.detalhamento_frete,
-        condicoes_pagamento: orcamento.condicoes_pagamento,
-        subtotal_producao: orcamento.subtotal_producao,
-        subtotal_servicos: orcamento.subtotal_servicos,
-        valor_total: orcamento.valor_total,
-        data_pagamento: orcamento.data_pagamento || undefined,
-        observacoes: orcamento.observacoes,
-      };
-
+      const snapshot = buildSnapshotFromOrcamento(orcamento);
       const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item) => sum + (item.quantidade || 1), 0);
 
       const { data, error } = await supabase

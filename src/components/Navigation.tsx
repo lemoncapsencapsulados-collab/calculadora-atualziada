@@ -17,7 +17,7 @@ export function Navigation({ onLogout }: NavigationProps) {
     { to: '/', label: 'Criação de Produto', icon: Calculator },
     { to: '/precificacao', label: 'Precificação de Produto', icon: DollarSign },
     { to: '/orcamentos', label: 'Orçamentos', icon: Receipt },
-    { to: '/pedidos', label: 'Pedidos Gerados', icon: ClipboardList },
+    { to: '/pedidos', label: 'Pedidos', icon: ClipboardList },
     { to: '/inventario', label: 'Inventário', icon: Package },
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ];
