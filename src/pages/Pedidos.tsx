@@ -260,7 +260,7 @@ const Pedidos = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
-            Pedidos Gerados
+            Pedidos
           </CardTitle>
           <CardDescription>
             Acompanhe e gerencie as ordens de produção

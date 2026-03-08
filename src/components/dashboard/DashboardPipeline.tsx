@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { DistribuicaoConsultorStatus } from '@/types/dashboard';
@@ -9,10 +9,10 @@ interface DashboardPipelineProps {
 }
 
 const STATUS_CONFIG = [
-  { key: 'rascunho', label: 'Rascunho', color: '#94a3b8' },
-  { key: 'enviado', label: 'Enviado', color: '#f59e0b' },
-  { key: 'pago', label: 'Pago', color: '#22c55e' },
-  { key: 'recusado', label: 'Recusado', color: '#ef4444' },
+  { key: 'aguardando_producao', label: 'Aguardando Produção', color: '#f59e0b' },
+  { key: 'no_estoque', label: 'No Estoque', color: '#3b82f6' },
+  { key: 'enviado', label: 'Enviado', color: '#a855f7' },
+  { key: 'concluido', label: 'Concluído', color: '#22c55e' },
 ] as const;
 
 interface TooltipPayloadItem {
@@ -52,14 +52,14 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 export function DashboardPipeline({ distribuicaoConsultorStatus }: DashboardPipelineProps) {
   const totais = distribuicaoConsultorStatus.reduce(
     (acc, c) => ({
-      rascunho: acc.rascunho + c.rascunho,
+      aguardando_producao: acc.aguardando_producao + c.aguardando_producao,
+      no_estoque: acc.no_estoque + c.no_estoque,
       enviado: acc.enviado + c.enviado,
-      pago: acc.pago + c.pago,
-      recusado: acc.recusado + c.recusado,
+      concluido: acc.concluido + c.concluido,
     }),
-    { rascunho: 0, enviado: 0, pago: 0, recusado: 0 }
+    { aguardando_producao: 0, no_estoque: 0, enviado: 0, concluido: 0 }
   );
-  const totalGeral = totais.rascunho + totais.enviado + totais.pago + totais.recusado;
+  const totalGeral = totais.aguardando_producao + totais.no_estoque + totais.enviado + totais.concluido;
 
   const chartHeight = Math.max(200, distribuicaoConsultorStatus.length * 50 + 40);
 
@@ -68,7 +68,7 @@ export function DashboardPipeline({ distribuicaoConsultorStatus }: DashboardPipe
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-lg flex-wrap">
           <BarChart3 className="h-5 w-5 text-primary" />
-          Distribuição de Orçamentos por Consultor
+          Distribuição de Pedidos por Consultor
           <div className="flex gap-2 ml-auto flex-wrap">
             {STATUS_CONFIG.map(s => (
               <Badge key={s.key} variant="outline" className="text-xs" style={{ borderColor: s.color, color: s.color }}>
@@ -84,7 +84,7 @@ export function DashboardPipeline({ distribuicaoConsultorStatus }: DashboardPipe
       <CardContent>
         {distribuicaoConsultorStatus.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">
-            Nenhum orçamento encontrado no período selecionado
+            Nenhum pedido encontrado no período selecionado
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={chartHeight}>

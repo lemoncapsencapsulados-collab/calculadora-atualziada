@@ -12,112 +12,100 @@ import type {
   MixVendas,
   InsightDashboard,
   EvolucaoTemporal,
-  PerfilCliente,
   DistribuicaoCanal,
   DistribuicaoConsultorStatus
 } from '@/types/dashboard';
 
-interface OrcamentoData {
+interface PedidoData {
   id: string;
-  numero_orcamento: string;
-  nome_cliente: string;
-  consultor_responsavel: string | null;
+  numero_pedido: string;
   status: string;
-  valor_total: number;
-  subtotal_producao: number;
-  subtotal_servicos: number;
   created_at: string | null;
-  itens_producao: unknown;
-  servicos_marca: unknown;
-  dados_cliente: unknown;
-  data_pagamento: string | null;
-  tipo_orcamento: string | null;
+  data_pedido: string;
+  orcamento_snapshot: any;
 }
 
 interface ItemProducao {
   nome?: string;
+  nome_produto?: string;
   nomeFormula?: string;
   quantidade?: number;
   quantidadePote?: number;
   precoVenda?: number;
   valorTotal?: number;
+  subtotal?: number;
+  modelo_negocio?: string;
 }
 
 export function useDashboardComercial(filtros: DashboardFiltros) {
-  const { data: orcamentos = [], isLoading: loadingOrcamentos } = useQuery({
-    queryKey: ['orcamentos-dashboard'],
+  const { data: pedidos = [], isLoading: loadingPedidos } = useQuery({
+    queryKey: ['pedidos-dashboard'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('orcamentos')
-        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, created_at, itens_producao, servicos_marca, dados_cliente, data_pagamento, tipo_orcamento')
+        .from('pedidos')
+        .select('id, numero_pedido, status, created_at, data_pedido, orcamento_snapshot')
+        .not('orcamento_snapshot', 'is', null)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return (data || []) as OrcamentoData[];
+      return (data || []) as PedidoData[];
     }
   });
 
-  const orcamentosFiltrados = useMemo(() => {
-    return orcamentos.filter(o => {
-      if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) {
-        return false;
-      }
-      if (o.data_pagamento) {
-        const dataPagamento = parseISO(o.data_pagamento);
-        if (dataPagamento < filtros.dataInicio || dataPagamento > filtros.dataFim) {
-          return false;
-        }
+  // Helper to extract snapshot fields
+  const getSnap = (p: PedidoData) => p.orcamento_snapshot || {};
+
+  const pedidosFiltrados = useMemo(() => {
+    return pedidos.filter(p => {
+      const snap = getSnap(p);
+      if (filtros.consultor && snap.consultor_responsavel !== filtros.consultor) return false;
+      const dataPgto = snap.data_pagamento;
+      if (dataPgto) {
+        const d = parseISO(dataPgto);
+        if (d < filtros.dataInicio || d > filtros.dataFim) return false;
       } else {
-        // Sem data de pagamento → fora do filtro temporal
         return false;
       }
       return true;
     });
-  }, [orcamentos, filtros]);
+  }, [pedidos, filtros]);
 
   const consultoresUnicos = useMemo(() => {
-    const consultores = new Set<string>();
-    orcamentos.forEach(o => {
-      if (o.consultor_responsavel) {
-        consultores.add(o.consultor_responsavel);
-      }
+    const set = new Set<string>();
+    pedidos.forEach(p => {
+      const c = getSnap(p).consultor_responsavel;
+      if (c) set.add(c);
     });
-    return Array.from(consultores).sort();
-  }, [orcamentos]);
+    return Array.from(set).sort();
+  }, [pedidos]);
 
   const kpis = useMemo((): KPIsGerais => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
-    const enviados = orcamentosFiltrados.filter(o => o.status === 'enviado');
-    const recusados = orcamentosFiltrados.filter(o => o.status === 'recusado');
-    
-    const faturamentoTotal = pagos.reduce((acc, o) => acc + Number(o.valor_total), 0);
-    const pipelineNegociacao = enviados.reduce((acc, o) => acc + Number(o.valor_total), 0);
-    const novasVendas = pagos.length;
+    const faturamentoTotal = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0);
+    const novasVendas = pedidosFiltrados.length;
     const ticketMedio = novasVendas > 0 ? faturamentoTotal / novasVendas : 0;
-    
-    const totalDecididos = pagos.length + recusados.length;
-    const taxaConversao = totalDecididos > 0 ? (pagos.length / totalDecididos) * 100 : 0;
-    
+    const emProducao = pedidosFiltrados.filter(p => p.status === 'aguardando_producao');
+    const pipelineNegociacao = emProducao.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0);
+
     return {
       faturamentoTotal,
       novasVendas,
       pipelineNegociacao,
       ticketMedio,
-      taxaConversao,
-      totalRecusados: recusados.length
+      taxaConversao: 100, // all pedidos are from paid orcamentos
+      totalRecusados: 0
     };
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const rankingConsultores = useMemo((): MetricaConsultor[] => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const porConsultor = new Map<string, { vendas: number; faturamento: number; clientes: Set<string> }>();
     
-    pagos.forEach(o => {
-      const consultor = o.consultor_responsavel || 'Sem Consultor';
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || { vendas: 0, faturamento: 0, clientes: new Set<string>() };
       atual.vendas += 1;
-      atual.faturamento += Number(o.valor_total);
-      atual.clientes.add(o.nome_cliente);
+      atual.faturamento += Number(snap.valor_total || 0);
+      atual.clientes.add(snap.nome_cliente || '');
       porConsultor.set(consultor, atual);
     });
     
@@ -130,41 +118,42 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         clientesUnicos: dados.clientes.size
       }))
       .sort((a, b) => b.faturamento - a.faturamento);
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const vendasPorTipo = useMemo(() => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const porConsultor = new Map<string, { novo_produtor: { qtd: number; valor: number }; recompra: { qtd: number; valor: number } }>();
 
-    pagos.forEach(o => {
-      const consultor = o.consultor_responsavel || 'Sem Consultor';
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || {
         novo_produtor: { qtd: 0, valor: 0 },
         recompra: { qtd: 0, valor: 0 },
       };
-      const tipo = o.tipo_orcamento === 'recompra' ? 'recompra' : 'novo_produtor';
+      const tipo = snap.tipo_orcamento === 'recompra' ? 'recompra' : 'novo_produtor';
       atual[tipo].qtd += 1;
-      atual[tipo].valor += Number(o.valor_total);
+      atual[tipo].valor += Number(snap.valor_total || 0);
       porConsultor.set(consultor, atual);
     });
 
     return Array.from(porConsultor.entries())
       .map(([consultor, dados]) => ({ consultor, ...dados }))
       .sort((a, b) => (b.novo_produtor.valor + b.recompra.valor) - (a.novo_produtor.valor + a.recompra.valor));
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const pipelineConsultores = useMemo((): PipelineConsultor[] => {
-    const enviados = orcamentosFiltrados.filter(o => o.status === 'enviado');
+    const emProducao = pedidosFiltrados.filter(p => p.status === 'aguardando_producao');
     const porConsultor = new Map<string, { propostas: number; valorTotal: number; diasTotal: number }>();
     const hoje = new Date();
     
-    enviados.forEach(o => {
-      const consultor = o.consultor_responsavel || 'Sem Consultor';
+    emProducao.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || { propostas: 0, valorTotal: 0, diasTotal: 0 };
       atual.propostas += 1;
-      atual.valorTotal += Number(o.valor_total);
-      if (o.created_at) {
-        atual.diasTotal += differenceInDays(hoje, parseISO(o.created_at));
+      atual.valorTotal += Number(snap.valor_total || 0);
+      if (p.created_at) {
+        atual.diasTotal += differenceInDays(hoje, parseISO(p.created_at));
       }
       porConsultor.set(consultor, atual);
     });
@@ -178,20 +167,20 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         diasMedioAberto: dados.propostas > 0 ? Math.round(dados.diasTotal / dados.propostas) : 0
       }))
       .sort((a, b) => b.valorTotal - a.valorTotal);
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const produtosMaisVendidos = useMemo((): ProdutoVendido[] => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const produtos = new Map<string, { quantidade: number; faturamento: number }>();
     
-    pagos.forEach(o => {
-      const itens = o.itens_producao as ItemProducao[] | null;
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const itens = snap.itens_producao as ItemProducao[] | null;
       if (Array.isArray(itens)) {
         itens.forEach(item => {
-          const nome = item.nome || item.nomeFormula || 'Produto sem nome';
+          const nome = item.nome_produto || item.nome || item.nomeFormula || 'Produto sem nome';
           const atual = produtos.get(nome) || { quantidade: 0, faturamento: 0 };
           atual.quantidade += Number(item.quantidade || item.quantidadePote || 0);
-          atual.faturamento += Number(item.valorTotal || item.precoVenda || 0);
+          atual.faturamento += Number(item.subtotal || item.valorTotal || item.precoVenda || 0);
           produtos.set(nome, atual);
         });
       }
@@ -208,12 +197,11 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       }))
       .sort((a, b) => b.faturamento - a.faturamento)
       .slice(0, 10);
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const mixVendas = useMemo((): MixVendas => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
-    const totalProducao = pagos.reduce((acc, o) => acc + Number(o.subtotal_producao), 0);
-    const totalServicos = pagos.reduce((acc, o) => acc + Number(o.subtotal_servicos), 0);
+    const totalProducao = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).subtotal_producao || 0), 0);
+    const totalServicos = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).subtotal_servicos || 0), 0);
     const total = totalProducao + totalServicos;
     
     return {
@@ -227,36 +215,41 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       },
       equilibrado: total > 0 ? Math.abs((totalProducao / total) - 0.5) < 0.2 : true
     };
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const insights = useMemo((): InsightDashboard[] => {
     const resultado: InsightDashboard[] = [];
     const hoje = new Date();
     
-    orcamentosFiltrados
-      .filter(o => o.status === 'enviado' && o.created_at)
-      .forEach(o => {
-        const dias = differenceInDays(hoje, parseISO(o.created_at!));
+    // Alert for pedidos stuck in production
+    pedidosFiltrados
+      .filter(p => p.status === 'aguardando_producao' && p.created_at)
+      .forEach(p => {
+        const snap = getSnap(p);
+        const dias = differenceInDays(hoje, parseISO(p.created_at!));
         if (dias > 7) {
           resultado.push({
             tipo: 'alerta',
-            mensagem: `${o.consultor_responsavel || 'Sem consultor'} tem R$ ${Number(o.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em pipeline há ${dias} dias (${o.nome_cliente})`,
-            consultor: o.consultor_responsavel || undefined,
-            valor: Number(o.valor_total)
+            mensagem: `${snap.consultor_responsavel || 'Sem consultor'} tem R$ ${Number(snap.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} aguardando produção há ${dias} dias (${snap.nome_cliente})`,
+            consultor: snap.consultor_responsavel || undefined,
+            valor: Number(snap.valor_total || 0)
           });
         }
       });
     
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
-    if (pagos.length > 0) {
-      const maiorVenda = pagos.reduce((max, o) => 
-        Number(o.valor_total) > Number(max.valor_total) ? o : max
-      );
+    // Biggest sale
+    if (pedidosFiltrados.length > 0) {
+      const maior = pedidosFiltrados.reduce((max, p) => {
+        const vMax = Number(getSnap(max).valor_total || 0);
+        const vP = Number(getSnap(p).valor_total || 0);
+        return vP > vMax ? p : max;
+      });
+      const snapMaior = getSnap(maior);
       resultado.push({
         tipo: 'positivo',
-        mensagem: `Maior venda do período: ${maiorVenda.consultor_responsavel || 'Sem consultor'} - R$ ${Number(maiorVenda.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${maiorVenda.nome_cliente})`,
-        consultor: maiorVenda.consultor_responsavel || undefined,
-        valor: Number(maiorVenda.valor_total)
+        mensagem: `Maior venda do período: ${snapMaior.consultor_responsavel || 'Sem consultor'} - R$ ${Number(snapMaior.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${snapMaior.nome_cliente})`,
+        consultor: snapMaior.consultor_responsavel || undefined,
+        valor: Number(snapMaior.valor_total || 0)
       });
     }
     
@@ -280,7 +273,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     });
     
     return resultado;
-  }, [orcamentosFiltrados, mixVendas, kpis, rankingConsultores]);
+  }, [pedidosFiltrados, mixVendas, kpis, rankingConsultores]);
 
   const evolucaoTemporal = useMemo((): EvolucaoTemporal[] => {
     const meses: EvolucaoTemporal[] = [];
@@ -291,46 +284,45 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       const inicio = startOfMonth(mesRef);
       const fim = endOfMonth(mesRef);
       
-      const orcamentosDoMes = orcamentos.filter(o => {
-        if (!o.created_at) return false;
-        const data = parseISO(o.created_at);
+      const pedidosDoMes = pedidos.filter(p => {
+        const dataPgto = getSnap(p).data_pagamento;
+        if (!dataPgto) return false;
+        const data = parseISO(dataPgto);
         return data >= inicio && data <= fim;
       });
       
-      const pagos = orcamentosDoMes.filter(o => o.status === 'pago');
-      
       meses.push({
         periodo: format(mesRef, 'MMM/yy', { locale: ptBR }),
-        faturamento: pagos.reduce((acc, o) => acc + Number(o.valor_total), 0),
-        vendas: pagos.length,
+        faturamento: pedidosDoMes.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0),
+        vendas: pedidosDoMes.length,
         recorrencia: 0
       });
     }
     
     return meses;
-  }, [orcamentos]);
+  }, [pedidos]);
 
   const distribuicaoCanais = useMemo((): DistribuicaoCanal[] => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const canais = new Map<string, { clientes: Set<string>; faturamento: number }>();
     
-    pagos.forEach(o => {
-      const dados = o.dados_cliente as { locais_fisicos?: boolean; venda_digital?: boolean } | null;
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const dados = snap.dados_cliente as { locais_fisicos?: boolean; venda_digital?: boolean; forma_venda?: string } | null;
       let canal = 'Não informado';
       
       if (dados) {
-        if (dados.locais_fisicos && dados.venda_digital) {
+        if (dados.forma_venda === 'ambas' || (dados.locais_fisicos && dados.venda_digital)) {
           canal = 'Ambos';
-        } else if (dados.locais_fisicos) {
+        } else if (dados.forma_venda === 'locais_fisicos' || dados.locais_fisicos) {
           canal = 'Físico';
-        } else if (dados.venda_digital) {
+        } else if (dados.forma_venda === 'venda_digital' || dados.venda_digital) {
           canal = 'Digital';
         }
       }
       
       const atual = canais.get(canal) || { clientes: new Set<string>(), faturamento: 0 };
-      atual.clientes.add(o.nome_cliente);
-      atual.faturamento += Number(o.valor_total);
+      atual.clientes.add(snap.nome_cliente || '');
+      atual.faturamento += Number(snap.valor_total || 0);
       canais.set(canal, atual);
     });
     
@@ -342,42 +334,43 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         ticketMedio: dados.clientes.size > 0 ? dados.faturamento / dados.clientes.size : 0
       }))
       .sort((a, b) => b.faturamento - a.faturamento);
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const clientesPorModelo = useMemo(() => {
-    const pagos = orcamentosFiltrados.filter(o => o.status === 'pago');
     const porConsultor = new Map<string, { estoque: { qtd: number; valor: number }; pod: { qtd: number; valor: number } }>();
 
-    pagos.forEach(o => {
-      const consultor = o.consultor_responsavel || 'Sem Consultor';
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || {
         estoque: { qtd: 0, valor: 0 },
         pod: { qtd: 0, valor: 0 },
       };
-      const itens = o.itens_producao as any[] | null;
+      const itens = snap.itens_producao as any[] | null;
       const temPod = Array.isArray(itens) && itens.some((i: any) => i.modelo_negocio === 'print_on_demand');
       const tipo = temPod ? 'pod' : 'estoque';
       atual[tipo].qtd += 1;
-      atual[tipo].valor += Number(o.valor_total);
+      atual[tipo].valor += Number(snap.valor_total || 0);
       porConsultor.set(consultor, atual);
     });
 
     return Array.from(porConsultor.entries())
       .map(([consultor, dados]) => ({ consultor, ...dados }))
       .sort((a, b) => (b.estoque.valor + b.pod.valor) - (a.estoque.valor + a.pod.valor));
-  }, [orcamentosFiltrados]);
+  }, [pedidosFiltrados]);
 
   const distribuicaoConsultorStatus = useMemo((): DistribuicaoConsultorStatus[] => {
-    const porConsultor = new Map<string, { rascunho: number; enviado: number; pago: number; recusado: number }>();
+    const porConsultor = new Map<string, { aguardando_producao: number; no_estoque: number; enviado: number; concluido: number }>();
 
-    const orcamentosParaDistribuicao = filtros.consultor 
-      ? orcamentos.filter(o => o.consultor_responsavel === filtros.consultor)
-      : orcamentos;
+    const pedidosParaDistribuicao = filtros.consultor 
+      ? pedidos.filter(p => getSnap(p).consultor_responsavel === filtros.consultor)
+      : pedidos;
 
-    orcamentosParaDistribuicao.forEach(o => {
-      const consultor = o.consultor_responsavel || 'Sem Consultor';
-      const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, pago: 0, recusado: 0 };
-      const status = o.status?.toLowerCase() || 'rascunho';
+    pedidosParaDistribuicao.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || { aguardando_producao: 0, no_estoque: 0, enviado: 0, concluido: 0 };
+      const status = p.status?.toLowerCase() || 'aguardando_producao';
       if (status in atual) {
         (atual as Record<string, number>)[status] += 1;
       }
@@ -388,13 +381,13 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .map(([consultor, dados]) => ({
         consultor,
         ...dados,
-        total: dados.rascunho + dados.enviado + dados.pago + dados.recusado
+        total: dados.aguardando_producao + dados.no_estoque + dados.enviado + dados.concluido
       }))
       .sort((a, b) => b.total - a.total);
-  }, [orcamentos, filtros.consultor]);
+  }, [pedidos, filtros.consultor]);
 
   return {
-    orcamentos: orcamentosFiltrados,
+    orcamentos: pedidosFiltrados,
     consultoresUnicos,
     kpis,
     rankingConsultores,
@@ -407,6 +400,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     distribuicaoConsultorStatus,
     vendasPorTipo,
     clientesPorModelo,
-    isLoading: loadingOrcamentos
+    isLoading: loadingPedidos
   };
 }

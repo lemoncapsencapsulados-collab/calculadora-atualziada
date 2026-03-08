@@ -105,9 +105,9 @@ export interface DistribuicaoCanal {
 
 export interface DistribuicaoConsultorStatus {
   consultor: string;
-  rascunho: number;
+  aguardando_producao: number;
+  no_estoque: number;
   enviado: number;
-  pago: number;
-  recusado: number;
+  concluido: number;
   total: number;
 }
