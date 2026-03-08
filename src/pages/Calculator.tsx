@@ -1257,10 +1257,6 @@ export default function Calculator() {
           <X className="w-4 h-4 mr-2" />
           Limpar
         </Button>
-        <Button variant="outline" onClick={handleExport} disabled={custoTotal === 0}>
-          <Download className="w-4 h-4 mr-2" />
-          Baixar Orçamento
-        </Button>
         <Button onClick={handleSave} disabled={!cliente || custoTotal === 0}>
           <Save className="w-4 h-4 mr-2" />
           Salvar Cálculo

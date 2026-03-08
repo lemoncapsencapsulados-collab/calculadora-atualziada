@@ -55,12 +55,6 @@ export default function Precificacao() {
   const [valorInput, setValorInput] = useState('30');
   const [observacoes, setObservacoes] = useState('');
   
-  // Estados para dialog de proposta
-  const [propostaDialog, setPropostaDialog] = useState(false);
-  const [quantidadeFrascos, setQuantidadeFrascos] = useState('');
-  const [temServicosExtras, setTemServicosExtras] = useState(false);
-  const [valorServicosExtras, setValorServicosExtras] = useState('');
-  const [gerandoPDF, setGerandoPDF] = useState(false);
 
   // Estados de custos editáveis
   const [custosIndiretos, setCustosIndiretos] = useState({
