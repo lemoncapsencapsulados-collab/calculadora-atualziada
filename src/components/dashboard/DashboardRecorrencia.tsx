@@ -21,14 +21,12 @@ import {
 interface DashboardRecorrenciaProps {
   recompras: Recompra[];
   metricas: MetricasRecorrencia;
-  onNovaRecompra: () => void;
   onExcluirRecompra: (id: string) => void;
 }
 
 export function DashboardRecorrencia({ 
   recompras, 
   metricas, 
-  onNovaRecompra, 
   onExcluirRecompra 
 }: DashboardRecorrenciaProps) {
   const formatCurrency = (value: number) => {
