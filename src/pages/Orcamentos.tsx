@@ -42,7 +42,6 @@ export default function Orcamentos() {
   const queryClient = useQueryClient();
   const { deleteOrcamento, updateStatus } = useOrcamentos();
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [consultorFilter, setConsultorFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
