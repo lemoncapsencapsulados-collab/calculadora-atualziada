@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento } from '@/types/orcamento';
+import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
