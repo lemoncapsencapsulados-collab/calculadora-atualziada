@@ -185,9 +185,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Pedido de produção criado com sucesso!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: (error) => {
       console.error('Erro ao criar pedido:', error);
