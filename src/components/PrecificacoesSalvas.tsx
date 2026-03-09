@@ -75,16 +75,24 @@ export default function PrecificacoesSalvas({
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
 
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const { precificacoes, totalCount, totalPages, isLoading } = usePrecificacoesPaginadas({
     page: currentPage,
     pageSize: PAGE_SIZE,
-    searchTerm,
+    searchTerm: debouncedSearchTerm,
   });
 
   // Reset page on search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearchTerm]);
 
   const getMargemStyles = (margem: number, tipoProduto?: string) => {
     if (!tipoProduto) return { 
