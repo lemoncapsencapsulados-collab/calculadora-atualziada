@@ -56,23 +56,15 @@ export default function Orcamentos() {
 
   const consultores = useConsultoresDisponiveis();
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
   const { orcamentos, totalCount, totalPages, isLoading: listLoading } = useOrcamentosPaginados({
     page: currentPage,
     pageSize: PAGE_SIZE,
-    searchTerm: debouncedSearchTerm,
+    searchTerm,
     consultorFilter: consultorFilter || undefined,
   });
 
   const { orcamentos: kanbanOrcamentos, isLoading: kanbanLoading } = useOrcamentosKanban({
-    searchTerm: debouncedSearchTerm,
+    searchTerm,
     consultorFilter: consultorFilter || undefined,
   });
 
@@ -80,7 +72,7 @@ export default function Orcamentos() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, consultorFilter]);
+  }, [searchTerm, consultorFilter]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
