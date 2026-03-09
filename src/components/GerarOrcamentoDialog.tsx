@@ -270,13 +270,17 @@ export default function GerarOrcamentoDialog({
   const handleAddServico = () => {
     if (!novoServico.nome || novoServico.valor <= 0) return;
     
+    const entregaveisInclusos = novoServicoEntregaveis.filter(e => e.incluso);
+    
     setServicosMarca(prev => [...prev, {
       nome_plano: novoServico.nome,
       descricao: novoServico.descricao,
       valor: novoServico.valor,
+      entregaveis: entregaveisInclusos.length > 0 ? novoServicoEntregaveis : undefined,
     }]);
     
     setNovoServico({ nome: '', descricao: '', valor: 0 });
+    setNovoServicoEntregaveis(ENTREGAVEIS_PADRAO());
     setShowServicoForm(false);
   };
 
