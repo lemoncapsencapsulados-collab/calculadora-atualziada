@@ -24,6 +24,20 @@ const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   updated_at: o.updated_at || undefined,
 });
 
+const WEBHOOK_URL = 'https://n8n.lemoncaps.com.br/webhook/request-order';
+
+const notifyWebhook = async (snapshot: any) => {
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(snapshot),
+    });
+  } catch (error) {
+    console.error('Webhook error:', error);
+  }
+};
+
 export const usePedidos = () => {
   const queryClient = useQueryClient();
   const syncDone = useRef(false);
