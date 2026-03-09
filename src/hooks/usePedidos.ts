@@ -259,9 +259,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Status do pedido atualizado!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: () => {
       toast.error('Erro ao atualizar status');
