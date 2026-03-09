@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, Pencil, Trash2, Calendar, Package, Palette,
   FileText, Plus, CheckCircle2, FileCheck,
-  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon
+  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';

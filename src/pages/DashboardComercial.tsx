@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { LayoutDashboard } from 'lucide-react';
-import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { startOfMonth, endOfMonth } from 'date-fns';
 import { useDashboardComercial } from '@/hooks/useDashboardComercial';
 import { useRecompras } from '@/hooks/useRecompras';
 import { DashboardKPIs } from '@/components/dashboard/DashboardKPIs';
@@ -10,7 +10,7 @@ import { DashboardPipeline } from '@/components/dashboard/DashboardPipeline';
 import { DashboardRecorrencia } from '@/components/dashboard/DashboardRecorrencia';
 import { DashboardInsights } from '@/components/dashboard/DashboardInsights';
 import { DashboardGraficos } from '@/components/dashboard/DashboardGraficos';
-import { NovaRecompraDialog } from '@/components/dashboard/NovaRecompraDialog';
+import { DashboardOrcamentos } from '@/components/dashboard/DashboardOrcamentos';
 import type { DashboardFiltros } from '@/types/dashboard';
 
 export default function DashboardComercial() {
@@ -22,8 +22,6 @@ export default function DashboardComercial() {
     dataInicio: startOfMonth(hoje),
     dataFim: endOfMonth(hoje)
   });
-
-  const [novaRecompraOpen, setNovaRecompraOpen] = useState(false);
 
   const {
     consultoresUnicos,
@@ -38,15 +36,14 @@ export default function DashboardComercial() {
     distribuicaoCanais,
     vendasPorTipo,
     clientesPorModelo,
+    orcamentosPorConsultorStatus,
     isLoading
   } = useDashboardComercial(filtros);
 
   const {
     recompras,
-    adicionarRecompra,
     excluirRecompra,
     calcularMetricas,
-    clientesUnicos: clientesRecompras,
     consultoresUnicos: consultoresRecompras
   } = useRecompras();
 
@@ -54,20 +51,10 @@ export default function DashboardComercial() {
     return calcularMetricas(kpis.faturamentoTotal);
   }, [calcularMetricas, kpis.faturamentoTotal]);
 
-  // Combinar consultores de orçamentos e recompras
   const todosConsultores = useMemo(() => {
     const set = new Set([...consultoresUnicos, ...consultoresRecompras]);
     return Array.from(set).sort();
   }, [consultoresUnicos, consultoresRecompras]);
-
-  // Combinar clientes de orçamentos e recompras para autocomplete
-  const todosClientes = useMemo(() => {
-    const clientesOrcamentos = rankingConsultores.flatMap(c => 
-      Array(c.clientesUnicos).fill(null).map((_, i) => `Cliente ${i + 1}`)
-    );
-    const set = new Set([...clientesRecompras, ...clientesOrcamentos]);
-    return Array.from(set).sort();
-  }, [rankingConsultores, clientesRecompras]);
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
@@ -94,6 +81,9 @@ export default function DashboardComercial() {
       {/* KPIs */}
       <DashboardKPIs kpis={kpis} isLoading={isLoading} />
 
+      {/* Orçamentos por Vendedor */}
+      <DashboardOrcamentos dados={orcamentosPorConsultorStatus} />
+
       {/* Vendas e Ranking */}
       <DashboardVendas
         rankingConsultores={rankingConsultores}
@@ -117,21 +107,11 @@ export default function DashboardComercial() {
       <DashboardRecorrencia
         recompras={recompras}
         metricas={metricasRecorrencia}
-        onNovaRecompra={() => setNovaRecompraOpen(true)}
         onExcluirRecompra={(id) => excluirRecompra.mutate(id)}
       />
 
       {/* Insights */}
       <DashboardInsights insights={insights} />
-
-      {/* Dialog Nova Recompra */}
-      <NovaRecompraDialog
-        open={novaRecompraOpen}
-        onOpenChange={setNovaRecompraOpen}
-        onSalvar={(dados) => adicionarRecompra.mutate(dados)}
-        consultoresDisponiveis={todosConsultores}
-        clientesDisponiveis={todosClientes}
-      />
     </div>
   );
 }
