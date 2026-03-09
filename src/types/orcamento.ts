@@ -38,10 +38,17 @@ export interface ItemProducao {
   detalhes_producao?: DetalhesProducao;
 }
 
+export interface Entregavel {
+  nome: string;
+  incluso: boolean;
+  quantidade: number;
+}
+
 export interface ServicoMarca {
   nome_plano: string;
   descricao?: string;
   valor: number;
+  entregaveis?: Entregavel[];
 }
 
 export interface DadosCliente {

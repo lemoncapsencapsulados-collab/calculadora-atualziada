@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento } from '@/types/orcamento';
+import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
@@ -42,6 +42,24 @@ import {
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 
+interface EntregavelConfig {
+  nome: string;
+  temQuantidade: boolean;
+  maxQuantidade: number;
+}
+
+const ENTREGAVEIS_CONFIG: EntregavelConfig[] = [
+  { nome: 'Registro de Marca no INPI', temQuantidade: false, maxQuantidade: 1 },
+  { nome: 'Criação da Logomarca', temQuantidade: false, maxQuantidade: 1 },
+  { nome: 'Criação de rótulo', temQuantidade: true, maxQuantidade: 9 },
+  { nome: 'Criação de Mockup 3D', temQuantidade: false, maxQuantidade: 1 },
+  { nome: 'Página de Venda', temQuantidade: true, maxQuantidade: 9 },
+  { nome: 'Call Estratégica', temQuantidade: true, maxQuantidade: 2 },
+];
+
+const ENTREGAVEIS_PADRAO = (): Entregavel[] =>
+  ENTREGAVEIS_CONFIG.map(c => ({ nome: c.nome, incluso: false, quantidade: 1 }));
+
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
   onClose: () => void;
@@ -78,6 +96,7 @@ export default function GerarOrcamentoDialog({
   // Step 3: Serviços de marca
   const [servicosMarca, setServicosMarca] = useState<ServicoMarca[]>([]);
   const [novoServico, setNovoServico] = useState({ nome: '', descricao: '', valor: 0 });
+  const [novoServicoEntregaveis, setNovoServicoEntregaveis] = useState<Entregavel[]>(ENTREGAVEIS_PADRAO());
   const [showServicoForm, setShowServicoForm] = useState(false);
 
   // Step 4: Dados opcionais (cliente e frete)
@@ -251,13 +270,17 @@ export default function GerarOrcamentoDialog({
   const handleAddServico = () => {
     if (!novoServico.nome || novoServico.valor <= 0) return;
     
+    const entregaveisInclusos = novoServicoEntregaveis.filter(e => e.incluso);
+    
     setServicosMarca(prev => [...prev, {
       nome_plano: novoServico.nome,
       descricao: novoServico.descricao,
       valor: novoServico.valor,
+      entregaveis: entregaveisInclusos.length > 0 ? novoServicoEntregaveis : undefined,
     }]);
     
     setNovoServico({ nome: '', descricao: '', valor: 0 });
+    setNovoServicoEntregaveis(ENTREGAVEIS_PADRAO());
     setShowServicoForm(false);
   };
 
@@ -791,7 +814,7 @@ export default function GerarOrcamentoDialog({
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <Label>Novo Plano/Serviço</Label>
-                      <Button variant="ghost" size="sm" onClick={() => setShowServicoForm(false)}>
+                      <Button variant="ghost" size="sm" onClick={() => { setShowServicoForm(false); setNovoServicoEntregaveis(ENTREGAVEIS_PADRAO()); }}>
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
@@ -805,6 +828,52 @@ export default function GerarOrcamentoDialog({
                           placeholder="Ex: Plano Premium, Design de Rótulo..."
                         />
                       </div>
+
+                      {/* Entregáveis */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Entregáveis</Label>
+                        <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+                          {novoServicoEntregaveis.map((entregavel, idx) => {
+                            const config = ENTREGAVEIS_CONFIG[idx];
+                            return (
+                              <div key={entregavel.nome} className="flex items-center gap-3">
+                                <Checkbox
+                                  id={`entregavel-${idx}`}
+                                  checked={entregavel.incluso}
+                                  onCheckedChange={(checked) => {
+                                    setNovoServicoEntregaveis(prev => prev.map((e, i) =>
+                                      i === idx ? { ...e, incluso: !!checked, quantidade: checked ? e.quantidade : 1 } : e
+                                    ));
+                                  }}
+                                />
+                                <label htmlFor={`entregavel-${idx}`} className="text-sm flex-1 cursor-pointer">
+                                  {entregavel.nome}
+                                </label>
+                                {config.temQuantidade && entregavel.incluso && (
+                                  <Select
+                                    value={String(entregavel.quantidade)}
+                                    onValueChange={(v) => {
+                                      setNovoServicoEntregaveis(prev => prev.map((e, i) =>
+                                        i === idx ? { ...e, quantidade: parseInt(v) } : e
+                                      ));
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-[70px] h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: config.maxQuantidade }, (_, k) => k + 1).map(n => (
+                                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       <div className="space-y-1">
                         <Label className="text-xs">Descrição (opcional)</Label>
                         <Textarea
@@ -855,6 +924,15 @@ export default function GerarOrcamentoDialog({
                             <p className="font-medium">{servico.nome_plano}</p>
                             {servico.descricao && (
                               <p className="text-xs text-muted-foreground">{servico.descricao}</p>
+                            )}
+                            {servico.entregaveis && servico.entregaveis.filter(e => e.incluso).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {servico.entregaveis.filter(e => e.incluso).map((e, i) => (
+                                  <Badge key={i} variant="secondary" className="text-[10px]">
+                                    {e.nome}{e.quantidade > 1 ? ` (${e.quantidade}x)` : ''}
+                                  </Badge>
+                                ))}
+                              </div>
                             )}
                           </div>
                           
