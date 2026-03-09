@@ -42,6 +42,24 @@ import {
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 
+interface EntregavelConfig {
+  nome: string;
+  temQuantidade: boolean;
+  maxQuantidade: number;
+}
+
+const ENTREGAVEIS_CONFIG: EntregavelConfig[] = [
+  { nome: 'Registro de Marca no INPI', temQuantidade: false, maxQuantidade: 1 },
+  { nome: 'Criação da Logomarca', temQuantidade: false, maxQuantidade: 1 },
+  { nome: 'Criação de rótulo', temQuantidade: true, maxQuantidade: 9 },
+  { nome: 'Criação de Mockup 3D', temQuantidade: false, maxQuantidade: 1 },
+  { nome: 'Página de Venda', temQuantidade: true, maxQuantidade: 9 },
+  { nome: 'Call Estratégica', temQuantidade: true, maxQuantidade: 2 },
+];
+
+const ENTREGAVEIS_PADRAO = (): Entregavel[] =>
+  ENTREGAVEIS_CONFIG.map(c => ({ nome: c.nome, incluso: false, quantidade: 1 }));
+
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
   onClose: () => void;
