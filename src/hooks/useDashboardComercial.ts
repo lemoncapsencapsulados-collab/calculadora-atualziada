@@ -325,20 +325,67 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         }
       });
 
-    // Orçamentos enviados sem retorno há mais de 7 dias
-    orcamentosFiltrados
-      .filter(o => o.status === 'enviado' && o.updated_at)
-      .forEach(o => {
-        const dias = differenceInDays(hoje, parseISO(o.updated_at!));
-        if (dias > 7) {
-          resultado.push({
-            tipo: 'alerta',
-            mensagem: `Orçamento enviado para "${o.nome_cliente}" sem retorno há ${dias} dias (${o.consultor_responsavel || 'Sem consultor'}) - R$ ${Number(o.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-            consultor: o.consultor_responsavel || undefined,
-            valor: Number(o.valor_total || 0)
-          });
-        }
+    // Orçamentos enviados - análise granular por tempo
+    const enviadosSemRetorno = orcamentosFiltrados.filter(o => o.status === 'enviado' && o.updated_at);
+    
+    enviadosSemRetorno.forEach(o => {
+      const dias = differenceInDays(hoje, parseISO(o.updated_at!));
+      const valor = Number(o.valor_total || 0);
+      const consultor = o.consultor_responsavel || 'Sem consultor';
+      
+      if (dias > 14) {
+        resultado.push({
+          tipo: 'alerta',
+          mensagem: `⚠️ URGENTE: Orçamento para "${o.nome_cliente}" enviado há ${dias} dias sem retorno (${consultor}) - R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          consultor: o.consultor_responsavel || undefined,
+          valor
+        });
+      } else if (dias >= 3) {
+        resultado.push({
+          tipo: 'atencao',
+          mensagem: `Follow-up necessário: Orçamento para "${o.nome_cliente}" enviado há ${dias} dias (${consultor}) - R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          consultor: o.consultor_responsavel || undefined,
+          valor
+        });
+      }
+
+      // Alerta específico para valores altos
+      if (dias >= 3 && valor >= 5000) {
+        resultado.push({
+          tipo: 'alerta',
+          mensagem: `💰 Valor alto em risco: R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para "${o.nome_cliente}" sem retorno há ${dias} dias (${consultor})`,
+          consultor: o.consultor_responsavel || undefined,
+          valor
+        });
+      }
+    });
+
+    // Resumo de orçamentos enviados aguardando retorno
+    if (enviadosSemRetorno.length > 0) {
+      const valorTotalEnviados = enviadosSemRetorno.reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
+      const diasMedia = Math.round(enviadosSemRetorno.reduce((acc, o) => acc + differenceInDays(hoje, parseISO(o.updated_at!)), 0) / enviadosSemRetorno.length);
+      resultado.push({
+        tipo: 'oportunidade',
+        mensagem: `${enviadosSemRetorno.length} orçamento(s) enviado(s) aguardando retorno, totalizando R$ ${valorTotalEnviados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (média de ${diasMedia} dias)`,
+        valor: valorTotalEnviados
       });
+    }
+
+    // Por consultor: quem tem mais orçamentos enviados parados
+    const enviadosPorConsultor = new Map<string, number>();
+    enviadosSemRetorno.filter(o => differenceInDays(hoje, parseISO(o.updated_at!)) >= 3).forEach(o => {
+      const c = o.consultor_responsavel || 'Sem consultor';
+      enviadosPorConsultor.set(c, (enviadosPorConsultor.get(c) || 0) + 1);
+    });
+    enviadosPorConsultor.forEach((qtd, consultor) => {
+      if (qtd >= 2) {
+        resultado.push({
+          tipo: 'atencao',
+          mensagem: `${consultor} tem ${qtd} orçamentos enviados parados aguardando retorno`,
+          consultor
+        });
+      }
+    });
 
     // Consultor com taxa de recusa alta
     orcamentosPorConsultorStatus.forEach(c => {
