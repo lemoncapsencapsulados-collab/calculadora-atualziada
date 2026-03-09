@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Pedido } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot } from '@/types/orcamento';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   id: o.id,
@@ -23,6 +23,20 @@ const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   observacoes: o.observacoes || undefined,
   updated_at: o.updated_at || undefined,
 });
+
+const WEBHOOK_URL = 'https://n8n.lemoncaps.com.br/webhook/request-order';
+
+const notifyWebhook = async (snapshot: any) => {
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(snapshot),
+    });
+  } catch (error) {
+    console.error('Webhook error:', error);
+  }
+};
 
 export const usePedidos = () => {
   const queryClient = useQueryClient();
@@ -171,9 +185,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Pedido de produção criado com sucesso!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: (error) => {
       console.error('Erro ao criar pedido:', error);
@@ -221,9 +236,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Pedido criado automaticamente a partir do orçamento pago!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: (error) => {
       console.error('Erro ao criar pedido do orçamento:', error);
@@ -243,9 +259,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Status do pedido atualizado!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: () => {
       toast.error('Erro ao atualizar status');
@@ -264,9 +281,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Observações atualizadas com sucesso!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: () => {
       toast.error('Erro ao atualizar observações');

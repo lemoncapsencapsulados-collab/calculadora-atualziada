@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface UsePrecificacoesPaginadasParams {
@@ -12,6 +12,7 @@ export function usePrecificacoesPaginadas({ page, pageSize, searchTerm }: UsePre
 
   const { data, isLoading } = useQuery({
     queryKey: ['precificacoes-paginadas', page, pageSize, trimmed],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       // Count query
       let countQuery = supabase

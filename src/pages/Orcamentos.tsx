@@ -42,7 +42,6 @@ export default function Orcamentos() {
   const queryClient = useQueryClient();
   const { deleteOrcamento, updateStatus } = useOrcamentos();
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [consultorFilter, setConsultorFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -57,23 +56,15 @@ export default function Orcamentos() {
 
   const consultores = useConsultoresDisponiveis();
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
   const { orcamentos, totalCount, totalPages, isLoading: listLoading } = useOrcamentosPaginados({
     page: currentPage,
     pageSize: PAGE_SIZE,
-    searchTerm: debouncedSearchTerm,
+    searchTerm,
     consultorFilter: consultorFilter || undefined,
   });
 
   const { orcamentos: kanbanOrcamentos, isLoading: kanbanLoading } = useOrcamentosKanban({
-    searchTerm: debouncedSearchTerm,
+    searchTerm,
     consultorFilter: consultorFilter || undefined,
   });
 
@@ -81,7 +72,7 @@ export default function Orcamentos() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, consultorFilter]);
+  }, [searchTerm, consultorFilter]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
@@ -329,7 +320,7 @@ export default function Orcamentos() {
                                 <Pencil className="w-4 h-4 mr-2" />Editar
                               </Button>
                               <Button variant="outline" size="sm" onClick={() => setPreviewOrcamento(orcamento)}>
-                                <FileText className="w-4 h-4 mr-2" />Gerar Orçamento
+                                <FileText className="w-4 h-4 mr-2" />Gerar PDF
                               </Button>
                               <Button variant="default" size="sm" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
                                 <FileCheck className="w-4 h-4 mr-2" />Proposta Completa

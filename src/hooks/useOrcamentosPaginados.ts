@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Orcamento, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
 
@@ -25,6 +25,7 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFi
 
   const { data, isLoading } = useQuery({
     queryKey: ['orcamentos-paginados', page, pageSize, trimmed, consultorFilter],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       let countQuery = supabase
         .from('orcamentos')

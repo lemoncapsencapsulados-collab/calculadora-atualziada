@@ -426,6 +426,33 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 
   yPos = (doc as any).lastAutoTable.finalY + 5;
 
+  // Renderizar entregáveis de cada serviço
+  for (const servico of orcamento.servicos_marca) {
+    const entregaveis = (servico as any).entregaveis as Array<{ nome: string; incluso: boolean; quantidade: number }> | undefined;
+    if (!entregaveis || entregaveis.length === 0) continue;
+
+    const inclusos = entregaveis.filter(e => e.incluso);
+    if (inclusos.length === 0) continue;
+
+    yPos = checkPageBreak(doc, yPos, 10 + inclusos.length * 5);
+
+    doc.setFontSize(LAYOUT.fontSize.small);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text(`Entregáveis — ${servico.nome_plano}:`, LAYOUT.margin + 5, yPos);
+    yPos += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    for (const ent of inclusos) {
+      yPos = checkPageBreak(doc, yPos, 5);
+      const qtdLabel = ent.quantidade > 1 ? ` (${ent.quantidade}x)` : '';
+      doc.text(`• ${ent.nome}${qtdLabel}`, LAYOUT.margin + 10, yPos);
+      yPos += 5;
+    }
+    yPos += 3;
+  }
+
   // Subtotal de serviços
   doc.setFillColor(...COLORS.mediumGreen);
   doc.rect(pageWidth / 2, yPos, pageWidth / 2 - LAYOUT.margin, 10, 'F');
