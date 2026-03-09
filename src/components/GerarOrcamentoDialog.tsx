@@ -96,7 +96,7 @@ export default function GerarOrcamentoDialog({
   // Step 3: Serviços de marca
   const [servicosMarca, setServicosMarca] = useState<ServicoMarca[]>([]);
   const [novoServico, setNovoServico] = useState({ nome: '', descricao: '', valor: 0 });
-  const [novoServicoEntregaveis, setNovoServicoEntregaveis] = useState<import('@/types/orcamento').Entregavel[]>(ENTREGAVEIS_PADRAO());
+  const [novoServicoEntregaveis, setNovoServicoEntregaveis] = useState<Entregavel[]>(ENTREGAVEIS_PADRAO());
   const [showServicoForm, setShowServicoForm] = useState(false);
 
   // Step 4: Dados opcionais (cliente e frete)
