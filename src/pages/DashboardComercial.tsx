@@ -10,7 +10,7 @@ import { DashboardPipeline } from '@/components/dashboard/DashboardPipeline';
 import { DashboardRecorrencia } from '@/components/dashboard/DashboardRecorrencia';
 import { DashboardInsights } from '@/components/dashboard/DashboardInsights';
 import { DashboardGraficos } from '@/components/dashboard/DashboardGraficos';
-import { DashboardOrcamentos } from '@/components/dashboard/DashboardOrcamentos';
+import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/components/dashboard/DashboardOrcamentos';
 import type { DashboardFiltros } from '@/types/dashboard';
 
 export default function DashboardComercial() {
@@ -81,9 +81,6 @@ export default function DashboardComercial() {
       {/* KPIs */}
       <DashboardKPIs kpis={kpis} isLoading={isLoading} />
 
-      {/* Orçamentos por Vendedor */}
-      <DashboardOrcamentos dados={orcamentosPorConsultorStatus} />
-
       {/* Vendas e Ranking */}
       <DashboardVendas
         rankingConsultores={rankingConsultores}
@@ -109,6 +106,12 @@ export default function DashboardComercial() {
         metricas={metricasRecorrencia}
         onExcluirRecompra={(id) => excluirRecompra.mutate(id)}
       />
+
+      {/* Orçamentos por Vendedor */}
+      <DashboardOrcamentos dados={orcamentosPorConsultorStatus} />
+
+      {/* Distribuição de Orçamentos */}
+      <DashboardOrcamentosDistribuicao dados={orcamentosPorConsultorStatus} />
 
       {/* Insights */}
       <DashboardInsights insights={insights} />
