@@ -64,7 +64,6 @@ export default function PrecificacoesSalvas({
   const queryClient = useQueryClient();
   const { deletarPrecificacao } = usePrecificacao();
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
 
@@ -75,24 +74,16 @@ export default function PrecificacoesSalvas({
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
   const { precificacoes, totalCount, totalPages, isLoading } = usePrecificacoesPaginadas({
     page: currentPage,
     pageSize: PAGE_SIZE,
-    searchTerm: debouncedSearchTerm,
+    searchTerm,
   });
 
   // Reset page on search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm]);
+  }, [searchTerm]);
 
   const getMargemStyles = (margem: number, tipoProduto?: string) => {
     if (!tipoProduto) return { 

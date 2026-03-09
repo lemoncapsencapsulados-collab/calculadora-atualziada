@@ -281,9 +281,10 @@ export const usePedidos = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Observações atualizadas com sucesso!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
     },
     onError: () => {
       toast.error('Erro ao atualizar observações');

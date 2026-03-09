@@ -320,7 +320,7 @@ export default function Orcamentos() {
                                 <Pencil className="w-4 h-4 mr-2" />Editar
                               </Button>
                               <Button variant="outline" size="sm" onClick={() => setPreviewOrcamento(orcamento)}>
-                                <FileText className="w-4 h-4 mr-2" />Gerar Orçamento
+                                <FileText className="w-4 h-4 mr-2" />Gerar PDF
                               </Button>
                               <Button variant="default" size="sm" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
                                 <FileCheck className="w-4 h-4 mr-2" />Proposta Completa
