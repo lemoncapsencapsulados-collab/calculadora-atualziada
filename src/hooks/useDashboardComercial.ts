@@ -13,7 +13,8 @@ import type {
   InsightDashboard,
   EvolucaoTemporal,
   DistribuicaoCanal,
-  DistribuicaoConsultorStatus
+  DistribuicaoConsultorStatus,
+  OrcamentosPorConsultorStatus
 } from '@/types/dashboard';
 
 interface PedidoData {
@@ -23,6 +24,22 @@ interface PedidoData {
   created_at: string | null;
   data_pedido: string;
   orcamento_snapshot: any;
+}
+
+interface OrcamentoData {
+  id: string;
+  numero_orcamento: string;
+  nome_cliente: string;
+  consultor_responsavel: string | null;
+  status: string;
+  valor_total: number;
+  subtotal_producao: number;
+  subtotal_servicos: number;
+  tipo_orcamento: string;
+  created_at: string | null;
+  updated_at: string | null;
+  dados_cliente: any;
+  itens_producao: any;
 }
 
 interface ItemProducao {
@@ -52,6 +69,19 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     }
   });
 
+  const { data: todosOrcamentos = [], isLoading: loadingOrcamentos } = useQuery({
+    queryKey: ['orcamentos-dashboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, tipo_orcamento, created_at, updated_at, dados_cliente, itens_producao')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []) as OrcamentoData[];
+    }
+  });
+
   // Helper to extract snapshot fields
   const getSnap = (p: PedidoData) => p.orcamento_snapshot || {};
 
@@ -70,31 +100,74 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     });
   }, [pedidos, filtros]);
 
+  // Orçamentos filtrados por consultor (sem filtro de período para visão completa do funil)
+  const orcamentosFiltrados = useMemo(() => {
+    if (!filtros.consultor) return todosOrcamentos;
+    return todosOrcamentos.filter(o => o.consultor_responsavel === filtros.consultor);
+  }, [todosOrcamentos, filtros.consultor]);
+
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
     pedidos.forEach(p => {
       const c = getSnap(p).consultor_responsavel;
       if (c) set.add(c);
     });
+    todosOrcamentos.forEach(o => {
+      if (o.consultor_responsavel) set.add(o.consultor_responsavel);
+    });
     return Array.from(set).sort();
-  }, [pedidos]);
+  }, [pedidos, todosOrcamentos]);
+
+  // Orçamentos por consultor e status
+  const orcamentosPorConsultorStatus = useMemo((): OrcamentosPorConsultorStatus[] => {
+    const porConsultor = new Map<string, { rascunho: number; enviado: number; pago: number; recusado: number; valorRascunho: number; valorEnviado: number; valorPago: number; valorRecusado: number }>();
+
+    orcamentosFiltrados.forEach(o => {
+      const consultor = o.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, pago: 0, recusado: 0, valorRascunho: 0, valorEnviado: 0, valorPago: 0, valorRecusado: 0 };
+      const status = o.status as 'rascunho' | 'enviado' | 'pago' | 'recusado';
+      if (status in atual) {
+        atual[status] += 1;
+        const valorKey = `valor${status.charAt(0).toUpperCase() + status.slice(1)}` as keyof typeof atual;
+        (atual as any)[valorKey] += Number(o.valor_total || 0);
+      }
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({
+        consultor,
+        ...dados,
+        total: dados.rascunho + dados.enviado + dados.pago + dados.recusado
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [orcamentosFiltrados]);
 
   const kpis = useMemo((): KPIsGerais => {
     const faturamentoTotal = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0);
     const novasVendas = pedidosFiltrados.length;
     const ticketMedio = novasVendas > 0 ? faturamentoTotal / novasVendas : 0;
-    const emProducao = pedidosFiltrados.filter(p => p.status === 'aguardando_producao');
-    const pipelineNegociacao = emProducao.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0);
+    
+    // Pipeline = valor em rascunho + enviado
+    const pipelineNegociacao = orcamentosFiltrados
+      .filter(o => ['rascunho', 'enviado'].includes(o.status))
+      .reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
+
+    // Taxa de conversão real
+    const totalPagos = orcamentosFiltrados.filter(o => o.status === 'pago').length;
+    const totalRecusados = orcamentosFiltrados.filter(o => o.status === 'recusado').length;
+    const totalDecididos = totalPagos + totalRecusados;
+    const taxaConversao = totalDecididos > 0 ? (totalPagos / totalDecididos) * 100 : 0;
 
     return {
       faturamentoTotal,
       novasVendas,
       pipelineNegociacao,
       ticketMedio,
-      taxaConversao: 100, // all pedidos are from paid orcamentos
-      totalRecusados: 0
+      taxaConversao,
+      totalRecusados
     };
-  }, [pedidosFiltrados]);
+  }, [pedidosFiltrados, orcamentosFiltrados]);
 
   const rankingConsultores = useMemo((): MetricaConsultor[] => {
     const porConsultor = new Map<string, { vendas: number; faturamento: number; clientes: Set<string> }>();
@@ -236,6 +309,61 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
           });
         }
       });
+
+    // Orçamentos parados em rascunho há mais de 5 dias
+    orcamentosFiltrados
+      .filter(o => o.status === 'rascunho' && o.created_at)
+      .forEach(o => {
+        const dias = differenceInDays(hoje, parseISO(o.created_at!));
+        if (dias > 5) {
+          resultado.push({
+            tipo: 'atencao',
+            mensagem: `Orçamento "${o.nome_cliente}" em rascunho há ${dias} dias (${o.consultor_responsavel || 'Sem consultor'}) - R$ ${Number(o.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            consultor: o.consultor_responsavel || undefined,
+            valor: Number(o.valor_total || 0)
+          });
+        }
+      });
+
+    // Orçamentos enviados sem retorno há mais de 7 dias
+    orcamentosFiltrados
+      .filter(o => o.status === 'enviado' && o.updated_at)
+      .forEach(o => {
+        const dias = differenceInDays(hoje, parseISO(o.updated_at!));
+        if (dias > 7) {
+          resultado.push({
+            tipo: 'alerta',
+            mensagem: `Orçamento enviado para "${o.nome_cliente}" sem retorno há ${dias} dias (${o.consultor_responsavel || 'Sem consultor'}) - R$ ${Number(o.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            consultor: o.consultor_responsavel || undefined,
+            valor: Number(o.valor_total || 0)
+          });
+        }
+      });
+
+    // Consultor com taxa de recusa alta
+    orcamentosPorConsultorStatus.forEach(c => {
+      const decididos = c.pago + c.recusado;
+      if (decididos >= 3 && c.recusado / decididos > 0.5) {
+        resultado.push({
+          tipo: 'atencao',
+          mensagem: `${c.consultor} tem ${(c.recusado / decididos * 100).toFixed(0)}% de recusa (${c.recusado} de ${decididos} orçamentos)`,
+          consultor: c.consultor
+        });
+      }
+    });
+
+    // Oportunidade: valor alto em pipeline
+    const valorPipeline = orcamentosFiltrados
+      .filter(o => ['rascunho', 'enviado'].includes(o.status))
+      .reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
+    if (valorPipeline > 0) {
+      const qtdPipeline = orcamentosFiltrados.filter(o => ['rascunho', 'enviado'].includes(o.status)).length;
+      resultado.push({
+        tipo: 'oportunidade',
+        mensagem: `${qtdPipeline} orçamento(s) em negociação totalizando R$ ${valorPipeline.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        valor: valorPipeline
+      });
+    }
     
     // Biggest sale
     if (pedidosFiltrados.length > 0) {
@@ -273,7 +401,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     });
     
     return resultado;
-  }, [pedidosFiltrados, mixVendas, kpis, rankingConsultores]);
+  }, [pedidosFiltrados, orcamentosFiltrados, orcamentosPorConsultorStatus, mixVendas, kpis, rankingConsultores]);
 
   const evolucaoTemporal = useMemo((): EvolucaoTemporal[] => {
     const meses: EvolucaoTemporal[] = [];
@@ -400,6 +528,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     distribuicaoConsultorStatus,
     vendasPorTipo,
     clientesPorModelo,
-    isLoading: loadingPedidos
+    orcamentosPorConsultorStatus,
+    isLoading: loadingPedidos || loadingOrcamentos
   };
 }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Pencil, Trash2, FileText, FileCheck, Calendar } from 'lucide-react';
+import { Pencil, Trash2, FileText, FileCheck, Calendar, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/unitConversion';
@@ -116,6 +116,21 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                     <p className="font-bold text-sm text-primary">{formatCurrency(o.valor_total)}</p>
                     <div className="flex flex-wrap gap-1">
                       <TooltipProvider delayDuration={200}>
+                        {o.status === 'enviado' && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/20"
+                                onClick={() => window.open('https://www.asaas.com/c/e8z81rc6owbwhpde', '_blank')}
+                              >
+                                <DollarSign className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Gerar PIX</TooltipContent>
+                          </Tooltip>
+                        )}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onEdit(o)}>

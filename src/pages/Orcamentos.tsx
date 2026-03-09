@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, Pencil, Trash2, Calendar, Package, Palette,
   FileText, Plus, CheckCircle2, FileCheck,
-  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon
+  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -306,6 +306,16 @@ export default function Orcamentos() {
                               </div>
                             </div>
                             <div className="flex flex-wrap md:flex-col lg:flex-col gap-2 justify-end">
+                              {orcamento.status === 'enviado' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-green-500 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/20"
+                                  onClick={() => window.open('https://www.asaas.com/c/e8z81rc6owbwhpde', '_blank')}
+                                >
+                                  <DollarSign className="w-4 h-4 mr-2" />Gerar PIX
+                                </Button>
+                              )}
                               <Button variant="outline" size="sm" onClick={() => setEditandoOrcamento(orcamento)}>
                                 <Pencil className="w-4 h-4 mr-2" />Editar
                               </Button>

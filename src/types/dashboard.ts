@@ -111,3 +111,16 @@ export interface DistribuicaoConsultorStatus {
   concluido: number;
   total: number;
 }
+
+export interface OrcamentosPorConsultorStatus {
+  consultor: string;
+  rascunho: number;
+  enviado: number;
+  pago: number;
+  recusado: number;
+  valorRascunho: number;
+  valorEnviado: number;
+  valorPago: number;
+  valorRecusado: number;
+  total: number;
+}
