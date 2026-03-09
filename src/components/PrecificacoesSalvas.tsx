@@ -64,6 +64,7 @@ export default function PrecificacoesSalvas({
   const queryClient = useQueryClient();
   const { deletarPrecificacao } = usePrecificacao();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
 
