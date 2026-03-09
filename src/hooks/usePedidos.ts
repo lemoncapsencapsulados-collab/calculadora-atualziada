@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Pedido } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot } from '@/types/orcamento';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   id: o.id,
