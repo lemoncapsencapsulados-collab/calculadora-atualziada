@@ -40,16 +40,10 @@ export function DashboardRecorrencia({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <RefreshCw className="h-5 w-5 text-purple-500" />
-            Vendas Recorrentes (Recompras)
-          </CardTitle>
-          <Button size="sm" onClick={onNovaRecompra}>
-            <Plus className="h-4 w-4 mr-1" />
-            Nova Recompra
-          </Button>
-        </div>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <RefreshCw className="h-5 w-5 text-purple-500" />
+          Vendas Recorrentes (Recompras)
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {/* Métricas de Recorrência */}

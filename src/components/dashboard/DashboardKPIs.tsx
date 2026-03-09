@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { TrendingUp, ShoppingCart, Clock, DollarSign, Target } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Clock, DollarSign, Target, FileX, FileText } from 'lucide-react';
 import type { KPIsGerais } from '@/types/dashboard';
 
 interface DashboardKPIsProps {
@@ -32,9 +32,9 @@ export function DashboardKPIs({ kpis, isLoading }: DashboardKPIsProps) {
       bgColor: 'bg-blue-100 dark:bg-blue-900/30'
     },
     {
-      title: 'Pipeline',
+      title: 'Em Orçamento',
       value: formatCurrency(kpis.pipelineNegociacao),
-      icon: Clock,
+      icon: FileText,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30'
     },
@@ -51,13 +51,20 @@ export function DashboardKPIs({ kpis, isLoading }: DashboardKPIsProps) {
       icon: Target,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100 dark:bg-emerald-900/30'
+    },
+    {
+      title: 'Recusados',
+      value: kpis.totalRecusados.toString(),
+      icon: FileX,
+      color: 'text-red-600',
+      bgColor: 'bg-red-100 dark:bg-red-900/30'
     }
   ];
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {[...Array(5)].map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {[...Array(6)].map((_, i) => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-4">
               <div className="h-16 bg-muted rounded" />
@@ -69,7 +76,7 @@ export function DashboardKPIs({ kpis, isLoading }: DashboardKPIsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
