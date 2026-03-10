@@ -20,7 +20,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
-import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
+import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
+import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -36,6 +37,9 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
   const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
   const [cidadesPF, setCidadesPF] = useState<string[]>([]);
   const [loadingCidadesPF, setLoadingCidadesPF] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [cpfError, setCpfError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     if (pessoa.estado && pessoa.estado.length === 2) {
@@ -45,6 +49,36 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
       setCidadesPF([]);
     }
   }, [pessoa.estado]);
+
+  // CEP auto-fill
+  useEffect(() => {
+    const cepNums = (pessoa.cep || '').replace(/\D/g, '');
+    if (cepNums.length === 8) {
+      setLoadingCep(true);
+      fetchEnderecoPorCEP(cepNums).then(result => {
+        if (result) {
+          onChange({ ...pessoa, endereco: result.logradouro || pessoa.endereco, cidade: result.cidade, estado: result.estado });
+        }
+        setLoadingCep(false);
+      });
+    }
+  }, [pessoa.cep]);
+
+  const handleCpfBlur = () => {
+    if (pessoa.cpf && pessoa.cpf.replace(/\D/g, '').length > 0 && !validarCPF(pessoa.cpf)) {
+      setCpfError('CPF inválido');
+    } else {
+      setCpfError('');
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (pessoa.email && pessoa.email.trim() && !validarEmail(pessoa.email)) {
+      setEmailError('Email inválido');
+    } else {
+      setEmailError('');
+    }
+  };
 
   return (
     <div className="bg-muted/30 rounded-lg p-3 space-y-3">
@@ -56,7 +90,8 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="space-y-1">
           <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} placeholder="000.000.000-00" />
+          <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} onBlur={handleCpfBlur} placeholder="000.000.000-00" className={cpfError ? 'border-destructive' : ''} />
+          {cpfError && <p className="text-[10px] text-destructive">{cpfError}</p>}
         </div>
         <div className="space-y-1">
           <Label className="text-xs">RG <span className="text-destructive">*</span></Label>
@@ -76,12 +111,12 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CEP <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">CEP <span className="text-destructive">*</span>{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
           <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-          <Select value={pessoa.estado || ''} onValueChange={(v) => { update('estado', v); onChange({ ...pessoa, estado: v, cidade: '' }); }}>
+          <Select value={pessoa.estado || ''} onValueChange={(v) => { onChange({ ...pessoa, estado: v, cidade: '' }); }}>
             <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
             <SelectContent>
               {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
@@ -90,12 +125,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-          <Select value={pessoa.cidade || ''} onValueChange={(v) => update('cidade', v)} disabled={!pessoa.estado || loadingCidadesPF}>
-            <SelectTrigger><SelectValue placeholder={loadingCidadesPF ? 'Carregando...' : !pessoa.estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
-            <SelectContent>
-              {cidadesPF.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder={loadingCidadesPF ? 'Carregando...' : 'Cidade'} />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
@@ -103,7 +133,8 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="col-span-2 space-y-1">
           <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
-          <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} placeholder="email@exemplo.com" />
+          <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} onBlur={handleEmailBlur} placeholder="email@exemplo.com" className={emailError ? 'border-destructive' : ''} />
+          {emailError && <p className="text-[10px] text-destructive">{emailError}</p>}
         </div>
       </div>
     </div>
@@ -114,6 +145,7 @@ function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
   const missing: string[] = [];
   if (!pf.nome?.trim()) missing.push(`Nome (${label})`);
   if (!pf.cpf?.trim()) missing.push(`CPF (${label})`);
+  else if (!validarCPF(pf.cpf)) missing.push(`CPF inválido (${label})`);
   if (!pf.rg?.trim()) missing.push(`RG (${label})`);
   if (!pf.endereco?.trim()) missing.push(`Endereço (${label})`);
   if (!pf.cep?.trim()) missing.push(`CEP (${label})`);
@@ -121,6 +153,7 @@ function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
   if (!pf.estado?.trim()) missing.push(`Estado (${label})`);
   if (!pf.telefone?.trim()) missing.push(`Telefone (${label})`);
   if (!pf.email?.trim()) missing.push(`Email (${label})`);
+  else if (!validarEmail(pf.email)) missing.push(`Email inválido (${label})`);
   if (!pf.estado_civil?.trim()) missing.push(`Estado Civil (${label})`);
   return missing;
 }
@@ -226,6 +259,40 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     }
   }, [detalhamentoEnvio.tipo]);
 
+  // Auto-select single-option production details
+  useEffect(() => {
+    orcamento.itens_producao.forEach((item, idx) => {
+      const seg = (item.segmento || '').toLowerCase();
+      const opcoesPote = getOpcoesPote(seg);
+      const opcoesTampa = getOpcoesTampa(seg);
+      const current = detalhesProducao[idx] || {};
+      let changed = false;
+      const updated = { ...current };
+      if (opcoesPote.length === 1 && !current.cor_pote) { updated.cor_pote = opcoesPote[0]; changed = true; }
+      if (opcoesTampa.length === 1 && !current.cor_tampa) { updated.cor_tampa = opcoesTampa[0]; changed = true; }
+      if (changed) {
+        setDetalhesProducao(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), ...updated } }));
+      }
+    });
+  }, [orcamento.itens_producao]);
+
+  // CEP auto-fill for PJ
+  useEffect(() => {
+    const cepNums = (dadosCliente.cep_cnpj || '').replace(/\D/g, '');
+    if (cepNums.length === 8) {
+      fetchEnderecoPorCEP(cepNums).then(result => {
+        if (result) {
+          setDadosCliente(prev => ({
+            ...prev,
+            endereco_cnpj: result.logradouro || prev.endereco_cnpj,
+            cidade: result.cidade,
+            estado: result.estado,
+          }));
+        }
+      });
+    }
+  }, [dadosCliente.cep_cnpj]);
+
   const handleBuscarCnpj = async () => {
     const cnpj = dadosCliente.cnpj?.replace(/\D/g, '');
     if (!cnpj || cnpj.length !== 14) return;
@@ -256,14 +323,15 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     // Validate client based on tipo_pessoa
     if (tipoPessoa === 'pj') {
       if (!dadosCliente.cnpj?.trim()) camposFaltando.push('CNPJ');
+      else if (!validarCNPJ(dadosCliente.cnpj)) camposFaltando.push('CNPJ inválido');
       if (!dadosCliente.razao_social?.trim()) camposFaltando.push('Razão Social');
-      // inscricao_municipal and inscricao_estadual are optional
       if (!dadosCliente.endereco_cnpj?.trim()) camposFaltando.push('Endereço');
       if (!dadosCliente.cep_cnpj?.trim()) camposFaltando.push('CEP');
       if (!dadosCliente.cidade?.trim()) camposFaltando.push('Cidade');
       if (!dadosCliente.estado?.trim()) camposFaltando.push('Estado');
       if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone');
       if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
+      else if (!validarEmail(dadosCliente.email)) camposFaltando.push('Email inválido');
       // Validate responsável PJ (QSA)
       camposFaltando.push(...validatePF(responsavelPJ, 'Responsável QSA'));
     } else {
@@ -454,7 +522,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-                      <Select value={dadosCliente.estado || ''} onValueChange={(v) => { setDadosCliente(prev => ({ ...prev, estado: v, cidade: '' })); }}>
+                      <Select value={dadosCliente.estado || ''} onValueChange={(v) => { setDadosCliente(prev => ({ ...prev, estado: v })); }}>
                         <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
                         <SelectContent>
                           {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
@@ -463,7 +531,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-                      <CidadeSelectPJ estado={dadosCliente.estado || ''} cidade={dadosCliente.cidade || ''} onChange={(v) => setDadosCliente(prev => ({ ...prev, cidade: v }))} />
+                      <Input value={dadosCliente.cidade || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
