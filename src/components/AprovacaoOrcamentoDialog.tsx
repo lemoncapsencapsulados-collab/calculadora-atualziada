@@ -125,6 +125,25 @@ function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
   return missing;
 }
 
+function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: string; onChange: (v: string) => void }) {
+  const [cidades, setCidades] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (estado && estado.length === 2) {
+      setLoading(true);
+      fetchCidadesPorUF(estado).then(c => { setCidades(c); setLoading(false); });
+    } else { setCidades([]); }
+  }, [estado]);
+  return (
+    <Select value={cidade} onValueChange={onChange} disabled={!estado || loading}>
+      <SelectTrigger><SelectValue placeholder={loading ? 'Carregando...' : !estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
+      <SelectContent>
+        {cidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus } = useOrcamentos();
   const { createPedidoFromOrcamento } = usePedidos();
