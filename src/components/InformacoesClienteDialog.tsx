@@ -231,12 +231,17 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: Informa
                   <Input value={dados.cep_cnpj || ''} onChange={(e) => setDados(prev => ({ ...prev, cep_cnpj: e.target.value }))} placeholder="00000-000" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Cidade</Label>
-                  <Input value={dados.cidade || ''} onChange={(e) => setDados(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
+                  <Label className="text-xs">Estado</Label>
+                  <Select value={dados.estado || ''} onValueChange={(v) => setDados(prev => ({ ...prev, estado: v, cidade: '' }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
+                    <SelectContent>
+                      {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Estado</Label>
-                  <Input value={dados.estado || ''} onChange={(e) => setDados(prev => ({ ...prev, estado: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="UF" maxLength={2} />
+                  <Label className="text-xs">Cidade</Label>
+                  <CidadeSelectPJ estado={dados.estado || ''} cidade={dados.cidade || ''} onChange={(v) => setDados(prev => ({ ...prev, cidade: v }))} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Telefone</Label>

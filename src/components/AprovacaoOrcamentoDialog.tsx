@@ -531,30 +531,32 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       {/* Cor da Tampa e Cor do Pote — todos os tipos conhecidos */}
-                      {isKnown && (
-                        <>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
-                            <Select value={d.cor_tampa || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Preta">Preta</SelectItem>
-                                <SelectItem value="Branca">Branca</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor do Pote <span className="text-destructive">*</span></Label>
-                            <Select value={d.cor_pote || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Preto">Preto</SelectItem>
-                                <SelectItem value="Transparente">Transparente</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </>
-                      )}
+                      {isKnown && (() => {
+                        const opcoesTampa = getOpcoesTampa(seg);
+                        const opcoesPote = getOpcoesPote(seg);
+                        return (
+                          <>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
+                              <Select value={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {opcoesTampa.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Cor do Pote <span className="text-destructive">*</span></Label>
+                              <Select value={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {opcoesPote.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </>
+                        );
+                      })()}
                       {/* Sabor e Cor do Conteúdo — Gummy, Solúvel, Líquido */}
                       {isGummy && (
                         <>
