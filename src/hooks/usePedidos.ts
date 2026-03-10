@@ -111,18 +111,9 @@ export const usePedidos = () => {
           if (p.orcamento_id) pedidosByOrcId.set(p.orcamento_id, p);
         });
 
-        // Get next pedido number
-        const { data: lastPedido } = await supabase
-          .from('pedidos')
-          .select('numero_pedido')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        let nextNum = 1;
-        if (lastPedido?.[0]) {
-          const match = lastPedido[0].numero_pedido.match(/PED-(\d+)/);
-          if (match) nextNum = parseInt(match[1], 10) + 1;
-        }
+        // Get next pedido number (robust: scans all PED-* numbers)
+        const nextPedStr = await getNextPedNumber();
+        let nextNum = parseInt(nextPedStr.match(/PED-(\d+)/)![1], 10);
 
         const toInsert: any[] = [];
         const toUpdate: { id: string; snapshot: any }[] = [];
