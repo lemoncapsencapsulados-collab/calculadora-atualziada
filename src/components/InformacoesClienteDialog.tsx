@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Loader2, User, Plus, Trash2 } from 'lucide-react';
+import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF } from '@/lib/brasilData';
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
   nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
