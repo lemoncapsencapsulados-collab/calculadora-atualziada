@@ -34,6 +34,18 @@ const EMPTY_PF: PessoaFisicaResponsavel = {
 
 function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
   const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
+  const [cidadesPF, setCidadesPF] = useState<string[]>([]);
+  const [loadingCidadesPF, setLoadingCidadesPF] = useState(false);
+
+  useEffect(() => {
+    if (pessoa.estado && pessoa.estado.length === 2) {
+      setLoadingCidadesPF(true);
+      fetchCidadesPorUF(pessoa.estado).then(c => { setCidadesPF(c); setLoadingCidadesPF(false); });
+    } else {
+      setCidadesPF([]);
+    }
+  }, [pessoa.estado]);
+
   return (
     <div className="bg-muted/30 rounded-lg p-3 space-y-3">
       <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
@@ -52,7 +64,12 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Estado Civil <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.estado_civil || ''} onChange={(e) => update('estado_civil', e.target.value)} placeholder="Solteiro, Casado..." />
+          <Select value={pessoa.estado_civil || ''} onValueChange={(v) => update('estado_civil', v)}>
+            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {ESTADOS_CIVIS.map(ec => <SelectItem key={ec} value={ec}>{ec}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="col-span-2 space-y-1">
           <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
@@ -63,12 +80,22 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder="Cidade" />
+          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+          <Select value={pessoa.estado || ''} onValueChange={(v) => { update('estado', v); onChange({ ...pessoa, estado: v, cidade: '' }); }}>
+            <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
+            <SelectContent>
+              {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.estado || ''} onChange={(e) => update('estado', e.target.value.toUpperCase().slice(0, 2))} placeholder="UF" maxLength={2} />
+          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+          <Select value={pessoa.cidade || ''} onValueChange={(v) => update('cidade', v)} disabled={!pessoa.estado || loadingCidadesPF}>
+            <SelectTrigger><SelectValue placeholder={loadingCidadesPF ? 'Carregando...' : !pessoa.estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
+            <SelectContent>
+              {cidadesPF.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
