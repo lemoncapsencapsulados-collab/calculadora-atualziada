@@ -51,18 +51,39 @@ export interface ServicoMarca {
   entregaveis?: Entregavel[];
 }
 
-export interface DadosCliente {
-  nome_completo?: string;
-  email?: string;
-  telefone?: string;
+export interface PessoaFisicaResponsavel {
+  nome?: string;
   cpf?: string;
+  rg?: string;
+  endereco?: string;
+  cep?: string;
+  cidade?: string;
+  estado?: string;
+  telefone?: string;
+  email?: string;
+  estado_civil?: string;
+}
+
+export interface DadosCliente {
+  tipo_pessoa?: 'pj' | 'pf';
+  // PJ fields
   cnpj?: string;
-  inscricao_estadual?: string;
   razao_social?: string;
+  inscricao_municipal?: string;
+  inscricao_estadual?: string;
   endereco_cnpj?: string;
   cep_cnpj?: string;
   cidade?: string;
   estado?: string;
+  telefone?: string;
+  email?: string;
+  // PJ - responsável PF (QSA)
+  responsavel_pj?: PessoaFisicaResponsavel;
+  // PF - lista de pessoas físicas
+  pessoas_fisicas?: PessoaFisicaResponsavel[];
+  // Legados (manter compatibilidade)
+  nome_completo?: string;
+  cpf?: string;
   forma_venda?: 'locais_fisicos' | 'venda_digital' | 'ambas' | 'sem_informacao';
 }
 

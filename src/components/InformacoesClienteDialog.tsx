@@ -1,105 +1,116 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
-import { Orcamento, DadosCliente } from '@/types/orcamento';
+import { Orcamento, DadosCliente, PessoaFisicaResponsavel } from '@/types/orcamento';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Loader2, User } from 'lucide-react';
+import { Search, Loader2, User, Plus, Trash2 } from 'lucide-react';
+
+const EMPTY_PF: PessoaFisicaResponsavel = {
+  nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
+};
+
+function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
+  const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
+  return (
+    <div className="bg-muted/30 rounded-lg p-3 space-y-3">
+      <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Nome</Label>
+          <Input value={pessoa.nome || ''} onChange={(e) => update('nome', e.target.value)} placeholder="Nome completo" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">CPF</Label>
+          <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} placeholder="000.000.000-00" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">RG</Label>
+          <Input value={pessoa.rg || ''} onChange={(e) => update('rg', e.target.value)} placeholder="RG" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Estado Civil</Label>
+          <Input value={pessoa.estado_civil || ''} onChange={(e) => update('estado_civil', e.target.value)} placeholder="Solteiro, Casado..." />
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label className="text-xs">Endereço</Label>
+          <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">CEP</Label>
+          <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Cidade</Label>
+          <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder="Cidade" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Estado</Label>
+          <Input value={pessoa.estado || ''} onChange={(e) => update('estado', e.target.value.toUpperCase().slice(0, 2))} placeholder="UF" maxLength={2} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Telefone</Label>
+          <Input value={pessoa.telefone || ''} onChange={(e) => update('telefone', e.target.value)} placeholder="(00) 00000-0000" />
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label className="text-xs">Email</Label>
+          <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} placeholder="email@exemplo.com" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface InformacoesClienteDialogProps {
   orcamento: Orcamento;
   onClose: () => void;
 }
 
-export default function InformacoesClienteDialog({
-  orcamento,
-  onClose,
-}: InformacoesClienteDialogProps) {
+export default function InformacoesClienteDialog({ orcamento, onClose }: InformacoesClienteDialogProps) {
   const { updateDadosCliente } = useOrcamentos();
   const { toast } = useToast();
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuscandoCnpj, setIsBuscandoCnpj] = useState(false);
-  
+  const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
+
   const [dados, setDados] = useState<DadosCliente>({
-    nome_completo: '',
-    email: '',
-    telefone: '',
-    cpf: '',
-    cnpj: '',
-    razao_social: '',
-    endereco_cnpj: '',
-    cep_cnpj: '',
-    cidade: '',
-    estado: '',
+    tipo_pessoa: 'pj',
+    cnpj: '', razao_social: '', inscricao_municipal: '', inscricao_estadual: '',
+    endereco_cnpj: '', cep_cnpj: '', cidade: '', estado: '', telefone: '', email: '',
   });
+
+  const [responsavelPJ, setResponsavelPJ] = useState<PessoaFisicaResponsavel>({ ...EMPTY_PF });
+  const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisicaResponsavel[]>([{ ...EMPTY_PF }]);
 
   useEffect(() => {
     if (orcamento.dados_cliente) {
-      setDados({
-        nome_completo: orcamento.dados_cliente.nome_completo || '',
-        email: orcamento.dados_cliente.email || '',
-        telefone: orcamento.dados_cliente.telefone || '',
-        cpf: orcamento.dados_cliente.cpf || '',
-        cnpj: orcamento.dados_cliente.cnpj || '',
-        razao_social: orcamento.dados_cliente.razao_social || '',
-        endereco_cnpj: orcamento.dados_cliente.endereco_cnpj || '',
-        cep_cnpj: orcamento.dados_cliente.cep_cnpj || '',
-        cidade: orcamento.dados_cliente.cidade || '',
-        estado: orcamento.dados_cliente.estado || '',
-      });
+      const dc = orcamento.dados_cliente;
+      setDados(prev => ({ ...prev, ...dc }));
+      setTipoPessoa(dc.tipo_pessoa || 'pj');
+      if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
+      if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
     }
   }, [orcamento]);
 
   const handleBuscarCnpj = async () => {
-    if (!dados.cnpj) {
-      toast({
-        title: 'CNPJ não informado',
-        description: 'Digite o CNPJ para buscar.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
+    if (!dados.cnpj) return;
     const cnpjLimpo = dados.cnpj.replace(/\D/g, '');
-    
     if (cnpjLimpo.length !== 14) {
-      toast({
-        title: 'CNPJ inválido',
-        description: 'O CNPJ deve ter 14 dígitos.',
-        variant: 'destructive',
-      });
+      toast({ title: 'CNPJ inválido', description: 'O CNPJ deve ter 14 dígitos.', variant: 'destructive' });
       return;
     }
-
     setIsBuscandoCnpj(true);
-
     try {
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpjLimpo}`);
-      
-      if (!response.ok) {
-        throw new Error('CNPJ não encontrado');
-      }
-
+      if (!response.ok) throw new Error('CNPJ não encontrado');
       const data = await response.json();
-
-      // Montar endereço completo
-      const enderecoPartes = [
-        data.logradouro,
-        data.numero,
-        data.complemento,
-        data.bairro,
-      ].filter(Boolean);
-      const enderecoCompleto = enderecoPartes.join(', ');
-
+      const enderecoCompleto = [data.logradouro, data.numero, data.complemento, data.bairro].filter(Boolean).join(', ');
       setDados(prev => ({
         ...prev,
         razao_social: data.razao_social || '',
@@ -110,17 +121,9 @@ export default function InformacoesClienteDialog({
         telefone: prev.telefone || data.ddd_telefone_1?.replace(/\D/g, '') || '',
         email: prev.email || data.email || '',
       }));
-
-      toast({
-        title: 'CNPJ encontrado',
-        description: 'Dados preenchidos automaticamente.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Erro ao buscar CNPJ',
-        description: 'CNPJ não encontrado ou serviço indisponível.',
-        variant: 'destructive',
-      });
+      toast({ title: 'CNPJ encontrado', description: 'Dados preenchidos automaticamente.' });
+    } catch {
+      toast({ title: 'Erro ao buscar CNPJ', description: 'CNPJ não encontrado ou serviço indisponível.', variant: 'destructive' });
     } finally {
       setIsBuscandoCnpj(false);
     }
@@ -128,41 +131,20 @@ export default function InformacoesClienteDialog({
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-
     try {
-      await updateDadosCliente.mutateAsync({
-        id: orcamento.id,
-        dados_cliente: dados,
-      });
+      const dadosCompletos: DadosCliente = {
+        ...dados,
+        tipo_pessoa: tipoPessoa,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+      await updateDadosCliente.mutateAsync({ id: orcamento.id, dados_cliente: dadosCompletos });
       onClose();
     } catch (error) {
       console.error('Erro ao salvar dados do cliente:', error);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const formatCpf = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
-    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  const formatCnpj = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 14);
-    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-  };
-
-  const formatTelefone = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
-    if (digits.length <= 10) {
-      return digits.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-    }
-    return digits.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-  };
-
-  const formatCep = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 8);
-    return digits.replace(/(\d{5})(\d{3})/, '$1-$2');
   };
 
   return (
@@ -176,153 +158,110 @@ export default function InformacoesClienteDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Nome Completo */}
-          <div className="space-y-2">
-            <Label htmlFor="nome_completo">Nome Completo</Label>
-            <Input
-              id="nome_completo"
-              value={dados.nome_completo}
-              onChange={(e) => setDados(prev => ({ ...prev, nome_completo: e.target.value }))}
-              placeholder="Nome completo do cliente"
-            />
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Tipo de Pessoa</Label>
+            <Select value={tipoPessoa} onValueChange={(v) => setTipoPessoa(v as 'pj' | 'pf')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pj">Pessoa Jurídica</SelectItem>
+                <SelectItem value="pf">Pessoa Física</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={dados.email}
-              onChange={(e) => setDados(prev => ({ ...prev, email: e.target.value }))}
-              placeholder="email@exemplo.com"
-            />
-          </div>
+          {tipoPessoa === 'pj' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">CNPJ</Label>
+                  <div className="flex gap-2">
+                    <Input value={dados.cnpj || ''} onChange={(e) => setDados(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
+                    <Button type="button" variant="outline" onClick={handleBuscarCnpj} disabled={isBuscandoCnpj}>
+                      {isBuscandoCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      <span className="ml-2">Buscar</span>
+                    </Button>
+                  </div>
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Razão Social</Label>
+                  <Input value={dados.razao_social || ''} onChange={(e) => setDados(prev => ({ ...prev, razao_social: e.target.value }))} placeholder="Razão social" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Inscrição Municipal</Label>
+                  <Input value={dados.inscricao_municipal || ''} onChange={(e) => setDados(prev => ({ ...prev, inscricao_municipal: e.target.value }))} placeholder="Inscrição municipal" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Inscrição Estadual</Label>
+                  <Input value={dados.inscricao_estadual || ''} onChange={(e) => setDados(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Endereço</Label>
+                  <Input value={dados.endereco_cnpj || ''} onChange={(e) => setDados(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua, número, bairro" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">CEP</Label>
+                  <Input value={dados.cep_cnpj || ''} onChange={(e) => setDados(prev => ({ ...prev, cep_cnpj: e.target.value }))} placeholder="00000-000" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Cidade</Label>
+                  <Input value={dados.cidade || ''} onChange={(e) => setDados(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Estado</Label>
+                  <Input value={dados.estado || ''} onChange={(e) => setDados(prev => ({ ...prev, estado: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="UF" maxLength={2} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Telefone</Label>
+                  <Input value={dados.telefone || ''} onChange={(e) => setDados(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Email (recebimento de NF)</Label>
+                  <Input type="email" value={dados.email || ''} onChange={(e) => setDados(prev => ({ ...prev, email: e.target.value }))} placeholder="email@exemplo.com" />
+                </div>
+              </div>
+              <PessoaFisicaFields pessoa={responsavelPJ} onChange={setResponsavelPJ} label="Responsável PF (QSA)" />
+            </div>
+          )}
 
-          {/* Telefone */}
-          <div className="space-y-2">
-            <Label htmlFor="telefone">Número de Contato</Label>
-            <Input
-              id="telefone"
-              value={dados.telefone}
-              onChange={(e) => setDados(prev => ({ ...prev, telefone: formatTelefone(e.target.value) }))}
-              placeholder="(00) 00000-0000"
-            />
-          </div>
-
-          {/* CPF */}
-          <div className="space-y-2">
-            <Label htmlFor="cpf">CPF do Cliente</Label>
-            <Input
-              id="cpf"
-              value={dados.cpf}
-              onChange={(e) => setDados(prev => ({ ...prev, cpf: formatCpf(e.target.value) }))}
-              placeholder="000.000.000-00"
-            />
-          </div>
-
-          <div className="border-t pt-4">
-            <p className="text-sm font-medium text-muted-foreground mb-4">Dados da Empresa</p>
-          </div>
-
-          {/* CNPJ */}
-          <div className="space-y-2">
-            <Label htmlFor="cnpj">CNPJ</Label>
-            <div className="flex gap-2">
-              <Input
-                id="cnpj"
-                value={dados.cnpj}
-                onChange={(e) => setDados(prev => ({ ...prev, cnpj: formatCnpj(e.target.value) }))}
-                placeholder="00.000.000/0000-00"
-                className="flex-1"
-              />
+          {tipoPessoa === 'pf' && (
+            <div className="space-y-3">
+              {pessoasFisicas.map((pf, i) => (
+                <div key={i} className="relative">
+                  <PessoaFisicaFields
+                    pessoa={pf}
+                    onChange={(updated) => {
+                      const newList = [...pessoasFisicas];
+                      newList[i] = updated;
+                      setPessoasFisicas(newList);
+                    }}
+                    label={`Pessoa Física ${i + 1}`}
+                  />
+                  {pessoasFisicas.length > 1 && (
+                    <Button
+                      type="button" variant="ghost" size="icon"
+                      className="absolute top-2 right-2 h-6 w-6 text-destructive"
+                      onClick={() => setPessoasFisicas(prev => prev.filter((_, j) => j !== i))}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
               <Button
-                type="button"
-                variant="outline"
-                onClick={handleBuscarCnpj}
-                disabled={isBuscandoCnpj}
+                type="button" variant="outline" size="sm"
+                onClick={() => setPessoasFisicas(prev => [...prev, { ...EMPTY_PF }])}
+                className="w-full"
               >
-                {isBuscandoCnpj ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Search className="w-4 h-4" />
-                )}
-                <span className="ml-2">Buscar</span>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar Pessoa
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Clique em buscar para preencher automaticamente
-            </p>
-          </div>
-
-          {/* Razão Social */}
-          <div className="space-y-2">
-            <Label htmlFor="razao_social">Razão Social</Label>
-            <Input
-              id="razao_social"
-              value={dados.razao_social}
-              onChange={(e) => setDados(prev => ({ ...prev, razao_social: e.target.value }))}
-              placeholder="Razão social da empresa"
-            />
-          </div>
-
-          {/* Endereço */}
-          <div className="space-y-2">
-            <Label htmlFor="endereco">Endereço do CNPJ</Label>
-            <Input
-              id="endereco"
-              value={dados.endereco_cnpj}
-              onChange={(e) => setDados(prev => ({ ...prev, endereco_cnpj: e.target.value }))}
-              placeholder="Rua, número, bairro..."
-            />
-          </div>
-
-          {/* CEP, Cidade, Estado */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="cep">CEP</Label>
-              <Input
-                id="cep"
-                value={dados.cep_cnpj}
-                onChange={(e) => setDados(prev => ({ ...prev, cep_cnpj: formatCep(e.target.value) }))}
-                placeholder="00000-000"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cidade">Cidade</Label>
-              <Input
-                id="cidade"
-                value={dados.cidade}
-                onChange={(e) => setDados(prev => ({ ...prev, cidade: e.target.value }))}
-                placeholder="Cidade"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="estado">Estado</Label>
-              <Input
-                id="estado"
-                value={dados.estado}
-                onChange={(e) => setDados(prev => ({ ...prev, estado: e.target.value.toUpperCase().slice(0, 2) }))}
-                placeholder="UF"
-                maxLength={2}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              'Salvar'
-            )}
+            {isSubmitting ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>) : 'Salvar'}
           </Button>
         </DialogFooter>
       </DialogContent>

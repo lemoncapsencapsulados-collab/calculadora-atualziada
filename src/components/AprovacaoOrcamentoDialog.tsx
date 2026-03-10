@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePedidos } from '@/hooks/usePedidos';
-import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento } from '@/types/orcamento';
+import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker } from 'lucide-react';
+import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,76 @@ interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
   onClose: () => void;
   onSuccess: () => void;
+}
+
+const EMPTY_PF: PessoaFisicaResponsavel = {
+  nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
+};
+
+function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
+  const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
+  return (
+    <div className="bg-muted/30 rounded-lg p-3 space-y-3">
+      <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Nome <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.nome || ''} onChange={(e) => update('nome', e.target.value)} placeholder="Nome completo" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} placeholder="000.000.000-00" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">RG <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.rg || ''} onChange={(e) => update('rg', e.target.value)} placeholder="RG" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Estado Civil <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.estado_civil || ''} onChange={(e) => update('estado_civil', e.target.value)} placeholder="Solteiro, Casado..." />
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">CEP <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder="Cidade" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.estado || ''} onChange={(e) => update('estado', e.target.value.toUpperCase().slice(0, 2))} placeholder="UF" maxLength={2} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.telefone || ''} onChange={(e) => update('telefone', e.target.value)} placeholder="(00) 00000-0000" />
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+          <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} placeholder="email@exemplo.com" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
+  const missing: string[] = [];
+  if (!pf.nome?.trim()) missing.push(`Nome (${label})`);
+  if (!pf.cpf?.trim()) missing.push(`CPF (${label})`);
+  if (!pf.rg?.trim()) missing.push(`RG (${label})`);
+  if (!pf.endereco?.trim()) missing.push(`Endereço (${label})`);
+  if (!pf.cep?.trim()) missing.push(`CEP (${label})`);
+  if (!pf.cidade?.trim()) missing.push(`Cidade (${label})`);
+  if (!pf.estado?.trim()) missing.push(`Estado (${label})`);
+  if (!pf.telefone?.trim()) missing.push(`Telefone (${label})`);
+  if (!pf.email?.trim()) missing.push(`Email (${label})`);
+  if (!pf.estado_civil?.trim()) missing.push(`Estado Civil (${label})`);
+  return missing;
 }
 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
@@ -39,11 +109,21 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : undefined
   );
 
-  // Dados do cliente
+  // Tipo pessoa
+  const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
+
+  // Dados PJ
   const [dadosCliente, setDadosCliente] = useState<DadosCliente>({
-    nome_completo: '', email: '', telefone: '', cpf: '', cnpj: '',
-    razao_social: '', endereco_cnpj: '', cep_cnpj: '', cidade: '', estado: '',
+    tipo_pessoa: 'pj',
+    cnpj: '', razao_social: '', inscricao_municipal: '', inscricao_estadual: '',
+    endereco_cnpj: '', cep_cnpj: '', cidade: '', estado: '', telefone: '', email: '',
   });
+
+  // Responsável PJ (QSA)
+  const [responsavelPJ, setResponsavelPJ] = useState<PessoaFisicaResponsavel>({ ...EMPTY_PF });
+
+  // PF - lista
+  const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisicaResponsavel[]>([{ ...EMPTY_PF }]);
 
   // Forma de venda
   const [formaVenda, setFormaVenda] = useState<string>('sem_informacao');
@@ -73,8 +153,12 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
   useEffect(() => {
     if (orcamento.dados_cliente) {
-      setDadosCliente(prev => ({ ...prev, ...orcamento.dados_cliente }));
-      setFormaVenda(orcamento.dados_cliente.forma_venda || 'sem_informacao');
+      const dc = orcamento.dados_cliente;
+      setDadosCliente(prev => ({ ...prev, ...dc }));
+      setTipoPessoa(dc.tipo_pessoa || 'pj');
+      setFormaVenda(dc.forma_venda || 'sem_informacao');
+      if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
+      if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
     }
     if (orcamento.detalhamento_frete) {
       setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
@@ -87,6 +171,13 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       setCondicoesPagamento(orcamento.condicoes_pagamento);
     }
   }, [orcamento]);
+
+  // Auto-set frete when envio tipo changes
+  useEffect(() => {
+    if (detalhamentoEnvio.tipo === 'total_produtor') {
+      setFreteLemonCaps(false);
+    }
+  }, [detalhamentoEnvio.tipo]);
 
   const handleBuscarCnpj = async () => {
     const cnpj = dadosCliente.cnpj?.replace(/\D/g, '');
@@ -113,37 +204,60 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   };
 
   const handleConfirmAprovacao = async () => {
-    // Validar campos obrigatórios
     const camposFaltando: string[] = [];
-    if (!dadosCliente.nome_completo?.trim()) camposFaltando.push('Nome Completo');
-    if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
-    if (!dadosCliente.cpf?.trim()) camposFaltando.push('CPF');
-    // CNPJ não é obrigatório
-    if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone (WhatsApp)');
-    
-    // Forma de venda "Sem informação" é permitida
+
+    // Validate client based on tipo_pessoa
+    if (tipoPessoa === 'pj') {
+      if (!dadosCliente.cnpj?.trim()) camposFaltando.push('CNPJ');
+      if (!dadosCliente.razao_social?.trim()) camposFaltando.push('Razão Social');
+      // inscricao_municipal and inscricao_estadual are optional
+      if (!dadosCliente.endereco_cnpj?.trim()) camposFaltando.push('Endereço');
+      if (!dadosCliente.cep_cnpj?.trim()) camposFaltando.push('CEP');
+      if (!dadosCliente.cidade?.trim()) camposFaltando.push('Cidade');
+      if (!dadosCliente.estado?.trim()) camposFaltando.push('Estado');
+      if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone');
+      if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
+      // Validate responsável PJ (QSA)
+      camposFaltando.push(...validatePF(responsavelPJ, 'Responsável QSA'));
+    } else {
+      // PF
+      pessoasFisicas.forEach((pf, i) => {
+        camposFaltando.push(...validatePF(pf, `Pessoa Física ${i + 1}`));
+      });
+    }
 
     // Validar detalhes de produção por item
     orcamento.itens_producao.forEach((item, idx) => {
       const seg = (item.segmento || '').toLowerCase();
       const d = detalhesProducao[idx] || {};
-      if (seg.includes('encapsulado')) {
+
+      // All types need cor_pote and cor_tampa
+      const isEncapsulado = seg.includes('encapsulado');
+      const isGummy = seg.includes('gummy');
+      const isSoluvel = seg.includes('solúvel') || seg.includes('soluvel');
+      const isLiquido = seg.includes('líquido') || seg.includes('liquido');
+      const isKnown = isEncapsulado || isGummy || isSoluvel || isLiquido;
+
+      if (isKnown) {
         if (!d.cor_tampa) camposFaltando.push(`Cor da Tampa (${item.nome_produto})`);
         if (!d.cor_pote) camposFaltando.push(`Cor do Pote (${item.nome_produto})`);
-      } else if (seg.includes('gummy')) {
-        if (!d.cor_gummy) camposFaltando.push(`Cor da Gummy (${item.nome_produto})`);
-        if (!d.sabor_gummy) camposFaltando.push(`Sabor da Gummy (${item.nome_produto})`);
-      } else if (seg.includes('solúvel') || seg.includes('soluvel')) {
-        if (!d.sabor_soluvel) camposFaltando.push(`Sabor Solúvel (${item.nome_produto})`);
-        if (!d.cor_soluvel) camposFaltando.push(`Cor Solúvel (${item.nome_produto})`);
-      } else if (seg.includes('líquido') || seg.includes('liquido')) {
+      }
+
+      // Gummy, Líquido, Solúvel need sabor and cor do conteúdo
+      if (isGummy) {
+        if (!d.sabor_gummy) camposFaltando.push(`Sabor (${item.nome_produto})`);
+        if (!d.cor_gummy) camposFaltando.push(`Cor do Conteúdo (${item.nome_produto})`);
+      } else if (isSoluvel) {
+        if (!d.sabor_soluvel) camposFaltando.push(`Sabor (${item.nome_produto})`);
+        if (!d.cor_soluvel) camposFaltando.push(`Cor do Conteúdo (${item.nome_produto})`);
+      } else if (isLiquido) {
         if (!d.sabor_liquido) camposFaltando.push(`Sabor (${item.nome_produto})`);
-        if (!d.cor_liquido) camposFaltando.push(`Cor (${item.nome_produto})`);
-      } else {
-        // Segmento desconhecido — exigir observação
+        if (!d.cor_liquido) camposFaltando.push(`Cor do Conteúdo (${item.nome_produto})`);
+      } else if (!isEncapsulado) {
         if (!d.observacao_producao) camposFaltando.push(`Observação de Produção (${item.nome_produto})`);
       }
     });
+
     if (!dataPagamento) camposFaltando.push('Data de Pagamento');
 
     const erros = validarCondicoesPagamento(condicoesPagamento);
@@ -171,7 +285,10 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     try {
       const dadosClienteCompletos: DadosCliente = {
         ...dadosCliente,
+        tipo_pessoa: tipoPessoa,
         forma_venda: formaVenda as DadosCliente['forma_venda'],
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
       };
 
       const detalhamentoFrete: DetalhamentoFrete = {
@@ -181,13 +298,11 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         detalhamento_envio: detalhamentoEnvio,
       };
 
-      // Merge detalhes_producao into itens
       const itensComDetalhes = orcamento.itens_producao.map((item, idx) => ({
         ...item,
         detalhes_producao: detalhesProducao[idx] || undefined,
       }));
 
-      // Save all data to orcamento
       await updateDadosCliente.mutateAsync({ id: orcamento.id, dados_cliente: dadosClienteCompletos });
       await updateDetalhamentoFrete.mutateAsync({ id: orcamento.id, detalhamento_frete: detalhamentoFrete });
       await updateOrcamento.mutateAsync({
@@ -195,21 +310,19 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
       });
 
-      // Update status to approved
       await updateStatus.mutateAsync({
         id: orcamento.id,
         status: 'pago',
-        data_pagamento: dataPagamento.toISOString(),
+        data_pagamento: dataPagamento!.toISOString(),
       });
 
-      // Auto-create pedido from orcamento
       const orcamentoCompleto = {
         ...orcamento,
         itens_producao: itensComDetalhes,
         dados_cliente: dadosClienteCompletos,
         detalhamento_frete: detalhamentoFrete,
         condicoes_pagamento: condicoesPagamento,
-        data_pagamento: dataPagamento.toISOString(),
+        data_pagamento: dataPagamento!.toISOString(),
       };
 
       await createPedidoFromOrcamento(orcamentoCompleto);
@@ -246,54 +359,112 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 1. Informações do Cliente
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Nome Completo <span className="text-destructive">*</span></Label>
-                  <Input value={dadosCliente.nome_completo || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, nome_completo: e.target.value }))} placeholder="Nome completo" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
-                  <Input type="email" value={dadosCliente.email || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, email: e.target.value }))} placeholder="email@exemplo.com" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Telefone (WhatsApp) <span className="text-destructive">*</span></Label>
-                  <Input value={dadosCliente.telefone || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
-                  <Input value={dadosCliente.cpf || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cpf: e.target.value }))} placeholder="000.000.000-00" />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">CNPJ</Label>
-                  <div className="flex gap-2">
-                    <Input value={dadosCliente.cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
-                    <Button type="button" variant="outline" size="sm" onClick={handleBuscarCnpj} disabled={isSearchingCnpj || !dadosCliente.cnpj}>
-                      {isSearchingCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Inscrição Estadual</Label>
-                  <Input value={dadosCliente.inscricao_estadual || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Razão Social</Label>
-                  <Input value={dadosCliente.razao_social || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, razao_social: e.target.value }))} placeholder="Razão social" />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Endereço</Label>
-                  <Input value={dadosCliente.endereco_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua, número, bairro" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Cidade</Label>
-                  <Input value={dadosCliente.cidade || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Estado</Label>
-                  <Input value={dadosCliente.estado || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, estado: e.target.value }))} placeholder="UF" maxLength={2} />
-                </div>
+            <CardContent className="space-y-4">
+              {/* Selector PJ / PF */}
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Tipo de Pessoa <span className="text-destructive">*</span></Label>
+                <Select value={tipoPessoa} onValueChange={(v) => setTipoPessoa(v as 'pj' | 'pf')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pj">Pessoa Jurídica</SelectItem>
+                    <SelectItem value="pf">Pessoa Física</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {tipoPessoa === 'pj' && (
+                <div className="space-y-4">
+                  {/* PJ Fields */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
+                      <div className="flex gap-2">
+                        <Input value={dadosCliente.cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
+                        <Button type="button" variant="outline" size="sm" onClick={handleBuscarCnpj} disabled={isSearchingCnpj || !dadosCliente.cnpj}>
+                          {isSearchingCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Razão Social <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.razao_social || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, razao_social: e.target.value }))} placeholder="Razão social" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Inscrição Municipal</Label>
+                      <Input value={dadosCliente.inscricao_municipal || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_municipal: e.target.value }))} placeholder="Inscrição municipal" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Inscrição Estadual</Label>
+                      <Input value={dadosCliente.inscricao_estadual || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.endereco_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua, número, bairro" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">CEP <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.cep_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cep_cnpj: e.target.value }))} placeholder="00000-000" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.cidade || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.estado || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, estado: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="UF" maxLength={2} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.telefone || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-xs">Email (recebimento de NF) <span className="text-destructive">*</span></Label>
+                      <Input type="email" value={dadosCliente.email || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, email: e.target.value }))} placeholder="email@exemplo.com" />
+                    </div>
+                  </div>
+
+                  {/* Responsável PF (QSA) */}
+                  <PessoaFisicaFields
+                    pessoa={responsavelPJ}
+                    onChange={setResponsavelPJ}
+                    label="Responsável PF (QSA)"
+                  />
+                </div>
+              )}
+
+              {tipoPessoa === 'pf' && (
+                <div className="space-y-3">
+                  {pessoasFisicas.map((pf, i) => (
+                    <div key={i} className="relative">
+                      <PessoaFisicaFields
+                        pessoa={pf}
+                        onChange={(updated) => {
+                          const newList = [...pessoasFisicas];
+                          newList[i] = updated;
+                          setPessoasFisicas(newList);
+                        }}
+                        label={`Pessoa Física ${i + 1}`}
+                      />
+                      {pessoasFisicas.length > 1 && (
+                        <Button
+                          type="button" variant="ghost" size="icon"
+                          className="absolute top-2 right-2 h-6 w-6 text-destructive"
+                          onClick={() => setPessoasFisicas(prev => prev.filter((_, j) => j !== i))}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button" variant="outline" size="sm"
+                    onClick={() => setPessoasFisicas(prev => [...prev, { ...EMPTY_PF }])}
+                    className="w-full"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Adicionar Pessoa
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -311,10 +482,10 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 const isEncapsulado = seg.includes('encapsulado');
                 const isGummy = seg.includes('gummy');
                 const isSoluvel = seg.includes('solúvel') || seg.includes('soluvel');
-                const d = detalhesProducao[idx] || {};
-
                 const isLiquido = seg.includes('líquido') || seg.includes('liquido');
-                const isOutro = !isEncapsulado && !isGummy && !isSoluvel && !isLiquido;
+                const isKnown = isEncapsulado || isGummy || isSoluvel || isLiquido;
+                const isOutro = !isKnown;
+                const d = detalhesProducao[idx] || {};
 
                 return (
                   <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-3">
@@ -326,14 +497,15 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      {isEncapsulado && (
+                      {/* Cor da Tampa e Cor do Pote — todos os tipos conhecidos */}
+                      {isKnown && (
                         <>
                           <div className="space-y-1">
                             <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
                             <Select value={d.cor_tampa || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
-                              <SelectItem value="Preta">Preta</SelectItem>
+                                <SelectItem value="Preta">Preta</SelectItem>
                                 <SelectItem value="Branca">Branca</SelectItem>
                               </SelectContent>
                             </Select>
@@ -350,21 +522,11 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                           </div>
                         </>
                       )}
+                      {/* Sabor e Cor do Conteúdo — Gummy, Solúvel, Líquido */}
                       {isGummy && (
                         <>
                           <div className="space-y-1">
-                            <Label className="text-xs">Cor da Gummy <span className="text-destructive">*</span></Label>
-                            <Select value={d.cor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Vermelho">Vermelho</SelectItem>
-                                <SelectItem value="Roxo">Roxo</SelectItem>
-                                <SelectItem value="Verde">Verde</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Sabor da Gummy <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Sabor <span className="text-destructive">*</span></Label>
                             <Select value={d.sabor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_gummy', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -373,6 +535,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                                 <SelectItem value="Uva">Uva</SelectItem>
                                 <SelectItem value="Limão">Limão</SelectItem>
                                 <SelectItem value="Maçã verde">Maçã verde</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Cor do Conteúdo <span className="text-destructive">*</span></Label>
+                            <Select value={d.cor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}>
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Vermelho">Vermelho</SelectItem>
+                                <SelectItem value="Roxo">Roxo</SelectItem>
+                                <SelectItem value="Verde">Verde</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -393,7 +566,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             </Select>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Cor <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Cor do Conteúdo <span className="text-destructive">*</span></Label>
                             <Select value={d.cor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_soluvel', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -420,7 +593,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             </Select>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Cor <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Cor do Conteúdo <span className="text-destructive">*</span></Label>
                             <Select value={d.cor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_liquido', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -528,6 +701,12 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     />
                   </div>
                 )}
+
+                {detalhamentoEnvio.tipo === 'total_produtor' && (
+                  <p className="text-xs text-muted-foreground ml-6">
+                    Não será utilizada logística da LemonCaps para cliente final.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3 pt-3 border-t">
@@ -579,7 +758,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             </CardContent>
           </Card>
 
-          {/* 5. Data de Pagamento */}
+          {/* 6. Data de Pagamento */}
           <Card className={!dataPagamento ? 'border-destructive' : 'border-green-500'}>
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
