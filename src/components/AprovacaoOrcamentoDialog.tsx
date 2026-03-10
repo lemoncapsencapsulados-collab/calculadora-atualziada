@@ -259,6 +259,40 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     }
   }, [detalhamentoEnvio.tipo]);
 
+  // Auto-select single-option production details
+  useEffect(() => {
+    orcamento.itens_producao.forEach((item, idx) => {
+      const seg = (item.segmento || '').toLowerCase();
+      const opcoesPote = getOpcoesPote(seg);
+      const opcoesTampa = getOpcoesTampa(seg);
+      const current = detalhesProducao[idx] || {};
+      let changed = false;
+      const updated = { ...current };
+      if (opcoesPote.length === 1 && !current.cor_pote) { updated.cor_pote = opcoesPote[0]; changed = true; }
+      if (opcoesTampa.length === 1 && !current.cor_tampa) { updated.cor_tampa = opcoesTampa[0]; changed = true; }
+      if (changed) {
+        setDetalhesProducao(prev => ({ ...prev, [idx]: { ...(prev[idx] || {}), ...updated } }));
+      }
+    });
+  }, [orcamento.itens_producao]);
+
+  // CEP auto-fill for PJ
+  useEffect(() => {
+    const cepNums = (dadosCliente.cep_cnpj || '').replace(/\D/g, '');
+    if (cepNums.length === 8) {
+      fetchEnderecoPorCEP(cepNums).then(result => {
+        if (result) {
+          setDadosCliente(prev => ({
+            ...prev,
+            endereco_cnpj: result.logradouro || prev.endereco_cnpj,
+            cidade: result.cidade,
+            estado: result.estado,
+          }));
+        }
+      });
+    }
+  }, [dadosCliente.cep_cnpj]);
+
   const handleBuscarCnpj = async () => {
     const cnpj = dadosCliente.cnpj?.replace(/\D/g, '');
     if (!cnpj || cnpj.length !== 14) return;
