@@ -145,6 +145,7 @@ function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
   const missing: string[] = [];
   if (!pf.nome?.trim()) missing.push(`Nome (${label})`);
   if (!pf.cpf?.trim()) missing.push(`CPF (${label})`);
+  else if (!validarCPF(pf.cpf)) missing.push(`CPF inválido (${label})`);
   if (!pf.rg?.trim()) missing.push(`RG (${label})`);
   if (!pf.endereco?.trim()) missing.push(`Endereço (${label})`);
   if (!pf.cep?.trim()) missing.push(`CEP (${label})`);
@@ -152,6 +153,7 @@ function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
   if (!pf.estado?.trim()) missing.push(`Estado (${label})`);
   if (!pf.telefone?.trim()) missing.push(`Telefone (${label})`);
   if (!pf.email?.trim()) missing.push(`Email (${label})`);
+  else if (!validarEmail(pf.email)) missing.push(`Email inválido (${label})`);
   if (!pf.estado_civil?.trim()) missing.push(`Estado Civil (${label})`);
   return missing;
 }
