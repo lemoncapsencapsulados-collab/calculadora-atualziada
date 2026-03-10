@@ -84,17 +84,3 @@ export function getOpcoesTampa(segmento: string): string[] {
   // Encapsulado
   return ['Preta', 'Branca'];
 }
-  if (seg.includes('gummy')) return ['Transparente'];
-  if (seg.includes('solúvel') || seg.includes('soluvel')) return ['Preto'];
-  // Encapsulado e Líquido
-  return ['Preto', 'Transparente'];
-}
-
-export function getOpcoesTampa(segmento: string): string[] {
-  const seg = segmento.toLowerCase();
-  if (seg.includes('gummy')) return ['Branca'];
-  if (seg.includes('líquido') || seg.includes('liquido')) return ['Preta'];
-  if (seg.includes('solúvel') || seg.includes('soluvel')) return ['Preta'];
-  // Encapsulado
-  return ['Preta', 'Branca'];
-}
