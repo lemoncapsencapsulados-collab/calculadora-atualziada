@@ -24,6 +24,23 @@ const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   updated_at: o.updated_at || undefined,
 });
 
+const getNextPedNumber = async (): Promise<string> => {
+  const { data } = await supabase
+    .from('pedidos')
+    .select('numero_pedido')
+    .like('numero_pedido', 'PED-%');
+
+  let maxNum = 0;
+  (data || []).forEach(p => {
+    const match = p.numero_pedido.match(/PED-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+  return `PED-${(maxNum + 1).toString().padStart(3, '0')}`;
+};
+
 const WEBHOOK_URL = 'https://n8n.lemoncaps.com.br/webhook/request-order';
 
 const notifyWebhook = async (snapshot: any) => {
