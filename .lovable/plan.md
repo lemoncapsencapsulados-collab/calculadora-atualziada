@@ -1,27 +1,17 @@
 
+# Plano: 3 ajustes na Aprovação de Orçamento
 
-# Correção: Erro de chave duplicada ao gerar pedido do orçamento
+## 1. CNPJ não obrigatório
+Remover a validação que exige CNPJ (linha 121) e remover o asterisco vermelho do label (linha 268).
 
-## Problema identificado
+## 2. Encapsulados — Cores corretas
+- **Tampa do Pote**: Preta / Branca (atualmente Preta / Transparente)
+- **Cor do Pote**: Preta / Transparente (já está correto, sem alteração)
 
-Dois bugs combinados causam o erro `duplicate key value violates unique constraint "pedidos_numero_pedido_key"`:
+Arquivo: `src/components/AprovacaoOrcamentoDialog.tsx`, linhas 336-338 — trocar "Transparente" por "Branca" na tampa.
 
-1. **Geração de número incorreta**: A query busca apenas o último pedido criado (`ORDER BY created_at DESC LIMIT 1`). O último pedido tem `numero_pedido: "OP-20260306130939"`, que não corresponde ao padrão `PED-(\d+)`. O regex falha e o sistema tenta criar `PED-001`, que já existe.
+## 3. Forma de Venda aceitar "Sem informação"
+Remover a validação da linha 124 que bloqueia quando `formaVenda === 'sem_informacao'`.
 
-2. **Race condition com sync**: O sync automático (que roda ao montar a página de Pedidos) também cria pedidos para orçamentos pagos. Se o sync já criou o pedido para aquele orçamento, o `createPedidoFromOrcamento` tenta criar um duplicado.
-
-## Correção
-
-**Arquivo**: `src/hooks/usePedidos.ts`
-
-### 1. Corrigir geração do numero_pedido
-Em vez de buscar apenas o último pedido, buscar TODOS os `numero_pedido` que seguem o padrão `PED-*`, extrair o maior número e incrementar. Isso garante que mesmo com pedidos tipo `OP-*` no meio, o próximo `PED-XXX` será correto.
-
-### 2. Evitar duplicata por orcamento_id
-Antes de inserir, verificar se já existe um pedido com o mesmo `orcamento_id`. Se existir, apenas atualizar o snapshot em vez de criar um novo.
-
-### 3. Mesma correção no sync
-Aplicar a mesma lógica de busca do maior número PED no sync automático.
-
-**Resultado**: A geração de pedidos não falhará mais com chave duplicada, independente da ordem de execução sync vs. aprovação manual.
-
+## Arquivo modificado
+- `src/components/AprovacaoOrcamentoDialog.tsx`

@@ -24,6 +24,23 @@ const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   updated_at: o.updated_at || undefined,
 });
 
+const getNextPedNumber = async (): Promise<string> => {
+  const { data } = await supabase
+    .from('pedidos')
+    .select('numero_pedido')
+    .like('numero_pedido', 'PED-%');
+
+  let maxNum = 0;
+  (data || []).forEach(p => {
+    const match = p.numero_pedido.match(/PED-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+  return `PED-${(maxNum + 1).toString().padStart(3, '0')}`;
+};
+
 const WEBHOOK_URL = 'https://n8n.lemoncaps.com.br/webhook/request-order';
 
 const notifyWebhook = async (snapshot: any) => {
@@ -94,18 +111,9 @@ export const usePedidos = () => {
           if (p.orcamento_id) pedidosByOrcId.set(p.orcamento_id, p);
         });
 
-        // Get next pedido number
-        const { data: lastPedido } = await supabase
-          .from('pedidos')
-          .select('numero_pedido')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        let nextNum = 1;
-        if (lastPedido?.[0]) {
-          const match = lastPedido[0].numero_pedido.match(/PED-(\d+)/);
-          if (match) nextNum = parseInt(match[1], 10) + 1;
-        }
+        // Get next pedido number (robust: scans all PED-* numbers)
+        const nextPedStr = await getNextPedNumber();
+        let nextNum = parseInt(nextPedStr.match(/PED-(\d+)/)![1], 10);
 
         const toInsert: any[] = [];
         const toUpdate: { id: string; snapshot: any }[] = [];
@@ -198,21 +206,28 @@ export const usePedidos = () => {
 
   const createPedidoFromOrcamento = useMutation({
     mutationFn: async (orcamento: Orcamento) => {
-      const { data: existingPedidos } = await supabase
+      // Check if pedido already exists for this orcamento
+      const { data: existing } = await supabase
         .from('pedidos')
-        .select('numero_pedido')
-        .order('created_at', { ascending: false })
+        .select('id')
+        .eq('orcamento_id', orcamento.id)
         .limit(1);
 
-      let nextNum = 'PED-001';
-      if (existingPedidos && existingPedidos.length > 0) {
-        const match = existingPedidos[0].numero_pedido.match(/PED-(\d+)/);
-        if (match) {
-          nextNum = `PED-${(parseInt(match[1], 10) + 1).toString().padStart(3, '0')}`;
-        }
+      const snapshot = buildSnapshotFromOrcamento(orcamento);
+
+      if (existing && existing.length > 0) {
+        // Update existing instead of duplicating
+        const { data, error } = await supabase
+          .from('pedidos')
+          .update({ orcamento_snapshot: snapshot as any })
+          .eq('id', existing[0].id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
       }
 
-      const snapshot = buildSnapshotFromOrcamento(orcamento);
+      const nextNum = await getNextPedNumber();
       const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item) => sum + (item.quantidade || 1), 0);
 
       const { data, error } = await supabase
