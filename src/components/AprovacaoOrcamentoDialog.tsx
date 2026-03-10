@@ -434,12 +434,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       <Input value={dadosCliente.cep_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cep_cnpj: e.target.value }))} placeholder="00000-000" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.cidade || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
+                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+                      <Select value={dadosCliente.estado || ''} onValueChange={(v) => { setDadosCliente(prev => ({ ...prev, estado: v, cidade: '' })); }}>
+                        <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
+                        <SelectContent>
+                          {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.estado || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, estado: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="UF" maxLength={2} />
+                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                      <CidadeSelectPJ estado={dadosCliente.estado || ''} cidade={dadosCliente.cidade || ''} onChange={(v) => setDadosCliente(prev => ({ ...prev, cidade: v }))} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
