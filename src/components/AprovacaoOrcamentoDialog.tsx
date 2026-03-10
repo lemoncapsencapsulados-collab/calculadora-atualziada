@@ -323,14 +323,15 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     // Validate client based on tipo_pessoa
     if (tipoPessoa === 'pj') {
       if (!dadosCliente.cnpj?.trim()) camposFaltando.push('CNPJ');
+      else if (!validarCNPJ(dadosCliente.cnpj)) camposFaltando.push('CNPJ inválido');
       if (!dadosCliente.razao_social?.trim()) camposFaltando.push('Razão Social');
-      // inscricao_municipal and inscricao_estadual are optional
       if (!dadosCliente.endereco_cnpj?.trim()) camposFaltando.push('Endereço');
       if (!dadosCliente.cep_cnpj?.trim()) camposFaltando.push('CEP');
       if (!dadosCliente.cidade?.trim()) camposFaltando.push('Cidade');
       if (!dadosCliente.estado?.trim()) camposFaltando.push('Estado');
       if (!dadosCliente.telefone?.trim()) camposFaltando.push('Telefone');
       if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
+      else if (!validarEmail(dadosCliente.email)) camposFaltando.push('Email inválido');
       // Validate responsável PJ (QSA)
       camposFaltando.push(...validatePF(responsavelPJ, 'Responsável QSA'));
     } else {
