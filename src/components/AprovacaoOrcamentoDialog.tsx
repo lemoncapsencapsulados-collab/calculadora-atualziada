@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
+import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -33,6 +34,18 @@ const EMPTY_PF: PessoaFisicaResponsavel = {
 
 function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
   const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
+  const [cidadesPF, setCidadesPF] = useState<string[]>([]);
+  const [loadingCidadesPF, setLoadingCidadesPF] = useState(false);
+
+  useEffect(() => {
+    if (pessoa.estado && pessoa.estado.length === 2) {
+      setLoadingCidadesPF(true);
+      fetchCidadesPorUF(pessoa.estado).then(c => { setCidadesPF(c); setLoadingCidadesPF(false); });
+    } else {
+      setCidadesPF([]);
+    }
+  }, [pessoa.estado]);
+
   return (
     <div className="bg-muted/30 rounded-lg p-3 space-y-3">
       <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
@@ -51,7 +64,12 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Estado Civil <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.estado_civil || ''} onChange={(e) => update('estado_civil', e.target.value)} placeholder="Solteiro, Casado..." />
+          <Select value={pessoa.estado_civil || ''} onValueChange={(v) => update('estado_civil', v)}>
+            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {ESTADOS_CIVIS.map(ec => <SelectItem key={ec} value={ec}>{ec}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="col-span-2 space-y-1">
           <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
@@ -62,12 +80,22 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder="Cidade" />
+          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+          <Select value={pessoa.estado || ''} onValueChange={(v) => { update('estado', v); onChange({ ...pessoa, estado: v, cidade: '' }); }}>
+            <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
+            <SelectContent>
+              {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.estado || ''} onChange={(e) => update('estado', e.target.value.toUpperCase().slice(0, 2))} placeholder="UF" maxLength={2} />
+          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+          <Select value={pessoa.cidade || ''} onValueChange={(v) => update('cidade', v)} disabled={!pessoa.estado || loadingCidadesPF}>
+            <SelectTrigger><SelectValue placeholder={loadingCidadesPF ? 'Carregando...' : !pessoa.estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
+            <SelectContent>
+              {cidadesPF.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
@@ -95,6 +123,25 @@ function validatePF(pf: PessoaFisicaResponsavel, label: string): string[] {
   if (!pf.email?.trim()) missing.push(`Email (${label})`);
   if (!pf.estado_civil?.trim()) missing.push(`Estado Civil (${label})`);
   return missing;
+}
+
+function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: string; onChange: (v: string) => void }) {
+  const [cidades, setCidades] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (estado && estado.length === 2) {
+      setLoading(true);
+      fetchCidadesPorUF(estado).then(c => { setCidades(c); setLoading(false); });
+    } else { setCidades([]); }
+  }, [estado]);
+  return (
+    <Select value={cidade} onValueChange={onChange} disabled={!estado || loading}>
+      <SelectTrigger><SelectValue placeholder={loading ? 'Carregando...' : !estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
+      <SelectContent>
+        {cidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
@@ -406,12 +453,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       <Input value={dadosCliente.cep_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cep_cnpj: e.target.value }))} placeholder="00000-000" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.cidade || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
+                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+                      <Select value={dadosCliente.estado || ''} onValueChange={(v) => { setDadosCliente(prev => ({ ...prev, estado: v, cidade: '' })); }}>
+                        <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
+                        <SelectContent>
+                          {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.estado || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, estado: e.target.value.toUpperCase().slice(0, 2) }))} placeholder="UF" maxLength={2} />
+                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                      <CidadeSelectPJ estado={dadosCliente.estado || ''} cidade={dadosCliente.cidade || ''} onChange={(v) => setDadosCliente(prev => ({ ...prev, cidade: v }))} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
@@ -498,30 +550,32 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       {/* Cor da Tampa e Cor do Pote — todos os tipos conhecidos */}
-                      {isKnown && (
-                        <>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
-                            <Select value={d.cor_tampa || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Preta">Preta</SelectItem>
-                                <SelectItem value="Branca">Branca</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor do Pote <span className="text-destructive">*</span></Label>
-                            <Select value={d.cor_pote || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Preto">Preto</SelectItem>
-                                <SelectItem value="Transparente">Transparente</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </>
-                      )}
+                      {isKnown && (() => {
+                        const opcoesTampa = getOpcoesTampa(seg);
+                        const opcoesPote = getOpcoesPote(seg);
+                        return (
+                          <>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
+                              <Select value={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {opcoesTampa.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Cor do Pote <span className="text-destructive">*</span></Label>
+                              <Select value={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                <SelectContent>
+                                  {opcoesPote.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </>
+                        );
+                      })()}
                       {/* Sabor e Cor do Conteúdo — Gummy, Solúvel, Líquido */}
                       {isGummy && (
                         <>
