@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Loader2, User, Plus, Trash2 } from 'lucide-react';
-import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF } from '@/lib/brasilData';
+import { ESTADOS_CIVIS, UFS_BRASIL, fetchEnderecoPorCEP } from '@/lib/brasilData';
+import { validarCPF, validarEmail } from '@/lib/validators';
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
   nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
@@ -18,17 +19,39 @@ const EMPTY_PF: PessoaFisicaResponsavel = {
 
 function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
   const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
-  const [cidadesPF, setCidadesPF] = useState<string[]>([]);
-  const [loadingCidadesPF, setLoadingCidadesPF] = useState(false);
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [cpfError, setCpfError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
+  // CEP auto-fill
   useEffect(() => {
-    if (pessoa.estado && pessoa.estado.length === 2) {
-      setLoadingCidadesPF(true);
-      fetchCidadesPorUF(pessoa.estado).then(c => { setCidadesPF(c); setLoadingCidadesPF(false); });
-    } else {
-      setCidadesPF([]);
+    const cepNums = (pessoa.cep || '').replace(/\D/g, '');
+    if (cepNums.length === 8) {
+      setLoadingCep(true);
+      fetchEnderecoPorCEP(cepNums).then(result => {
+        if (result) {
+          onChange({ ...pessoa, endereco: result.logradouro || pessoa.endereco, cidade: result.cidade, estado: result.estado });
+        }
+        setLoadingCep(false);
+      });
     }
-  }, [pessoa.estado]);
+  }, [pessoa.cep]);
+
+  const handleCpfBlur = () => {
+    if (pessoa.cpf && pessoa.cpf.replace(/\D/g, '').length > 0 && !validarCPF(pessoa.cpf)) {
+      setCpfError('CPF inválido');
+    } else {
+      setCpfError('');
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (pessoa.email && pessoa.email.trim() && !validarEmail(pessoa.email)) {
+      setEmailError('Email inválido');
+    } else {
+      setEmailError('');
+    }
+  };
 
   return (
     <div className="bg-muted/30 rounded-lg p-3 space-y-3">
@@ -40,7 +63,8 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="space-y-1">
           <Label className="text-xs">CPF</Label>
-          <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} placeholder="000.000.000-00" />
+          <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} onBlur={handleCpfBlur} placeholder="000.000.000-00" className={cpfError ? 'border-destructive' : ''} />
+          {cpfError && <p className="text-[10px] text-destructive">{cpfError}</p>}
         </div>
         <div className="space-y-1">
           <Label className="text-xs">RG</Label>
@@ -60,12 +84,12 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CEP</Label>
+          <Label className="text-xs">CEP{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
           <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Estado</Label>
-          <Select value={pessoa.estado || ''} onValueChange={(v) => { update('estado', v); onChange({ ...pessoa, estado: v, cidade: '' }); }}>
+          <Select value={pessoa.estado || ''} onValueChange={(v) => { onChange({ ...pessoa, estado: v }); }}>
             <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
             <SelectContent>
               {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
@@ -74,12 +98,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Cidade</Label>
-          <Select value={pessoa.cidade || ''} onValueChange={(v) => update('cidade', v)} disabled={!pessoa.estado || loadingCidadesPF}>
-            <SelectTrigger><SelectValue placeholder={loadingCidadesPF ? 'Carregando...' : !pessoa.estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
-            <SelectContent>
-              {cidadesPF.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder="Cidade" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Telefone</Label>
@@ -87,38 +106,15 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
         </div>
         <div className="col-span-2 space-y-1">
           <Label className="text-xs">Email</Label>
-          <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} placeholder="email@exemplo.com" />
+          <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} onBlur={handleEmailBlur} placeholder="email@exemplo.com" className={emailError ? 'border-destructive' : ''} />
+          {emailError && <p className="text-[10px] text-destructive">{emailError}</p>}
         </div>
       </div>
     </div>
   );
 }
 
-interface InformacoesClienteDialogProps {
-  orcamento: Orcamento;
-  onClose: () => void;
-}
-
-function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: string; onChange: (v: string) => void }) {
-  const [cidades, setCidades] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    if (estado && estado.length === 2) {
-      setLoading(true);
-      fetchCidadesPorUF(estado).then(c => { setCidades(c); setLoading(false); });
-    } else { setCidades([]); }
-  }, [estado]);
-  return (
-    <Select value={cidade} onValueChange={onChange} disabled={!estado || loading}>
-      <SelectTrigger><SelectValue placeholder={loading ? 'Carregando...' : !estado ? 'Selecione o estado' : 'Selecione'} /></SelectTrigger>
-      <SelectContent>
-        {cidades.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-      </SelectContent>
-    </Select>
-  );
-}
-
-export default function InformacoesClienteDialog({ orcamento, onClose }: InformacoesClienteDialogProps) {
+export default function InformacoesClienteDialog({ orcamento, onClose }: { orcamento: Orcamento; onClose: () => void }) {
   const { updateDadosCliente } = useOrcamentos();
   const { toast } = useToast();
 
@@ -144,6 +140,23 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: Informa
       if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
     }
   }, [orcamento]);
+
+  // CEP auto-fill for PJ
+  useEffect(() => {
+    const cepNums = (dados.cep_cnpj || '').replace(/\D/g, '');
+    if (cepNums.length === 8) {
+      fetchEnderecoPorCEP(cepNums).then(result => {
+        if (result) {
+          setDados(prev => ({
+            ...prev,
+            endereco_cnpj: result.logradouro || prev.endereco_cnpj,
+            cidade: result.cidade,
+            estado: result.estado,
+          }));
+        }
+      });
+    }
+  }, [dados.cep_cnpj]);
 
   const handleBuscarCnpj = async () => {
     if (!dados.cnpj) return;
@@ -251,7 +264,7 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: Informa
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Estado</Label>
-                  <Select value={dados.estado || ''} onValueChange={(v) => setDados(prev => ({ ...prev, estado: v, cidade: '' }))}>
+                  <Select value={dados.estado || ''} onValueChange={(v) => setDados(prev => ({ ...prev, estado: v }))}>
                     <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
                     <SelectContent>
                       {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
@@ -260,7 +273,7 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: Informa
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Cidade</Label>
-                  <CidadeSelectPJ estado={dados.estado || ''} cidade={dados.cidade || ''} onChange={(v) => setDados(prev => ({ ...prev, cidade: v }))} />
+                  <Input value={dados.cidade || ''} onChange={(e) => setDados(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Telefone</Label>

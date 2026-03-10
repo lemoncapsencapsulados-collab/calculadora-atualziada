@@ -522,7 +522,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
-                      <Select value={dadosCliente.estado || ''} onValueChange={(v) => { setDadosCliente(prev => ({ ...prev, estado: v, cidade: '' })); }}>
+                      <Select value={dadosCliente.estado || ''} onValueChange={(v) => { setDadosCliente(prev => ({ ...prev, estado: v })); }}>
                         <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
                         <SelectContent>
                           {UFS_BRASIL.map(u => <SelectItem key={u.uf} value={u.uf}>{u.uf} — {u.nome}</SelectItem>)}
@@ -531,7 +531,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
-                      <CidadeSelectPJ estado={dadosCliente.estado || ''} cidade={dadosCliente.cidade || ''} onChange={(v) => setDadosCliente(prev => ({ ...prev, cidade: v }))} />
+                      <Input value={dadosCliente.cidade || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cidade: e.target.value }))} placeholder="Cidade" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
