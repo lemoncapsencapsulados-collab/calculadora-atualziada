@@ -50,7 +50,40 @@ export async function fetchCidadesPorUF(uf: string): Promise<string[]> {
   }
 }
 
+export async function fetchEnderecoPorCEP(cep: string): Promise<{ logradouro: string; cidade: string; estado: string } | null> {
+  const nums = cep.replace(/\D/g, '');
+  if (nums.length !== 8) return null;
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${nums}/json/`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.erro) return null;
+    return {
+      logradouro: data.logradouro || '',
+      cidade: data.localidade || '',
+      estado: data.uf || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function getOpcoesPote(segmento: string): string[] {
+  const seg = segmento.toLowerCase();
+  if (seg.includes('gummy')) return ['Transparente'];
+  if (seg.includes('solúvel') || seg.includes('soluvel')) return ['Preto'];
+  // Encapsulado e Líquido
+  return ['Preto', 'Transparente'];
+}
+
+export function getOpcoesTampa(segmento: string): string[] {
+  const seg = segmento.toLowerCase();
+  if (seg.includes('gummy')) return ['Branca'];
+  if (seg.includes('líquido') || seg.includes('liquido')) return ['Preta'];
+  if (seg.includes('solúvel') || seg.includes('soluvel')) return ['Preta'];
+  // Encapsulado
+  return ['Preta', 'Branca'];
+}
   const seg = segmento.toLowerCase();
   if (seg.includes('gummy')) return ['Transparente'];
   if (seg.includes('solúvel') || seg.includes('soluvel')) return ['Preto'];
