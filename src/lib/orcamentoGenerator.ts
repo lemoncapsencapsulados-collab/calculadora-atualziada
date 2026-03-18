@@ -119,6 +119,56 @@ function getFormaPagamentoLabel(tipo?: FormaPagamentoTipo): string {
   return tipo ? labels[tipo] || tipo : '';
 }
 
+function getFormaAvistaLabel(forma?: FormaPagamentoAvista): string {
+  const labels: Record<string, string> = {
+    'pix': 'PIX',
+    'transferencia': 'Transferência Bancária',
+    'debito': 'Cartão de Débito',
+    'boleto': 'Boleto',
+  };
+  return forma ? labels[forma] || forma : '';
+}
+
+function renderPessoaFisicaFields(doc: jsPDF, pf: PessoaFisicaResponsavel, titulo: string, yPos: number, labelWidth: number): number {
+  const pageWidth = getPageWidth(doc);
+
+  yPos = checkPageBreak(doc, yPos, 8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.darkGreen);
+  doc.setFontSize(LAYOUT.fontSize.small);
+  doc.text(titulo, LAYOUT.margin + 3, yPos);
+  yPos += LAYOUT.lineHeight;
+
+  const campos = [
+    { label: 'Nome', valor: pf.nome },
+    { label: 'CPF', valor: pf.cpf },
+    { label: 'RG', valor: pf.rg },
+    { label: 'Estado Civil', valor: pf.estado_civil },
+    { label: 'Email', valor: pf.email },
+    { label: 'Telefone', valor: pf.telefone },
+    { label: 'Endereço', valor: pf.endereco },
+    { label: 'CEP', valor: pf.cep },
+    { label: 'Cidade/UF', valor: pf.cidade && pf.estado ? `${pf.cidade}/${pf.estado}` : (pf.cidade || pf.estado || '') },
+  ];
+
+  doc.setFontSize(LAYOUT.fontSize.body);
+  for (const campo of campos) {
+    if (campo.valor) {
+      yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.text(`${campo.label}:`, LAYOUT.margin + 5, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      const maxWidth = pageWidth - LAYOUT.margin - labelWidth - LAYOUT.margin;
+      const lines = doc.splitTextToSize(campo.valor, maxWidth);
+      doc.text(lines, LAYOUT.margin + labelWidth, yPos);
+      yPos += LAYOUT.lineHeight * Math.max(lines.length, 1);
+    }
+  }
+  return yPos + 3;
+}
+
 // ========== FUNÇÕES DE RENDERIZAÇÃO PREMIUM ==========
 
 function renderHeader(doc: jsPDF, orcamento: Orcamento): number {
