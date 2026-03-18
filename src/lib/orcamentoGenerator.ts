@@ -435,6 +435,38 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
         }
       }
       
+      // Detalhes de produção (cores, sabor, etc.)
+      if (item.detalhes_producao) {
+        const dp = item.detalhes_producao;
+        const detalhes = [
+          dp.cor_pote ? `Cor do Pote: ${dp.cor_pote}` : null,
+          dp.cor_tampa ? `Cor da Tampa: ${dp.cor_tampa}` : null,
+          dp.cor_gummy ? `Cor Gummy: ${dp.cor_gummy}` : null,
+          dp.sabor_gummy ? `Sabor Gummy: ${dp.sabor_gummy}` : null,
+          dp.sabor_soluvel ? `Sabor Solúvel: ${dp.sabor_soluvel}` : null,
+          dp.cor_soluvel ? `Cor Solúvel: ${dp.cor_soluvel}` : null,
+          dp.sabor_liquido ? `Sabor Líquido: ${dp.sabor_liquido}` : null,
+          dp.cor_liquido ? `Cor Líquido: ${dp.cor_liquido}` : null,
+          dp.observacao_producao ? `Obs. Produção: ${dp.observacao_producao}` : null,
+        ].filter(Boolean) as string[];
+
+        if (detalhes.length > 0) {
+          yPos += 2;
+          doc.setTextColor(...COLORS.textMedium);
+          doc.setFontSize(LAYOUT.fontSize.small);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Detalhes de Produção:', LAYOUT.margin + 5, yPos);
+          yPos += LAYOUT.lineHeight - 1;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...COLORS.textDark);
+          for (const detalhe of detalhes) {
+            yPos = checkPageBreak(doc, yPos, 5);
+            doc.text(`• ${detalhe}`, LAYOUT.margin + 10, yPos);
+            yPos += 5;
+          }
+        }
+      }
+
       yPos += 3;
       
       // Valores do produto
