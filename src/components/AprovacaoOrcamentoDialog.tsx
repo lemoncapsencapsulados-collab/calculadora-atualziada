@@ -301,11 +301,16 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (response.ok) {
         const data = await response.json();
+        // Montar endereço robusto: "Rua, Num, Complemento - Bairro"
+        const parteLogradouro = [data.logradouro, data.numero, data.complemento].filter(Boolean).join(', ');
+        const enderecoCompleto = parteLogradouro && data.bairro
+          ? `${parteLogradouro} - ${data.bairro}`
+          : parteLogradouro || data.bairro || '';
         setDadosCliente(prev => ({
           ...prev,
           razao_social: data.razao_social || '',
-          endereco_cnpj: [data.logradouro, data.numero, data.complemento, data.bairro].filter(Boolean).join(', ') || '',
-          cep_cnpj: data.cep || '',
+          endereco_cnpj: enderecoCompleto,
+          cep_cnpj: data.cep ? data.cep.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2') : '',
           cidade: data.municipio || '',
           estado: data.uf || '',
         }));
