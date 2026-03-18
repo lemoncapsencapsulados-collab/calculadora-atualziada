@@ -193,11 +193,15 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       setCondicoesPagamento(orcamento.condicoes_pagamento);
     }
     // Load existing production details
+    const existingDetails: Record<number, Record<string, string>> = {};
     orcamento.itens_producao.forEach((item, idx) => {
       if (item.detalhes_producao) {
-        setDetalhesProducao(prev => ({ ...prev, [idx]: item.detalhes_producao }));
+        existingDetails[idx] = item.detalhes_producao as unknown as Record<string, string>;
       }
     });
+    if (Object.keys(existingDetails).length > 0) {
+      setDetalhesProducao(prev => ({ ...prev, ...existingDetails }));
+    }
   }, [orcamento]);
 
   // Auto-set frete when envio tipo changes
