@@ -249,7 +249,7 @@ function renderSectionTitle(doc: jsPDF, title: string, yPos: number): number {
 function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   const pageWidth = getPageWidth(doc);
   const dados = orcamento.dados_cliente;
-  const labelWidth = 35;
+  const labelWidth = 45;
 
   yPos = renderSectionTitle(doc, 'Dados do Cliente', yPos);
   
@@ -260,38 +260,87 @@ function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): num
   doc.text(orcamento.nome_cliente, LAYOUT.margin, yPos);
   yPos += LAYOUT.lineHeight + 2;
 
-  if (dados) {
-    doc.setFontSize(LAYOUT.fontSize.body);
-    
-    const campos = [
-      { label: 'Email', valor: dados.email },
-      { label: 'Telefone', valor: dados.telefone },
-      { label: 'CPF', valor: dados.cpf },
+  if (!dados) return yPos + LAYOUT.sectionGap;
+
+  const tipoPessoa = dados.tipo_pessoa || (dados.cnpj ? 'pj' : 'pf');
+  doc.setFontSize(LAYOUT.fontSize.body);
+
+  if (tipoPessoa === 'pj') {
+    // === PESSOA JURÍDICA ===
+    const camposPJ = [
       { label: 'CNPJ', valor: dados.cnpj },
       { label: 'Razão Social', valor: dados.razao_social },
-      { label: 'Endereço', valor: formatEndereco(dados) },
-      { label: 'Canal de Venda', valor: formatCanalVenda(dados.forma_venda) },
+      { label: 'Insc. Estadual', valor: dados.inscricao_estadual },
+      { label: 'Insc. Municipal', valor: dados.inscricao_municipal },
+      { label: 'Endereço', valor: dados.endereco_cnpj },
+      { label: 'CEP', valor: dados.cep_cnpj },
+      { label: 'Cidade/UF', valor: dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : '' },
+      { label: 'Telefone', valor: dados.telefone },
+      { label: 'Email', valor: dados.email },
     ];
 
-    for (const campo of campos) {
+    for (const campo of camposPJ) {
       if (campo.valor) {
         yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
-        
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...COLORS.textMedium);
         doc.text(`${campo.label}:`, LAYOUT.margin, yPos);
-        
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...COLORS.textDark);
-        
-        // Quebrar texto longo
         const maxWidth = pageWidth - LAYOUT.margin - labelWidth - LAYOUT.margin;
         const lines = doc.splitTextToSize(campo.valor, maxWidth);
         doc.text(lines, LAYOUT.margin + labelWidth, yPos);
-        
         yPos += LAYOUT.lineHeight * Math.max(lines.length, 1);
       }
     }
+
+    // QSA - Responsável PJ
+    if (dados.responsavel_pj && dados.responsavel_pj.nome) {
+      yPos += 4;
+      yPos = renderPessoaFisicaFields(doc, dados.responsavel_pj, 'Responsável Legal (QSA)', yPos, labelWidth);
+    }
+  } else {
+    // === PESSOA FÍSICA ===
+    if (dados.pessoas_fisicas && dados.pessoas_fisicas.length > 0) {
+      for (let i = 0; i < dados.pessoas_fisicas.length; i++) {
+        const pf = dados.pessoas_fisicas[i];
+        const titulo = dados.pessoas_fisicas.length > 1 ? `Pessoa Física ${i + 1}` : 'Pessoa Física';
+        yPos = renderPessoaFisicaFields(doc, pf, titulo, yPos, labelWidth);
+      }
+    } else {
+      // Legado: campos antigos
+      const camposLegado = [
+        { label: 'Nome', valor: dados.nome_completo },
+        { label: 'CPF', valor: dados.cpf },
+        { label: 'Email', valor: dados.email },
+        { label: 'Telefone', valor: dados.telefone },
+      ];
+      for (const campo of camposLegado) {
+        if (campo.valor) {
+          yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...COLORS.textMedium);
+          doc.text(`${campo.label}:`, LAYOUT.margin, yPos);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...COLORS.textDark);
+          doc.text(campo.valor, LAYOUT.margin + labelWidth, yPos);
+          yPos += LAYOUT.lineHeight;
+        }
+      }
+    }
+  }
+
+  // Canal de venda
+  const canalVenda = formatCanalVenda(dados.forma_venda);
+  if (canalVenda) {
+    yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.textMedium);
+    doc.text('Canal de Venda:', LAYOUT.margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.textDark);
+    doc.text(canalVenda, LAYOUT.margin + labelWidth, yPos);
+    yPos += LAYOUT.lineHeight;
   }
 
   return yPos + LAYOUT.sectionGap;
