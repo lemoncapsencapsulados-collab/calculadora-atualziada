@@ -323,7 +323,7 @@ export default function Orcamentos() {
                                 <FileText className="w-4 h-4 mr-2" />Gerar PDF
                               </Button>
                               <Button variant="default" size="sm" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
-                                <FileCheck className="w-4 h-4 mr-2" />Proposta Completa
+                                <FileCheck className="w-4 h-4 mr-2" />Resumo para Contrato
                               </Button>
                               <Button variant="destructive" size="sm" onClick={() => setDeletandoId(orcamento.id)}>
                                 <Trash2 className="w-4 h-4 mr-2" />Excluir
