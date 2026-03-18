@@ -153,7 +153,7 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                               <FileCheck className="w-3.5 h-3.5" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Proposta Completa</TooltipContent>
+                          <TooltipContent>Resumo para Contrato</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
