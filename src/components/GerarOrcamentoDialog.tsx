@@ -215,7 +215,7 @@ export default function GerarOrcamentoDialog({
         return {
           ...item,
           quantidade,
-          subtotal: item.modelo_negocio === 'print_on_demand' ? item.preco_unitario : item.preco_unitario * quantidade,
+          subtotal: item.modelo_negocio === 'print_on_demand' ? 0 : item.preco_unitario * quantidade,
         };
       }
       return item;
@@ -225,12 +225,12 @@ export default function GerarOrcamentoDialog({
   const handleUpdateModeloNegocio = (index: number, modelo: 'estoque' | 'print_on_demand') => {
     setItensProducao(prev => prev.map((item, i) => {
       if (i === index) {
-        const quantidade = modelo === 'print_on_demand' ? 1 : item.quantidade;
+        const quantidade = modelo === 'print_on_demand' ? 0 : (item.quantidade || 1);
         return {
           ...item,
           modelo_negocio: modelo,
           quantidade,
-          subtotal: modelo === 'print_on_demand' ? item.preco_unitario : item.preco_unitario * quantidade,
+          subtotal: modelo === 'print_on_demand' ? 0 : item.preco_unitario * quantidade,
         };
       }
       return item;
