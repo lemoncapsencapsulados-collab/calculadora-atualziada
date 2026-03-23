@@ -72,6 +72,12 @@ export default function PrecificacoesSalvas({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
+  const [formulaParaVer, setFormulaParaVer] = useState<Formula | null>(null);
+
+  // Duplicação
+  const [duplicarPrecificacao, setDuplicarPrecificacao] = useState<PrecificacaoComFormula | null>(null);
+  const [duplicarCliente, setDuplicarCliente] = useState('');
+  const [duplicarFormula, setDuplicarFormula] = useState('');
 
   const handleEditClose = () => {
     setEditandoPrecificacao(null);
