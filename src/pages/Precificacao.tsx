@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/lib/unitConversion';
 import { supabase } from '@/integrations/supabase/client';
 import { arredondarReais } from '@/lib/utils';
@@ -32,7 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Lock, Unlock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign } from 'lucide-react';
+import { Lock, Unlock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
@@ -40,6 +41,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Precificacao() {
+  const navigate = useNavigate();
   const { formulas, loading: loadingFormulas, deleteFormula, updateFormula } = useFormulas();
   const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
   const { salvarPrecificacao } = usePrecificacao();
@@ -74,6 +76,11 @@ export default function Precificacao() {
   const [senhaDialog, setSenhaDialog] = useState(false);
   const [senhaInput, setSenhaInput] = useState('');
   const [salvarPermanente, setSalvarPermanente] = useState(false);
+
+  // Estado de duplicação
+  const [duplicarDialog, setDuplicarDialog] = useState<Formula | null>(null);
+  const [duplicarCliente, setDuplicarCliente] = useState('');
+  const [duplicarFormula, setDuplicarFormula] = useState('');
 
   // Estado de cálculo
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
@@ -178,6 +185,12 @@ export default function Precificacao() {
       return;
     }
 
+    // Bloquear se margem está abaixo do mínimo
+    if (validacaoMargem?.status === 'baixa') {
+      toast.error('Não é possível salvar: margem de lucro abaixo do mínimo permitido!');
+      return;
+    }
+
     try {
       let formulaIdParaSalvar = formulaSelecionada.id;
 
@@ -272,6 +285,44 @@ export default function Precificacao() {
     setObservacoes('');
     setNomeClienteEdit('');
     setNomeFormulaEdit('');
+  };
+
+  // Redirecionar para o calculador para edição
+  const handleEditarNoCalculador = (formula: Formula) => {
+    localStorage.setItem('loadFormula', JSON.stringify(formula));
+    navigate('/calculator');
+  };
+
+  // Duplicar produto criado
+  const handleDuplicar = async () => {
+    if (!duplicarDialog || !duplicarCliente.trim() || !duplicarFormula.trim()) {
+      toast.error('Preencha o nome do cliente e da fórmula');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('formulas')
+        .insert({
+          cliente: duplicarCliente.trim(),
+          nome_formula: duplicarFormula.trim(),
+          tipo_produto: duplicarDialog.tipo_produto,
+          quantidade_por_pote: duplicarDialog.quantidade_por_pote,
+          itens: duplicarDialog.itens as any,
+          embalagens: duplicarDialog.embalagens as any,
+          total_mp: duplicarDialog.total_mp,
+          total_embalagem: duplicarDialog.total_embalagem,
+          custo_total: duplicarDialog.custo_total,
+          unidades_por_dose: duplicarDialog.unidades_por_dose,
+          unidade_soluvel: duplicarDialog.unidade_soluvel,
+        });
+      if (error) throw error;
+      toast.success('Produto duplicado com sucesso!');
+      setDuplicarDialog(null);
+      // Refresh formulas
+      window.location.reload();
+    } catch (err: any) {
+      toast.error('Erro ao duplicar: ' + err.message);
+    }
   };
 
   const handleExport = (formula: any) => {
@@ -480,10 +531,30 @@ export default function Precificacao() {
                             />
                             <Button
                               size="sm"
+                              variant="outline"
+                              onClick={() => handleEditarNoCalculador(formula as Formula)}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
                               onClick={() => handleSelectFormula(formula as Formula)}
                             >
                               <DollarSign className="h-4 w-4 mr-2" />
                               Precificar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setDuplicarDialog(formula as Formula);
+                                setDuplicarCliente(formula.cliente);
+                                setDuplicarFormula(formula.nome_formula);
+                              }}
+                            >
+                              <Copy className="h-4 w-4 mr-2" />
+                              Duplicar
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleExport(formula)}>
                               <Download className="h-4 w-4 mr-2" />
@@ -602,6 +673,9 @@ export default function Precificacao() {
                               disabled
                               className="bg-muted"
                             />
+                            <p className="text-xs text-muted-foreground">
+                              Inclui Rótulo: R$ 1,00
+                            </p>
                           </div>
                         </div>
 
@@ -918,9 +992,13 @@ export default function Precificacao() {
                           </div>
 
                           <div className="flex gap-3">
-                            <Button onClick={handleSalvar} className="w-full" disabled={salvarPrecificacao.isPending}>
+                            <Button 
+                              onClick={handleSalvar} 
+                              className="w-full" 
+                              disabled={salvarPrecificacao.isPending || validacaoMargem?.status === 'baixa'}
+                            >
                               <Save className="w-4 h-4 mr-2" />
-                              Salvar Precificação
+                              {validacaoMargem?.status === 'baixa' ? 'Margem abaixo do mínimo' : 'Salvar Precificação'}
                             </Button>
                           </div>
                         </CardContent>
@@ -956,6 +1034,42 @@ export default function Precificacao() {
                 Confirmar
               </Button>
               <Button variant="outline" onClick={() => setSenhaDialog(false)} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Duplicação */}
+      <Dialog open={!!duplicarDialog} onOpenChange={(open) => { if (!open) setDuplicarDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar Produto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Cliente</Label>
+              <Input
+                value={duplicarCliente}
+                onChange={(e) => setDuplicarCliente(e.target.value)}
+                placeholder="Nome do cliente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome da Fórmula</Label>
+              <Input
+                value={duplicarFormula}
+                onChange={(e) => setDuplicarFormula(e.target.value)}
+                placeholder="Nome da fórmula"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDuplicar} className="flex-1">
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicar
+              </Button>
+              <Button variant="outline" onClick={() => setDuplicarDialog(null)} className="flex-1">
                 Cancelar
               </Button>
             </div>

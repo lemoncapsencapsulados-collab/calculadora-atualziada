@@ -18,6 +18,7 @@ import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 // Capacidade padrão de uma cápsula em gramas (0.5g = 500mg)
 const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
@@ -433,7 +434,7 @@ export default function Calculator() {
     
     toast.success(`${parsedItems.length} matéria${parsedItems.length !== 1 ? 's' : ''}-prima${parsedItems.length !== 1 ? 's' : ''} importada${parsedItems.length !== 1 ? 's' : ''}!`);
   };
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!cliente.trim()) {
       toast.error('Informe o nome do cliente');
       return;
@@ -484,21 +485,50 @@ export default function Calculator() {
         });
       }
     });
-    const formula: Omit<Formula, 'id' | 'data'> = {
+    
+    const formulaData = {
       cliente,
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
       unidades_por_dose: tipoProduto === 'Solúvel' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1,
       unidade_soluvel: tipoProduto === 'Solúvel' ? unidadeSoluvel : undefined,
-      itens: formulaItems,
-      embalagens: embalagemItems,
+      itens: formulaItems as any,
+      embalagens: embalagemItems as any,
       total_mp: totalMP,
       total_embalagem: totalEmbalagem,
-      custo_total: custoTotal
+      custo_total: custoTotal,
     };
-    addFormula(formula);
-    toast.success('Fórmula salva com sucesso!');
+
+    try {
+      // Verificar se já existe fórmula com mesmo cliente e nome_formula (upsert)
+      const { data: existing, error: searchError } = await supabase
+        .from('formulas')
+        .select('id')
+        .ilike('cliente', cliente.trim())
+        .eq('nome_formula', (nomeFormula || 'Fórmula sem nome').trim())
+        .maybeSingle();
+
+      if (searchError) throw searchError;
+
+      if (existing) {
+        // Atualizar fórmula existente
+        const { error: updateError } = await supabase
+          .from('formulas')
+          .update(formulaData)
+          .eq('id', existing.id);
+        
+        if (updateError) throw updateError;
+        toast.success('Fórmula atualizada com sucesso!');
+      } else {
+        // Inserir nova
+        addFormula(formulaData);
+      }
+    } catch (error: any) {
+      console.error('Erro ao salvar fórmula:', error);
+      toast.error('Erro ao salvar fórmula: ' + error.message);
+      return;
+    }
 
     // Reset form
     setCliente('');

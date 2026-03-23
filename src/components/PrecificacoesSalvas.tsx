@@ -5,16 +5,22 @@ import { usePrecificacoesPaginadas } from '@/hooks/usePrecificacoesPaginadas';
 import { ConfiguracaoCustos, MargemLucro } from '@/types/precificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import { formatCurrency } from '@/lib/unitConversion';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
+
+import { Formula } from '@/types/formula';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +72,12 @@ export default function PrecificacoesSalvas({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
+  const [formulaParaVer, setFormulaParaVer] = useState<Formula | null>(null);
+
+  // Duplicação
+  const [duplicarPrecificacao, setDuplicarPrecificacao] = useState<PrecificacaoComFormula | null>(null);
+  const [duplicarCliente, setDuplicarCliente] = useState('');
+  const [duplicarFormula, setDuplicarFormula] = useState('');
 
   const handleEditClose = () => {
     setEditandoPrecificacao(null);
@@ -107,6 +119,86 @@ export default function PrecificacoesSalvas({
       await deletarPrecificacao.mutateAsync(deletandoId);
       setDeletandoId(null);
       queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+    }
+  };
+
+  const handleVerFormula = async (formulaId: string | null) => {
+    if (!formulaId) return;
+    const { data, error } = await supabase
+      .from('formulas')
+      .select('*')
+      .eq('id', formulaId)
+      .maybeSingle();
+    if (error || !data) {
+      toast.error('Fórmula não encontrada');
+      return;
+    }
+    setFormulaParaVer({
+      id: data.id,
+      cliente: data.cliente,
+      nome_formula: data.nome_formula,
+      tipo_produto: data.tipo_produto as any,
+      quantidade_por_pote: data.quantidade_por_pote,
+      unidades_por_dose: data.unidades_por_dose,
+      unidade_soluvel: data.unidade_soluvel as any,
+      itens: data.itens as any,
+      embalagens: data.embalagens as any,
+      total_mp: data.total_mp,
+      total_embalagem: data.total_embalagem,
+      custo_total: data.custo_total,
+      data: new Date(data.created_at!),
+    });
+  };
+
+  const handleDuplicar = async () => {
+    if (!duplicarPrecificacao || !duplicarCliente.trim() || !duplicarFormula.trim()) {
+      toast.error('Preencha o nome do cliente e da fórmula');
+      return;
+    }
+    try {
+      // Buscar fórmula original
+      const { data: formulaOriginal, error: fetchErr } = await supabase
+        .from('formulas')
+        .select('*')
+        .eq('id', duplicarPrecificacao.formula_id!)
+        .single();
+      if (fetchErr || !formulaOriginal) throw new Error('Fórmula original não encontrada');
+
+      // Duplicar fórmula
+      const { data: novaFormula, error: insertErr } = await supabase
+        .from('formulas')
+        .insert({
+          cliente: duplicarCliente.trim(),
+          nome_formula: duplicarFormula.trim(),
+          tipo_produto: formulaOriginal.tipo_produto,
+          quantidade_por_pote: formulaOriginal.quantidade_por_pote,
+          itens: formulaOriginal.itens,
+          embalagens: formulaOriginal.embalagens,
+          total_mp: formulaOriginal.total_mp,
+          total_embalagem: formulaOriginal.total_embalagem,
+          custo_total: formulaOriginal.custo_total,
+          unidades_por_dose: formulaOriginal.unidades_por_dose,
+          unidade_soluvel: formulaOriginal.unidade_soluvel,
+        })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+
+      // Duplicar precificação com nova fórmula
+      const { id, created_at, updated_at, formulas: _, formula_id, ...precData } = duplicarPrecificacao;
+      await supabase
+        .from('precificacoes')
+        .insert({
+          ...precData,
+          formula_id: novaFormula.id,
+        } as any);
+
+      toast.success('Produto precificado duplicado com sucesso!');
+      setDuplicarPrecificacao(null);
+      queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+      queryClient.invalidateQueries({ queryKey: ['formulas'] });
+    } catch (err: any) {
+      toast.error('Erro ao duplicar: ' + err.message);
     }
   };
 
@@ -223,6 +315,14 @@ export default function PrecificacoesSalvas({
 
                   {/* Ações */}
                   <div className="flex md:flex-col gap-2 justify-end md:justify-start">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleVerFormula(precificacao.formula_id)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Fórmula
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -230,6 +330,18 @@ export default function PrecificacoesSalvas({
                     >
                       <Pencil className="w-4 h-4 mr-2" />
                       Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDuplicarPrecificacao(precificacao);
+                        setDuplicarCliente(precificacao.formulas?.cliente || '');
+                        setDuplicarFormula(precificacao.formulas?.nome_formula || '');
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Duplicar
                     </Button>
                     <Button 
                       variant="destructive" 
@@ -317,6 +429,94 @@ export default function PrecificacoesSalvas({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog Ver Fórmula (somente leitura) */}
+      {formulaParaVer && (
+        <Dialog open={!!formulaParaVer} onOpenChange={(open) => { if (!open) setFormulaParaVer(null); }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                📋 Fórmula: {formulaParaVer.nome_formula}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">Cliente: {formulaParaVer.cliente}</p>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Matérias-Primas</h4>
+                <div className="space-y-1">
+                  {formulaParaVer.itens.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {item.nome_insumo_snapshot} ({item.qtd_informada} {item.unidade_informada})
+                      </span>
+                      <span>{formatCurrency(item.custo_calculado)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-semibold pt-2 border-t">
+                    <span>Total MP:</span>
+                    <span>{formatCurrency(formulaParaVer.total_mp)}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">Embalagens</h4>
+                <div className="space-y-1">
+                  {formulaParaVer.embalagens.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{item.descricao_snapshot}</span>
+                      <span>{formatCurrency(item.custo_calculado)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-semibold pt-2 border-t">
+                    <span>Total Embalagem:</span>
+                    <span>{formatCurrency(formulaParaVer.total_embalagem)}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                <span>Custo Total:</span>
+                <span className="text-primary">{formatCurrency(formulaParaVer.custo_total)}</span>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Dialog de Duplicação */}
+      <Dialog open={!!duplicarPrecificacao} onOpenChange={(open) => { if (!open) setDuplicarPrecificacao(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar Produto Precificado</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Cliente</Label>
+              <Input
+                value={duplicarCliente}
+                onChange={(e) => setDuplicarCliente(e.target.value)}
+                placeholder="Nome do cliente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome da Fórmula</Label>
+              <Input
+                value={duplicarFormula}
+                onChange={(e) => setDuplicarFormula(e.target.value)}
+                placeholder="Nome da fórmula"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDuplicar} className="flex-1">
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicar
+              </Button>
+              <Button variant="outline" onClick={() => setDuplicarPrecificacao(null)} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
