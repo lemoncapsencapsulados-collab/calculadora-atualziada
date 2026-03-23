@@ -77,6 +77,11 @@ export default function Precificacao() {
   const [senhaInput, setSenhaInput] = useState('');
   const [salvarPermanente, setSalvarPermanente] = useState(false);
 
+  // Estado de duplicação
+  const [duplicarDialog, setDuplicarDialog] = useState<Formula | null>(null);
+  const [duplicarCliente, setDuplicarCliente] = useState('');
+  const [duplicarFormula, setDuplicarFormula] = useState('');
+
   // Estado de cálculo
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
 
