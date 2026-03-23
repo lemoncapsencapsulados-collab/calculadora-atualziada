@@ -315,6 +315,14 @@ export default function PrecificacoesSalvas({
 
                   {/* Ações */}
                   <div className="flex md:flex-col gap-2 justify-end md:justify-start">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleVerFormula(precificacao.formula_id)}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Fórmula
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -322,6 +330,18 @@ export default function PrecificacoesSalvas({
                     >
                       <Pencil className="w-4 h-4 mr-2" />
                       Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDuplicarPrecificacao(precificacao);
+                        setDuplicarCliente(precificacao.formulas?.cliente || '');
+                        setDuplicarFormula(precificacao.formulas?.nome_formula || '');
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Duplicar
                     </Button>
                     <Button 
                       variant="destructive" 
