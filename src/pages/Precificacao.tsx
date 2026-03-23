@@ -531,10 +531,30 @@ export default function Precificacao() {
                             />
                             <Button
                               size="sm"
+                              variant="outline"
+                              onClick={() => handleEditarNoCalculador(formula as Formula)}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
                               onClick={() => handleSelectFormula(formula as Formula)}
                             >
                               <DollarSign className="h-4 w-4 mr-2" />
                               Precificar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setDuplicarDialog(formula as Formula);
+                                setDuplicarCliente(formula.cliente);
+                                setDuplicarFormula(formula.nome_formula);
+                              }}
+                            >
+                              <Copy className="h-4 w-4 mr-2" />
+                              Duplicar
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => handleExport(formula)}>
                               <Download className="h-4 w-4 mr-2" />
