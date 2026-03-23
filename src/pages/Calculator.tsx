@@ -18,6 +18,7 @@ import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 // Capacidade padrão de uma cápsula em gramas (0.5g = 500mg)
 const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
