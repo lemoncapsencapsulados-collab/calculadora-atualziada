@@ -480,14 +480,6 @@ export default function GerarOrcamentoDialog({
                     <Plus className="w-4 h-4 mr-1" />
                     Precificação Salva
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setShowProdutoAvulso(true)}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Produto Avulso
-                  </Button>
                 </div>
               </div>
 
