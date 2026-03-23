@@ -208,22 +208,6 @@ export default function GerarOrcamentoDialog({
     setShowPrecificacaoSelector(false);
   };
 
-  const handleAddProdutoAvulso = () => {
-    if (!produtoAvulso.nome || produtoAvulso.preco <= 0) return;
-    
-    const novoItem: ItemProducao = {
-      tipo: 'avulso',
-      nome_produto: produtoAvulso.nome,
-      segmento: produtoAvulso.segmento || 'Avulso',
-      preco_unitario: produtoAvulso.preco,
-      quantidade: produtoAvulso.quantidade,
-      subtotal: produtoAvulso.preco * produtoAvulso.quantidade,
-    };
-    
-    setItensProducao(prev => [...prev, novoItem]);
-    setProdutoAvulso({ nome: '', segmento: '', preco: 0, quantidade: 1 });
-    setShowProdutoAvulso(false);
-  };
 
   const handleUpdateItemQuantidade = (index: number, quantidade: number) => {
     setItensProducao(prev => prev.map((item, i) => {
