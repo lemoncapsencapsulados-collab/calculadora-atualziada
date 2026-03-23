@@ -185,6 +185,12 @@ export default function Precificacao() {
       return;
     }
 
+    // Bloquear se margem está abaixo do mínimo
+    if (validacaoMargem?.status === 'baixa') {
+      toast.error('Não é possível salvar: margem de lucro abaixo do mínimo permitido!');
+      return;
+    }
+
     try {
       let formulaIdParaSalvar = formulaSelecionada.id;
 
