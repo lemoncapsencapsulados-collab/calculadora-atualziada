@@ -91,8 +91,6 @@ export default function GerarOrcamentoDialog({
   const [showPrecificacaoSelector, setShowPrecificacaoSelector] = useState(false);
   const [buscaPrecificacao, setBuscaPrecificacao] = useState('');
   const [selectedPrecificacoes, setSelectedPrecificacoes] = useState<string[]>([]);
-  const [showProdutoAvulso, setShowProdutoAvulso] = useState(false);
-  const [produtoAvulso, setProdutoAvulso] = useState({ nome: '', segmento: '', preco: 0, quantidade: 1 });
   
   // Step 3: Serviços de marca
   const [servicosMarca, setServicosMarca] = useState<ServicoMarca[]>([]);
