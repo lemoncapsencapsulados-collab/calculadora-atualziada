@@ -10,7 +10,8 @@ import { formatCurrency } from '@/lib/unitConversion';
 
 interface VerFormulaDialogProps {
   formula: Formula;
-  onUpdateFormula: (formula: Formula) => void;
+  onUpdateFormula?: (formula: Formula) => void;
+  readOnly?: boolean;
 }
 
 // Converter para mg
@@ -34,7 +35,7 @@ const convertToMg = (value: number, unit: UnitType): { value: number; display: s
   }
 };
 
-export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogProps) {
+export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }: VerFormulaDialogProps) {
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedItems, setEditedItems] = useState<FormulaItem[]>([...formula.itens]);
@@ -100,6 +101,7 @@ export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogP
   };
 
   const handleSaveEdits = () => {
+    if (!onUpdateFormula) return;
     const newTotalMp = editedItems.reduce((sum, item) => sum + item.custo_calculado, 0);
     const newTotalEmbalagem = editedEmbalagens.reduce((sum, item) => sum + item.custo_calculado, 0);
 
@@ -345,10 +347,12 @@ export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogP
                 <ClipboardList className="h-4 w-4 mr-2" />
                 Copiar WhatsApp
               </Button>
-              <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
+              {!readOnly && onUpdateFormula && (
+                <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              )}
               <Button onClick={handleDownloadPng} className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
                 Baixar PNG
