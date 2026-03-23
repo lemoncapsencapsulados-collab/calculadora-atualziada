@@ -603,7 +603,7 @@ export default function GerarOrcamentoDialog({
                             </button>
                           </div>
                           
-                          {item.modelo_negocio !== 'print_on_demand' && (
+                          {item.modelo_negocio !== 'print_on_demand' ? (
                             <div className="flex items-center gap-2">
                               <Input
                                 type="number"
@@ -613,10 +613,14 @@ export default function GerarOrcamentoDialog({
                                 onChange={(e) => handleUpdateItemQuantidade(index, parseInt(e.target.value) || 1)}
                               />
                             </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Qtd: 0</span>
                           )}
                           
                           <div className="text-right min-w-[100px]">
-                            <p className="font-semibold">{formatCurrency(item.subtotal)}</p>
+                            <p className="font-semibold">
+                              {item.modelo_negocio === 'print_on_demand' ? 'R$ 0,00' : formatCurrency(item.subtotal)}
+                            </p>
                           </div>
                           
                           <Button 
