@@ -429,6 +429,50 @@ export default function PrecificacoesSalvas({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog Ver Fórmula (somente leitura) */}
+      {formulaParaVer && (
+        <VerFormulaDialog
+          formula={formulaParaVer}
+          onUpdateFormula={() => {}}
+        />
+      )}
+
+      {/* Dialog de Duplicação */}
+      <Dialog open={!!duplicarPrecificacao} onOpenChange={(open) => { if (!open) setDuplicarPrecificacao(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar Produto Precificado</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Cliente</Label>
+              <Input
+                value={duplicarCliente}
+                onChange={(e) => setDuplicarCliente(e.target.value)}
+                placeholder="Nome do cliente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome da Fórmula</Label>
+              <Input
+                value={duplicarFormula}
+                onChange={(e) => setDuplicarFormula(e.target.value)}
+                placeholder="Nome da fórmula"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDuplicar} className="flex-1">
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicar
+              </Button>
+              <Button variant="outline" onClick={() => setDuplicarPrecificacao(null)} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
