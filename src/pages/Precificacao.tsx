@@ -287,7 +287,44 @@ export default function Precificacao() {
     setNomeFormulaEdit('');
   };
 
-  const handleExport = (formula: any) => {
+  // Redirecionar para o calculador para edição
+  const handleEditarNoCalculador = (formula: Formula) => {
+    localStorage.setItem('loadFormula', JSON.stringify(formula));
+    navigate('/calculator');
+  };
+
+  // Duplicar produto criado
+  const handleDuplicar = async () => {
+    if (!duplicarDialog || !duplicarCliente.trim() || !duplicarFormula.trim()) {
+      toast.error('Preencha o nome do cliente e da fórmula');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('formulas')
+        .insert({
+          cliente: duplicarCliente.trim(),
+          nome_formula: duplicarFormula.trim(),
+          tipo_produto: duplicarDialog.tipo_produto,
+          quantidade_por_pote: duplicarDialog.quantidade_por_pote,
+          itens: duplicarDialog.itens as any,
+          embalagens: duplicarDialog.embalagens as any,
+          total_mp: duplicarDialog.total_mp,
+          total_embalagem: duplicarDialog.total_embalagem,
+          custo_total: duplicarDialog.custo_total,
+          unidades_por_dose: duplicarDialog.unidades_por_dose,
+          unidade_soluvel: duplicarDialog.unidade_soluvel,
+        });
+      if (error) throw error;
+      toast.success('Produto duplicado com sucesso!');
+      setDuplicarDialog(null);
+      // Refresh formulas
+      window.location.reload();
+    } catch (err: any) {
+      toast.error('Erro ao duplicar: ' + err.message);
+    }
+  };
+
     let csv = `COTAÇÃO - ${formula.nome_formula}\n`;
     csv += `Cliente: ${formula.cliente}\n`;
     csv += `Data: ${format(new Date(formula.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}\n`;
