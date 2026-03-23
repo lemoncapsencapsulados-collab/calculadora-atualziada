@@ -541,65 +541,6 @@ export default function GerarOrcamentoDialog({
                 </Card>
               )}
 
-              {/* Form Produto Avulso */}
-              {showProdutoAvulso && (
-                <Card className="border-primary">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Adicionar Produto Avulso</Label>
-                      <Button variant="ghost" size="sm" onClick={() => setShowProdutoAvulso(false)}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Nome do Produto</Label>
-                        <Input
-                          value={produtoAvulso.nome}
-                          onChange={(e) => setProdutoAvulso(prev => ({ ...prev, nome: e.target.value }))}
-                          placeholder="Nome do produto"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Segmento</Label>
-                        <Input
-                          value={produtoAvulso.segmento}
-                          onChange={(e) => setProdutoAvulso(prev => ({ ...prev, segmento: e.target.value }))}
-                          placeholder="Ex: Gummy, Encapsulados..."
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Preço Unitário (R$)</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.00001"
-                          value={produtoAvulso.preco || ''}
-                          onChange={(e) => setProdutoAvulso(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Quantidade</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={produtoAvulso.quantidade}
-                          onChange={(e) => setProdutoAvulso(prev => ({ ...prev, quantidade: parseInt(e.target.value) || 1 }))}
-                        />
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      onClick={handleAddProdutoAvulso} 
-                      className="w-full"
-                      disabled={!produtoAvulso.nome || produtoAvulso.preco <= 0}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar Produto
-                    </Button>
-                  </CardContent>
-                </Card>
               )}
 
               {/* Lista de Itens */}
