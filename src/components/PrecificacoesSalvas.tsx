@@ -5,16 +5,22 @@ import { usePrecificacoesPaginadas } from '@/hooks/usePrecificacoesPaginadas';
 import { ConfiguracaoCustos, MargemLucro } from '@/types/precificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import { formatCurrency } from '@/lib/unitConversion';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
+import { VerFormulaDialog } from './VerFormulaDialog';
+import { Formula } from '@/types/formula';
 import {
   AlertDialog,
   AlertDialogAction,
