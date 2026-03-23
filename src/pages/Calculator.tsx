@@ -507,6 +507,7 @@ export default function Calculator() {
         .select('id')
         .ilike('cliente', cliente.trim())
         .eq('nome_formula', (nomeFormula || 'Fórmula sem nome').trim())
+        .limit(1)
         .maybeSingle();
 
       if (searchError) throw searchError;

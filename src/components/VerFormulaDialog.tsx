@@ -347,10 +347,12 @@ export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }:
                 <ClipboardList className="h-4 w-4 mr-2" />
                 Copiar WhatsApp
               </Button>
-              <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </Button>
+              {!readOnly && onUpdateFormula && (
+                <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              )}
               <Button onClick={handleDownloadPng} className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
                 Baixar PNG
