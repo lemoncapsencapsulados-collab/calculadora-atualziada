@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/lib/unitConversion';
 import { supabase } from '@/integrations/supabase/client';
 import { arredondarReais } from '@/lib/utils';
