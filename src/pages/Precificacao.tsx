@@ -41,6 +41,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Precificacao() {
+  const navigate = useNavigate();
   const { formulas, loading: loadingFormulas, deleteFormula, updateFormula } = useFormulas();
   const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
   const { salvarPrecificacao } = usePrecificacao();
