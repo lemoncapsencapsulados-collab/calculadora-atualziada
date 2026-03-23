@@ -1040,6 +1040,42 @@ export default function Precificacao() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Duplicação */}
+      <Dialog open={!!duplicarDialog} onOpenChange={(open) => { if (!open) setDuplicarDialog(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar Produto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Cliente</Label>
+              <Input
+                value={duplicarCliente}
+                onChange={(e) => setDuplicarCliente(e.target.value)}
+                placeholder="Nome do cliente"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome da Fórmula</Label>
+              <Input
+                value={duplicarFormula}
+                onChange={(e) => setDuplicarFormula(e.target.value)}
+                placeholder="Nome da fórmula"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleDuplicar} className="flex-1">
+                <Copy className="w-4 h-4 mr-2" />
+                Duplicar
+              </Button>
+              <Button variant="outline" onClick={() => setDuplicarDialog(null)} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
