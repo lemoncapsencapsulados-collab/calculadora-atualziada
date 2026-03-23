@@ -528,6 +528,7 @@ export default function Precificacao() {
                             <VerFormulaDialog
                               formula={formula as Formula}
                               onUpdateFormula={updateFormula}
+                              readOnly
                             />
                             <Button
                               size="sm"
