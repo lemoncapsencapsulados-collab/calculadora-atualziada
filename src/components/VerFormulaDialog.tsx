@@ -10,7 +10,8 @@ import { formatCurrency } from '@/lib/unitConversion';
 
 interface VerFormulaDialogProps {
   formula: Formula;
-  onUpdateFormula: (formula: Formula) => void;
+  onUpdateFormula?: (formula: Formula) => void;
+  readOnly?: boolean;
 }
 
 // Converter para mg
