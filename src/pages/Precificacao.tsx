@@ -290,7 +290,7 @@ export default function Precificacao() {
   // Redirecionar para o calculador para edição
   const handleEditarNoCalculador = (formula: Formula) => {
     localStorage.setItem('loadFormula', JSON.stringify(formula));
-    navigate('/calculator');
+    navigate('/');
   };
 
   // Duplicar produto criado
