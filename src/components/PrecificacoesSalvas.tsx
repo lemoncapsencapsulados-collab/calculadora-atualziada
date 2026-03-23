@@ -122,6 +122,86 @@ export default function PrecificacoesSalvas({
     }
   };
 
+  const handleVerFormula = async (formulaId: string | null) => {
+    if (!formulaId) return;
+    const { data, error } = await supabase
+      .from('formulas')
+      .select('*')
+      .eq('id', formulaId)
+      .maybeSingle();
+    if (error || !data) {
+      toast.error('Fórmula não encontrada');
+      return;
+    }
+    setFormulaParaVer({
+      id: data.id,
+      cliente: data.cliente,
+      nome_formula: data.nome_formula,
+      tipo_produto: data.tipo_produto as any,
+      quantidade_por_pote: data.quantidade_por_pote,
+      unidades_por_dose: data.unidades_por_dose,
+      unidade_soluvel: data.unidade_soluvel as any,
+      itens: data.itens as any,
+      embalagens: data.embalagens as any,
+      total_mp: data.total_mp,
+      total_embalagem: data.total_embalagem,
+      custo_total: data.custo_total,
+      data: new Date(data.created_at!),
+    });
+  };
+
+  const handleDuplicar = async () => {
+    if (!duplicarPrecificacao || !duplicarCliente.trim() || !duplicarFormula.trim()) {
+      toast.error('Preencha o nome do cliente e da fórmula');
+      return;
+    }
+    try {
+      // Buscar fórmula original
+      const { data: formulaOriginal, error: fetchErr } = await supabase
+        .from('formulas')
+        .select('*')
+        .eq('id', duplicarPrecificacao.formula_id!)
+        .single();
+      if (fetchErr || !formulaOriginal) throw new Error('Fórmula original não encontrada');
+
+      // Duplicar fórmula
+      const { data: novaFormula, error: insertErr } = await supabase
+        .from('formulas')
+        .insert({
+          cliente: duplicarCliente.trim(),
+          nome_formula: duplicarFormula.trim(),
+          tipo_produto: formulaOriginal.tipo_produto,
+          quantidade_por_pote: formulaOriginal.quantidade_por_pote,
+          itens: formulaOriginal.itens,
+          embalagens: formulaOriginal.embalagens,
+          total_mp: formulaOriginal.total_mp,
+          total_embalagem: formulaOriginal.total_embalagem,
+          custo_total: formulaOriginal.custo_total,
+          unidades_por_dose: formulaOriginal.unidades_por_dose,
+          unidade_soluvel: formulaOriginal.unidade_soluvel,
+        })
+        .select()
+        .single();
+      if (insertErr) throw insertErr;
+
+      // Duplicar precificação com nova fórmula
+      const { id, created_at, updated_at, formulas: _, formula_id, ...precData } = duplicarPrecificacao;
+      await supabase
+        .from('precificacoes')
+        .insert({
+          ...precData,
+          formula_id: novaFormula.id,
+        } as any);
+
+      toast.success('Produto precificado duplicado com sucesso!');
+      setDuplicarPrecificacao(null);
+      queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+      queryClient.invalidateQueries({ queryKey: ['formulas'] });
+    } catch (err: any) {
+      toast.error('Erro ao duplicar: ' + err.message);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
