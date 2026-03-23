@@ -101,6 +101,7 @@ export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }:
   };
 
   const handleSaveEdits = () => {
+    if (!onUpdateFormula) return;
     const newTotalMp = editedItems.reduce((sum, item) => sum + item.custo_calculado, 0);
     const newTotalEmbalagem = editedEmbalagens.reduce((sum, item) => sum + item.custo_calculado, 0);
 
