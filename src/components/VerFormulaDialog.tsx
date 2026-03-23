@@ -35,7 +35,7 @@ const convertToMg = (value: number, unit: UnitType): { value: number; display: s
   }
 };
 
-export function VerFormulaDialog({ formula, onUpdateFormula }: VerFormulaDialogProps) {
+export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }: VerFormulaDialogProps) {
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedItems, setEditedItems] = useState<FormulaItem[]>([...formula.itens]);
