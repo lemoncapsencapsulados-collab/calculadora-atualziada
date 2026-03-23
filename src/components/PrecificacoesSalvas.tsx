@@ -432,10 +432,54 @@ export default function PrecificacoesSalvas({
 
       {/* Dialog Ver Fórmula (somente leitura) */}
       {formulaParaVer && (
-        <VerFormulaDialog
-          formula={formulaParaVer}
-          onUpdateFormula={() => {}}
-        />
+        <Dialog open={!!formulaParaVer} onOpenChange={(open) => { if (!open) setFormulaParaVer(null); }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                📋 Fórmula: {formulaParaVer.nome_formula}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">Cliente: {formulaParaVer.cliente}</p>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Matérias-Primas</h4>
+                <div className="space-y-1">
+                  {formulaParaVer.itens.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {item.nome_insumo_snapshot} ({item.qtd_informada} {item.unidade_informada})
+                      </span>
+                      <span>{formatCurrency(item.custo_calculado)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-semibold pt-2 border-t">
+                    <span>Total MP:</span>
+                    <span>{formatCurrency(formulaParaVer.total_mp)}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">Embalagens</h4>
+                <div className="space-y-1">
+                  {formulaParaVer.embalagens.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{item.descricao_snapshot}</span>
+                      <span>{formatCurrency(item.custo_calculado)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between font-semibold pt-2 border-t">
+                    <span>Total Embalagem:</span>
+                    <span>{formatCurrency(formulaParaVer.total_embalagem)}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                <span>Custo Total:</span>
+                <span className="text-primary">{formatCurrency(formulaParaVer.custo_total)}</span>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Dialog de Duplicação */}
