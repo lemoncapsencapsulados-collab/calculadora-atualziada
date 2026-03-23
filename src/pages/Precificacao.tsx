@@ -325,6 +325,7 @@ export default function Precificacao() {
     }
   };
 
+  const handleExport = (formula: any) => {
     let csv = `COTAÇÃO - ${formula.nome_formula}\n`;
     csv += `Cliente: ${formula.cliente}\n`;
     csv += `Data: ${format(new Date(formula.data), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}\n`;
