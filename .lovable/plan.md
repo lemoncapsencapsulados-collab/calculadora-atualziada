@@ -1,63 +1,57 @@
 
 
-# Plano: 7 melhorias no fluxo Produto → Precificação → Orçamento
+# Plano: Limpeza de duplicatas + relatório + 4 correções de código
 
-## 1. Custo de rótulo visível na precificação
+## Relatório de Duplicatas Encontradas
 
-Na tela de precificação (`Precificacao.tsx`), adicionar linha "Rótulo: R$ 1,00" nos Custos Diretos, separando-o visualmente do total de embalagem. Apenas exibição — o cálculo já inclui.
+**119 fórmulas duplicadas** serão deletadas (mantendo a mais recente de cada grupo). Dessas, **36 fórmulas antigas** possuem precificações vinculadas que precisam ser redirecionadas. **Zero pedidos** são afetados.
 
-**Arquivo**: `src/pages/Precificacao.tsx`
+### Precificações que precisam ser redirecionadas (36 registros em 30 clientes):
 
-## 2. Editar fórmula redireciona ao Calculador com upsert
+| Cliente | Fórmula | Precif. afetadas | Pedidos |
+|---|---|---|---|
+| Vinicius (João Ferrari) | Fórmula personalizada | 1 | 0 |
+| Alex (Indicação matheus/otavio) | Formula personalizada de solúvel | 2 (2 IDs antigos) | 0 |
+| BIANCA VIEIRA | FÓRMULA P/ GESTANTES | 1 | 0 |
+| Boaz | Shot Colágeno Verisol | 1 | 0 |
+| CAROL CAPLEVE | COLAGENO CAPSULAS | 1 | 0 |
+| DR Hemilton | Levanta defunto em po | 3 (2 IDs antigos) | 0 |
+| Dra Andrea BEM ESTAR SEM FUMAR | ANSIEDADE e IRRITABILIDADE | 2 (2 IDs antigos) | 0 |
+| IGO SUPLEMNTA AI | PRÉ TREINO MANGA 320 PO | 1 | 0 |
+| IGOR VILELA | NUTRONYCA SABOR LIMÃO 300G | 3 | 0 |
+| KILSON | Calmaria Crianças | 1 | 0 |
+| LEMON - LINHA PREMIUM- 01 | CREATINA GUMMY | 2 | 0 |
+| LEMON CAPS | PRÉ-TREINO POTE 300G | 2 (2 IDs antigos) | 0 |
+| Lemon caps | Emagrecimento cápsulas 60un | 1 | 0 |
+| LEMON CAPS | MULTIVITAMICO GOTAS 30ML | 1 | 0 |
+| LUCAS MAOZ | LAPSO 2 | 1 | 0 |
+| LUCAS VIEIRA | FOCO - PERSONALIZADA | 4 (3 IDs antigos) | 0 |
+| Maikon | Fórmula sem nome | 1 | 0 |
+| MATEUS MACHADO | BRAINJUICE-GREENS SOLUVEL | 1 | 0 |
+| MATOS (Kilson) | PRÉ TREINO | 1 | 0 |
+| MATTOS SUPLEMENTOS | PRÉ TREINO 300G | 1 | 0 |
+| Pedro Russo | Pré Treino | 2 | 0 |
+| PINK CAPS | PC CAPS | 1 | 0 |
+| PRISCILA LIMA (Derek) | Vitaminas | 1 | 0 |
+| RODOLFO | FORMULA 1 DE 4 A 6 ANOS | 2 (2 IDs antigos) | 0 |
+| ROSANA (CHINA - KILSON) | LIPEDEMA - LINHA PREMIUM | 1 | 0 |
+| STELLA DR. PAULA | SONO FORMULA N 3 | 1 | 0 |
+| Stella Linha premium | MELATONINA + TRIPTOFANO | 1 | 0 |
+| TESTE | TESTE | 1 | 0 |
+| Venicius | NAC | 1 | 0 |
 
-Ao clicar "Editar" num produto criado, salvar a fórmula em `localStorage('loadFormula')` e navegar para `/calculator`.
+**Nenhum pedido precisa ser atualizado.**
 
-No `Calculator.tsx` → `handleSave`: antes de inserir, buscar no banco se já existe uma fórmula com mesmo `cliente` (case-insensitive) e `nome_formula`. Se existir, fazer `update` nessa fórmula em vez de `insert`. Isso evita duplicatas ao editar e re-salvar.
+## Execução (3 passos via insert tool)
 
-**Arquivos**: `src/pages/Precificacao.tsx`, `src/pages/Calculator.tsx`
+1. **UPDATE precificacoes**: Para cada `old_id` com precificações, atualizar `formula_id` para o `new_id` (a fórmula mais recente do grupo)
+2. **Verificação**: Confirmar que nenhuma precificação aponta para IDs antigos
+3. **DELETE formulas**: Remover as 119 fórmulas duplicadas antigas
 
-## 3. Bloquear precificação abaixo da margem mínima
+## Correções de código (mesma implementação)
 
-- **Salvar**: Em `Precificacao.tsx` → `handleSalvar`, verificar se `validacaoMargem?.status === 'baixa'` e bloquear com toast. Desabilitar botão visualmente.
-- **Orçamento**: Em `GerarOrcamentoDialog.tsx`, filtrar `precificacoesDisponiveis` para excluir as com margem abaixo do mínimo (usando `MARGENS_CONFIG` ou buscando da tabela `margens_lucro`).
-
-**Arquivos**: `src/pages/Precificacao.tsx`, `src/components/GerarOrcamentoDialog.tsx`
-
-## 4. Botão "Ver Fórmula" em Produtos Precificados
-
-Adicionar botão que abre `VerFormulaDialog` em modo somente leitura (sem `onUpdateFormula`), buscando a fórmula pelo `formula_id`.
-
-**Arquivo**: `src/components/PrecificacoesSalvas.tsx`
-
-## 5. Botão duplicar produto criado e precificado
-
-- **Produto Criado** (`Precificacao.tsx`): Dialog pedindo novo cliente/fórmula, insere cópia no banco.
-- **Produto Precificado** (`PrecificacoesSalvas.tsx`): Dialog similar, duplica fórmula e precificação apontando para a nova.
-
-**Arquivos**: `src/pages/Precificacao.tsx`, `src/components/PrecificacoesSalvas.tsx`
-
-## 6. Remover produto avulso na criação de orçamento
-
-Remover o botão "Produto Avulso", os states `showProdutoAvulso`/`produtoAvulso`, o handler `handleAddProdutoAvulso` e o formulário correspondente.
-
-**Arquivo**: `src/components/GerarOrcamentoDialog.tsx`
-
-## 7. POD — valor total não considera custo de pote
-
-Atualmente POD calcula `subtotal = preco_unitario` (quantidade fixa em 1). O pedido do usuário é que o custo por pote apareça normalmente, mas o valor total do orçamento não o considere (como se quantidade de potes = 0).
-
-**Solução**: Quando `modelo_negocio === 'print_on_demand'`, setar `subtotal = 0` e `quantidade = 0` para esse item. O preço unitário continua exibido para referência. No cálculo de `subtotalProducao`, itens POD contribuem com 0.
-
-Atualizar `handleUpdateModeloNegocio` e `handleUpdateItemQuantidade` para refletir isso.
-
-**Arquivo**: `src/components/GerarOrcamentoDialog.tsx`
-
-## Resumo de arquivos
-
-| Arquivo | Mudanças |
-|---|---|
-| `src/pages/Precificacao.tsx` | Rótulo visível, editar→calculador, bloquear margem baixa, duplicar produto |
-| `src/pages/Calculator.tsx` | Upsert: buscar fórmula existente por cliente+nome antes de inserir |
-| `src/components/PrecificacoesSalvas.tsx` | Ver fórmula, duplicar precificação |
-| `src/components/GerarOrcamentoDialog.tsx` | Remover avulso, filtrar margem baixa, POD subtotal=0 |
+1. `VerFormulaDialog.tsx` — prop `readOnly` para esconder edição
+2. `Precificacao.tsx` — rota `/` em vez de `/calculator`, readOnly no VerFormula, rótulo nos cards
+3. `Calculator.tsx` — `.limit(1)` antes de `.maybeSingle()`
+4. `PrecificacoesSalvas.tsx` — rótulo na lista de embalagens
 
