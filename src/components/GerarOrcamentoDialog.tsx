@@ -541,8 +541,6 @@ export default function GerarOrcamentoDialog({
                 </Card>
               )}
 
-              )}
-
               {/* Lista de Itens */}
               {itensProducao.length === 0 ? (
                 <div className="py-8 text-center border rounded-lg bg-muted/30">
