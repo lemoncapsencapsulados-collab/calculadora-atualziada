@@ -673,6 +673,9 @@ export default function Precificacao() {
                               disabled
                               className="bg-muted"
                             />
+                            <p className="text-xs text-muted-foreground">
+                              Inclui Rótulo: R$ 1,00
+                            </p>
                           </div>
                         </div>
 
