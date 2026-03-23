@@ -342,8 +342,16 @@ export default function GerarOrcamentoDialog({
   };
 
   // Precificações disponíveis (não já adicionadas)
+  // Filtrar precificações: excluir já adicionadas e com margem abaixo do mínimo
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
+    
+    // Filtrar margem abaixo do mínimo
+    const tipoProduto = p.formulas?.tipo_produto || 'Encapsulados';
+    const margem = Number(p.margem_lucro_percentual);
+    const validacao = validarMargemPorTipo(margem, tipoProduto);
+    if (validacao.status === 'baixa') return false;
+    
     if (buscaPrecificacao.trim()) {
       const termo = buscaPrecificacao.toLowerCase();
       const nomeFormula = (p.formulas?.nome_formula || '').toLowerCase();
