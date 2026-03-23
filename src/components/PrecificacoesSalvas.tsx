@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
-import { VerFormulaDialog } from './VerFormulaDialog';
+
 import { Formula } from '@/types/formula';
 import {
   AlertDialog,
