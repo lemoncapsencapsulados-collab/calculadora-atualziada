@@ -1,77 +1,51 @@
-# Plano: Pré-seleção automática de embalagens por tipo de produto
 
-## Resumo
 
-Ao trocar o tipo de produto, as embalagens corretas serão pré-selecionadas automaticamente, mas o usuário poderá alterá-las manualmente. As quantidades serão restritas via Select dropdown, e o custo de rótulo será dinâmico.
+# Plano: Validação visual + bloqueio de salvamento para Solúvel e Encapsulados
 
 ## Alterações em `Calculator.tsx`
 
-### 1. Custo de rótulo dinâmico (linha 359)
+### 1. Adicionar alertas visuais para Solúvel (após linha 956)
 
-Substituir `const custoRotulo = 1.00` por:
+Dois blocos condicionais na seção "Análise da Composição do Solúvel":
+
+- **Alerta amber (≥90%)**: quando `totaisInsumosMG.totalMG >= unidadesPorDoseEmMG * 0.9` mas não excede. Mostra percentual de preenchimento.
+- **Alerta vermelho (excedido)**: quando `totaisInsumosMG.totalMG > unidadesPorDoseEmMG`. Mostra excedente em mg, usa `animate-pulse`, mesma estilização do alerta de Encapsulados.
+
+### 2. Criar variável de controle `capacidadeExcedida`
+
+Adicionar um `useMemo` que retorna `true` quando a MP excede o limite, para ambos os tipos:
 
 ```typescript
-const custoRotulo = useMemo(() => {
-  switch (tipoProduto) {
-    case 'Encapsulados': return 0.94;
-    case 'Solúvel': return 1.54;
-    case 'Gummy': return 1.34;
-    case 'Líquido': return 0.72;
-    default: return 1.14;
+const capacidadeExcedida = useMemo(() => {
+  if (tipoProduto === 'Encapsulados') {
+    return totaisInsumosMG.totalMG > (parseFloat(unidadesPorDose) || 1) * 500;
   }
-}, [tipoProduto]);
+  if (tipoProduto === 'Solúvel') {
+    return totaisInsumosMG.totalMG > unidadesPorDoseEmMG;
+  }
+  return false;
+}, [tipoProduto, totaisInsumosMG.totalMG, unidadesPorDose, unidadesPorDoseEmMG]);
 ```
 
-### 2. Quantidades fixas via Select (linhas 638-649)
+### 3. Bloquear salvamento (linha 1370)
 
-Substituir o Input de `qtdCapsulas` por um Select com opções fixas:
+Adicionar `capacidadeExcedida` à condição `disabled` do botão Salvar:
 
-- **Encapsulados**: 30, 60
-- **Solúvel**: 150, 300 (gramas, forçar `unidadeSoluvel = 'g'`)
-- **Gummy**: 30, 60
-- **Líquido**: 30 (apenas uma opção)
-
-### 3. useEffect para pré-seleção de embalagens (após linha 127)
-
-Ao mudar `tipoProduto`, pré-selecionar automaticamente os IDs corretos:
-
-```text
-Encapsulados:
-  selectedCapsula = 0e499d80 (Cápsula 0)
-  selectedEmbalagens = {7bad5af1, 7cb20b55, 18a9b933}
-
-Solúvel:
-  selectedCapsula = null
-  selectedEmbalagens = {6b8d9a17, ba19c064} + dosador dinâmico
-
-Gummy:
-  selectedCapsula = null
-  selectedEmbalagens = {7bad5af1, 95ba10a6, c4b906eb}
-
-Líquido:
-  selectedCapsula = null
-  selectedEmbalagens = {4fbf0747, a8ff3b3e, fd44bb06, 88de1bd9}
+```typescript
+<Button onClick={handleSave} disabled={!cliente || custoTotal === 0 || capacidadeExcedida}>
 ```
 
-O card de EmbalagensHierarchy continua visível e editável — o usuário pode adicionar ou remover itens após a pré-seleção.
+### 4. Validação no `handleSave` (linha 510)
 
-### 4. Ajuste de defaults ao trocar tipo (useEffect existente, linhas 130-140)
+Adicionar check redundante no início da função para segurança:
 
-Atualizar `qtdCapsulas` e `unidadesPorDose` para valores padrão do novo tipo:
+```typescript
+if (capacidadeExcedida) {
+  toast.error('Capacidade de matéria-prima por dose excedida. Ajuste antes de salvar.');
+  return;
+}
+```
 
-- Encapsulados: 60 cáps, 2 por dose
-- Solúvel: 300g, 3g por dose, forçar `unidadeSoluvel = 'g'`
-- Gummy: 30, 1 por dose
-- Líquido: 30mL, 1 por dose
+## Arquivo modificado
+- `src/pages/Calculator.tsx`
 
-### 5. Dosador dinâmico para Solúvel
-
-Buscar o dosador correto baseado na dose selecionada. Mapeamento dos IDs de dosadores será feito com base nos nomes existentes na tabela `embalagens`.
-
-### 6. Validação de MP para Solúvel
-
-Limitar total de matéria-prima por dose à quantidade de gramas por dose informada (similar ao limite de 500mg/cápsula dos Encapsulados).
-
-## Arquivos modificados
-
-- `src/pages/Calculator.tsx` — todas as alterações
