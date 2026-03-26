@@ -413,6 +413,15 @@ export default function Calculator() {
     const qtd = parseFloat(qtdCapsulas) || 0;
     return capsula.preco_unitario * qtd;
   }, [selectedCapsula, qtdCapsulas, tipoProduto, embalagens]);
+  const capacidadeExcedida = useMemo(() => {
+    if (tipoProduto === 'Encapsulados') {
+      return totaisInsumosMG.totalMG > (parseFloat(unidadesPorDose) || 1) * 500;
+    }
+    if (tipoProduto === 'Solúvel') {
+      return totaisInsumosMG.totalMG > unidadesPorDoseEmMG;
+    }
+    return false;
+  }, [tipoProduto, totaisInsumosMG.totalMG, unidadesPorDose, unidadesPorDoseEmMG]);
   const custoEmbalagensExtras = useMemo(() => {
     return Array.from(selectedEmbalagens).reduce((sum, embId) => {
       const emb = embalagens.find(e => e.id === embId);
@@ -508,6 +517,10 @@ export default function Calculator() {
     toast.success(`${parsedItems.length} matéria${parsedItems.length !== 1 ? 's' : ''}-prima${parsedItems.length !== 1 ? 's' : ''} importada${parsedItems.length !== 1 ? 's' : ''}!`);
   };
   const handleSave = async () => {
+    if (capacidadeExcedida) {
+      toast.error('Capacidade de matéria-prima por dose excedida. Ajuste as quantidades antes de salvar.');
+      return;
+    }
     if (!cliente.trim()) {
       toast.error('Informe o nome do cliente');
       return;
@@ -955,6 +968,41 @@ export default function Calculator() {
               </p>
             </div>
 
+            {/* Alerta amber: quase cheio (≥90%) */}
+            {tipoProduto === 'Solúvel' && totaisInsumosMG.totalMG >= unidadesPorDoseEmMG * 0.9 && totaisInsumosMG.totalMG <= unidadesPorDoseEmMG && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-800">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      Dose quase cheia
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      Os insumos estão preenchendo {(totaisInsumosMG.totalMG / unidadesPorDoseEmMG * 100).toFixed(1)}% da capacidade da dose ({unidadesPorDoseEmMG.toFixed(0)}mg)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Alerta vermelho: excedido */}
+            {tipoProduto === 'Solúvel' && totaisInsumosMG.totalMG > unidadesPorDoseEmMG && (
+              <div className="p-3 bg-red-50 border-2 border-red-300 rounded-lg dark:bg-red-950/20 dark:border-red-800 animate-pulse">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-red-900 dark:text-red-100">
+                      ⚠️ ATENÇÃO: Capacidade da dose excedida!
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                      A quantidade de insumos ({totaisInsumosMG.totalMG.toFixed(2)}mg) excede a capacidade da dose ({unidadesPorDoseEmMG.toFixed(0)}mg).
+                      Excedente: {(totaisInsumosMG.totalMG - unidadesPorDoseEmMG).toFixed(2)}mg. Aumente a dose ou reduza as quantidades.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="p-3 bg-muted rounded-lg">
               <div className="flex items-start gap-2">
                 <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
@@ -1367,7 +1415,7 @@ export default function Calculator() {
           <X className="w-4 h-4 mr-2" />
           Limpar
         </Button>
-        <Button onClick={handleSave} disabled={!cliente || custoTotal === 0}>
+        <Button onClick={handleSave} disabled={!cliente || custoTotal === 0 || capacidadeExcedida}>
           <Save className="w-4 h-4 mr-2" />
           Salvar Cálculo
         </Button>
