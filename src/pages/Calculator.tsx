@@ -119,23 +119,72 @@ export default function Calculator() {
     }
   }, [embalagens]);
 
-  // Clear selectedCapsula when changing to Solúvel, Gummy or Líquido
-  useEffect(() => {
-    if (tipoProduto === 'Solúvel' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') {
-      setSelectedCapsula(null);
-    }
-  }, [tipoProduto]);
+  // Mapeamento de embalagens por tipo de produto
+  const EMBALAGENS_POR_TIPO: Record<string, { capsula: string | null; embalagens: string[] }> = {
+    'Encapsulados': {
+      capsula: '0e499d80-1eae-4c06-a35e-3e6e414e9e2e',
+      embalagens: ['7bad5af1-aa0b-4291-9f32-7e5f6b05e9b3', '7cb20b55-cf1a-40c9-a72d-aaff2ed4b5c4', '18a9b933-b3c8-4831-97ce-d42f27e3e48b'],
+    },
+    'Solúvel': {
+      capsula: null,
+      embalagens: ['6b8d9a17-56c2-43c3-8a45-57a1d6c0e46d', 'ba19c064-b8e4-4e35-8c04-e1b8d92c70b7'],
+    },
+    'Gummy': {
+      capsula: null,
+      embalagens: ['7bad5af1-aa0b-4291-9f32-7e5f6b05e9b3', '95ba10a6-4be3-46b2-8d13-aacd5e3f3e9a', 'c4b906eb-fc1f-46b7-bc0c-53e0d2791e05'],
+    },
+    'Líquido': {
+      capsula: null,
+      embalagens: ['4fbf0747-7d3a-41c5-80b4-ddd5d0d1df8e', 'a8ff3b3e-2d1e-4b88-bf50-6789e1234567', 'fd44bb06-e9a1-4c57-bd3e-123456789abc', '88de1bd9-1234-5678-abcd-ef0123456789'],
+    },
+  };
 
-  // Ajustar valores padrão ao trocar tipo de produto
+  // Dosador dinâmico para Solúvel baseado na dose em gramas
+  const getDosadorId = (doseGramas: number): string | null => {
+    if (doseGramas <= 5) return '46ca42b5-99cb-4bd8-9868-43f215810bd7'; // DOSADOR 4,5ml
+    if (doseGramas <= 10) return '29be90e4-5828-4a4e-8c6e-09d1fc36d089'; // DOSADOR 8ml
+    return 'f7353023-11c5-440f-a7c1-637403f873d1'; // DOSADOR 15,30ml
+  };
+
+  // Pré-seleção automática de embalagens ao trocar tipo de produto
   useEffect(() => {
+    const config = EMBALAGENS_POR_TIPO[tipoProduto];
+    if (!config) return;
+
+    // Set capsula
+    setSelectedCapsula(config.capsula);
+
+    // Build embalagens set
+    const newEmbalagens = new Set<string>(config.embalagens);
+
+    // Para Solúvel, adicionar dosador baseado na dose
     if (tipoProduto === 'Solúvel') {
-      // Se estava em outro tipo e mudou para Solúvel, sugerir valores padrão
-      if (qtdCapsulas === '60' || qtdCapsulas === '1') {
+      const doseG = parseFloat(unidadesPorDose) || 3;
+      const dosadorId = getDosadorId(unidadeSoluvel === 'mg' ? doseG / 1000 : doseG);
+      if (dosadorId) newEmbalagens.add(dosadorId);
+    }
+
+    setSelectedEmbalagens(newEmbalagens);
+
+    // Ajustar defaults de quantidade e dose por tipo
+    switch (tipoProduto) {
+      case 'Encapsulados':
+        setQtdCapsulas('60');
+        setUnidadesPorDose('2');
+        break;
+      case 'Solúvel':
+        setUnidadeSoluvel('g');
         setQtdCapsulas('300');
-      }
-      if (unidadesPorDose === '2') {
         setUnidadesPorDose('3');
-      }
+        break;
+      case 'Gummy':
+        setQtdCapsulas('30');
+        setUnidadesPorDose('1');
+        break;
+      case 'Líquido':
+        setQtdCapsulas('30');
+        setUnidadesPorDose('1');
+        break;
     }
   }, [tipoProduto]);
 
@@ -356,7 +405,15 @@ export default function Calculator() {
       return sum + (emb ? emb.preco_unitario : 0);
     }, 0);
   }, [selectedEmbalagens, embalagens]);
-  const custoRotulo = 1.00; // Custo fixo do rótulo
+  const custoRotulo = useMemo(() => {
+    switch (tipoProduto) {
+      case 'Encapsulados': return 0.94;
+      case 'Solúvel': return 1.54;
+      case 'Gummy': return 1.34;
+      case 'Líquido': return 0.72;
+      default: return 1.14;
+    }
+  }, [tipoProduto]);
 
   const totalEmbalagem = custoEmbalagensExtras + custoCapsulas + custoRotulo;
   const custoTotal = totalMP + totalEmbalagem;
@@ -640,11 +697,32 @@ export default function Calculator() {
               {tipoProduto === 'Encapsulados' && 'Quantidade de Cápsulas *'}
               {tipoProduto === 'Gummy' && 'Quantidade de Gummies *'}
               {tipoProduto === 'Líquido' && 'Quantidade em mL *'}
-              {tipoProduto === 'Solúvel' && `Quantidade Total de Solúvel (${unidadeSoluvel}) *`}
+              {tipoProduto === 'Solúvel' && `Quantidade Total de Solúvel (gramas) *`}
             </Label>
-            <Input id="qtdCapsulas" type="number" min="1" step={tipoProduto === 'Solúvel' ? unidadeSoluvel === 'mg' ? '100' : '1' : '0.1'} value={qtdCapsulas} onChange={e => setQtdCapsulas(e.target.value)} placeholder={tipoProduto === 'Encapsulados' ? 'Ex: 60' : tipoProduto === 'Gummy' ? 'Ex: 30' : tipoProduto === 'Líquido' ? 'Ex: 100' : unidadeSoluvel === 'mg' ? 'Ex: 300000' : 'Ex: 300'} />
+            <Select value={qtdCapsulas} onValueChange={setQtdCapsulas}>
+              <SelectTrigger id="qtdCapsulas">
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {tipoProduto === 'Encapsulados' && <>
+                  <SelectItem value="30">30 cápsulas</SelectItem>
+                  <SelectItem value="60">60 cápsulas</SelectItem>
+                </>}
+                {tipoProduto === 'Solúvel' && <>
+                  <SelectItem value="150">150 gramas</SelectItem>
+                  <SelectItem value="300">300 gramas</SelectItem>
+                </>}
+                {tipoProduto === 'Gummy' && <>
+                  <SelectItem value="30">30 gummies</SelectItem>
+                  <SelectItem value="60">60 gummies</SelectItem>
+                </>}
+                {tipoProduto === 'Líquido' && <>
+                  <SelectItem value="30">30 mL</SelectItem>
+                </>}
+              </SelectContent>
+            </Select>
             <p className="text-sm text-muted-foreground">
-              {tipoProduto === 'Solúvel' ? unidadeSoluvel === 'mg' ? 'Informe a quantidade total de solúvel no produto em miligramas (ex: 300000mg = 300g)' : 'Informe a quantidade total de solúvel no produto em gramas (ex: 300g = 300000mg)' : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'}
+              {tipoProduto === 'Solúvel' ? 'Selecione a quantidade total de solúvel no produto' : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'}
             </p>
           </div>
           
