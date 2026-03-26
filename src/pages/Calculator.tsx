@@ -188,6 +188,22 @@ export default function Calculator() {
     }
   }, [tipoProduto]);
 
+  // Atualizar dosador quando a dose muda para Solúvel
+  useEffect(() => {
+    if (tipoProduto !== 'Solúvel') return;
+    const doseG = unidadeSoluvel === 'mg' ? (parseFloat(unidadesPorDose) || 3) / 1000 : (parseFloat(unidadesPorDose) || 3);
+    const dosadorId = getDosadorId(doseG);
+    if (!dosadorId) return;
+
+    setSelectedEmbalagens(prev => {
+      const newSet = new Set(prev);
+      // Remove old dosadores
+      ['46ca42b5-99cb-4bd8-9868-43f215810bd7', '29be90e4-5828-4a4e-8c6e-09d1fc36d089', 'f7353023-11c5-440f-a7c1-637403f873d1'].forEach(id => newSet.delete(id));
+      newSet.add(dosadorId);
+      return newSet;
+    });
+  }, [unidadesPorDose, unidadeSoluvel, tipoProduto]);
+
   // Converter valores para mg quando necessário (produtos Solúveis)
   const qtdCapsulasEmMG = useMemo(() => {
     if (tipoProduto !== 'Solúvel') return parseFloat(qtdCapsulas) || 0;
