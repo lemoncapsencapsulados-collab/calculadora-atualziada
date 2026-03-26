@@ -1,57 +1,77 @@
+# Plano: Pré-seleção automática de embalagens por tipo de produto
 
+## Resumo
 
-# Plano: Limpeza de duplicatas + relatório + 4 correções de código
+Ao trocar o tipo de produto, as embalagens corretas serão pré-selecionadas automaticamente, mas o usuário poderá alterá-las manualmente. As quantidades serão restritas via Select dropdown, e o custo de rótulo será dinâmico.
 
-## Relatório de Duplicatas Encontradas
+## Alterações em `Calculator.tsx`
 
-**119 fórmulas duplicadas** serão deletadas (mantendo a mais recente de cada grupo). Dessas, **36 fórmulas antigas** possuem precificações vinculadas que precisam ser redirecionadas. **Zero pedidos** são afetados.
+### 1. Custo de rótulo dinâmico (linha 359)
 
-### Precificações que precisam ser redirecionadas (36 registros em 30 clientes):
+Substituir `const custoRotulo = 1.00` por:
 
-| Cliente | Fórmula | Precif. afetadas | Pedidos |
-|---|---|---|---|
-| Vinicius (João Ferrari) | Fórmula personalizada | 1 | 0 |
-| Alex (Indicação matheus/otavio) | Formula personalizada de solúvel | 2 (2 IDs antigos) | 0 |
-| BIANCA VIEIRA | FÓRMULA P/ GESTANTES | 1 | 0 |
-| Boaz | Shot Colágeno Verisol | 1 | 0 |
-| CAROL CAPLEVE | COLAGENO CAPSULAS | 1 | 0 |
-| DR Hemilton | Levanta defunto em po | 3 (2 IDs antigos) | 0 |
-| Dra Andrea BEM ESTAR SEM FUMAR | ANSIEDADE e IRRITABILIDADE | 2 (2 IDs antigos) | 0 |
-| IGO SUPLEMNTA AI | PRÉ TREINO MANGA 320 PO | 1 | 0 |
-| IGOR VILELA | NUTRONYCA SABOR LIMÃO 300G | 3 | 0 |
-| KILSON | Calmaria Crianças | 1 | 0 |
-| LEMON - LINHA PREMIUM- 01 | CREATINA GUMMY | 2 | 0 |
-| LEMON CAPS | PRÉ-TREINO POTE 300G | 2 (2 IDs antigos) | 0 |
-| Lemon caps | Emagrecimento cápsulas 60un | 1 | 0 |
-| LEMON CAPS | MULTIVITAMICO GOTAS 30ML | 1 | 0 |
-| LUCAS MAOZ | LAPSO 2 | 1 | 0 |
-| LUCAS VIEIRA | FOCO - PERSONALIZADA | 4 (3 IDs antigos) | 0 |
-| Maikon | Fórmula sem nome | 1 | 0 |
-| MATEUS MACHADO | BRAINJUICE-GREENS SOLUVEL | 1 | 0 |
-| MATOS (Kilson) | PRÉ TREINO | 1 | 0 |
-| MATTOS SUPLEMENTOS | PRÉ TREINO 300G | 1 | 0 |
-| Pedro Russo | Pré Treino | 2 | 0 |
-| PINK CAPS | PC CAPS | 1 | 0 |
-| PRISCILA LIMA (Derek) | Vitaminas | 1 | 0 |
-| RODOLFO | FORMULA 1 DE 4 A 6 ANOS | 2 (2 IDs antigos) | 0 |
-| ROSANA (CHINA - KILSON) | LIPEDEMA - LINHA PREMIUM | 1 | 0 |
-| STELLA DR. PAULA | SONO FORMULA N 3 | 1 | 0 |
-| Stella Linha premium | MELATONINA + TRIPTOFANO | 1 | 0 |
-| TESTE | TESTE | 1 | 0 |
-| Venicius | NAC | 1 | 0 |
+```typescript
+const custoRotulo = useMemo(() => {
+  switch (tipoProduto) {
+    case 'Encapsulados': return 0.94;
+    case 'Solúvel': return 1.54;
+    case 'Gummy': return 1.34;
+    case 'Líquido': return 0.72;
+    default: return 1.14;
+  }
+}, [tipoProduto]);
+```
 
-**Nenhum pedido precisa ser atualizado.**
+### 2. Quantidades fixas via Select (linhas 638-649)
 
-## Execução (3 passos via insert tool)
+Substituir o Input de `qtdCapsulas` por um Select com opções fixas:
 
-1. **UPDATE precificacoes**: Para cada `old_id` com precificações, atualizar `formula_id` para o `new_id` (a fórmula mais recente do grupo)
-2. **Verificação**: Confirmar que nenhuma precificação aponta para IDs antigos
-3. **DELETE formulas**: Remover as 119 fórmulas duplicadas antigas
+- **Encapsulados**: 30, 60
+- **Solúvel**: 150, 300 (gramas, forçar `unidadeSoluvel = 'g'`)
+- **Gummy**: 30, 60
+- **Líquido**: 30 (apenas uma opção)
 
-## Correções de código (mesma implementação)
+### 3. useEffect para pré-seleção de embalagens (após linha 127)
 
-1. `VerFormulaDialog.tsx` — prop `readOnly` para esconder edição
-2. `Precificacao.tsx` — rota `/` em vez de `/calculator`, readOnly no VerFormula, rótulo nos cards
-3. `Calculator.tsx` — `.limit(1)` antes de `.maybeSingle()`
-4. `PrecificacoesSalvas.tsx` — rótulo na lista de embalagens
+Ao mudar `tipoProduto`, pré-selecionar automaticamente os IDs corretos:
 
+```text
+Encapsulados:
+  selectedCapsula = 0e499d80 (Cápsula 0)
+  selectedEmbalagens = {7bad5af1, 7cb20b55, 18a9b933}
+
+Solúvel:
+  selectedCapsula = null
+  selectedEmbalagens = {6b8d9a17, ba19c064} + dosador dinâmico
+
+Gummy:
+  selectedCapsula = null
+  selectedEmbalagens = {7bad5af1, 95ba10a6, c4b906eb}
+
+Líquido:
+  selectedCapsula = null
+  selectedEmbalagens = {4fbf0747, a8ff3b3e, fd44bb06, 88de1bd9}
+```
+
+O card de EmbalagensHierarchy continua visível e editável — o usuário pode adicionar ou remover itens após a pré-seleção.
+
+### 4. Ajuste de defaults ao trocar tipo (useEffect existente, linhas 130-140)
+
+Atualizar `qtdCapsulas` e `unidadesPorDose` para valores padrão do novo tipo:
+
+- Encapsulados: 60 cáps, 2 por dose
+- Solúvel: 300g, 3g por dose, forçar `unidadeSoluvel = 'g'`
+- Gummy: 30, 1 por dose
+- Líquido: 30mL, 1 por dose
+
+### 5. Dosador dinâmico para Solúvel
+
+Buscar o dosador correto baseado na dose selecionada. Mapeamento dos IDs de dosadores será feito com base nos nomes existentes na tabela `embalagens`.
+
+### 6. Validação de MP para Solúvel
+
+Limitar total de matéria-prima por dose à quantidade de gramas por dose informada (similar ao limite de 500mg/cápsula dos Encapsulados).
+
+## Arquivos modificados
+
+- `src/pages/Calculator.tsx` — todas as alterações
