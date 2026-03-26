@@ -691,22 +691,7 @@ export default function Calculator() {
             </Select>
           </div>
 
-          {/* Seletor de unidade para produtos Solúveis */}
-          {tipoProduto === 'Solúvel' && <div className="space-y-2">
-              <Label htmlFor="unidadeSoluvel">Unidade de Medida *</Label>
-              <Select value={unidadeSoluvel} onValueChange={value => setUnidadeSoluvel(value as 'mg' | 'g')}>
-                <SelectTrigger id="unidadeSoluvel">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mg">Miligramas (mg)</SelectItem>
-                  <SelectItem value="g">Gramas (g)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">
-                Escolha a unidade de medida para os campos de quantidade abaixo
-              </p>
-            </div>}
+          {/* Unidade de Solúvel é sempre gramas agora */}
 
           <div className="space-y-2">
             <Label htmlFor="qtdCapsulas">
