@@ -122,20 +122,20 @@ export default function Calculator() {
   // Mapeamento de embalagens por tipo de produto
   const EMBALAGENS_POR_TIPO: Record<string, { capsula: string | null; embalagens: string[] }> = {
     'Encapsulados': {
-      capsula: '0e499d80-1eae-4c06-a35e-3e6e414e9e2e',
-      embalagens: ['7bad5af1-aa0b-4291-9f32-7e5f6b05e9b3', '7cb20b55-cf1a-40c9-a72d-aaff2ed4b5c4', '18a9b933-b3c8-4831-97ce-d42f27e3e48b'],
+      capsula: '0e499d80-ca08-41ec-832d-035b37eb1656',
+      embalagens: ['7bad5af1-6900-4b8a-944a-6810c7a56e6b', '7cb20b55-bb2c-4c85-9f7c-ca63e1b31a23', '18a9b933-3eba-4921-b800-5c0507d629a9'],
     },
     'Solúvel': {
       capsula: null,
-      embalagens: ['6b8d9a17-56c2-43c3-8a45-57a1d6c0e46d', 'ba19c064-b8e4-4e35-8c04-e1b8d92c70b7'],
+      embalagens: ['6b8d9a17-b1b1-4660-acab-b4c8352a9451', 'ba19c064-3c9e-4bad-a4d7-b6b61da94557'],
     },
     'Gummy': {
       capsula: null,
-      embalagens: ['7bad5af1-aa0b-4291-9f32-7e5f6b05e9b3', '95ba10a6-4be3-46b2-8d13-aacd5e3f3e9a', 'c4b906eb-fc1f-46b7-bc0c-53e0d2791e05'],
+      embalagens: ['7bad5af1-6900-4b8a-944a-6810c7a56e6b', '95ba10a6-58a1-4c7d-b70f-633b97f5f1e8', 'c4b906eb-ddf3-43bd-bb73-e326b78320ca'],
     },
     'Líquido': {
       capsula: null,
-      embalagens: ['4fbf0747-7d3a-41c5-80b4-ddd5d0d1df8e', 'a8ff3b3e-2d1e-4b88-bf50-6789e1234567', 'fd44bb06-e9a1-4c57-bd3e-123456789abc', '88de1bd9-1234-5678-abcd-ef0123456789'],
+      embalagens: ['4fbf0747-5cc7-41bf-a40a-ddc0297ca446', 'a8ff3b3e-7386-4bcf-9a7e-66e295b9bc7c', 'fd44bb06-f6b8-4129-833a-5317a4d903a4', '88de1bd9-92e9-48d7-b0cd-578767e1cf6e'],
     },
   };
 
