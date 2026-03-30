@@ -63,6 +63,7 @@ export default function Calculator() {
     if (loadFormulaData) {
       try {
         const formula = JSON.parse(loadFormulaData);
+        isLoadingFormula.current = true;
 
         // Preencher campos básicos
         setCliente(formula.cliente || '');
