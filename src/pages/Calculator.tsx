@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Trash2, Save, X, Package, Box, Scale, Pill, Wheat, AlertTriangle, Info, ClipboardPaste } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ interface FormulaItemInput {
   unidade: UnitType;
 }
 export default function Calculator() {
+  const isLoadingFormula = useRef(false);
   const [cliente, setCliente] = useState('');
   const [nomeFormula, setNomeFormula] = useState('');
   const [items, setItems] = useState<FormulaItemInput[]>([{
@@ -63,6 +64,7 @@ export default function Calculator() {
     if (loadFormulaData) {
       try {
         const formula = JSON.parse(loadFormulaData);
+        isLoadingFormula.current = true;
 
         // Preencher campos básicos
         setCliente(formula.cliente || '');
@@ -148,6 +150,10 @@ export default function Calculator() {
 
   // Pré-seleção automática de embalagens ao trocar tipo de produto
   useEffect(() => {
+    if (isLoadingFormula.current) {
+      isLoadingFormula.current = false;
+      return;
+    }
     const config = EMBALAGENS_POR_TIPO[tipoProduto];
     if (!config) return;
 
