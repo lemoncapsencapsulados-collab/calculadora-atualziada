@@ -167,7 +167,7 @@ export default function Calculator() {
 
     // Para Solúvel, adicionar dosador baseado na dose
     if (tipoProduto === 'Solúvel') {
-      const doseG = parseFloat(unidadesPorDose) || 3;
+      const doseG = parseFloat(unidadesPorDose) || 10;
       const dosadorId = getDosadorId(unidadeSoluvel === 'mg' ? doseG / 1000 : doseG);
       if (dosadorId) newEmbalagens.add(dosadorId);
     }
