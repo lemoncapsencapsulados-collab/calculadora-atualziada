@@ -183,11 +183,11 @@ export default function Calculator() {
       case 'Solúvel':
         setUnidadeSoluvel('g');
         setQtdCapsulas('300');
-        setUnidadesPorDose('3');
+        setUnidadesPorDose('10');
         break;
       case 'Gummy':
-        setQtdCapsulas('30');
-        setUnidadesPorDose('1');
+        setQtdCapsulas('60');
+        setUnidadesPorDose('2');
         break;
       case 'Líquido':
         setQtdCapsulas('30');
