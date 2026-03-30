@@ -149,6 +149,10 @@ export default function Calculator() {
 
   // Pré-seleção automática de embalagens ao trocar tipo de produto
   useEffect(() => {
+    if (isLoadingFormula.current) {
+      isLoadingFormula.current = false;
+      return;
+    }
     const config = EMBALAGENS_POR_TIPO[tipoProduto];
     if (!config) return;
 
