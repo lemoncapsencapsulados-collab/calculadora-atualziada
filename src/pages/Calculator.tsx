@@ -29,6 +29,7 @@ interface FormulaItemInput {
   unidade: UnitType;
 }
 export default function Calculator() {
+  const isLoadingFormula = useRef(false);
   const [cliente, setCliente] = useState('');
   const [nomeFormula, setNomeFormula] = useState('');
   const [items, setItems] = useState<FormulaItemInput[]>([{
