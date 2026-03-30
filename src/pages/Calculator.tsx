@@ -64,12 +64,10 @@ export default function Calculator() {
     if (loadFormulaData) {
       try {
         const formula = JSON.parse(loadFormulaData);
-        isLoadingFormula.current = true;
 
         // Preencher campos básicos
         setCliente(formula.cliente || '');
         setNomeFormula(formula.nome_formula || '');
-        setTipoProduto(formula.tipo_produto === 'Pó' ? 'Solúvel' : formula.tipo_produto || 'Encapsulados');
         
         // Para Solúvel, converter de volta para a unidade original se necessário
         if ((formula.tipo_produto === 'Solúvel' || formula.tipo_produto === 'Pó') && (formula.unidade_soluvel === 'g' || formula.unidade_po === 'g')) {
@@ -81,6 +79,10 @@ export default function Calculator() {
           setQtdCapsulas((formula.quantidade_por_pote || formula.qtd_capsulas)?.toString() || '60');
           setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
         }
+
+        // Set flag BEFORE changing tipoProduto so the effect skips defaults
+        isLoadingFormula.current = true;
+        setTipoProduto(formula.tipo_produto === 'Pó' ? 'Solúvel' : formula.tipo_produto || 'Encapsulados');
 
         // Preencher itens de matéria-prima
         if (formula.itens && Array.isArray(formula.itens)) {
@@ -165,7 +167,7 @@ export default function Calculator() {
 
     // Para Solúvel, adicionar dosador baseado na dose
     if (tipoProduto === 'Solúvel') {
-      const doseG = parseFloat(unidadesPorDose) || 3;
+      const doseG = parseFloat(unidadesPorDose) || 10;
       const dosadorId = getDosadorId(unidadeSoluvel === 'mg' ? doseG / 1000 : doseG);
       if (dosadorId) newEmbalagens.add(dosadorId);
     }
@@ -181,11 +183,11 @@ export default function Calculator() {
       case 'Solúvel':
         setUnidadeSoluvel('g');
         setQtdCapsulas('300');
-        setUnidadesPorDose('3');
+        setUnidadesPorDose('10');
         break;
       case 'Gummy':
-        setQtdCapsulas('30');
-        setUnidadesPorDose('1');
+        setQtdCapsulas('60');
+        setUnidadesPorDose('2');
         break;
       case 'Líquido':
         setQtdCapsulas('30');
