@@ -80,8 +80,6 @@ export default function Calculator() {
           setUnidadesPorDose(formula.unidades_por_dose?.toString() || '2');
         }
 
-        // Set flag BEFORE changing tipoProduto so the effect skips defaults
-        isLoadingFormula.current = true;
         setTipoProduto(formula.tipo_produto === 'Pó' ? 'Solúvel' : formula.tipo_produto || 'Encapsulados');
 
         // Preencher itens de matéria-prima
