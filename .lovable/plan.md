@@ -1,50 +1,35 @@
 
 
-# Plano: Validação visual + bloqueio de salvamento para Solúvel e Encapsulados
+# Plano: Preservar quantidade e dose ao carregar fórmula
 
-## Alterações em `Calculator.tsx`
+## Problema
 
-### 1. Adicionar alertas visuais para Solúvel (após linha 956)
+Ao carregar uma fórmula salva, o fluxo é:
+1. `loadFormula` effect sets `cliente`, `nomeFormula`, `tipoProduto`, `qtdCapsulas`, `unidadesPorDose` ✅
+2. `tipoProduto` change triggers second `useEffect` (linha 150) which **resets** `qtdCapsulas` and `unidadesPorDose` to defaults ❌
 
-Dois blocos condicionais na seção "Análise da Composição do Solúvel":
+## Solução
 
-- **Alerta amber (≥90%)**: quando `totaisInsumosMG.totalMG >= unidadesPorDoseEmMG * 0.9` mas não excede. Mostra percentual de preenchimento.
-- **Alerta vermelho (excedido)**: quando `totaisInsumosMG.totalMG > unidadesPorDoseEmMG`. Mostra excedente em mg, usa `animate-pulse`, mesma estilização do alerta de Encapsulados.
+Adicionar um flag `isLoadingFormula` (ref) que:
+1. É setado para `true` antes de aplicar os dados da fórmula
+2. No `useEffect` de `tipoProduto`, se `isLoadingFormula.current` é `true`, pula o reset de defaults e embalagens, e seta o flag para `false`
+3. Isso preserva os valores originais da fórmula carregada
 
-### 2. Criar variável de controle `capacidadeExcedida`
+### Alterações em `Calculator.tsx`
 
-Adicionar um `useMemo` que retorna `true` quando a MP excede o limite, para ambos os tipos:
+1. **Adicionar ref**: `const isLoadingFormula = useRef(false);`
 
+2. **No useEffect de loadFormula** (linha 62): setar `isLoadingFormula.current = true` antes de aplicar os dados
+
+3. **No useEffect de tipoProduto** (linha 150): adicionar guard no início:
 ```typescript
-const capacidadeExcedida = useMemo(() => {
-  if (tipoProduto === 'Encapsulados') {
-    return totaisInsumosMG.totalMG > (parseFloat(unidadesPorDose) || 1) * 500;
-  }
-  if (tipoProduto === 'Solúvel') {
-    return totaisInsumosMG.totalMG > unidadesPorDoseEmMG;
-  }
-  return false;
-}, [tipoProduto, totaisInsumosMG.totalMG, unidadesPorDose, unidadesPorDoseEmMG]);
-```
-
-### 3. Bloquear salvamento (linha 1370)
-
-Adicionar `capacidadeExcedida` à condição `disabled` do botão Salvar:
-
-```typescript
-<Button onClick={handleSave} disabled={!cliente || custoTotal === 0 || capacidadeExcedida}>
-```
-
-### 4. Validação no `handleSave` (linha 510)
-
-Adicionar check redundante no início da função para segurança:
-
-```typescript
-if (capacidadeExcedida) {
-  toast.error('Capacidade de matéria-prima por dose excedida. Ajuste antes de salvar.');
+if (isLoadingFormula.current) {
+  isLoadingFormula.current = false;
   return;
 }
 ```
+
+Isso garante que trocar tipo manualmente continua aplicando defaults, mas carregar uma fórmula preserva os valores salvos.
 
 ## Arquivo modificado
 - `src/pages/Calculator.tsx`
