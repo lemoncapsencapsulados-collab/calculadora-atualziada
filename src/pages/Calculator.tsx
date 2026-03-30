@@ -712,30 +712,19 @@ export default function Calculator() {
               {tipoProduto === 'Líquido' && 'Quantidade em mL *'}
               {tipoProduto === 'Solúvel' && `Quantidade Total de Solúvel (gramas) *`}
             </Label>
-            <Select value={qtdCapsulas} onValueChange={setQtdCapsulas}>
-              <SelectTrigger id="qtdCapsulas">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {tipoProduto === 'Encapsulados' && <>
-                  <SelectItem value="30">30 cápsulas</SelectItem>
-                  <SelectItem value="60">60 cápsulas</SelectItem>
-                </>}
-                {tipoProduto === 'Solúvel' && <>
-                  <SelectItem value="150">150 gramas</SelectItem>
-                  <SelectItem value="300">300 gramas</SelectItem>
-                </>}
-                {tipoProduto === 'Gummy' && <>
-                  <SelectItem value="30">30 gummies</SelectItem>
-                  <SelectItem value="60">60 gummies</SelectItem>
-                </>}
-                {tipoProduto === 'Líquido' && <>
-                  <SelectItem value="30">30 mL</SelectItem>
-                </>}
-              </SelectContent>
-            </Select>
+            <Input
+              id="qtdCapsulas"
+              type="number"
+              min="1"
+              value={qtdCapsulas}
+              onChange={(e) => setQtdCapsulas(e.target.value)}
+              placeholder={tipoProduto === 'Encapsulados' ? 'Ex: 60' : tipoProduto === 'Solúvel' ? 'Ex: 300' : tipoProduto === 'Gummy' ? 'Ex: 60' : 'Ex: 30'}
+            />
             <p className="text-sm text-muted-foreground">
-              {tipoProduto === 'Solúvel' ? 'Selecione a quantidade total de solúvel no produto' : 'As quantidades de matéria-prima informadas serão multiplicadas pelo número de doses'}
+              {tipoProduto === 'Encapsulados' && 'Informe a quantidade total de cápsulas no produto'}
+              {tipoProduto === 'Solúvel' && 'Informe a quantidade total em gramas do produto'}
+              {tipoProduto === 'Gummy' && 'Informe a quantidade total de gummies no produto'}
+              {tipoProduto === 'Líquido' && 'Informe a quantidade total em mL do produto'}
             </p>
           </div>
           
