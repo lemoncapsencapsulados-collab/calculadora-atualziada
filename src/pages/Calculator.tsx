@@ -690,7 +690,7 @@ export default function Calculator() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="tipoProduto">Tipo de Produto *</Label>
-            <Select value={tipoProduto} onValueChange={value => setTipoProduto(value as 'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido')}>
+            <Select value={tipoProduto} onValueChange={value => handleTipoProdutoChange(value as 'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido')}>
               <SelectTrigger id="tipoProduto">
                 <SelectValue />
               </SelectTrigger>
