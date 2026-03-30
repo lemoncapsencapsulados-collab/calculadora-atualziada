@@ -148,32 +148,12 @@ export default function Calculator() {
     return 'f7353023-11c5-440f-a7c1-637403f873d1'; // DOSADOR 15,30ml
   };
 
-  // Pré-seleção automática de embalagens ao trocar tipo de produto
-  useEffect(() => {
-    if (isLoadingFormula.current) {
-      isLoadingFormula.current = false;
-      return;
-    }
-    const config = EMBALAGENS_POR_TIPO[tipoProduto];
-    if (!config) return;
+  // Handler para troca MANUAL de tipo de produto — aplica defaults e embalagens
+  const handleTipoProdutoChange = (novoTipo: 'Encapsulados' | 'Solúvel' | 'Gummy' | 'Líquido') => {
+    setTipoProduto(novoTipo);
 
-    // Set capsula
-    setSelectedCapsula(config.capsula);
-
-    // Build embalagens set
-    const newEmbalagens = new Set<string>(config.embalagens);
-
-    // Para Solúvel, adicionar dosador baseado na dose
-    if (tipoProduto === 'Solúvel') {
-      const doseG = parseFloat(unidadesPorDose) || 10;
-      const dosadorId = getDosadorId(unidadeSoluvel === 'mg' ? doseG / 1000 : doseG);
-      if (dosadorId) newEmbalagens.add(dosadorId);
-    }
-
-    setSelectedEmbalagens(newEmbalagens);
-
-    // Ajustar defaults de quantidade e dose por tipo
-    switch (tipoProduto) {
+    // Defaults de quantidade e dose
+    switch (novoTipo) {
       case 'Encapsulados':
         setQtdCapsulas('60');
         setUnidadesPorDose('2');
@@ -192,7 +172,20 @@ export default function Calculator() {
         setUnidadesPorDose('1');
         break;
     }
-  }, [tipoProduto]);
+
+    // Pré-seleção automática de embalagens
+    const config = EMBALAGENS_POR_TIPO[novoTipo];
+    if (config) {
+      setSelectedCapsula(config.capsula);
+      const newEmbalagens = new Set<string>(config.embalagens);
+      if (novoTipo === 'Solúvel') {
+        const doseG = 10; // default dose for Solúvel
+        const dosadorId = getDosadorId(doseG);
+        if (dosadorId) newEmbalagens.add(dosadorId);
+      }
+      setSelectedEmbalagens(newEmbalagens);
+    }
+  };
 
   // Atualizar dosador quando a dose muda para Solúvel
   useEffect(() => {
