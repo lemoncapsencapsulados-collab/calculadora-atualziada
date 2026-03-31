@@ -520,29 +520,47 @@ export default function GerarOrcamentoDialog({
                       <p className="text-sm text-muted-foreground">Nenhuma precificação disponível.</p>
                     ) : (
                       <div className="max-h-48 overflow-y-auto space-y-2">
-                        {precificacoesDisponiveis.map((prec: any) => (
-                          <label 
-                            key={prec.id}
-                            className="flex items-center gap-3 p-2 border rounded-lg hover:bg-muted cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={selectedPrecificacoes.includes(prec.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedPrecificacoes(prev => [...prev, prec.id]);
-                                } else {
-                                  setSelectedPrecificacoes(prev => prev.filter(id => id !== prec.id));
-                                }
-                              }}
-                            />
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{prec.formulas?.nome_formula}</p>
-                              <p className="text-xs text-muted-foreground">{prec.formulas?.cliente}</p>
-                            </div>
-                            <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
-                            <span className="font-semibold">{formatCurrency(Number(prec.preco_venda))}</span>
-                          </label>
-                        ))}
+                        {precificacoesDisponiveis.map((prec: any) => {
+                          const margemBaixa = isMargemBaixa(prec);
+                          const liberada = margemOrcLiberadaIds.includes(prec.id);
+                          return (
+                            <label 
+                              key={prec.id}
+                              className={cn(
+                                "flex items-center gap-3 p-2 border rounded-lg hover:bg-muted cursor-pointer",
+                                margemBaixa && !liberada && "border-destructive/50 bg-destructive/5"
+                              )}
+                            >
+                              <Checkbox
+                                checked={selectedPrecificacoes.includes(prec.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked && margemBaixa && !liberada) {
+                                    setSenhaMargemOrcDialog(true);
+                                    (window as any).__pendingMargemPrecId = prec.id;
+                                    return;
+                                  }
+                                  if (checked) {
+                                    setSelectedPrecificacoes(prev => [...prev, prec.id]);
+                                  } else {
+                                    setSelectedPrecificacoes(prev => prev.filter(id => id !== prec.id));
+                                  }
+                                }}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{prec.formulas?.nome_formula}</p>
+                                <p className="text-xs text-muted-foreground">{prec.formulas?.cliente}</p>
+                              </div>
+                              {margemBaixa && !liberada && (
+                                <Badge variant="destructive" className="text-xs">Margem baixa</Badge>
+                              )}
+                              {margemBaixa && liberada && (
+                                <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">Liberada</Badge>
+                              )}
+                              <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
+                              <span className="font-semibold">{formatCurrency(Number(prec.preco_venda))}</span>
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
                     
