@@ -1006,12 +1006,70 @@ export default function Precificacao() {
                             <Button 
                               onClick={handleSalvar} 
                               className="w-full" 
-                              disabled={salvarPrecificacao.isPending || validacaoMargem?.status === 'baixa'}
+                              disabled={salvarPrecificacao.isPending}
                             >
-                              <Save className="w-4 h-4 mr-2" />
-                              {validacaoMargem?.status === 'baixa' ? 'Margem abaixo do mínimo' : 'Salvar Precificação'}
+                              {validacaoMargem?.status === 'baixa' && !margemLiberada ? (
+                                <>
+                                  <Lock className="w-4 h-4 mr-2" />
+                                  Liberar com senha
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 mr-2" />
+                                  Salvar Precificação
+                                </>
+                              )}
                             </Button>
                           </div>
+
+                          {/* Dialog de senha para liberação de margem */}
+                          <Dialog open={senhaMargemDialog} onOpenChange={setSenhaMargemDialog}>
+                            <DialogContent className="max-w-sm">
+                              <DialogHeader>
+                                <DialogTitle>Liberar margem abaixo do mínimo</DialogTitle>
+                              </DialogHeader>
+                              <p className="text-sm text-muted-foreground">
+                                A margem de lucro está abaixo do mínimo permitido. Digite a senha para liberar o salvamento.
+                              </p>
+                              <Input
+                                type="password"
+                                placeholder="Digite a senha..."
+                                value={senhaMargemInput}
+                                onChange={(e) => setSenhaMargemInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    if (senhaMargemInput === SENHA_LIBERACAO_MARGEM) {
+                                      setMargemLiberada(true);
+                                      setSenhaMargemDialog(false);
+                                      setSenhaMargemInput('');
+                                      toast.success('Margem liberada! Clique em salvar novamente.');
+                                    } else {
+                                      toast.error('Senha incorreta!');
+                                      setSenhaMargemInput('');
+                                    }
+                                  }
+                                }}
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button variant="outline" onClick={() => { setSenhaMargemDialog(false); setSenhaMargemInput(''); }}>
+                                  Cancelar
+                                </Button>
+                                <Button onClick={() => {
+                                  if (senhaMargemInput === SENHA_LIBERACAO_MARGEM) {
+                                    setMargemLiberada(true);
+                                    setSenhaMargemDialog(false);
+                                    setSenhaMargemInput('');
+                                    toast.success('Margem liberada! Clique em salvar novamente.');
+                                  } else {
+                                    toast.error('Senha incorreta!');
+                                    setSenhaMargemInput('');
+                                  }
+                                }}>
+                                  Confirmar
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </CardContent>
                       </Card>
                     </div>
