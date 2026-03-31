@@ -1216,5 +1216,65 @@ export default function GerarOrcamentoDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Dialog de senha para liberação de margem no orçamento */}
+    <Dialog open={senhaMargemOrcDialog} onOpenChange={setSenhaMargemOrcDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Liberar margem abaixo do mínimo</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Esta precificação possui margem abaixo do mínimo permitido. Digite a senha para liberá-la.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaMargemOrcInput}
+          onChange={(e) => setSenhaMargemOrcInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if (senhaMargemOrcInput === SENHA_LIBERACAO_MARGEM) {
+                const pendingId = (window as any).__pendingMargemPrecId;
+                if (pendingId) {
+                  setMargemOrcLiberadaIds(prev => [...prev, pendingId]);
+                  setSelectedPrecificacoes(prev => [...prev, pendingId]);
+                  delete (window as any).__pendingMargemPrecId;
+                }
+                setSenhaMargemOrcDialog(false);
+                setSenhaMargemOrcInput('');
+                toast.success('Precificação liberada!');
+              } else {
+                toast.error('Senha incorreta!');
+                setSenhaMargemOrcInput('');
+              }
+            }
+          }}
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setSenhaMargemOrcDialog(false); setSenhaMargemOrcInput(''); }}>
+            Cancelar
+          </Button>
+          <Button onClick={() => {
+            if (senhaMargemOrcInput === SENHA_LIBERACAO_MARGEM) {
+              const pendingId = (window as any).__pendingMargemPrecId;
+              if (pendingId) {
+                setMargemOrcLiberadaIds(prev => [...prev, pendingId]);
+                setSelectedPrecificacoes(prev => [...prev, pendingId]);
+                delete (window as any).__pendingMargemPrecId;
+              }
+              setSenhaMargemOrcDialog(false);
+              setSenhaMargemOrcInput('');
+              toast.success('Precificação liberada!');
+            } else {
+              toast.error('Senha incorreta!');
+              setSenhaMargemOrcInput('');
+            }
+          }}>
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
