@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
@@ -106,6 +107,12 @@ export default function GerarOrcamentoDialog({
 
   // Condições de pagamento
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
+
+  // Estado para liberação de margem mínima com senha
+  const [senhaMargemOrcDialog, setSenhaMargemOrcDialog] = useState(false);
+  const [senhaMargemOrcInput, setSenhaMargemOrcInput] = useState('');
+  const [margemOrcLiberadaIds, setMargemOrcLiberadaIds] = useState<string[]>([]);
+  const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
 
   // Carregar dados se editando
   useEffect(() => {
@@ -342,15 +349,8 @@ export default function GerarOrcamentoDialog({
   };
 
   // Precificações disponíveis (não já adicionadas)
-  // Filtrar precificações: excluir já adicionadas e com margem abaixo do mínimo
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
-    
-    // Filtrar margem abaixo do mínimo
-    const tipoProduto = p.formulas?.tipo_produto || 'Encapsulados';
-    const margem = Number(p.margem_lucro_percentual);
-    const validacao = validarMargemPorTipo(margem, tipoProduto);
-    if (validacao.status === 'baixa') return false;
     
     if (buscaPrecificacao.trim()) {
       const termo = buscaPrecificacao.toLowerCase();
@@ -361,7 +361,16 @@ export default function GerarOrcamentoDialog({
     return true;
   }) || [];
 
+  // Helper para verificar se precificação tem margem baixa
+  const isMargemBaixa = (p: any) => {
+    const tipoProduto = p.formulas?.tipo_produto || 'Encapsulados';
+    const margem = Number(p.margem_lucro_percentual);
+    const validacao = validarMargemPorTipo(margem, tipoProduto);
+    return validacao.status === 'baixa';
+  };
+
   return (
+    <>
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -513,29 +522,47 @@ export default function GerarOrcamentoDialog({
                       <p className="text-sm text-muted-foreground">Nenhuma precificação disponível.</p>
                     ) : (
                       <div className="max-h-48 overflow-y-auto space-y-2">
-                        {precificacoesDisponiveis.map((prec: any) => (
-                          <label 
-                            key={prec.id}
-                            className="flex items-center gap-3 p-2 border rounded-lg hover:bg-muted cursor-pointer"
-                          >
-                            <Checkbox
-                              checked={selectedPrecificacoes.includes(prec.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setSelectedPrecificacoes(prev => [...prev, prec.id]);
-                                } else {
-                                  setSelectedPrecificacoes(prev => prev.filter(id => id !== prec.id));
-                                }
-                              }}
-                            />
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{prec.formulas?.nome_formula}</p>
-                              <p className="text-xs text-muted-foreground">{prec.formulas?.cliente}</p>
-                            </div>
-                            <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
-                            <span className="font-semibold">{formatCurrency(Number(prec.preco_venda))}</span>
-                          </label>
-                        ))}
+                        {precificacoesDisponiveis.map((prec: any) => {
+                          const margemBaixa = isMargemBaixa(prec);
+                          const liberada = margemOrcLiberadaIds.includes(prec.id);
+                          return (
+                            <label 
+                              key={prec.id}
+                              className={cn(
+                                "flex items-center gap-3 p-2 border rounded-lg hover:bg-muted cursor-pointer",
+                                margemBaixa && !liberada && "border-destructive/50 bg-destructive/5"
+                              )}
+                            >
+                              <Checkbox
+                                checked={selectedPrecificacoes.includes(prec.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked && margemBaixa && !liberada) {
+                                    setSenhaMargemOrcDialog(true);
+                                    (window as any).__pendingMargemPrecId = prec.id;
+                                    return;
+                                  }
+                                  if (checked) {
+                                    setSelectedPrecificacoes(prev => [...prev, prec.id]);
+                                  } else {
+                                    setSelectedPrecificacoes(prev => prev.filter(id => id !== prec.id));
+                                  }
+                                }}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{prec.formulas?.nome_formula}</p>
+                                <p className="text-xs text-muted-foreground">{prec.formulas?.cliente}</p>
+                              </div>
+                              {margemBaixa && !liberada && (
+                                <Badge variant="destructive" className="text-xs">Margem baixa</Badge>
+                              )}
+                              {margemBaixa && liberada && (
+                                <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">Liberada</Badge>
+                              )}
+                              <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
+                              <span className="font-semibold">{formatCurrency(Number(prec.preco_venda))}</span>
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
                     
@@ -1191,5 +1218,65 @@ export default function GerarOrcamentoDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Dialog de senha para liberação de margem no orçamento */}
+    <Dialog open={senhaMargemOrcDialog} onOpenChange={setSenhaMargemOrcDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Liberar margem abaixo do mínimo</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Esta precificação possui margem abaixo do mínimo permitido. Digite a senha para liberá-la.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaMargemOrcInput}
+          onChange={(e) => setSenhaMargemOrcInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              if (senhaMargemOrcInput === SENHA_LIBERACAO_MARGEM) {
+                const pendingId = (window as any).__pendingMargemPrecId;
+                if (pendingId) {
+                  setMargemOrcLiberadaIds(prev => [...prev, pendingId]);
+                  setSelectedPrecificacoes(prev => [...prev, pendingId]);
+                  delete (window as any).__pendingMargemPrecId;
+                }
+                setSenhaMargemOrcDialog(false);
+                setSenhaMargemOrcInput('');
+                toast.success('Precificação liberada!');
+              } else {
+                toast.error('Senha incorreta!');
+                setSenhaMargemOrcInput('');
+              }
+            }
+          }}
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setSenhaMargemOrcDialog(false); setSenhaMargemOrcInput(''); }}>
+            Cancelar
+          </Button>
+          <Button onClick={() => {
+            if (senhaMargemOrcInput === SENHA_LIBERACAO_MARGEM) {
+              const pendingId = (window as any).__pendingMargemPrecId;
+              if (pendingId) {
+                setMargemOrcLiberadaIds(prev => [...prev, pendingId]);
+                setSelectedPrecificacoes(prev => [...prev, pendingId]);
+                delete (window as any).__pendingMargemPrecId;
+              }
+              setSenhaMargemOrcDialog(false);
+              setSenhaMargemOrcInput('');
+              toast.success('Precificação liberada!');
+            } else {
+              toast.error('Senha incorreta!');
+              setSenhaMargemOrcInput('');
+            }
+          }}>
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

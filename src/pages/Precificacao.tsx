@@ -49,6 +49,12 @@ export default function Precificacao() {
   // Estado da aba ativa
   const [abaAtiva, setAbaAtiva] = useState('produtos');
 
+  // Estado para liberação de margem mínima com senha
+  const [senhaMargemDialog, setSenhaMargemDialog] = useState(false);
+  const [senhaMargemInput, setSenhaMargemInput] = useState('');
+  const [margemLiberada, setMargemLiberada] = useState(false);
+  const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
+
   // Busca e filtros para "Produtos Criados"
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('Todos');
@@ -185,9 +191,9 @@ export default function Precificacao() {
       return;
     }
 
-    // Bloquear se margem está abaixo do mínimo
-    if (validacaoMargem?.status === 'baixa') {
-      toast.error('Não é possível salvar: margem de lucro abaixo do mínimo permitido!');
+    // Bloquear se margem está abaixo do mínimo (permitir bypass com senha)
+    if (validacaoMargem?.status === 'baixa' && !margemLiberada) {
+      setSenhaMargemDialog(true);
       return;
     }
 
@@ -273,6 +279,7 @@ export default function Precificacao() {
     setNomeClienteEdit(formula.cliente);
     setNomeFormulaEdit(formula.nome_formula);
     setValorInput('');
+    setMargemLiberada(false);
     setObservacoes('');
     setModalAberta(true);
   };
@@ -868,7 +875,7 @@ export default function Precificacao() {
                           type="number"
                           step="0.00001"
                           value={valorInput}
-                          onChange={(e) => setValorInput(e.target.value)}
+                          onChange={(e) => { setValorInput(e.target.value); setMargemLiberada(false); }}
                           placeholder="0.00"
                         />
                       </div>
@@ -1000,12 +1007,70 @@ export default function Precificacao() {
                             <Button 
                               onClick={handleSalvar} 
                               className="w-full" 
-                              disabled={salvarPrecificacao.isPending || validacaoMargem?.status === 'baixa'}
+                              disabled={salvarPrecificacao.isPending}
                             >
-                              <Save className="w-4 h-4 mr-2" />
-                              {validacaoMargem?.status === 'baixa' ? 'Margem abaixo do mínimo' : 'Salvar Precificação'}
+                              {validacaoMargem?.status === 'baixa' && !margemLiberada ? (
+                                <>
+                                  <Lock className="w-4 h-4 mr-2" />
+                                  Liberar com senha
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 mr-2" />
+                                  Salvar Precificação
+                                </>
+                              )}
                             </Button>
                           </div>
+
+                          {/* Dialog de senha para liberação de margem */}
+                          <Dialog open={senhaMargemDialog} onOpenChange={setSenhaMargemDialog}>
+                            <DialogContent className="max-w-sm">
+                              <DialogHeader>
+                                <DialogTitle>Liberar margem abaixo do mínimo</DialogTitle>
+                              </DialogHeader>
+                              <p className="text-sm text-muted-foreground">
+                                A margem de lucro está abaixo do mínimo permitido. Digite a senha para liberar o salvamento.
+                              </p>
+                              <Input
+                                type="password"
+                                placeholder="Digite a senha..."
+                                value={senhaMargemInput}
+                                onChange={(e) => setSenhaMargemInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    if (senhaMargemInput === SENHA_LIBERACAO_MARGEM) {
+                                      setMargemLiberada(true);
+                                      setSenhaMargemDialog(false);
+                                      setSenhaMargemInput('');
+                                      toast.success('Margem liberada! Clique em salvar novamente.');
+                                    } else {
+                                      toast.error('Senha incorreta!');
+                                      setSenhaMargemInput('');
+                                    }
+                                  }
+                                }}
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <Button variant="outline" onClick={() => { setSenhaMargemDialog(false); setSenhaMargemInput(''); }}>
+                                  Cancelar
+                                </Button>
+                                <Button onClick={() => {
+                                  if (senhaMargemInput === SENHA_LIBERACAO_MARGEM) {
+                                    setMargemLiberada(true);
+                                    setSenhaMargemDialog(false);
+                                    setSenhaMargemInput('');
+                                    toast.success('Margem liberada! Clique em salvar novamente.');
+                                  } else {
+                                    toast.error('Senha incorreta!');
+                                    setSenhaMargemInput('');
+                                  }
+                                }}>
+                                  Confirmar
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </CardContent>
                       </Card>
                     </div>
