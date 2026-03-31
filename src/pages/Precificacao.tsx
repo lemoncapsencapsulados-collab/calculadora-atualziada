@@ -875,7 +875,7 @@ export default function Precificacao() {
                           type="number"
                           step="0.00001"
                           value={valorInput}
-                          onChange={(e) => setValorInput(e.target.value)}
+                          onChange={(e) => { setValorInput(e.target.value); setMargemLiberada(false); }}
                           placeholder="0.00"
                         />
                       </div>
