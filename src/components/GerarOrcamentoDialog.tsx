@@ -107,6 +107,12 @@ export default function GerarOrcamentoDialog({
   // Condições de pagamento
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
 
+  // Estado para liberação de margem mínima com senha
+  const [senhaMargemOrcDialog, setSenhaMargemOrcDialog] = useState(false);
+  const [senhaMargemOrcInput, setSenhaMargemOrcInput] = useState('');
+  const [margemOrcLiberadaIds, setMargemOrcLiberadaIds] = useState<string[]>([]);
+  const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
+
   // Carregar dados se editando
   useEffect(() => {
     if (orcamentoExistente) {
