@@ -49,6 +49,12 @@ export default function Precificacao() {
   // Estado da aba ativa
   const [abaAtiva, setAbaAtiva] = useState('produtos');
 
+  // Estado para liberação de margem mínima com senha
+  const [senhaMargemDialog, setSenhaMargemDialog] = useState(false);
+  const [senhaMargemInput, setSenhaMargemInput] = useState('');
+  const [margemLiberada, setMargemLiberada] = useState(false);
+  const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
+
   // Busca e filtros para "Produtos Criados"
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipo, setFilterTipo] = useState<string>('Todos');
