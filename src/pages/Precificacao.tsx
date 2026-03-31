@@ -279,6 +279,7 @@ export default function Precificacao() {
     setNomeClienteEdit(formula.cliente);
     setNomeFormulaEdit(formula.nome_formula);
     setValorInput('');
+    setMargemLiberada(false);
     setObservacoes('');
     setModalAberta(true);
   };
