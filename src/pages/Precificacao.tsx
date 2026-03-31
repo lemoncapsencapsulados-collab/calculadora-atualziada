@@ -191,9 +191,9 @@ export default function Precificacao() {
       return;
     }
 
-    // Bloquear se margem está abaixo do mínimo
-    if (validacaoMargem?.status === 'baixa') {
-      toast.error('Não é possível salvar: margem de lucro abaixo do mínimo permitido!');
+    // Bloquear se margem está abaixo do mínimo (permitir bypass com senha)
+    if (validacaoMargem?.status === 'baixa' && !margemLiberada) {
+      setSenhaMargemDialog(true);
       return;
     }
 
