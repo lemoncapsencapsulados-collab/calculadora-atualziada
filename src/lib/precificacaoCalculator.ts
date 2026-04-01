@@ -188,6 +188,7 @@ const MARGENS_CONFIG: Record<string, MargemConfig> = {
   'Solúvel': { minima: 18, idealInicio: 20, idealFim: 25 },
   'Encapsulados': { minima: 15, idealInicio: 18, idealFim: 23 },
   'Líquido': { minima: 15, idealInicio: 18, idealFim: 23 },
+  'Setup': { minima: 15, idealInicio: 20, idealFim: 25 },
 };
 
 export interface ValidacaoMargemResult {
