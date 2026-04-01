@@ -1,46 +1,68 @@
-
-
-## Plano atualizado: Reestruturar condições de pagamento
+## Plano: Reestruturar passos do orçamento
 
 ### Resumo
-Substituir a estrutura atual de 4 métodos por 3 métodos (Pix/Boleto, Cartão de Crédito, Misto), com suporte a parcelas, escolha entre porcentagem ou valor fixo, **e validação obrigatória de que a soma dos pagamentos é igual ao valor total do orçamento**.
+O dialog passa de 4 para 5 passos:
+1. Informações básicas (sem condições de pagamento)
+2. Produtos de produção (bloqueio se vazio)
+3. **Novo**: Custo de Setup (substitui serviços de marca)
+4. Condições de pagamento (movido do passo 1)
+5. Resumo + dados opcionais (antigo passo 4)
 
-### Nova estrutura de dados (`src/types/orcamento.ts`)
+---
 
-Novos tipos:
-- `MetodoPagamentoPrincipal`: `'pix_boleto' | 'cartao_credito' | 'misto'`
-- `ParcelaPixBoleto`: `{ tipo_valor: 'percentual' | 'fixo', valor: number }`
-- `CartaoPagamento`: `{ tipo_valor: 'percentual' | 'fixo', valor: number, parcelas: number }`
-- `CondicoesPagamento` atualizado com: `metodo_principal`, `parcelas_pix_boleto`, `cartoes`, `misto_parcelas_pix_boleto`, `misto_cartoes`
+### Passo 2 — Bloqueio sem produtos
+- Atualizar `canGoNext()`: se `step === 2`, exigir `itensProducao.length > 0`
+- Exibir mensagem de aviso quando tentar avançar sem produtos
 
-Campos legados mantidos para compatibilidade mas não usados pela nova UI.
+### Passo 3 — Custo de Setup (substituição completa)
+Remove a estrutura atual de "Serviço de Criação de Marca" (planos/entregáveis) e substitui por um calculador de setup com itens selecionáveis:
 
-### UI (`src/components/CondicoesPagamentoForm.tsx`) — reescrita completa
+**Itens de setup com checkbox + quantidade editável:**
 
-**Seleção do método:** 3 botões (Pix/Boleto, Cartão de Crédito, Misto)
+| Item | Custo unitário | Quantidade padrão |
+|------|---------------|-------------------|
+| Código de barras | R$ 5,70 | = nº produtos do passo 2 |
+| Design de rótulos | R$ 200,00 | = nº produtos do passo 2 |
+| Impressão de rótulos | Variável por tipo | Lista por tipo de produto |
+| Página de vendas | R$ 300,00 | = nº produtos do passo 2 |
+| Registro de Marca INPI | R$ 880,00 | 1 |
 
-**Pix/Boleto:** Quantidade de parcelas (+/-), cada uma com toggle % ou R$ + input
+**Custos de impressão por tipo:**
+- Encapsulados: R$ 940,00
+- Gummy: R$ 1.340,00
+- Líquido: R$ 740,00
+- Solúvel: R$ 1.590,00
 
-**Cartão de Crédito:** Quantidade de cartões (+/-), cada um com toggle % ou R$, input de valor, seletor de parcelas (1-6x com juros)
+Para "Impressão de rótulos", exibir uma sub-lista agrupada por tipo de produto com quantidade de produtos daquele tipo (editável).
 
-**Misto:** Combina seções Pix/Boleto + Cartão de Crédito
+**Fórmula de preço de venda do setup:**
+```
+Preço Venda = Custo Total / (1 - 0.06 - 0.05 - 0.05 - margem%)
+```
+Onde margem% é preenchida pelo usuário (input editável).
 
-**Juros:** Mantém constantes atuais `{1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09}`
+**Validação de margem (mesmo padrão visual dos produtos):**
+- Mínima: 15% (abaixo = vermelho, bloqueio com senha)
+- Ideal: 20% (verde)
+- Rica (Lemon Rica): 25%+ (dourado)
 
-### Validação de soma total (novo requisito)
+Usar `validarMargemPorTipo` existente com uma config "Setup" adicionada ao `MARGENS_CONFIG`, ou criar validação inline com os mesmos estilos visuais.
 
-- O componente exibirá em tempo real a **soma dos valores configurados** vs **valor total do orçamento**
-- Quando a soma não bater com o total: indicador vermelho com a diferença (faltam R$ X ou excedem R$ X)
-- Quando bater: indicador verde "✓ Valores conferem"
-- **Bloqueio**: os consumidores (GerarOrcamentoDialog, AprovacaoOrcamentoDialog, PropostaCompletaDialog) não permitirão prosseguir enquanto a soma não for igual ao total
-- Para porcentagem: soma das % deve ser exatamente 100%
-- Para valor fixo: soma dos R$ deve ser igual ao `valorTotal` passado via props
-- Para misto: soma de todos os itens (Pix/Boleto + Cartão) deve atingir 100% ou o valor total
+O valor final do setup será armazenado em `servicos_marca` como um único item (compatibilidade com estrutura existente), contendo nome "Setup", valor calculado, e os itens selecionados nos entregáveis.
 
-O componente exportará uma função `validarCondicoesPagamento(condicoes, valorTotal)` que retorna `{ valido: boolean, mensagem?: string }`.
+### Passo 4 — Condições de Pagamento
+- Mover o `CondicoesPagamentoForm` do passo 1 para o passo 4
+- Remover campos "forma de pagamento" e "condições de pagamento" do passo 1
+- O `valorTotal` já estará calculado (produção + setup)
+
+### Passo 5 — Resumo
+- Antigo passo 4 vira passo 5, com info cliente e frete opcionais
+- Atualizar header para "Passo X de 5"
+- Atualizar navegação: `step < 5` para próximo, `step === 5` para salvar
 
 ### Arquivos alterados
-1. `src/types/orcamento.ts` — novos tipos
-2. `src/components/CondicoesPagamentoForm.tsx` — nova UI completa com validação de soma
-3. Consumidores (GerarOrcamentoDialog, AprovacaoOrcamentoDialog, PropostaCompletaDialog) — adicionar chamada à validação antes de prosseguir
+1. `src/components/GerarOrcamentoDialog.tsx` — reescrita dos passos
+2. `src/lib/precificacaoCalculator.ts` — adicionar config de margem "Setup" (ou validação inline)
 
+### Compatibilidade
+O setup será salvo como `servicos_marca` com estrutura compatível, mantendo o fluxo existente de PDF, aprovação e proposta funcionando.
