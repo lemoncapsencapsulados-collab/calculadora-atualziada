@@ -276,7 +276,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
 
   const handleGenerateProposta = async () => {
     // Validar condições de pagamento
-    const erros = validarCondicoesPagamento(condicoesPagamento);
+    const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
     if (erros.length > 0) {
       setErrosPagamento(erros);
       return;

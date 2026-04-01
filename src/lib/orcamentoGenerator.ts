@@ -728,69 +728,64 @@ function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number
   if (hasNewFormat) {
     // === NOVO FORMATO ===
     const metodo = condicoes.metodo_principal;
+    const JUROS: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09 };
 
-    if (metodo === 'avista') {
+    const renderPixBoleto = (parcelas: any[], label: string) => {
       doc.setFillColor(...COLORS.lightGray);
-      doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 16, 2, 2, 'F');
+      const height = 10 + parcelas.length * LAYOUT.lineHeight;
+      doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, height, 2, 2, 'F');
       doc.setTextColor(...COLORS.darkGreen);
       doc.setFontSize(LAYOUT.fontSize.body);
       doc.setFont('helvetica', 'bold');
-      doc.text('PAGAMENTO À VISTA', LAYOUT.margin + 5, yPos + 2);
+      doc.text(label, LAYOUT.margin + 5, yPos + 2);
       yPos += 8;
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.textDark);
-      doc.text(`Forma: ${getFormaAvistaLabel(condicoes.forma_avista)}`, LAYOUT.margin + 5, yPos);
-      yPos += 14;
-    } else if (metodo === 'cartao_credito') {
+      parcelas.forEach((p: any, i: number) => {
+        const val = p.tipo_valor === 'percentual' ? orcamento.valor_total * p.valor / 100 : p.valor;
+        const pctLabel = p.tipo_valor === 'percentual' ? ` (${p.valor}%)` : '';
+        doc.text(`Parcela ${i + 1}: ${formatCurrency(val)}${pctLabel}`, LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight;
+      });
+      yPos += 4;
+    };
+
+    const renderCartoes = (cartoes: any[], label: string) => {
       doc.setFillColor(...COLORS.lightGray);
-      doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 16, 2, 2, 'F');
+      const height = 10 + cartoes.length * LAYOUT.lineHeight * 1.5;
+      doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, height, 2, 2, 'F');
       doc.setTextColor(...COLORS.darkGreen);
       doc.setFontSize(LAYOUT.fontSize.body);
       doc.setFont('helvetica', 'bold');
-      doc.text('CARTÃO DE CRÉDITO', LAYOUT.margin + 5, yPos + 2);
+      doc.text(label, LAYOUT.margin + 5, yPos + 2);
       yPos += 8;
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.textDark);
-      const parcelas = condicoes.parcelas_cartao || 1;
-      const valorParcela = orcamento.valor_total / parcelas;
-      doc.text(`${parcelas}x de ${formatCurrency(valorParcela)}`, LAYOUT.margin + 5, yPos);
-      yPos += 14;
-    } else if (metodo === 'fracionado') {
-      // Parte à vista
-      doc.setFillColor(...COLORS.lightGray);
-      doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 22, 2, 2, 'F');
-      doc.setTextColor(...COLORS.darkGreen);
-      doc.setFontSize(LAYOUT.fontSize.body);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PAGAMENTO FRACIONADO', LAYOUT.margin + 5, yPos + 2);
-      yPos += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...COLORS.textDark);
-      const valorAv = condicoes.valor_avista || 0;
-      doc.text(`À vista: ${formatCurrency(valorAv)} via ${getFormaAvistaLabel(condicoes.forma_avista_fracionado)}`, LAYOUT.margin + 5, yPos);
-      yPos += LAYOUT.lineHeight;
-      const restante = Math.max(0, orcamento.valor_total - valorAv);
-      const parcelasF = condicoes.parcelas_cartao_fracionado || 1;
-      doc.text(`Cartão: ${parcelasF}x de ${formatCurrency(restante / parcelasF)} (${formatCurrency(restante)})`, LAYOUT.margin + 5, yPos);
-      yPos += 14;
-    } else if (metodo === 'dois_cartoes') {
-      doc.setFillColor(...COLORS.lightGray);
-      doc.roundedRect(LAYOUT.margin, yPos - 4, pageWidth - 2 * LAYOUT.margin, 28, 2, 2, 'F');
-      doc.setTextColor(...COLORS.darkGreen);
-      doc.setFontSize(LAYOUT.fontSize.body);
-      doc.setFont('helvetica', 'bold');
-      doc.text('DOIS CARTÕES DE CRÉDITO', LAYOUT.margin + 5, yPos + 2);
-      yPos += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...COLORS.textDark);
-      const v1 = condicoes.valor_cartao1 || 0;
-      const p1 = condicoes.parcelas_cartao1 || 1;
-      doc.text(`Cartão 1: ${p1}x de ${formatCurrency(v1 / p1)} (${formatCurrency(v1)})`, LAYOUT.margin + 5, yPos);
-      yPos += LAYOUT.lineHeight;
-      const v2 = Math.max(0, orcamento.valor_total - v1);
-      const p2 = condicoes.parcelas_cartao2 || 1;
-      doc.text(`Cartão 2: ${p2}x de ${formatCurrency(v2 / p2)} (${formatCurrency(v2)})`, LAYOUT.margin + 5, yPos);
-      yPos += 14;
+      cartoes.forEach((c: any, i: number) => {
+        const base = c.tipo_valor === 'percentual' ? orcamento.valor_total * c.valor / 100 : c.valor;
+        const taxa = JUROS[c.parcelas] || 0;
+        const total = base * (1 + taxa);
+        const vp = total / c.parcelas;
+        const pctLabel = c.tipo_valor === 'percentual' ? ` (${c.valor}%)` : '';
+        const jurosLabel = taxa > 0 ? ` +${(taxa * 100).toFixed(0)}% juros` : '';
+        doc.text(`Cartão ${i + 1}: ${c.parcelas}x de ${formatCurrency(vp)}${pctLabel}${jurosLabel}`, LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight;
+      });
+      yPos += 4;
+    };
+
+    if (metodo === 'pix_boleto' && condicoes.parcelas_pix_boleto) {
+      renderPixBoleto(condicoes.parcelas_pix_boleto, 'PIX / BOLETO');
+    } else if (metodo === 'cartao_credito' && condicoes.cartoes) {
+      renderCartoes(condicoes.cartoes, 'CARTÃO DE CRÉDITO');
+    } else if (metodo === 'misto') {
+      if (condicoes.misto_parcelas_pix_boleto?.length) {
+        renderPixBoleto(condicoes.misto_parcelas_pix_boleto, 'PIX / BOLETO');
+      }
+      if (condicoes.misto_cartoes?.length) {
+        yPos = checkPageBreak(doc, yPos, 30);
+        renderCartoes(condicoes.misto_cartoes, 'CARTÃO DE CRÉDITO');
+      }
     }
   } else {
     // === FORMATO LEGADO ===
