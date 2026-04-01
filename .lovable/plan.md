@@ -1,3 +1,5 @@
+
+
 ## Plano: Reestruturar passos do orçamento
 
 ### Resumo
@@ -36,23 +38,23 @@ Remove a estrutura atual de "Serviço de Criação de Marca" (planos/entregávei
 Para "Impressão de rótulos", exibir uma sub-lista agrupada por tipo de produto com quantidade de produtos daquele tipo (editável).
 
 **Fórmula de preço de venda do setup:**
-```
+```text
 Preço Venda = Custo Total / (1 - 0.06 - 0.05 - 0.05 - margem%)
 ```
 Onde margem% é preenchida pelo usuário (input editável).
 
 **Validação de margem (mesmo padrão visual dos produtos):**
-- Mínima: 15% (abaixo = vermelho, bloqueio com senha)
+- Minima: 15% (abaixo = vermelho, bloqueio com senha `0B%s8QP2Z+Do`)
 - Ideal: 20% (verde)
-- Rica (Lemon Rica): 25%+ (dourado)
+- Rica (Lemon Rica): 25%+ (dourado, animação)
 
-Usar `validarMargemPorTipo` existente com uma config "Setup" adicionada ao `MARGENS_CONFIG`, ou criar validação inline com os mesmos estilos visuais.
+Usar mesmos estilos visuais e padrão de cores do `validarMargemPorTipo` existente, adicionando config "Setup" ao `MARGENS_CONFIG`.
 
-O valor final do setup será armazenado em `servicos_marca` como um único item (compatibilidade com estrutura existente), contendo nome "Setup", valor calculado, e os itens selecionados nos entregáveis.
+O valor final do setup será armazenado em `servicos_marca` como um único item (compatibilidade com estrutura existente), com os detalhes nos entregáveis.
 
 ### Passo 4 — Condições de Pagamento
-- Mover o `CondicoesPagamentoForm` do passo 1 para o passo 4
-- Remover campos "forma de pagamento" e "condições de pagamento" do passo 1
+- Mover `CondicoesPagamentoForm` do passo 1 para o passo 4
+- Remover campos "forma de pagamento" (textarea) do passo 1
 - O `valorTotal` já estará calculado (produção + setup)
 
 ### Passo 5 — Resumo
@@ -60,9 +62,11 @@ O valor final do setup será armazenado em `servicos_marca` como um único item 
 - Atualizar header para "Passo X de 5"
 - Atualizar navegação: `step < 5` para próximo, `step === 5` para salvar
 
-### Arquivos alterados
-1. `src/components/GerarOrcamentoDialog.tsx` — reescrita dos passos
-2. `src/lib/precificacaoCalculator.ts` — adicionar config de margem "Setup" (ou validação inline)
+### Detalhes Técnicos
 
-### Compatibilidade
-O setup será salvo como `servicos_marca` com estrutura compatível, mantendo o fluxo existente de PDF, aprovação e proposta funcionando.
+**Arquivos alterados:**
+1. `src/components/GerarOrcamentoDialog.tsx` — reescrita dos passos, nova lógica de setup
+2. `src/lib/precificacaoCalculator.ts` — adicionar `'Setup': { minima: 15, idealInicio: 20, idealFim: 25 }` ao `MARGENS_CONFIG`
+
+**Compatibilidade:** O setup salva como `servicos_marca` com a mesma estrutura, mantendo PDFs, aprovação e proposta funcionando sem alteração.
+
