@@ -380,7 +380,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
     if (!dataPagamento) camposFaltando.push('Data de Pagamento');
 
-    const erros = validarCondicoesPagamento(condicoesPagamento);
+    const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
     if (erros.length > 0) {
       setErrosPagamento(erros);
       if (camposFaltando.length === 0) return;
