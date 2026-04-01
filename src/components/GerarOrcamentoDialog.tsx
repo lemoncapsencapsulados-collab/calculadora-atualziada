@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
@@ -39,28 +39,34 @@ import {
   X,
   UserCircle,
   User,
-  Truck
+  Truck,
+  Settings2,
+  AlertTriangle
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 
-interface EntregavelConfig {
+// ── Setup cost types ──
+interface SetupItem {
+  id: string;
   nome: string;
-  temQuantidade: boolean;
-  maxQuantidade: number;
+  selecionado: boolean;
+  custoUnitario: number;
+  quantidade: number;
 }
 
-const ENTREGAVEIS_CONFIG: EntregavelConfig[] = [
-  { nome: 'Registro de Marca no INPI', temQuantidade: false, maxQuantidade: 1 },
-  { nome: 'Criação da Logomarca', temQuantidade: false, maxQuantidade: 1 },
-  { nome: 'Criação de rótulo', temQuantidade: true, maxQuantidade: 9 },
-  { nome: 'Criação de Mockup 3D', temQuantidade: false, maxQuantidade: 1 },
-  { nome: 'Página de Venda', temQuantidade: true, maxQuantidade: 9 },
-  { nome: 'Call Estratégica', temQuantidade: true, maxQuantidade: 2 },
-];
+interface SetupImpressaoItem {
+  tipoProduto: string;
+  custoUnitario: number;
+  quantidade: number;
+}
 
-const ENTREGAVEIS_PADRAO = (): Entregavel[] =>
-  ENTREGAVEIS_CONFIG.map(c => ({ nome: c.nome, incluso: false, quantidade: 1 }));
+const CUSTOS_IMPRESSAO: Record<string, number> = {
+  'Encapsulados': 940,
+  'Gummy': 1340,
+  'Líquido': 740,
+  'Solúvel': 1590,
+};
 
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
@@ -84,7 +90,6 @@ export default function GerarOrcamentoDialog({
   const [nomeCliente, setNomeCliente] = useState('');
   const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
-  const [formaPagamento, setFormaPagamento] = useState('');
   const [observacoes, setObservacoes] = useState('');
   
   // Step 2: Itens de produção
@@ -93,19 +98,27 @@ export default function GerarOrcamentoDialog({
   const [buscaPrecificacao, setBuscaPrecificacao] = useState('');
   const [selectedPrecificacoes, setSelectedPrecificacoes] = useState<string[]>([]);
   
-  // Step 3: Serviços de marca
-  const [servicosMarca, setServicosMarca] = useState<ServicoMarca[]>([]);
-  const [novoServico, setNovoServico] = useState({ nome: '', descricao: '', valor: 0 });
-  const [novoServicoEntregaveis, setNovoServicoEntregaveis] = useState<Entregavel[]>(ENTREGAVEIS_PADRAO());
-  const [showServicoForm, setShowServicoForm] = useState(false);
+  // Step 3: Setup costs
+  const [setupItems, setSetupItems] = useState<SetupItem[]>([
+    { id: 'codigo_barras', nome: 'Código de barras', selecionado: false, custoUnitario: 5.70, quantidade: 0 },
+    { id: 'design_rotulos', nome: 'Design de rótulos', selecionado: false, custoUnitario: 200, quantidade: 0 },
+    { id: 'pagina_vendas', nome: 'Página de vendas', selecionado: false, custoUnitario: 300, quantidade: 0 },
+    { id: 'registro_inpi', nome: 'Registro de Marca no INPI', selecionado: false, custoUnitario: 880, quantidade: 1 },
+  ]);
+  const [setupImpressaoSelecionado, setSetupImpressaoSelecionado] = useState(false);
+  const [setupImpressaoItens, setSetupImpressaoItens] = useState<SetupImpressaoItem[]>([]);
+  const [margemSetup, setMargemSetup] = useState(20);
+  const [senhaSetupDialog, setSenhaSetupDialog] = useState(false);
+  const [senhaSetupInput, setSenhaSetupInput] = useState('');
+  const [setupMargemLiberada, setSetupMargemLiberada] = useState(false);
 
-  // Step 4: Dados opcionais (cliente e frete)
+  // Step 5: Dados opcionais (cliente e frete)
   const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
   const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
   const [showFreteInline, setShowFreteInline] = useState(false);
 
-  // Condições de pagamento
+  // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
 
   // Estado para liberação de margem mínima com senha
@@ -114,6 +127,59 @@ export default function GerarOrcamentoDialog({
   const [margemOrcLiberadaIds, setMargemOrcLiberadaIds] = useState<string[]>([]);
   const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
 
+  // ── Derive setup quantities from products ──
+  const numProdutos = itensProducao.length;
+
+  const produtosPorTipo = useMemo(() => {
+    const map: Record<string, number> = {};
+    itensProducao.forEach(item => {
+      const tipo = item.segmento || 'Encapsulados';
+      map[tipo] = (map[tipo] || 0) + 1;
+    });
+    return map;
+  }, [itensProducao]);
+
+  // Sync setup quantities when products change
+  useEffect(() => {
+    setSetupItems(prev => prev.map(item => {
+      if (item.id === 'registro_inpi') return item;
+      return { ...item, quantidade: numProdutos };
+    }));
+
+    // Update impressao items
+    const tipos = Object.entries(produtosPorTipo);
+    setSetupImpressaoItens(
+      tipos.map(([tipo, qty]) => ({
+        tipoProduto: tipo,
+        custoUnitario: CUSTOS_IMPRESSAO[tipo] || 940,
+        quantidade: qty,
+      }))
+    );
+  }, [numProdutos, produtosPorTipo]);
+
+  // ── Setup cost calculations ──
+  const custoTotalSetup = useMemo(() => {
+    let total = 0;
+    setupItems.forEach(item => {
+      if (item.selecionado) total += item.custoUnitario * item.quantidade;
+    });
+    if (setupImpressaoSelecionado) {
+      setupImpressaoItens.forEach(item => {
+        total += item.custoUnitario * item.quantidade;
+      });
+    }
+    return total;
+  }, [setupItems, setupImpressaoSelecionado, setupImpressaoItens]);
+
+  const precoVendaSetup = useMemo(() => {
+    if (custoTotalSetup === 0) return 0;
+    const divisor = 1 - 0.06 - 0.05 - 0.05 - (margemSetup / 100);
+    if (divisor <= 0) return 0;
+    return custoTotalSetup / divisor;
+  }, [custoTotalSetup, margemSetup]);
+
+  const validacaoMargemSetup = validarMargemPorTipo(margemSetup, 'Setup');
+
   // Carregar dados se editando
   useEffect(() => {
     if (orcamentoExistente) {
@@ -121,10 +187,8 @@ export default function GerarOrcamentoDialog({
       setNomeCliente(orcamentoExistente.nome_cliente);
       setConsultorResponsavel(orcamentoExistente.consultor_responsavel || '');
       setValidadeDias(orcamentoExistente.validade_dias);
-      setFormaPagamento(orcamentoExistente.forma_pagamento || '');
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
-      setServicosMarca(orcamentoExistente.servicos_marca || []);
       setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
       if (orcamentoExistente.dados_cliente) {
         setDadosClienteTemp(orcamentoExistente.dados_cliente);
@@ -132,14 +196,53 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
+      // Restore setup from servicos_marca
+      const setupServico = (orcamentoExistente.servicos_marca || []).find(
+        (s: any) => s.nome_plano === 'Setup'
+      );
+      if (setupServico) {
+        const detalhes = (setupServico as any).setup_detalhes;
+        if (detalhes) {
+          if (detalhes.items) setSetupItems(detalhes.items);
+          if (detalhes.impressao_selecionado !== undefined) setSetupImpressaoSelecionado(detalhes.impressao_selecionado);
+          if (detalhes.impressao_itens) setSetupImpressaoItens(detalhes.impressao_itens);
+          if (detalhes.margem !== undefined) setMargemSetup(detalhes.margem);
+        }
+      }
     }
   }, [orcamentoExistente]);
 
   // Cálculos
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
-  const subtotalServicos = servicosMarca.reduce((acc, s) => acc + s.valor, 0);
+  const subtotalServicos = precoVendaSetup;
   const valorTotal = subtotalProducao + subtotalServicos;
 
+  // Build servicos_marca for saving
+  const buildServicosMarca = (): ServicoMarca[] => {
+    if (custoTotalSetup === 0) return [];
+    const entregaveis: Entregavel[] = [];
+    setupItems.filter(i => i.selecionado).forEach(item => {
+      entregaveis.push({ nome: `${item.nome} (${item.quantidade}x)`, incluso: true, quantidade: item.quantidade });
+    });
+    if (setupImpressaoSelecionado) {
+      setupImpressaoItens.forEach(item => {
+        entregaveis.push({ nome: `Impressão de rótulos - ${item.tipoProduto} (${item.quantidade}x)`, incluso: true, quantidade: item.quantidade });
+      });
+    }
+    return [{
+      nome_plano: 'Setup',
+      descricao: `Custo: ${formatCurrency(custoTotalSetup)} | Margem: ${margemSetup}%`,
+      valor: precoVendaSetup,
+      entregaveis,
+      setup_detalhes: {
+        items: setupItems,
+        impressao_selecionado: setupImpressaoSelecionado,
+        impressao_itens: setupImpressaoItens,
+        margem: margemSetup,
+        custo_total: custoTotalSetup,
+      },
+    } as any];
+  };
 
   // Handlers
   const handleAddPrecificacoes = async () => {
@@ -147,7 +250,6 @@ export default function GerarOrcamentoDialog({
       selectedPrecificacoes.map(async (precId) => {
         const prec = (precificacoes as any[])?.find(p => p.id === precId);
         
-        // Buscar insumos da fórmula
         let insumos_formula: InsumoSnapshot[] = [];
         const formulaData: Record<string, any> = {};
 
@@ -215,7 +317,6 @@ export default function GerarOrcamentoDialog({
     setShowPrecificacaoSelector(false);
   };
 
-
   const handleUpdateItemQuantidade = (index: number, quantidade: number) => {
     setItensProducao(prev => prev.map((item, i) => {
       if (i === index) {
@@ -257,38 +358,15 @@ export default function GerarOrcamentoDialog({
     setItensProducao(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddServico = () => {
-    if (!novoServico.nome || novoServico.valor <= 0) return;
-    
-    const entregaveisInclusos = novoServicoEntregaveis.filter(e => e.incluso);
-    
-    setServicosMarca(prev => [...prev, {
-      nome_plano: novoServico.nome,
-      descricao: novoServico.descricao,
-      valor: novoServico.valor,
-      entregaveis: entregaveisInclusos.length > 0 ? novoServicoEntregaveis : undefined,
-    }]);
-    
-    setNovoServico({ nome: '', descricao: '', valor: 0 });
-    setNovoServicoEntregaveis(ENTREGAVEIS_PADRAO());
-    setShowServicoForm(false);
-  };
-
-  const handleRemoveServico = (index: number) => {
-    setServicosMarca(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async () => {
     if (!nomeCliente.trim()) return;
     
     setIsSubmitting(true);
     
     try {
-      // Verificar se há dados de cliente preenchidos
       const hasDadosCliente = Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '');
-      
-      // Verificar se há condições de pagamento preenchidas
       const hasCondicoesPagamento = Object.values(condicoesPagamento).some(v => v !== undefined && v !== null && v !== '');
+      const servicosMarcaFinal = buildServicosMarca();
       
       if (orcamentoExistente) {
         await updateOrcamento.mutateAsync({
@@ -298,10 +376,9 @@ export default function GerarOrcamentoDialog({
             consultor_responsavel: consultorResponsavel,
             tipo_orcamento: tipoOrcamento,
             validade_dias: validadeDias,
-            forma_pagamento: formaPagamento || undefined,
             observacoes,
             itens_producao: itensProducao,
-            servicos_marca: servicosMarca,
+            servicos_marca: servicosMarcaFinal,
             subtotal_producao: subtotalProducao,
             subtotal_servicos: subtotalServicos,
             valor_total: valorTotal,
@@ -318,10 +395,9 @@ export default function GerarOrcamentoDialog({
           consultor_responsavel: consultorResponsavel,
           tipo_orcamento: tipoOrcamento,
           validade_dias: validadeDias,
-          forma_pagamento: formaPagamento || undefined,
           observacoes,
           itens_producao: itensProducao,
-          servicos_marca: servicosMarca,
+          servicos_marca: servicosMarcaFinal,
           subtotal_producao: subtotalProducao,
           subtotal_servicos: subtotalServicos,
           valor_total: valorTotal,
@@ -345,10 +421,15 @@ export default function GerarOrcamentoDialog({
 
   const canGoNext = () => {
     if (step === 1) return nomeCliente.trim().length > 0 && consultorResponsavel.trim().length > 0;
+    if (step === 2) return itensProducao.length > 0;
+    if (step === 3) {
+      // Block if margin is below minimum and not unlocked
+      if (custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) return false;
+    }
     return true;
   };
 
-  // Precificações disponíveis (não já adicionadas)
+  // Precificações disponíveis
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
     
@@ -361,12 +442,23 @@ export default function GerarOrcamentoDialog({
     return true;
   }) || [];
 
-  // Helper para verificar se precificação tem margem baixa
   const isMargemBaixa = (p: any) => {
     const tipoProduto = p.formulas?.tipo_produto || 'Encapsulados';
     const margem = Number(p.margem_lucro_percentual);
     const validacao = validarMargemPorTipo(margem, tipoProduto);
     return validacao.status === 'baixa';
+  };
+
+  const handleSetupSenhaConfirm = () => {
+    if (senhaSetupInput === SENHA_LIBERACAO_MARGEM) {
+      setSetupMargemLiberada(true);
+      setSenhaSetupDialog(false);
+      setSenhaSetupInput('');
+      toast.success('Margem de setup liberada!');
+    } else {
+      toast.error('Senha incorreta!');
+      setSenhaSetupInput('');
+    }
   };
 
   return (
@@ -375,7 +467,7 @@ export default function GerarOrcamentoDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {step} de 4
+            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {step} de 5
           </DialogTitle>
         </DialogHeader>
 
@@ -448,25 +540,6 @@ export default function GerarOrcamentoDialog({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="formaPagamento">Forma de Pagamento (descrição livre)</Label>
-                <Textarea
-                  id="formaPagamento"
-                  value={formaPagamento}
-                  onChange={(e) => setFormaPagamento(e.target.value)}
-                  placeholder='Ex: "50% do valor total na entrada pago via Pix e 50% pago no final da produção pago via cartão de crédito em 3x sem juros"'
-                  rows={2}
-                />
-              </div>
-
-              {/* Detalhamento de Pagamento */}
-              <CondicoesPagamentoForm
-                value={condicoesPagamento}
-                onChange={setCondicoesPagamento}
-                valorTotal={valorTotal}
-                isRequired={false}
-              />
-              
               <div className="space-y-2">
                 <Label htmlFor="obs">Observações</Label>
                 <Textarea
@@ -581,6 +654,10 @@ export default function GerarOrcamentoDialog({
                 <div className="py-8 text-center border rounded-lg bg-muted/30">
                   <Package className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
                   <p className="text-muted-foreground">Nenhum produto adicionado.</p>
+                  <p className="text-xs text-destructive mt-2 flex items-center justify-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Adicione pelo menos um produto para continuar
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -602,7 +679,6 @@ export default function GerarOrcamentoDialog({
                             <p className="text-muted-foreground">{formatCurrency(item.preco_unitario)}/un</p>
                           </div>
 
-                          {/* Toggle Estoque / POD ao lado do preço */}
                           <div className="flex rounded-lg border overflow-hidden">
                             <button
                               type="button"
@@ -659,7 +735,6 @@ export default function GerarOrcamentoDialog({
                           </Button>
                         </div>
 
-                        {/* Campos adicionais: quantidade por pote, unidade, dose por dose, doses totais - ocultos para POD */}
                         {item.modelo_negocio !== 'print_on_demand' && (
                           <div className="grid grid-cols-4 gap-2 pt-2 border-t">
                             <div className="space-y-1">
@@ -743,180 +818,203 @@ export default function GerarOrcamentoDialog({
             </div>
           )}
 
-          {/* STEP 3: Serviços de Marca */}
+          {/* STEP 3: Custo de Setup */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Palette className="w-5 h-5" />
-                  Serviço de Criação de Marca Própria
-                </h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowServicoForm(true)}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Adicionar Plano/Serviço
-                </Button>
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <Settings2 className="w-5 h-5" />
+                Custo de Setup
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Selecione os itens de setup e ajuste as quantidades. As quantidades são pré-preenchidas com base nos produtos adicionados.
+              </p>
+
+              {/* Setup items */}
+              <div className="space-y-2">
+                {setupItems.map((item, idx) => (
+                  <Card key={item.id} className={cn(item.selecionado && 'border-primary')}>
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={item.selecionado}
+                          onCheckedChange={(checked) => {
+                            setSetupItems(prev => prev.map((si, i) =>
+                              i === idx ? { ...si, selecionado: !!checked } : si
+                            ));
+                          }}
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{item.nome}</p>
+                          <p className="text-xs text-muted-foreground">{formatCurrency(item.custoUnitario)}/un</p>
+                        </div>
+                        {item.selecionado && (
+                          <>
+                            <Input
+                              type="number"
+                              min={0}
+                              className="w-20"
+                              value={item.quantidade}
+                              onChange={(e) => {
+                                setSetupItems(prev => prev.map((si, i) =>
+                                  i === idx ? { ...si, quantidade: parseInt(e.target.value) || 0 } : si
+                                ));
+                              }}
+                            />
+                            <span className="text-sm font-semibold min-w-[80px] text-right">
+                              {formatCurrency(item.custoUnitario * item.quantidade)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+
+                {/* Impressão de rótulos */}
+                <Card className={cn(setupImpressaoSelecionado && 'border-primary')}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={setupImpressaoSelecionado}
+                        onCheckedChange={(checked) => setSetupImpressaoSelecionado(!!checked)}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Impressão de rótulos</p>
+                        <p className="text-xs text-muted-foreground">Custo varia por tipo de produto</p>
+                      </div>
+                    </div>
+
+                    {setupImpressaoSelecionado && setupImpressaoItens.length > 0 && (
+                      <div className="ml-7 space-y-2 border-l-2 border-primary/20 pl-3">
+                        {setupImpressaoItens.map((imp, idx) => (
+                          <div key={imp.tipoProduto} className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <p className="text-sm">{imp.tipoProduto}</p>
+                              <p className="text-xs text-muted-foreground">{formatCurrency(imp.custoUnitario)}/un</p>
+                            </div>
+                            <Input
+                              type="number"
+                              min={0}
+                              className="w-20"
+                              value={imp.quantidade}
+                              onChange={(e) => {
+                                setSetupImpressaoItens(prev => prev.map((si, i) =>
+                                  i === idx ? { ...si, quantidade: parseInt(e.target.value) || 0 } : si
+                                ));
+                              }}
+                            />
+                            <span className="text-sm font-semibold min-w-[80px] text-right">
+                              {formatCurrency(imp.custoUnitario * imp.quantidade)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {setupImpressaoSelecionado && setupImpressaoItens.length === 0 && (
+                      <p className="ml-7 text-xs text-muted-foreground">
+                        Nenhum produto adicionado no passo anterior.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
-              {/* Form Novo Serviço */}
-              {showServicoForm && (
-                <Card className="border-primary">
+              {/* Custo total e margem */}
+              {custoTotalSetup > 0 && (
+                <Card>
                   <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Novo Plano/Serviço</Label>
-                      <Button variant="ghost" size="sm" onClick={() => { setShowServicoForm(false); setNovoServicoEntregaveis(ENTREGAVEIS_PADRAO()); }}>
-                        <X className="w-4 h-4" />
-                      </Button>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Custo Total do Setup</span>
+                      <span className="font-semibold">{formatCurrency(custoTotalSetup)}</span>
                     </div>
-                    
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Nome do Plano *</Label>
-                        <Input
-                          value={novoServico.nome}
-                          onChange={(e) => setNovoServico(prev => ({ ...prev, nome: e.target.value }))}
-                          placeholder="Ex: Plano Premium, Design de Rótulo..."
-                        />
-                      </div>
 
-                      {/* Entregáveis */}
-                      <div className="space-y-2">
-                        <Label className="text-xs font-semibold">Entregáveis</Label>
-                        <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
-                          {novoServicoEntregaveis.map((entregavel, idx) => {
-                            const config = ENTREGAVEIS_CONFIG[idx];
-                            return (
-                              <div key={entregavel.nome} className="flex items-center gap-3">
-                                <Checkbox
-                                  id={`entregavel-${idx}`}
-                                  checked={entregavel.incluso}
-                                  onCheckedChange={(checked) => {
-                                    setNovoServicoEntregaveis(prev => prev.map((e, i) =>
-                                      i === idx ? { ...e, incluso: !!checked, quantidade: checked ? e.quantidade : 1 } : e
-                                    ));
-                                  }}
-                                />
-                                <label htmlFor={`entregavel-${idx}`} className="text-sm flex-1 cursor-pointer">
-                                  {entregavel.nome}
-                                </label>
-                                {config.temQuantidade && entregavel.incluso && (
-                                  <Select
-                                    value={String(entregavel.quantidade)}
-                                    onValueChange={(v) => {
-                                      setNovoServicoEntregaveis(prev => prev.map((e, i) =>
-                                        i === idx ? { ...e, quantidade: parseInt(v) } : e
-                                      ));
-                                    }}
-                                  >
-                                    <SelectTrigger className="w-[70px] h-8 text-xs">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {Array.from({ length: config.maxQuantidade }, (_, k) => k + 1).map(n => (
-                                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-xs">Descrição (opcional)</Label>
-                        <Textarea
-                          value={novoServico.descricao}
-                          onChange={(e) => setNovoServico(prev => ({ ...prev, descricao: e.target.value }))}
-                          placeholder="Descrição do serviço..."
-                          rows={2}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Valor (R$) *</Label>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Margem de Lucro (%)</Label>
+                      <div className="flex items-center gap-3">
                         <Input
                           type="number"
                           min={0}
-                          step="0.00001"
-                          value={novoServico.valor || ''}
-                          onChange={(e) => setNovoServico(prev => ({ ...prev, valor: parseFloat(e.target.value) || 0 }))}
+                          max={90}
+                          step={0.5}
+                          className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
+                          value={margemSetup}
+                          onChange={(e) => {
+                            setMargemSetup(parseFloat(e.target.value) || 0);
+                            setSetupMargemLiberada(false);
+                          }}
                         />
+                        <span className="text-sm">%</span>
                       </div>
                     </div>
-                    
-                    <Button 
-                      onClick={handleAddServico} 
-                      className="w-full"
-                      disabled={!novoServico.nome || novoServico.valor <= 0}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Adicionar Serviço
-                    </Button>
+
+                    {/* Margin validation visual */}
+                    <div className={cn(
+                      'p-2 rounded-lg text-sm',
+                      validacaoMargemSetup.bgColor === 'gold-shimmer' ? 'gold-shimmer' : validacaoMargemSetup.bgColor,
+                      validacaoMargemSetup.color
+                    )}>
+                      {validacaoMargemSetup.mensagem}
+                    </div>
+
+                    {validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-destructive text-destructive"
+                        onClick={() => setSenhaSetupDialog(true)}
+                      >
+                        Liberar com senha
+                      </Button>
+                    )}
+
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="font-medium">Preço de Venda do Setup</span>
+                      <span className="text-xl font-bold">{formatCurrency(precoVendaSetup)}</span>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Fórmula: Custo / (1 - 6% antecipação - 5% imposto - 5% comissão - {margemSetup}% margem)
+                    </p>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Lista de Serviços */}
-              {servicosMarca.length === 0 ? (
-                <div className="py-8 text-center border rounded-lg bg-muted/30">
-                  <Palette className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Nenhum serviço de marca adicionado.</p>
+              {custoTotalSetup === 0 && (
+                <div className="py-6 text-center border rounded-lg bg-muted/30">
+                  <Settings2 className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">Selecione pelo menos um item de setup acima.</p>
                   <p className="text-xs text-muted-foreground mt-1">(Esta seção é opcional)</p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {servicosMarca.map((servico, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1">
-                            <p className="font-medium">{servico.nome_plano}</p>
-                            {servico.descricao && (
-                              <p className="text-xs text-muted-foreground">{servico.descricao}</p>
-                            )}
-                            {servico.entregaveis && servico.entregaveis.filter(e => e.incluso).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {servico.entregaveis.filter(e => e.incluso).map((e, i) => (
-                                  <Badge key={i} variant="secondary" className="text-[10px]">
-                                    {e.nome}{e.quantidade > 1 ? ` (${e.quantidade}x)` : ''}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <p className="font-semibold">{formatCurrency(servico.valor)}</p>
-                          
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleRemoveServico(index)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
               )}
-
-              {/* Subtotal */}
-              <div className="flex justify-end">
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Subtotal Serviços</p>
-                  <p className="text-xl font-bold">{formatCurrency(subtotalServicos)}</p>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* STEP 4: Resumo */}
+          {/* STEP 4: Condições de Pagamento */}
           {step === 4 && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Condições de Pagamento</h3>
+
+              <Card className="bg-muted/30">
+                <CardContent className="p-3">
+                  <div className="flex justify-between text-sm">
+                    <span>Valor Total do Orçamento</span>
+                    <span className="font-bold text-lg">{formatCurrency(valorTotal)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <CondicoesPagamentoForm
+                value={condicoesPagamento}
+                onChange={setCondicoesPagamento}
+                valorTotal={valorTotal}
+                isRequired={false}
+              />
+            </div>
+          )}
+
+          {/* STEP 5: Resumo */}
+          {step === 5 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Resumo do Orçamento</h3>
               
@@ -951,19 +1049,29 @@ export default function GerarOrcamentoDialog({
                     </div>
                   )}
 
-                  {servicosMarca.length > 0 && (
+                  {precoVendaSetup > 0 && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-2">SERVIÇOS DE MARCA</p>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">SETUP</p>
                       <div className="space-y-1">
-                        {servicosMarca.map((servico, index) => (
+                        {setupItems.filter(i => i.selecionado).map((item, index) => (
                           <div key={index} className="flex justify-between text-sm">
-                            <span>• {servico.nome_plano}</span>
-                            <span>{formatCurrency(servico.valor)}</span>
+                            <span>• {item.nome} ({item.quantidade}x)</span>
+                            <span>{formatCurrency(item.custoUnitario * item.quantidade)}</span>
                           </div>
                         ))}
+                        {setupImpressaoSelecionado && setupImpressaoItens.map((item, index) => (
+                          <div key={`imp-${index}`} className="flex justify-between text-sm">
+                            <span>• Impressão - {item.tipoProduto} ({item.quantidade}x)</span>
+                            <span>{formatCurrency(item.custoUnitario * item.quantidade)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                          <span>Custo total setup:</span>
+                          <span>{formatCurrency(custoTotalSetup)}</span>
+                        </div>
                         <div className="flex justify-between font-medium pt-1 border-t">
-                          <span>Subtotal:</span>
-                          <span>{formatCurrency(subtotalServicos)}</span>
+                          <span>Preço de Venda Setup (margem {margemSetup}%):</span>
+                          <span>{formatCurrency(precoVendaSetup)}</span>
                         </div>
                       </div>
                     </div>
@@ -1188,9 +1296,19 @@ export default function GerarOrcamentoDialog({
               {step === 1 ? 'Cancelar' : 'Voltar'}
             </Button>
 
-            {step < 4 ? (
+            {step < 5 ? (
               <Button
-                onClick={() => setStep(step + 1)}
+                onClick={() => {
+                  if (step === 2 && itensProducao.length === 0) {
+                    toast.error('Adicione pelo menos um produto para continuar.');
+                    return;
+                  }
+                  if (step === 3 && custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) {
+                    toast.error('Margem de setup abaixo do mínimo. Libere com senha para continuar.');
+                    return;
+                  }
+                  setStep(step + 1);
+                }}
                 disabled={!canGoNext()}
               >
                 Próximo
@@ -1272,6 +1390,35 @@ export default function GerarOrcamentoDialog({
               setSenhaMargemOrcInput('');
             }
           }}>
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Dialog de senha para liberação de margem do setup */}
+    <Dialog open={senhaSetupDialog} onOpenChange={setSenhaSetupDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Liberar margem de setup abaixo do mínimo</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          A margem de setup está abaixo do mínimo de 15%. Digite a senha para liberar.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaSetupInput}
+          onChange={(e) => setSenhaSetupInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSetupSenhaConfirm();
+          }}
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setSenhaSetupDialog(false); setSenhaSetupInput(''); }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSetupSenhaConfirm}>
             Confirmar
           </Button>
         </div>
