@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
