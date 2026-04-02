@@ -942,7 +942,7 @@ export default function GerarOrcamentoDialog({
                         ))}
                         {setupImpressaoSelecionado && setupImpressaoItens.filter(si => si.quantidade > 0).map((si, idx) => (
                           <div key={`imp-${idx}`} className="flex justify-between text-sm">
-                            <span>Impressão - {si.tipo} ({si.quantidade}x)</span>
+                            <span>Impressão - {si.tipoProduto} ({si.quantidade}x)</span>
                             <span>{formatCurrency(si.custoUnitario * si.quantidade)}</span>
                           </div>
                         ))}
