@@ -921,64 +921,109 @@ export default function GerarOrcamentoDialog({
               </div>
 
               {/* Custo total e margem */}
-              {custoTotalSetup > 0 && (
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Custo Total do Setup</span>
-                      <span className="font-semibold">{formatCurrency(custoTotalSetup)}</span>
-                    </div>
+              {custoTotalSetup > 0 && (() => {
+                const taxaAntecipacao = precoVendaSetup * 0.06;
+                const impostoSetup = precoVendaSetup * 0.05;
+                const comissaoSetup = precoVendaSetup * 0.05;
+                const margemLucroValor = precoVendaSetup * (margemSetup / 100);
 
-                    <div className="space-y-2">
-                      <Label className="text-sm">Margem de Lucro (%)</Label>
-                      <div className="flex items-center gap-3">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={90}
-                          step={0.5}
-                          className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
-                          value={margemSetup}
-                          onChange={(e) => {
-                            setMargemSetup(parseFloat(e.target.value) || 0);
-                            setSetupMargemLiberada(false);
-                          }}
-                        />
-                        <span className="text-sm">%</span>
+                return (
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      {/* Detalhamento do Custo */}
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">Detalhamento do Custo</h4>
+                        {setupItems.filter(si => si.selecionado && si.quantidade > 0).map((si, idx) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span>{si.nome} ({si.quantidade}x)</span>
+                            <span>{formatCurrency(si.custoUnitario * si.quantidade)}</span>
+                          </div>
+                        ))}
+                        {setupImpressaoSelecionado && setupImpressaoItens.filter(si => si.quantidade > 0).map((si, idx) => (
+                          <div key={`imp-${idx}`} className="flex justify-between text-sm">
+                            <span>Impressão - {si.tipo} ({si.quantidade}x)</span>
+                            <span>{formatCurrency(si.custoUnitario * si.quantidade)}</span>
+                          </div>
+                        ))}
+                        <Separator className="my-2" />
+                        <div className="flex justify-between text-sm font-semibold">
+                          <span>Custo Total do Setup</span>
+                          <span>{formatCurrency(custoTotalSetup)}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Margin validation visual */}
-                    <div className={cn(
-                      'p-2 rounded-lg text-sm',
-                      validacaoMargemSetup.bgColor === 'gold-shimmer' ? 'gold-shimmer' : validacaoMargemSetup.bgColor,
-                      validacaoMargemSetup.color
-                    )}>
-                      {validacaoMargemSetup.mensagem}
-                    </div>
+                      {/* Margem de Lucro */}
+                      <div className="space-y-2">
+                        <Label className="text-sm">Margem de Lucro (%)</Label>
+                        <div className="flex items-center gap-3">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={90}
+                            step={0.5}
+                            className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
+                            value={margemSetup}
+                            onChange={(e) => {
+                              setMargemSetup(parseFloat(e.target.value) || 0);
+                              setSetupMargemLiberada(false);
+                            }}
+                          />
+                          <span className="text-sm">%</span>
+                        </div>
+                      </div>
 
-                    {validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-destructive text-destructive"
-                        onClick={() => setSenhaSetupDialog(true)}
-                      >
-                        Liberar com senha
-                      </Button>
-                    )}
+                      <div className={cn(
+                        'p-2 rounded-lg text-sm',
+                        validacaoMargemSetup.bgColor === 'gold-shimmer' ? 'gold-shimmer' : validacaoMargemSetup.bgColor,
+                        validacaoMargemSetup.color
+                      )}>
+                        {validacaoMargemSetup.mensagem}
+                      </div>
 
-                    <div className="flex justify-between items-center pt-2 border-t">
-                      <span className="font-medium">Preço de Venda do Setup</span>
-                      <span className="text-xl font-bold">{formatCurrency(precoVendaSetup)}</span>
-                    </div>
+                      {validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-destructive text-destructive"
+                          onClick={() => setSenhaSetupDialog(true)}
+                        >
+                          Liberar com senha
+                        </Button>
+                      )}
 
-                    <p className="text-xs text-muted-foreground">
-                      Fórmula: Custo / (1 - 6% antecipação - 5% imposto - 5% comissão - {margemSetup}% margem)
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+                      {/* Composição do Preço de Venda */}
+                      <div className="space-y-1 pt-2">
+                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">Composição do Preço de Venda</h4>
+                        <div className="flex justify-between text-sm">
+                          <span>Custo Base</span>
+                          <span>{formatCurrency(custoTotalSetup)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Taxa de Antecipação (6%)</span>
+                          <span>{formatCurrency(taxaAntecipacao)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Imposto (5%)</span>
+                          <span>{formatCurrency(impostoSetup)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Comissão (5%)</span>
+                          <span>{formatCurrency(comissaoSetup)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Margem de Lucro ({margemSetup}%)</span>
+                          <span>{formatCurrency(margemLucroValor)}</span>
+                        </div>
+                        <Separator className="my-2" />
+                        <div className="flex justify-between items-center font-semibold text-base">
+                          <span>Preço de Venda do Setup</span>
+                          <span className="text-xl font-bold">{formatCurrency(precoVendaSetup)}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {custoTotalSetup === 0 && (
                 <div className="py-6 text-center border rounded-lg bg-muted/30">
