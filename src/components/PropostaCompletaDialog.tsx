@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import ClienteSelector from '@/components/ClienteSelector';
+import { useClientes, Cliente } from '@/hooks/useClientes';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
