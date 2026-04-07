@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePedidos } from '@/hooks/usePedidos';
+import { useClientes, Cliente } from '@/hooks/useClientes';
+import ClienteSelector from '@/components/ClienteSelector';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -180,8 +183,10 @@ function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus } = useOrcamentos();
   const { createPedidoFromOrcamento } = usePedidos();
+  const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
   // Data de pagamento
@@ -232,7 +237,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
 
   useEffect(() => {
-    if (orcamento.dados_cliente) {
+    if (orcamento.dados_cliente && !clienteSelecionado) {
       const dc = orcamento.dados_cliente;
       setDadosCliente(prev => ({ ...prev, ...dc }));
       setTipoPessoa(dc.tipo_pessoa || 'pj');
@@ -251,6 +256,42 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       setCondicoesPagamento(orcamento.condicoes_pagamento);
     }
   }, [orcamento]);
+
+  // Pre-load client from orcamento.cliente_id
+  useEffect(() => {
+    if (orcamento.cliente_id && !clienteSelecionado) {
+      buscarPorId(orcamento.cliente_id).then(cliente => {
+        if (cliente) {
+          handleClienteSelect(cliente);
+        }
+      }).catch(err => console.error('Erro ao carregar cliente:', err));
+    }
+  }, [orcamento.cliente_id]);
+
+  const handleClienteSelect = (cliente: Cliente) => {
+    setClienteSelecionado(cliente);
+    setTipoPessoa(cliente.tipo_pessoa as 'pj' | 'pf' || 'pj');
+    setDadosCliente(prev => ({
+      ...prev,
+      tipo_pessoa: cliente.tipo_pessoa as 'pj' | 'pf',
+      cnpj: cliente.cnpj || prev.cnpj,
+      razao_social: cliente.razao_social || prev.razao_social,
+      inscricao_municipal: cliente.inscricao_municipal || prev.inscricao_municipal,
+      inscricao_estadual: cliente.inscricao_estadual || prev.inscricao_estadual,
+      endereco_cnpj: cliente.endereco_cnpj || prev.endereco_cnpj,
+      cep_cnpj: cliente.cep_cnpj || prev.cep_cnpj,
+      cidade: cliente.cidade_cnpj || cliente.cidade || prev.cidade,
+      estado: cliente.estado_cnpj || cliente.estado || prev.estado,
+      telefone: cliente.telefone_cnpj || cliente.telefone || prev.telefone,
+      email: cliente.email_cnpj || cliente.email || prev.email,
+    }));
+    if (cliente.responsavel_pj && typeof cliente.responsavel_pj === 'object' && Object.keys(cliente.responsavel_pj).length > 0) {
+      setResponsavelPJ(cliente.responsavel_pj as PessoaFisicaResponsavel);
+    }
+    if (Array.isArray(cliente.pessoas_fisicas) && cliente.pessoas_fisicas.length > 0) {
+      setPessoasFisicas(cliente.pessoas_fisicas as PessoaFisicaResponsavel[]);
+    }
+  };
 
   // Auto-set frete when envio tipo changes
   useEffect(() => {
@@ -430,6 +471,63 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
       });
 
+      // Persistir cliente na tabela centralizada
+      const clienteData = {
+        nome: tipoPessoa === 'pj' ? (dadosCliente.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
+        telefone: clienteSelecionado?.telefone || dadosCliente.telefone || pessoasFisicas[0]?.telefone || '',
+        tipo_pessoa: tipoPessoa,
+        razao_social: dadosCliente.razao_social,
+        cnpj: dadosCliente.cnpj,
+        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
+        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
+        email: dadosCliente.email || pessoasFisicas[0]?.email,
+        endereco_cnpj: dadosCliente.endereco_cnpj,
+        cep_cnpj: dadosCliente.cep_cnpj,
+        cidade_cnpj: dadosCliente.cidade,
+        estado_cnpj: dadosCliente.estado,
+        telefone_cnpj: dadosCliente.telefone,
+        email_cnpj: dadosCliente.email,
+        inscricao_estadual: dadosCliente.inscricao_estadual,
+        inscricao_municipal: dadosCliente.inscricao_municipal,
+        forma_venda: formaVenda,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+
+      let clienteIdFinal: string | undefined;
+      const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
+
+      try {
+        if (clienteSelecionado) {
+          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+          clienteIdFinal = clienteSelecionado.id;
+        } else if (telefoneContato) {
+          const existente = await buscarPorTelefone(telefoneContato);
+          if (existente) {
+            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+            clienteIdFinal = existente.id;
+          } else {
+            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
+            clienteIdFinal = novo.id;
+          }
+        }
+
+        if (clienteIdFinal) {
+          await supabase
+            .from('orcamentos')
+            .update({ cliente_id: clienteIdFinal })
+            .eq('id', orcamento.id);
+        }
+      } catch (err: any) {
+        console.error('Erro ao salvar cliente:', err);
+        const { toast } = await import('@/hooks/use-toast');
+        toast({
+          title: 'Erro ao salvar cliente',
+          description: err?.message || 'Erro desconhecido',
+          variant: 'destructive',
+        });
+      }
+
       await updateStatus.mutateAsync({
         id: orcamento.id,
         status: 'pago',
@@ -480,6 +578,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Buscar Cliente Existente */}
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Buscar Cliente Existente</Label>
+                <ClienteSelector
+                  modo="completo"
+                  clienteSelecionado={clienteSelecionado}
+                  onSelect={handleClienteSelect}
+                  onClear={() => setClienteSelecionado(null)}
+                />
+              </div>
+
               {/* Selector PJ / PF */}
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Tipo de Pessoa <span className="text-destructive">*</span></Label>
