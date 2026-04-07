@@ -89,6 +89,7 @@ export default function Precificacao() {
   // Estado de duplicação
   const [duplicarDialog, setDuplicarDialog] = useState<Formula | null>(null);
   const [duplicarCliente, setDuplicarCliente] = useState('');
+  const [duplicarClienteSelecionado, setDuplicarClienteSelecionado] = useState<Cliente | null>(null);
   const [duplicarFormula, setDuplicarFormula] = useState('');
 
   // Estado de cálculo
