@@ -49,6 +49,8 @@ import {
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
+import ClienteSelector from '@/components/ClienteSelector';
+import { Cliente } from '@/hooks/useClientes';
 
 // ── Setup cost types ──
 interface SetupItem {
