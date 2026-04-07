@@ -110,15 +110,15 @@ function PessoaFisicaFields({ pessoa, onChange, label, required = true }: { pess
           </Select>
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Endereço {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CEP <span className="text-destructive">*</span>{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
+          <Label className="text-xs">CEP {required && <span className="text-destructive">*</span>}{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
           <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Estado {required && <span className="text-destructive">*</span>}</Label>
           <Select value={pessoa.estado || ''} onValueChange={(v) => { onChange({ ...pessoa, estado: v, cidade: '' }); }}>
             <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
             <SelectContent>
