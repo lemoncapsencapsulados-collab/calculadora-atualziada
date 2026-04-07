@@ -344,6 +344,42 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
         updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
       });
 
+      // Persistir na tabela clientes
+      const clienteData = {
+        nome: tipoPessoa === 'pj' ? (dadosCliente.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
+        telefone: dadosCliente.telefone || pessoasFisicas[0]?.telefone || '',
+        tipo_pessoa: tipoPessoa,
+        razao_social: dadosCliente.razao_social,
+        cnpj: dadosCliente.cnpj,
+        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
+        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
+        email: dadosCliente.email || pessoasFisicas[0]?.email,
+        endereco_cnpj: dadosCliente.endereco_cnpj,
+        cep_cnpj: dadosCliente.cep_cnpj,
+        cidade_cnpj: dadosCliente.cidade,
+        estado_cnpj: dadosCliente.estado,
+        inscricao_estadual: dadosCliente.inscricao_estadual,
+        inscricao_municipal: dadosCliente.inscricao_municipal,
+        forma_venda: formaVenda,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+
+      try {
+        if (clienteSelecionado) {
+          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+        } else if (clienteData.telefone) {
+          const existente = await buscarPorTelefone(clienteData.telefone);
+          if (existente) {
+            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+          } else {
+            await criarCliente.mutateAsync(clienteData);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao salvar cliente:', err);
+      }
+
       // Gerar preview do PDF
       const orcamentoAtualizado: Orcamento = {
         ...orcamento,
