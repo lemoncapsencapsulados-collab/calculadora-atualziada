@@ -183,8 +183,10 @@ function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus } = useOrcamentos();
   const { createPedidoFromOrcamento } = usePedidos();
+  const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
   // Data de pagamento
