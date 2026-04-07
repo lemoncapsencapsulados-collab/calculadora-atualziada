@@ -622,6 +622,7 @@ export default function Calculator() {
 
     // Reset form
     setCliente('');
+    setClienteSelecionado(null);
     setNomeFormula('');
     setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
