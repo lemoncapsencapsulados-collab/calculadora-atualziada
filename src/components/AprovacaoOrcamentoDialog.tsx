@@ -36,7 +36,7 @@ const EMPTY_PF: PessoaFisicaResponsavel = {
   nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
 };
 
-function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
+function PessoaFisicaFields({ pessoa, onChange, label, required = true }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string; required?: boolean }) {
   const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
   const [cidadesPF, setCidadesPF] = useState<string[]>([]);
   const [loadingCidadesPF, setLoadingCidadesPF] = useState(false);
