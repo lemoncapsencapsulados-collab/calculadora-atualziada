@@ -177,14 +177,28 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
   );
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
 
+  // Pre-load client from orcamento.cliente_id
+  useEffect(() => {
+    if (orcamento.cliente_id && !clienteSelecionado) {
+      buscarPorId(orcamento.cliente_id).then(cliente => {
+        if (cliente) {
+          handleClienteSelect(cliente);
+        }
+      }).catch(err => console.error('Erro ao carregar cliente:', err));
+    }
+  }, [orcamento.cliente_id]);
+
   useEffect(() => {
     if (orcamento.dados_cliente) {
       const dc = orcamento.dados_cliente;
-      setDadosCliente(prev => ({ ...prev, ...dc }));
-      setTipoPessoa(dc.tipo_pessoa || 'pj');
-      setFormaVenda(dc.forma_venda || 'sem_informacao');
-      if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
-      if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
+      // Only fill form from dados_cliente if no client was loaded by ID
+      if (!clienteSelecionado) {
+        setDadosCliente(prev => ({ ...prev, ...dc }));
+        setTipoPessoa(dc.tipo_pessoa || 'pj');
+        setFormaVenda(dc.forma_venda || 'sem_informacao');
+        if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
+        if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
+      }
     }
     if (orcamento.detalhamento_frete) {
       setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
