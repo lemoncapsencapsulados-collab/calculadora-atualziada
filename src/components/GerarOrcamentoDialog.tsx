@@ -1025,24 +1025,84 @@ export default function GerarOrcamentoDialog({
                         </div>
                       </div>
 
-                      {/* Margem de Lucro */}
-                      <div className="space-y-2">
-                        <Label className="text-sm">Margem de Lucro (%)</Label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={90}
-                            step={0.5}
-                            className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
-                            value={margemSetup}
-                            onChange={(e) => {
-                              setMargemSetup(parseFloat(e.target.value) || 0);
+                      {/* Modo de Cálculo Toggle */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold">Modo de Cálculo</Label>
+                        <div className="flex rounded-lg border overflow-hidden w-fit">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModoCalculoSetup('margem');
                               setSetupMargemLiberada(false);
                             }}
-                          />
-                          <span className="text-sm">%</span>
+                            className={cn(
+                              'px-4 py-2 text-sm font-medium transition-all',
+                              modoCalculoSetup === 'margem'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            Margem %
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModoCalculoSetup('valor_fixo');
+                              setValorFixoSetup(precoVendaSetup > 0 ? Math.round(precoVendaSetup * 100) / 100 : 0);
+                              setSetupMargemLiberada(false);
+                            }}
+                            className={cn(
+                              'px-4 py-2 text-sm font-medium transition-all',
+                              modoCalculoSetup === 'valor_fixo'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            Valor Fixo R$
+                          </button>
                         </div>
+
+                        {modoCalculoSetup === 'margem' ? (
+                          <div className="space-y-2">
+                            <Label className="text-sm">Margem de Lucro (%)</Label>
+                            <div className="flex items-center gap-3">
+                              <Input
+                                type="number"
+                                min={0}
+                                max={90}
+                                step={0.5}
+                                className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
+                                value={margemSetup}
+                                onChange={(e) => {
+                                  setMargemSetup(parseFloat(e.target.value) || 0);
+                                  setSetupMargemLiberada(false);
+                                }}
+                              />
+                              <span className="text-sm">%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label className="text-sm">Valor cobrado de Setup (R$)</Label>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm">R$</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={100}
+                                className={cn("w-36", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
+                                value={valorFixoSetup}
+                                onChange={(e) => {
+                                  setValorFixoSetup(parseFloat(e.target.value) || 0);
+                                  setSetupMargemLiberada(false);
+                                }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Margem resultante: <span className="font-semibold">{margemEfetiva.toFixed(1)}%</span>
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className={cn(
