@@ -1,54 +1,59 @@
 
+Problema confirmado: o fluxo que você descreveu não passa por `PropostaCompletaDialog`, e sim por `AprovacaoOrcamentoDialog` ao marcar o orçamento como pago. Esse componente ainda está com a lógica antiga e isolada, sem integração com a gestão centralizada de clientes.
 
-## Plano: Corrigir persistência de cliente no fluxo Pago e Resumo para Contrato
+O que encontrei:
+- O orçamento pago de Micael Ximenes está salvo com `cliente_id = 41568b89-e3e2-4c4c-8892-929d6394d46c`.
+- No banco, esse cliente já está como PJ Lemoncaps, então em algum momento os dados acabaram persistindo corretamente no cadastro.
+- Porém, no código do fluxo “Pago”, `AprovacaoOrcamentoDialog.tsx`:
+  - não usa `ClienteSelector`
+  - não usa `useClientes`
+  - não pré-carrega `orcamento.cliente_id`
+  - não executa a lógica de merge PF→PJ por telefone
+  - não atualiza explicitamente o registro do cliente centralizado ao confirmar o pagamento
 
-### Problemas identificados
+Conclusão:
+- O problema estrutural existe no fluxo “Transformar em pago”.
+- O fluxo “Resumo para Contrato” está diferente e mais novo: ele já usa `useClientes`, carrega `cliente_id`, tenta atualizar cliente existente e salvar o vínculo no orçamento.
+- Portanto, sim: o comportamento correto no “Resumo para Contrato” tende a continuar funcionando, enquanto o fluxo “Pago” permanece suscetível a inconsistência por estar desatualizado em relação à arquitetura atual.
 
-1. **`cliente_id` do orçamento nunca é usado para pré-carregar o cliente selecionado.** Quando o orçamento já tem um `cliente_id` (definido no Passo 1), os diálogos `PropostaCompletaDialog` e `InformacoesClienteDialog` não carregam esse cliente — o `clienteSelecionado` fica `null`.
+Plano de correção:
+1. Alinhar `AprovacaoOrcamentoDialog.tsx` com a mesma arquitetura dos outros fluxos
+   - integrar `ClienteSelector` no modo completo
+   - integrar `useClientes`
+   - pré-carregar cliente via `orcamento.cliente_id`
 
-2. **Sem `clienteSelecionado` e sem telefone preenchido, nenhum cliente é criado/atualizado.** A lógica (linha 368-378 em Proposta, 252-261 em Informacoes) só persiste se `clienteSelecionado` existe OU se `clienteData.telefone` tem valor. Mas o `telefone` em `dadosCliente` é o telefone PJ (inicializado como `''`), e se o usuário não preenche esse campo específico, a condição falha silenciosamente.
+2. Aplicar a mesma regra de persistência do fluxo que já funciona
+   - se houver `clienteSelecionado`, atualizar esse ID
+   - se não houver, buscar por telefone de contato principal
+   - se encontrar cliente PF com mesmo telefone e os dados atuais forem PJ, atualizar o mesmo registro
+   - se não encontrar, criar novo cliente
+   - salvar `cliente_id` final no orçamento
 
-3. **`buscarPorTelefone` usa `ilike` com o telefone do formulário PJ**, que pode ser diferente do telefone de contato original do cliente PF. Isso impede a detecção de duplicata PF→PJ.
+3. Manter os campos obrigatórios atuais do fluxo Pago
+   - sem simplificar o formulário
+   - apenas conectar o preenchimento atual ao cadastro centralizado
 
-4. **Erros são capturados silenciosamente** (`catch (err) { console.error(...) }`) — o usuário não recebe feedback.
+4. Melhorar rastreabilidade e feedback
+   - exibir toast quando o cliente for atualizado/criado
+   - exibir erro claro se a persistência do cliente falhar
+   - evitar falha silenciosa após o orçamento mudar para pago
 
-5. **O `cliente_id` não é atualizado no orçamento** após criar/atualizar o cliente nesses diálogos.
+5. Validar consistência entre os dois fluxos finais
+   - garantir que `AprovacaoOrcamentoDialog` e `InformacoesClienteDialog` usem a mesma estratégia de:
+     - preload por `cliente_id`
+     - merge por telefone
+     - atualização PF→PJ
+     - persistência de `cliente_id`
 
-### Correções planejadas
-
-**Arquivo: `PropostaCompletaDialog.tsx`**
-- No `useEffect` inicial, se `orcamento.cliente_id` existir, buscar o cliente pelo ID e chamar `setClienteSelecionado` + pré-preencher todos os campos
-- Na lógica de persistência: usar o telefone de contato original do cliente (do `orcamento` ou do `clienteSelecionado`) para busca de duplicata, não apenas o telefone PJ do formulário
-- Após criar/atualizar cliente, salvar o `cliente_id` resultante no orçamento via `updateOrcamento`
-- Mostrar toast de erro ao usuário em vez de capturar silenciosamente
-
-**Arquivo: `InformacoesClienteDialog.tsx`**
-- Mesmas correções: pré-carregar `clienteSelecionado` via `orcamento.cliente_id`, corrigir lógica de telefone para duplicata, salvar `cliente_id` de volta, exibir erro ao usuário
-
-**Arquivo: `useClientes.ts`**
-- Adicionar função `buscarPorId(id: string)` para carregar cliente pelo UUID
-
-### Detalhes técnicos
-
+Detalhe técnico importante:
+Hoje existem dois caminhos finais diferentes:
 ```text
-Fluxo corrigido:
-
-1. Dialog abre → verifica orcamento.cliente_id
-   → Se existe: busca cliente por ID, seta clienteSelecionado, preenche campos
-   → Se não: mantém comportamento atual (busca manual)
-
-2. Usuário preenche dados PJ e salva
-   → Se clienteSelecionado existe: atualiza por ID ✓
-   → Se não existe: busca por telefone de contato (não PJ)
-     → Encontrou: exibe alerta de merge, atualiza
-     → Não encontrou: cria novo
-   → Salva cliente_id resultante no orçamento
-
-3. Feedback: toast de sucesso/erro visível ao usuário
+Enviado -> Resumo para Contrato -> InformacoesClienteDialog
+Enviado -> Pago -> AprovacaoOrcamentoDialog
 ```
+O segundo ainda não foi migrado para o modelo centralizado de clientes, e essa é a causa raiz mais provável do que você observou.
 
-### Arquivos modificados
-- `src/hooks/useClientes.ts` — adicionar `buscarPorId`
-- `src/components/PropostaCompletaDialog.tsx` — pré-carregar cliente, corrigir persistência e feedback
-- `src/components/InformacoesClienteDialog.tsx` — mesmas correções
-
+Arquivos que precisam entrar na correção:
+- `src/components/AprovacaoOrcamentoDialog.tsx`
+- possivelmente pequenas harmonizações em `src/hooks/useClientes.ts`
+- opcionalmente extrair a lógica de persistência do cliente para utilitário compartilhado, para impedir nova divergência entre “Pago” e “Resumo para Contrato”
