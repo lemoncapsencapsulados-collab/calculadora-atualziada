@@ -1125,10 +1125,11 @@ export default function Precificacao() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Nome do Cliente</Label>
-              <Input
-                value={duplicarCliente}
-                onChange={(e) => setDuplicarCliente(e.target.value)}
-                placeholder="Nome do cliente"
+              <ClienteSelector
+                modo="basico"
+                clienteSelecionado={duplicarClienteSelecionado}
+                onSelect={(c) => { setDuplicarClienteSelecionado(c); setDuplicarCliente(c.nome); }}
+                onClear={() => { setDuplicarClienteSelecionado(null); setDuplicarCliente(''); }}
               />
             </div>
             <div className="space-y-2">
