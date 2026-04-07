@@ -228,6 +228,38 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
         pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
       };
       await updateDadosCliente.mutateAsync({ id: orcamento.id, dados_cliente: dadosCompletos });
+
+      // Salvar/atualizar na tabela clientes
+      const clienteData = {
+        nome: tipoPessoa === 'pj' ? (dados.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
+        telefone: dados.telefone || pessoasFisicas[0]?.telefone || '',
+        tipo_pessoa: tipoPessoa,
+        razao_social: dados.razao_social,
+        cnpj: dados.cnpj,
+        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
+        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
+        email: dados.email || pessoasFisicas[0]?.email,
+        endereco_cnpj: dados.endereco_cnpj,
+        cep_cnpj: dados.cep_cnpj,
+        cidade_cnpj: dados.cidade,
+        estado_cnpj: dados.estado,
+        inscricao_estadual: dados.inscricao_estadual,
+        inscricao_municipal: dados.inscricao_municipal,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+
+      if (clienteSelecionado) {
+        await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+      } else if (clienteData.telefone) {
+        const existente = await buscarPorTelefone(clienteData.telefone);
+        if (existente) {
+          await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+        } else {
+          await criarCliente.mutateAsync(clienteData);
+        }
+      }
+
       onClose();
     } catch (error) {
       console.error('Erro ao salvar dados do cliente:', error);
