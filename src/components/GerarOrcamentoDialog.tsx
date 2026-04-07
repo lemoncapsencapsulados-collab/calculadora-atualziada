@@ -1602,6 +1602,35 @@ export default function GerarOrcamentoDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Dialog de senha para edição de custo de impressão */}
+    <Dialog open={senhaImpressaoDialog} onOpenChange={setSenhaImpressaoDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar custo de impressão</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Digite a senha para liberar a edição do custo de impressão de rótulos neste orçamento.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaImpressaoInput}
+          onChange={(e) => setSenhaImpressaoInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleImpressaoSenhaConfirm();
+          }}
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setSenhaImpressaoDialog(false); setSenhaImpressaoInput(''); }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleImpressaoSenhaConfirm}>
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
