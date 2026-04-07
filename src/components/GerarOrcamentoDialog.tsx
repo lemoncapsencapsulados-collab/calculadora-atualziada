@@ -183,12 +183,20 @@ export default function GerarOrcamentoDialog({
 
   const precoVendaSetup = useMemo(() => {
     if (custoTotalSetup === 0) return 0;
+    if (modoCalculoSetup === 'valor_fixo') return valorFixoSetup;
     const divisor = 1 - 0.06 - 0.05 - 0.05 - (margemSetup / 100);
     if (divisor <= 0) return 0;
     return custoTotalSetup / divisor;
-  }, [custoTotalSetup, margemSetup]);
+  }, [custoTotalSetup, margemSetup, modoCalculoSetup, valorFixoSetup]);
 
-  const validacaoMargemSetup = validarMargemPorTipo(margemSetup, 'Setup');
+  // Margem derivada no modo valor fixo
+  const margemEfetiva = useMemo(() => {
+    if (modoCalculoSetup === 'margem') return margemSetup;
+    if (valorFixoSetup <= 0 || custoTotalSetup <= 0) return 0;
+    return (1 - (custoTotalSetup / valorFixoSetup) - 0.06 - 0.05 - 0.05) * 100;
+  }, [modoCalculoSetup, margemSetup, valorFixoSetup, custoTotalSetup]);
+
+  const validacaoMargemSetup = validarMargemPorTipo(margemEfetiva, 'Setup');
 
   // Carregar dados se editando
   useEffect(() => {
