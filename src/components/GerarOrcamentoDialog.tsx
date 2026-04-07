@@ -225,6 +225,8 @@ export default function GerarOrcamentoDialog({
           if (detalhes.impressao_selecionado !== undefined) setSetupImpressaoSelecionado(detalhes.impressao_selecionado);
           if (detalhes.impressao_itens) setSetupImpressaoItens(detalhes.impressao_itens);
           if (detalhes.margem !== undefined) setMargemSetup(detalhes.margem);
+          if (detalhes.modo_calculo) setModoCalculoSetup(detalhes.modo_calculo);
+          if (detalhes.valor_fixo !== undefined) setValorFixoSetup(detalhes.valor_fixo);
         }
       }
     }
