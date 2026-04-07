@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, PessoaFisicaResponsavel } from '@/types/orcamento';
 import {
