@@ -33,6 +33,7 @@ interface FormulaItemInput {
 export default function Calculator() {
   
   const [cliente, setCliente] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [nomeFormula, setNomeFormula] = useState('');
   const [items, setItems] = useState<FormulaItemInput[]>([{
     id: '1',
