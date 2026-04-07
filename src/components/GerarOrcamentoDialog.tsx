@@ -486,6 +486,18 @@ export default function GerarOrcamentoDialog({
     }
   };
 
+  const handleImpressaoSenhaConfirm = () => {
+    if (senhaImpressaoInput === SENHA_LIBERACAO_MARGEM) {
+      setImpressaoEdicaoLiberada(true);
+      setSenhaImpressaoDialog(false);
+      setSenhaImpressaoInput('');
+      toast.success('Edição de custos de impressão liberada!');
+    } else {
+      toast.error('Senha incorreta!');
+      setSenhaImpressaoInput('');
+    }
+  };
+
   return (
     <>
     <Dialog open onOpenChange={() => onClose()}>
