@@ -471,6 +471,63 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
       });
 
+      // Persistir cliente na tabela centralizada
+      const clienteData = {
+        nome: tipoPessoa === 'pj' ? (dadosCliente.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
+        telefone: clienteSelecionado?.telefone || dadosCliente.telefone || pessoasFisicas[0]?.telefone || '',
+        tipo_pessoa: tipoPessoa,
+        razao_social: dadosCliente.razao_social,
+        cnpj: dadosCliente.cnpj,
+        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
+        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
+        email: dadosCliente.email || pessoasFisicas[0]?.email,
+        endereco_cnpj: dadosCliente.endereco_cnpj,
+        cep_cnpj: dadosCliente.cep_cnpj,
+        cidade_cnpj: dadosCliente.cidade,
+        estado_cnpj: dadosCliente.estado,
+        telefone_cnpj: dadosCliente.telefone,
+        email_cnpj: dadosCliente.email,
+        inscricao_estadual: dadosCliente.inscricao_estadual,
+        inscricao_municipal: dadosCliente.inscricao_municipal,
+        forma_venda: formaVenda,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+
+      let clienteIdFinal: string | undefined;
+      const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
+
+      try {
+        if (clienteSelecionado) {
+          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+          clienteIdFinal = clienteSelecionado.id;
+        } else if (telefoneContato) {
+          const existente = await buscarPorTelefone(telefoneContato);
+          if (existente) {
+            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+            clienteIdFinal = existente.id;
+          } else {
+            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
+            clienteIdFinal = novo.id;
+          }
+        }
+
+        if (clienteIdFinal) {
+          await supabase
+            .from('orcamentos')
+            .update({ cliente_id: clienteIdFinal })
+            .eq('id', orcamento.id);
+        }
+      } catch (err: any) {
+        console.error('Erro ao salvar cliente:', err);
+        const { toast } = await import('@/hooks/use-toast');
+        toast({
+          title: 'Erro ao salvar cliente',
+          description: err?.message || 'Erro desconhecido',
+          variant: 'destructive',
+        });
+      }
+
       await updateStatus.mutateAsync({
         id: orcamento.id,
         status: 'pago',
