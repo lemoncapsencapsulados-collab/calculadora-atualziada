@@ -113,6 +113,15 @@ export default function GerarOrcamentoDialog({
   const [senhaSetupInput, setSenhaSetupInput] = useState('');
   const [setupMargemLiberada, setSetupMargemLiberada] = useState(false);
 
+  // Edição de custo de impressão protegida por senha
+  const [impressaoEdicaoLiberada, setImpressaoEdicaoLiberada] = useState(false);
+  const [senhaImpressaoDialog, setSenhaImpressaoDialog] = useState(false);
+  const [senhaImpressaoInput, setSenhaImpressaoInput] = useState('');
+
+  // Modo de cálculo: margem ou valor fixo
+  const [modoCalculoSetup, setModoCalculoSetup] = useState<'margem' | 'valor_fixo'>('margem');
+  const [valorFixoSetup, setValorFixoSetup] = useState(0);
+
   // Step 5: Dados opcionais (cliente e frete)
   const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
