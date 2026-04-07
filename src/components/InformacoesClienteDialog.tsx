@@ -281,7 +281,6 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
 
         // Save cliente_id back to orcamento
         if (clienteIdFinal) {
-          const { updateOrcamento } = useOrcamentos();
           await supabase
             .from('orcamentos')
             .update({ cliente_id: clienteIdFinal })
