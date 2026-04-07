@@ -578,6 +578,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Buscar Cliente Existente */}
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Buscar Cliente Existente</Label>
+                <ClienteSelector
+                  modo="completo"
+                  clienteSelecionado={clienteSelecionado}
+                  onSelect={handleClienteSelect}
+                  onClear={() => setClienteSelecionado(null)}
+                />
+              </div>
+
               {/* Selector PJ / PF */}
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Tipo de Pessoa <span className="text-destructive">*</span></Label>
