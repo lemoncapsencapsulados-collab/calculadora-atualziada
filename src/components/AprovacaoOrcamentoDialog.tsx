@@ -88,20 +88,20 @@ function PessoaFisicaFields({ pessoa, onChange, label, required = true }: { pess
       <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Nome <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Nome {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.nome || ''} onChange={(e) => update('nome', e.target.value)} placeholder="Nome completo" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">CPF {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} onBlur={handleCpfBlur} placeholder="000.000.000-00" className={cpfError ? 'border-destructive' : ''} />
           {cpfError && <p className="text-[10px] text-destructive">{cpfError}</p>}
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">RG <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">RG {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.rg || ''} onChange={(e) => update('rg', e.target.value)} placeholder="RG" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Estado Civil <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Estado Civil {required && <span className="text-destructive">*</span>}</Label>
           <Select value={pessoa.estado_civil || ''} onValueChange={(v) => update('estado_civil', v)}>
             <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
