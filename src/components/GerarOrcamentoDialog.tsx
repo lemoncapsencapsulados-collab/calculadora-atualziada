@@ -998,7 +998,7 @@ export default function GerarOrcamentoDialog({
                 const taxaAntecipacao = precoVendaSetup * 0.06;
                 const impostoSetup = precoVendaSetup * 0.05;
                 const comissaoSetup = precoVendaSetup * 0.05;
-                const margemLucroValor = precoVendaSetup * (margemSetup / 100);
+                const margemLucroValor = precoVendaSetup * (margemEfetiva / 100);
 
                 return (
                   <Card>
