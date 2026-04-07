@@ -36,7 +36,7 @@ const EMPTY_PF: PessoaFisicaResponsavel = {
   nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
 };
 
-function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
+function PessoaFisicaFields({ pessoa, onChange, label, required = true }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string; required?: boolean }) {
   const update = (field: keyof PessoaFisicaResponsavel, value: string) => onChange({ ...pessoa, [field]: value });
   const [cidadesPF, setCidadesPF] = useState<string[]>([]);
   const [loadingCidadesPF, setLoadingCidadesPF] = useState(false);
@@ -88,20 +88,20 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
       <p className="text-xs font-semibold text-muted-foreground uppercase">{label}</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Nome <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Nome {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.nome || ''} onChange={(e) => update('nome', e.target.value)} placeholder="Nome completo" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">CPF {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.cpf || ''} onChange={(e) => update('cpf', e.target.value)} onBlur={handleCpfBlur} placeholder="000.000.000-00" className={cpfError ? 'border-destructive' : ''} />
           {cpfError && <p className="text-[10px] text-destructive">{cpfError}</p>}
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">RG <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">RG {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.rg || ''} onChange={(e) => update('rg', e.target.value)} placeholder="RG" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Estado Civil <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Estado Civil {required && <span className="text-destructive">*</span>}</Label>
           <Select value={pessoa.estado_civil || ''} onValueChange={(v) => update('estado_civil', v)}>
             <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
             <SelectContent>
@@ -110,15 +110,15 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           </Select>
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Endereço {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">CEP <span className="text-destructive">*</span>{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
+          <Label className="text-xs">CEP {required && <span className="text-destructive">*</span>}{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
           <Input value={pessoa.cep || ''} onChange={(e) => update('cep', e.target.value)} placeholder="00000-000" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Estado {required && <span className="text-destructive">*</span>}</Label>
           <Select value={pessoa.estado || ''} onValueChange={(v) => { onChange({ ...pessoa, estado: v, cidade: '' }); }}>
             <SelectTrigger><SelectValue placeholder="Selecione UF" /></SelectTrigger>
             <SelectContent>
@@ -127,15 +127,15 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Cidade {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder={loadingCidadesPF ? 'Carregando...' : 'Cidade'} />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Telefone {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.telefone || ''} onChange={(e) => update('telefone', e.target.value)} placeholder="(00) 00000-0000" />
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Email {required && <span className="text-destructive">*</span>}</Label>
           <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} onBlur={handleEmailBlur} placeholder="email@exemplo.com" className={emailError ? 'border-destructive' : ''} />
           {emailError && <p className="text-[10px] text-destructive">{emailError}</p>}
         </div>
@@ -586,6 +586,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                   clienteSelecionado={clienteSelecionado}
                   onSelect={handleClienteSelect}
                   onClear={() => setClienteSelecionado(null)}
+                  onNovo={() => {
+                    setClienteSelecionado(null);
+                    setTipoPessoa('pj');
+                    setDadosCliente({
+                      tipo_pessoa: 'pj',
+                      cnpj: '', razao_social: '', inscricao_municipal: '', inscricao_estadual: '',
+                      endereco_cnpj: '', cep_cnpj: '', cidade: '', estado: '', telefone: '', email: '',
+                    });
+                    setResponsavelPJ({ ...EMPTY_PF });
+                    setPessoasFisicas([{ ...EMPTY_PF }]);
+                  }}
                 />
               </div>
 
@@ -662,6 +673,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     pessoa={responsavelPJ}
                     onChange={setResponsavelPJ}
                     label="Responsável PF (QSA)"
+                    required={false}
                   />
                 </div>
               )}

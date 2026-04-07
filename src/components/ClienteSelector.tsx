@@ -14,10 +14,11 @@ interface ClienteSelectorProps {
   clienteSelecionado?: Cliente | null;
   onSelect: (cliente: Cliente) => void;
   onClear: () => void;
+  onNovo?: () => void;
   className?: string;
 }
 
-export default function ClienteSelector({ modo, clienteSelecionado, onSelect, onClear, className }: ClienteSelectorProps) {
+export default function ClienteSelector({ modo, clienteSelecionado, onSelect, onClear, onNovo, className }: ClienteSelectorProps) {
   const { clientes, criarCliente, buscarClientes, buscarPorTelefone, atualizarCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [resultados, setResultados] = useState<Cliente[]>([]);
@@ -162,8 +163,12 @@ export default function ClienteSelector({ modo, clienteSelecionado, onSelect, on
           size="sm"
           className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
           onClick={() => {
-            setNovoNome(searchTerm);
-            setShowCriarDialog(true);
+            if (onNovo) {
+              onNovo();
+            } else {
+              setNovoNome(searchTerm);
+              setShowCriarDialog(true);
+            }
           }}
         >
           <Plus className="w-3 h-3 mr-1" /> Novo
