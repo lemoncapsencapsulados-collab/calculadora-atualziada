@@ -94,6 +94,7 @@ export default function GerarOrcamentoDialog({
   // Step 1: Informações básicas
   const [tipoOrcamento, setTipoOrcamento] = useState<TipoOrcamento>('novo_produtor');
   const [nomeCliente, setNomeCliente] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
   const [observacoes, setObservacoes] = useState('');
