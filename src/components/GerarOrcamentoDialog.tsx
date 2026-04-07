@@ -256,8 +256,10 @@ export default function GerarOrcamentoDialog({
         items: setupItems,
         impressao_selecionado: setupImpressaoSelecionado,
         impressao_itens: setupImpressaoItens,
-        margem: margemSetup,
+        margem: margemEfetiva,
         custo_total: custoTotalSetup,
+        modo_calculo: modoCalculoSetup,
+        valor_fixo: valorFixoSetup,
       },
     } as any];
   };
