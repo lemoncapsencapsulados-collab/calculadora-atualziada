@@ -379,7 +379,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       if (!dadosCliente.email?.trim()) camposFaltando.push('Email');
       else if (!validarEmail(dadosCliente.email)) camposFaltando.push('Email inválido');
       // Validate responsável PJ (QSA)
-      camposFaltando.push(...validatePF(responsavelPJ, 'Responsável QSA'));
+      // QSA não é obrigatório no fluxo Pago (apenas no Resumo para Contrato)
     } else {
       // PF
       pessoasFisicas.forEach((pf, i) => {
