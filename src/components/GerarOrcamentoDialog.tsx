@@ -42,7 +42,10 @@ import {
   User,
   Truck,
   Settings2,
-  AlertTriangle
+  AlertTriangle,
+  Pencil,
+  Lock,
+  LockOpen
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
