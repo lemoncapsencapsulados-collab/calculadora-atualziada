@@ -380,18 +380,34 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       };
 
       try {
+        let clienteIdFinal: string | undefined;
+        // Use the original contact phone (from client or budget) for duplicate detection
+        const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
+
         if (clienteSelecionado) {
           await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
-        } else if (clienteData.telefone) {
-          const existente = await buscarPorTelefone(clienteData.telefone);
+          clienteIdFinal = clienteSelecionado.id;
+        } else if (telefoneContato) {
+          const existente = await buscarPorTelefone(telefoneContato);
           if (existente) {
             await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+            clienteIdFinal = existente.id;
           } else {
-            await criarCliente.mutateAsync(clienteData);
+            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
+            clienteIdFinal = novo.id;
           }
         }
-      } catch (err) {
+
+        // Save cliente_id back to orcamento
+        if (clienteIdFinal) {
+          await updateOrcamento.mutateAsync({
+            id: orcamento.id,
+            updates: { cliente_id: clienteIdFinal },
+          });
+        }
+      } catch (err: any) {
         console.error('Erro ao salvar cliente:', err);
+        toast.error('Erro ao salvar cliente: ' + (err?.message || 'erro desconhecido'));
       }
 
       // Gerar preview do PDF

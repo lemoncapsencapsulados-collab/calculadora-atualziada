@@ -260,15 +260,35 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
         pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
       };
 
-      if (clienteSelecionado) {
-        await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
-      } else if (clienteData.telefone) {
-        const existente = await buscarPorTelefone(clienteData.telefone);
-        if (existente) {
-          await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
-        } else {
-          await criarCliente.mutateAsync(clienteData);
+      let clienteIdFinal: string | undefined;
+      const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
+
+      try {
+        if (clienteSelecionado) {
+          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+          clienteIdFinal = clienteSelecionado.id;
+        } else if (telefoneContato) {
+          const existente = await buscarPorTelefone(telefoneContato);
+          if (existente) {
+            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+            clienteIdFinal = existente.id;
+          } else {
+            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
+            clienteIdFinal = novo.id;
+          }
         }
+
+        // Save cliente_id back to orcamento
+        if (clienteIdFinal) {
+          const { updateOrcamento } = useOrcamentos();
+          await supabase
+            .from('orcamentos')
+            .update({ cliente_id: clienteIdFinal })
+            .eq('id', orcamento.id);
+        }
+      } catch (err: any) {
+        console.error('Erro ao salvar cliente:', err);
+        toast({ title: 'Erro ao salvar cliente', description: err?.message || 'Erro desconhecido', variant: 'destructive' });
       }
 
       onClose();
