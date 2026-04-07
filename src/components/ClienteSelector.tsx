@@ -18,7 +18,7 @@ interface ClienteSelectorProps {
   className?: string;
 }
 
-export default function ClienteSelector({ modo, clienteSelecionado, onSelect, onClear, className }: ClienteSelectorProps) {
+export default function ClienteSelector({ modo, clienteSelecionado, onSelect, onClear, onNovo, className }: ClienteSelectorProps) {
   const { clientes, criarCliente, buscarClientes, buscarPorTelefone, atualizarCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [resultados, setResultados] = useState<Cliente[]>([]);
