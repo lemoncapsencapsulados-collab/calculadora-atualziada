@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      clientes: {
+        Row: {
+          cep: string | null
+          cep_cnpj: string | null
+          cidade: string | null
+          cidade_cnpj: string | null
+          cnpj: string | null
+          cpf: string | null
+          created_at: string | null
+          dados_extras: Json | null
+          email: string | null
+          email_cnpj: string | null
+          endereco: string | null
+          endereco_cnpj: string | null
+          estado: string | null
+          estado_civil: string | null
+          estado_cnpj: string | null
+          forma_venda: string | null
+          id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          nome: string
+          pessoas_fisicas: Json | null
+          razao_social: string | null
+          responsavel_pj: Json | null
+          rg: string | null
+          telefone: string
+          telefone_cnpj: string | null
+          tipo_pessoa: string
+          updated_at: string | null
+        }
+        Insert: {
+          cep?: string | null
+          cep_cnpj?: string | null
+          cidade?: string | null
+          cidade_cnpj?: string | null
+          cnpj?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          dados_extras?: Json | null
+          email?: string | null
+          email_cnpj?: string | null
+          endereco?: string | null
+          endereco_cnpj?: string | null
+          estado?: string | null
+          estado_civil?: string | null
+          estado_cnpj?: string | null
+          forma_venda?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          nome: string
+          pessoas_fisicas?: Json | null
+          razao_social?: string | null
+          responsavel_pj?: Json | null
+          rg?: string | null
+          telefone: string
+          telefone_cnpj?: string | null
+          tipo_pessoa?: string
+          updated_at?: string | null
+        }
+        Update: {
+          cep?: string | null
+          cep_cnpj?: string | null
+          cidade?: string | null
+          cidade_cnpj?: string | null
+          cnpj?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          dados_extras?: Json | null
+          email?: string | null
+          email_cnpj?: string | null
+          endereco?: string | null
+          endereco_cnpj?: string | null
+          estado?: string | null
+          estado_civil?: string | null
+          estado_cnpj?: string | null
+          forma_venda?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          nome?: string
+          pessoas_fisicas?: Json | null
+          razao_social?: string | null
+          responsavel_pj?: Json | null
+          rg?: string | null
+          telefone?: string
+          telefone_cnpj?: string | null
+          tipo_pessoa?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       configuracao_custos: {
         Row: {
           ativa: boolean | null
@@ -116,6 +209,7 @@ export type Database = {
       formulas: {
         Row: {
           cliente: string
+          cliente_id: string | null
           created_at: string | null
           custo_total: number
           embalagens: Json
@@ -132,6 +226,7 @@ export type Database = {
         }
         Insert: {
           cliente: string
+          cliente_id?: string | null
           created_at?: string | null
           custo_total: number
           embalagens: Json
@@ -148,6 +243,7 @@ export type Database = {
         }
         Update: {
           cliente?: string
+          cliente_id?: string | null
           created_at?: string | null
           custo_total?: number
           embalagens?: Json
@@ -162,7 +258,15 @@ export type Database = {
           unidades_por_dose?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "formulas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lotes: {
         Row: {
@@ -274,6 +378,7 @@ export type Database = {
       }
       orcamentos: {
         Row: {
+          cliente_id: string | null
           condicoes_pagamento: Json | null
           consultor_responsavel: string | null
           created_at: string | null
@@ -296,6 +401,7 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          cliente_id?: string | null
           condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
           created_at?: string | null
@@ -318,6 +424,7 @@ export type Database = {
           valor_total?: number
         }
         Update: {
+          cliente_id?: string | null
           condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
           created_at?: string | null
@@ -339,7 +446,15 @@ export type Database = {
           validade_dias?: number
           valor_total?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pedidos: {
         Row: {

@@ -19,6 +19,8 @@ import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/f
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import ClienteSelector from '@/components/ClienteSelector';
+import { Cliente } from '@/hooks/useClientes';
 
 // Capacidade padrão de uma cápsula em gramas (0.5g = 500mg)
 const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
@@ -31,6 +33,7 @@ interface FormulaItemInput {
 export default function Calculator() {
   
   const [cliente, setCliente] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [nomeFormula, setNomeFormula] = useState('');
   const [items, setItems] = useState<FormulaItemInput[]>([{
     id: '1',
@@ -572,7 +575,8 @@ export default function Calculator() {
     });
     
     const formulaData = {
-      cliente,
+      cliente: clienteSelecionado?.nome || cliente,
+      cliente_id: clienteSelecionado?.id || null,
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
@@ -618,6 +622,7 @@ export default function Calculator() {
 
     // Reset form
     setCliente('');
+    setClienteSelecionado(null);
     setNomeFormula('');
     setTipoProduto('Encapsulados');
     setQtdCapsulas('60');
@@ -636,6 +641,7 @@ export default function Calculator() {
   const handleClear = () => {
     if (confirm('Limpar todos os campos?')) {
       setCliente('');
+      setClienteSelecionado(null);
       setNomeFormula('');
       setTipoProduto('Encapsulados');
       setQtdCapsulas('60');
@@ -671,8 +677,13 @@ export default function Calculator() {
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="cliente">Cliente *</Label>
-              <Input id="cliente" value={cliente} onChange={e => setCliente(e.target.value)} placeholder="Nome do cliente" />
+              <Label>Cliente *</Label>
+              <ClienteSelector
+                modo="basico"
+                clienteSelecionado={clienteSelecionado}
+                onSelect={(c) => { setClienteSelecionado(c); setCliente(c.nome); }}
+                onClear={() => { setClienteSelecionado(null); setCliente(''); }}
+              />
             </div>
             <div>
               <Label htmlFor="nomeFormula">Nome da Fórmula</Label>

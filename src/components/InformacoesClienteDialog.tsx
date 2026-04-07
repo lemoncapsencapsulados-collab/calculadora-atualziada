@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, Loader2, User, Plus, Trash2 } from 'lucide-react';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchEnderecoPorCEP } from '@/lib/brasilData';
 import { validarCPF, validarEmail } from '@/lib/validators';
+import ClienteSelector from '@/components/ClienteSelector';
+import { useClientes, Cliente } from '@/hooks/useClientes';
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
   nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
@@ -116,11 +118,13 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function InformacoesClienteDialog({ orcamento, onClose }: { orcamento: Orcamento; onClose: () => void }) {
   const { updateDadosCliente } = useOrcamentos();
+  const { atualizarCliente, criarCliente, buscarPorTelefone } = useClientes();
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuscandoCnpj, setIsBuscandoCnpj] = useState(false);
   const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
   const [dados, setDados] = useState<DadosCliente>({
     tipo_pessoa: 'pj',
@@ -140,6 +144,31 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
       if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
     }
   }, [orcamento]);
+
+  const handleClienteSelect = (cliente: Cliente) => {
+    setClienteSelecionado(cliente);
+    setTipoPessoa(cliente.tipo_pessoa as 'pj' | 'pf' || 'pj');
+    setDados(prev => ({
+      ...prev,
+      tipo_pessoa: cliente.tipo_pessoa as 'pj' | 'pf',
+      cnpj: cliente.cnpj || prev.cnpj,
+      razao_social: cliente.razao_social || prev.razao_social,
+      inscricao_municipal: cliente.inscricao_municipal || prev.inscricao_municipal,
+      inscricao_estadual: cliente.inscricao_estadual || prev.inscricao_estadual,
+      endereco_cnpj: cliente.endereco_cnpj || prev.endereco_cnpj,
+      cep_cnpj: cliente.cep_cnpj || prev.cep_cnpj,
+      cidade: cliente.cidade_cnpj || cliente.cidade || prev.cidade,
+      estado: cliente.estado_cnpj || cliente.estado || prev.estado,
+      telefone: cliente.telefone || prev.telefone,
+      email: cliente.email || prev.email,
+    }));
+    if (cliente.responsavel_pj && Object.keys(cliente.responsavel_pj).length > 0) {
+      setResponsavelPJ(cliente.responsavel_pj);
+    }
+    if (cliente.pessoas_fisicas && cliente.pessoas_fisicas.length > 0) {
+      setPessoasFisicas(cliente.pessoas_fisicas);
+    }
+  };
 
   // CEP auto-fill for PJ
   useEffect(() => {
@@ -199,6 +228,38 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
         pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
       };
       await updateDadosCliente.mutateAsync({ id: orcamento.id, dados_cliente: dadosCompletos });
+
+      // Salvar/atualizar na tabela clientes
+      const clienteData = {
+        nome: tipoPessoa === 'pj' ? (dados.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
+        telefone: dados.telefone || pessoasFisicas[0]?.telefone || '',
+        tipo_pessoa: tipoPessoa,
+        razao_social: dados.razao_social,
+        cnpj: dados.cnpj,
+        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
+        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
+        email: dados.email || pessoasFisicas[0]?.email,
+        endereco_cnpj: dados.endereco_cnpj,
+        cep_cnpj: dados.cep_cnpj,
+        cidade_cnpj: dados.cidade,
+        estado_cnpj: dados.estado,
+        inscricao_estadual: dados.inscricao_estadual,
+        inscricao_municipal: dados.inscricao_municipal,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+
+      if (clienteSelecionado) {
+        await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+      } else if (clienteData.telefone) {
+        const existente = await buscarPorTelefone(clienteData.telefone);
+        if (existente) {
+          await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+        } else {
+          await criarCliente.mutateAsync(clienteData);
+        }
+      }
+
       onClose();
     } catch (error) {
       console.error('Erro ao salvar dados do cliente:', error);
@@ -218,6 +279,16 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">Buscar Cliente Existente</Label>
+            <ClienteSelector
+              modo="completo"
+              clienteSelecionado={clienteSelecionado}
+              onSelect={handleClienteSelect}
+              onClear={() => setClienteSelecionado(null)}
+            />
+          </div>
+
           <div className="space-y-1">
             <Label className="text-xs font-semibold">Tipo de Pessoa</Label>
             <Select value={tipoPessoa} onValueChange={(v) => setTipoPessoa(v as 'pj' | 'pf')}>

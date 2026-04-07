@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import ClienteSelector from '@/components/ClienteSelector';
+import { useClientes, Cliente } from '@/hooks/useClientes';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -125,11 +127,13 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
+  const { atualizarCliente, criarCliente, buscarPorTelefone } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
   // Tipo pessoa
   const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
@@ -203,6 +207,32 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       setDetalhesProducao(prev => ({ ...prev, ...existingDetails }));
     }
   }, [orcamento]);
+
+  const handleClienteSelect = (cliente: Cliente) => {
+    setClienteSelecionado(cliente);
+    setTipoPessoa(cliente.tipo_pessoa as 'pj' | 'pf' || 'pj');
+    setDadosCliente(prev => ({
+      ...prev,
+      tipo_pessoa: cliente.tipo_pessoa as 'pj' | 'pf',
+      cnpj: cliente.cnpj || prev.cnpj,
+      razao_social: cliente.razao_social || prev.razao_social,
+      inscricao_municipal: cliente.inscricao_municipal || prev.inscricao_municipal,
+      inscricao_estadual: cliente.inscricao_estadual || prev.inscricao_estadual,
+      endereco_cnpj: cliente.endereco_cnpj || prev.endereco_cnpj,
+      cep_cnpj: cliente.cep_cnpj || prev.cep_cnpj,
+      cidade: cliente.cidade_cnpj || cliente.cidade || prev.cidade,
+      estado: cliente.estado_cnpj || cliente.estado || prev.estado,
+      telefone: cliente.telefone || prev.telefone,
+      email: cliente.email || prev.email,
+    }));
+    if (cliente.responsavel_pj && Object.keys(cliente.responsavel_pj).length > 0) {
+      setResponsavelPJ(cliente.responsavel_pj);
+    }
+    if (cliente.pessoas_fisicas && cliente.pessoas_fisicas.length > 0) {
+      setPessoasFisicas(cliente.pessoas_fisicas);
+    }
+    setFormaVenda(cliente.forma_venda || 'sem_informacao');
+  };
 
   // Auto-set frete when envio tipo changes
   useEffect(() => {
@@ -314,6 +344,42 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
         updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
       });
 
+      // Persistir na tabela clientes
+      const clienteData = {
+        nome: tipoPessoa === 'pj' ? (dadosCliente.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
+        telefone: dadosCliente.telefone || pessoasFisicas[0]?.telefone || '',
+        tipo_pessoa: tipoPessoa,
+        razao_social: dadosCliente.razao_social,
+        cnpj: dadosCliente.cnpj,
+        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
+        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
+        email: dadosCliente.email || pessoasFisicas[0]?.email,
+        endereco_cnpj: dadosCliente.endereco_cnpj,
+        cep_cnpj: dadosCliente.cep_cnpj,
+        cidade_cnpj: dadosCliente.cidade,
+        estado_cnpj: dadosCliente.estado,
+        inscricao_estadual: dadosCliente.inscricao_estadual,
+        inscricao_municipal: dadosCliente.inscricao_municipal,
+        forma_venda: formaVenda,
+        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
+        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+      };
+
+      try {
+        if (clienteSelecionado) {
+          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+        } else if (clienteData.telefone) {
+          const existente = await buscarPorTelefone(clienteData.telefone);
+          if (existente) {
+            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+          } else {
+            await criarCliente.mutateAsync(clienteData);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao salvar cliente:', err);
+      }
+
       // Gerar preview do PDF
       const orcamentoAtualizado: Orcamento = {
         ...orcamento,
@@ -412,6 +478,16 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Buscar Cliente Existente</Label>
+                <ClienteSelector
+                  modo="completo"
+                  clienteSelecionado={clienteSelecionado}
+                  onSelect={handleClienteSelect}
+                  onClear={() => setClienteSelecionado(null)}
+                />
+              </div>
+
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Tipo de Pessoa <span className="text-destructive">*</span></Label>
                 <Select value={tipoPessoa} onValueChange={(v) => setTipoPessoa(v as 'pj' | 'pf')}>

@@ -49,6 +49,8 @@ import {
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
+import ClienteSelector from '@/components/ClienteSelector';
+import { Cliente } from '@/hooks/useClientes';
 
 // ── Setup cost types ──
 interface SetupItem {
@@ -92,6 +94,7 @@ export default function GerarOrcamentoDialog({
   // Step 1: Informações básicas
   const [tipoOrcamento, setTipoOrcamento] = useState<TipoOrcamento>('novo_produtor');
   const [nomeCliente, setNomeCliente] = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
   const [observacoes, setObservacoes] = useState('');
@@ -558,11 +561,11 @@ export default function GerarOrcamentoDialog({
 
               <div className="space-y-2">
                 <Label htmlFor="cliente">Nome do Cliente *</Label>
-                <Input
-                  id="cliente"
-                  value={nomeCliente}
-                  onChange={(e) => setNomeCliente(e.target.value)}
-                  placeholder="Ex: Farmácia ABC"
+                <ClienteSelector
+                  modo="basico"
+                  clienteSelecionado={clienteSelecionado}
+                  onSelect={(c) => { setClienteSelecionado(c); setNomeCliente(c.nome); }}
+                  onClear={() => { setClienteSelecionado(null); setNomeCliente(''); }}
                 />
               </div>
               
