@@ -232,7 +232,7 @@ export default function GerarOrcamentoDialog({
     }
     return [{
       nome_plano: 'Setup',
-      descricao: `Custo: ${formatCurrency(custoTotalSetup)} | Margem: ${margemSetup}%`,
+      descricao: 'Serviços de setup para início da produção',
       valor: precoVendaSetup,
       entregaveis,
       setup_detalhes: {
