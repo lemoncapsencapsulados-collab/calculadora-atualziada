@@ -1144,7 +1144,7 @@ export default function GerarOrcamentoDialog({
                           <span>{formatCurrency(comissaoSetup)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Margem de Lucro ({margemSetup}%)</span>
+                          <span>Margem de Lucro ({margemEfetiva.toFixed(1)}%)</span>
                           <span>{formatCurrency(margemLucroValor)}</span>
                         </div>
                         <Separator className="my-2" />
