@@ -127,15 +127,15 @@ function PessoaFisicaFields({ pessoa, onChange, label, required = true }: { pess
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Cidade {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.cidade || ''} onChange={(e) => update('cidade', e.target.value)} placeholder={loadingCidadesPF ? 'Carregando...' : 'Cidade'} />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Telefone {required && <span className="text-destructive">*</span>}</Label>
           <Input value={pessoa.telefone || ''} onChange={(e) => update('telefone', e.target.value)} placeholder="(00) 00000-0000" />
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+          <Label className="text-xs">Email {required && <span className="text-destructive">*</span>}</Label>
           <Input type="email" value={pessoa.email || ''} onChange={(e) => update('email', e.target.value)} onBlur={handleEmailBlur} placeholder="email@exemplo.com" className={emailError ? 'border-destructive' : ''} />
           {emailError && <p className="text-[10px] text-destructive">{emailError}</p>}
         </div>
