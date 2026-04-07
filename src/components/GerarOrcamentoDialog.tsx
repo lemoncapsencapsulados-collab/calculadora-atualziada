@@ -1248,7 +1248,7 @@ export default function GerarOrcamentoDialog({
                           <span>{formatCurrency(custoTotalSetup)}</span>
                         </div>
                         <div className="flex justify-between font-medium pt-1 border-t">
-                          <span>Preço de Venda Setup (margem {margemSetup}%):</span>
+                          <span>Preço de Venda Setup (margem {margemEfetiva.toFixed(1)}%):</span>
                           <span>{formatCurrency(precoVendaSetup)}</span>
                         </div>
                       </div>
