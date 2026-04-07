@@ -14,6 +14,7 @@ interface ClienteSelectorProps {
   clienteSelecionado?: Cliente | null;
   onSelect: (cliente: Cliente) => void;
   onClear: () => void;
+  onNovo?: () => void;
   className?: string;
 }
 
