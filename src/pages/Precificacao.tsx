@@ -39,6 +39,8 @@ import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ClienteSelector from '@/components/ClienteSelector';
+import { Cliente } from '@/hooks/useClientes';
 
 export default function Precificacao() {
   const navigate = useNavigate();
