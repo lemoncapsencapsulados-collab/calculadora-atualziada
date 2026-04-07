@@ -586,6 +586,17 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                   clienteSelecionado={clienteSelecionado}
                   onSelect={handleClienteSelect}
                   onClear={() => setClienteSelecionado(null)}
+                  onNovo={() => {
+                    setClienteSelecionado(null);
+                    setTipoPessoa('pj');
+                    setDadosCliente({
+                      tipo_pessoa: 'pj',
+                      cnpj: '', razao_social: '', inscricao_municipal: '', inscricao_estadual: '',
+                      endereco_cnpj: '', cep_cnpj: '', cidade: '', estado: '', telefone: '', email: '',
+                    });
+                    setResponsavelPJ({ ...EMPTY_PF });
+                    setPessoasFisicas([{ ...EMPTY_PF }]);
+                  }}
                 />
               </div>
 
