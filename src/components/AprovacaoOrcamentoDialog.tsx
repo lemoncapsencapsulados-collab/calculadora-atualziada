@@ -237,7 +237,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
 
   useEffect(() => {
-    if (orcamento.dados_cliente) {
+    if (orcamento.dados_cliente && !clienteSelecionado) {
       const dc = orcamento.dados_cliente;
       setDadosCliente(prev => ({ ...prev, ...dc }));
       setTipoPessoa(dc.tipo_pessoa || 'pj');
@@ -256,6 +256,42 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       setCondicoesPagamento(orcamento.condicoes_pagamento);
     }
   }, [orcamento]);
+
+  // Pre-load client from orcamento.cliente_id
+  useEffect(() => {
+    if (orcamento.cliente_id && !clienteSelecionado) {
+      buscarPorId(orcamento.cliente_id).then(cliente => {
+        if (cliente) {
+          handleClienteSelect(cliente);
+        }
+      }).catch(err => console.error('Erro ao carregar cliente:', err));
+    }
+  }, [orcamento.cliente_id]);
+
+  const handleClienteSelect = (cliente: Cliente) => {
+    setClienteSelecionado(cliente);
+    setTipoPessoa(cliente.tipo_pessoa as 'pj' | 'pf' || 'pj');
+    setDadosCliente(prev => ({
+      ...prev,
+      tipo_pessoa: cliente.tipo_pessoa as 'pj' | 'pf',
+      cnpj: cliente.cnpj || prev.cnpj,
+      razao_social: cliente.razao_social || prev.razao_social,
+      inscricao_municipal: cliente.inscricao_municipal || prev.inscricao_municipal,
+      inscricao_estadual: cliente.inscricao_estadual || prev.inscricao_estadual,
+      endereco_cnpj: cliente.endereco_cnpj || prev.endereco_cnpj,
+      cep_cnpj: cliente.cep_cnpj || prev.cep_cnpj,
+      cidade: cliente.cidade_cnpj || cliente.cidade || prev.cidade,
+      estado: cliente.estado_cnpj || cliente.estado || prev.estado,
+      telefone: cliente.telefone_cnpj || cliente.telefone || prev.telefone,
+      email: cliente.email_cnpj || cliente.email || prev.email,
+    }));
+    if (cliente.responsavel_pj && typeof cliente.responsavel_pj === 'object' && Object.keys(cliente.responsavel_pj).length > 0) {
+      setResponsavelPJ(cliente.responsavel_pj as PessoaFisicaResponsavel);
+    }
+    if (Array.isArray(cliente.pessoas_fisicas) && cliente.pessoas_fisicas.length > 0) {
+      setPessoasFisicas(cliente.pessoas_fisicas as PessoaFisicaResponsavel[]);
+    }
+  };
 
   // Auto-set frete when envio tipo changes
   useEffect(() => {
