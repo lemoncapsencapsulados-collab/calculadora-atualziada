@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, PessoaFisicaResponsavel } from '@/types/orcamento';
 import {
@@ -118,7 +119,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function InformacoesClienteDialog({ orcamento, onClose }: { orcamento: Orcamento; onClose: () => void }) {
   const { updateDadosCliente } = useOrcamentos();
-  const { atualizarCliente, criarCliente, buscarPorTelefone } = useClientes();
+  const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
   const { toast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,8 +136,19 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
   const [responsavelPJ, setResponsavelPJ] = useState<PessoaFisicaResponsavel>({ ...EMPTY_PF });
   const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisicaResponsavel[]>([{ ...EMPTY_PF }]);
 
+  // Pre-load client from orcamento.cliente_id
   useEffect(() => {
-    if (orcamento.dados_cliente) {
+    if (orcamento.cliente_id && !clienteSelecionado) {
+      buscarPorId(orcamento.cliente_id).then(cliente => {
+        if (cliente) {
+          handleClienteSelect(cliente);
+        }
+      }).catch(err => console.error('Erro ao carregar cliente:', err));
+    }
+  }, [orcamento.cliente_id]);
+
+  useEffect(() => {
+    if (orcamento.dados_cliente && !clienteSelecionado) {
       const dc = orcamento.dados_cliente;
       setDados(prev => ({ ...prev, ...dc }));
       setTipoPessoa(dc.tipo_pessoa || 'pj');
@@ -249,15 +261,34 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
         pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
       };
 
-      if (clienteSelecionado) {
-        await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
-      } else if (clienteData.telefone) {
-        const existente = await buscarPorTelefone(clienteData.telefone);
-        if (existente) {
-          await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
-        } else {
-          await criarCliente.mutateAsync(clienteData);
+      let clienteIdFinal: string | undefined;
+      const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
+
+      try {
+        if (clienteSelecionado) {
+          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
+          clienteIdFinal = clienteSelecionado.id;
+        } else if (telefoneContato) {
+          const existente = await buscarPorTelefone(telefoneContato);
+          if (existente) {
+            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+            clienteIdFinal = existente.id;
+          } else {
+            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
+            clienteIdFinal = novo.id;
+          }
         }
+
+        // Save cliente_id back to orcamento
+        if (clienteIdFinal) {
+          await supabase
+            .from('orcamentos')
+            .update({ cliente_id: clienteIdFinal })
+            .eq('id', orcamento.id);
+        }
+      } catch (err: any) {
+        console.error('Erro ao salvar cliente:', err);
+        toast({ title: 'Erro ao salvar cliente', description: err?.message || 'Erro desconhecido', variant: 'destructive' });
       }
 
       onClose();

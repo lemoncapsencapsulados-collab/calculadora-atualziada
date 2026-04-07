@@ -114,6 +114,17 @@ export function useClientes() {
     return data as Cliente | null;
   };
 
+  const buscarPorId = async (id: string): Promise<Cliente | null> => {
+    if (!id) return null;
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as Cliente | null;
+  };
+
   return {
     clientes,
     isLoading,
@@ -121,5 +132,6 @@ export function useClientes() {
     atualizarCliente,
     buscarClientes,
     buscarPorTelefone,
+    buscarPorId,
   };
 }

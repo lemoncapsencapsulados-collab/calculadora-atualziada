@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import { toast } from 'sonner';
 import ClienteSelector from '@/components/ClienteSelector';
 import { useClientes, Cliente } from '@/hooks/useClientes';
 import {
@@ -127,7 +128,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
-  const { atualizarCliente, criarCliente, buscarPorTelefone } = useClientes();
+  const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
@@ -177,14 +178,28 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
   );
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
 
+  // Pre-load client from orcamento.cliente_id
+  useEffect(() => {
+    if (orcamento.cliente_id && !clienteSelecionado) {
+      buscarPorId(orcamento.cliente_id).then(cliente => {
+        if (cliente) {
+          handleClienteSelect(cliente);
+        }
+      }).catch(err => console.error('Erro ao carregar cliente:', err));
+    }
+  }, [orcamento.cliente_id]);
+
   useEffect(() => {
     if (orcamento.dados_cliente) {
       const dc = orcamento.dados_cliente;
-      setDadosCliente(prev => ({ ...prev, ...dc }));
-      setTipoPessoa(dc.tipo_pessoa || 'pj');
-      setFormaVenda(dc.forma_venda || 'sem_informacao');
-      if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
-      if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
+      // Only fill form from dados_cliente if no client was loaded by ID
+      if (!clienteSelecionado) {
+        setDadosCliente(prev => ({ ...prev, ...dc }));
+        setTipoPessoa(dc.tipo_pessoa || 'pj');
+        setFormaVenda(dc.forma_venda || 'sem_informacao');
+        if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
+        if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
+      }
     }
     if (orcamento.detalhamento_frete) {
       setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
@@ -366,18 +381,34 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       };
 
       try {
+        let clienteIdFinal: string | undefined;
+        // Use the original contact phone (from client or budget) for duplicate detection
+        const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
+
         if (clienteSelecionado) {
           await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
-        } else if (clienteData.telefone) {
-          const existente = await buscarPorTelefone(clienteData.telefone);
+          clienteIdFinal = clienteSelecionado.id;
+        } else if (telefoneContato) {
+          const existente = await buscarPorTelefone(telefoneContato);
           if (existente) {
             await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
+            clienteIdFinal = existente.id;
           } else {
-            await criarCliente.mutateAsync(clienteData);
+            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
+            clienteIdFinal = novo.id;
           }
         }
-      } catch (err) {
+
+        // Save cliente_id back to orcamento
+        if (clienteIdFinal) {
+          await updateOrcamento.mutateAsync({
+            id: orcamento.id,
+            updates: { cliente_id: clienteIdFinal },
+          });
+        }
+      } catch (err: any) {
         console.error('Erro ao salvar cliente:', err);
+        toast.error('Erro ao salvar cliente: ' + (err?.message || 'erro desconhecido'));
       }
 
       // Gerar preview do PDF
