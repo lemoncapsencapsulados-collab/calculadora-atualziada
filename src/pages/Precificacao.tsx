@@ -69,6 +69,7 @@ export default function Precificacao() {
 
   // Estados editáveis de nome (para duplicação)
   const [nomeClienteEdit, setNomeClienteEdit] = useState('');
+  const [clienteSelecionadoEdit, setClienteSelecionadoEdit] = useState<Cliente | null>(null);
   const [nomeFormulaEdit, setNomeFormulaEdit] = useState('');
 
   // Estados de custos editáveis
