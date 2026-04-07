@@ -163,8 +163,12 @@ export default function ClienteSelector({ modo, clienteSelecionado, onSelect, on
           size="sm"
           className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
           onClick={() => {
-            setNovoNome(searchTerm);
-            setShowCriarDialog(true);
+            if (onNovo) {
+              onNovo();
+            } else {
+              setNovoNome(searchTerm);
+              setShowCriarDialog(true);
+            }
           }}
         >
           <Plus className="w-3 h-3 mr-1" /> Novo

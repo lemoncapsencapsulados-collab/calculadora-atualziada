@@ -662,6 +662,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                     pessoa={responsavelPJ}
                     onChange={setResponsavelPJ}
                     label="Responsável PF (QSA)"
+                    required={false}
                   />
                 </div>
               )}
