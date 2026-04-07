@@ -642,10 +642,11 @@ export default function Precificacao() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Nome do Cliente</Label>
-                        <Input
-                          value={nomeClienteEdit}
-                          onChange={(e) => setNomeClienteEdit(e.target.value)}
-                          className="h-9"
+                        <ClienteSelector
+                          modo="basico"
+                          clienteSelecionado={clienteSelecionadoEdit}
+                          onSelect={(c) => { setClienteSelecionadoEdit(c); setNomeClienteEdit(c.nome); }}
+                          onClear={() => { setClienteSelecionadoEdit(null); setNomeClienteEdit(''); }}
                         />
                       </div>
                     </div>
