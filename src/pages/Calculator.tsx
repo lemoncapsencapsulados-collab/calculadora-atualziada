@@ -677,8 +677,13 @@ export default function Calculator() {
         <CardContent className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="cliente">Cliente *</Label>
-              <Input id="cliente" value={cliente} onChange={e => setCliente(e.target.value)} placeholder="Nome do cliente" />
+              <Label>Cliente *</Label>
+              <ClienteSelector
+                modo="basico"
+                clienteSelecionado={clienteSelecionado}
+                onSelect={(c) => { setClienteSelecionado(c); setCliente(c.nome); }}
+                onClear={() => { setClienteSelecionado(null); setCliente(''); }}
+              />
             </div>
             <div>
               <Label htmlFor="nomeFormula">Nome da Fórmula</Label>
