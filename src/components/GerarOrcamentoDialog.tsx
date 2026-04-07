@@ -561,11 +561,11 @@ export default function GerarOrcamentoDialog({
 
               <div className="space-y-2">
                 <Label htmlFor="cliente">Nome do Cliente *</Label>
-                <Input
-                  id="cliente"
-                  value={nomeCliente}
-                  onChange={(e) => setNomeCliente(e.target.value)}
-                  placeholder="Ex: Farmácia ABC"
+                <ClienteSelector
+                  modo="basico"
+                  clienteSelecionado={clienteSelecionado}
+                  onSelect={(c) => { setClienteSelecionado(c); setNomeCliente(c.nome); }}
+                  onClear={() => { setClienteSelecionado(null); setNomeCliente(''); }}
                 />
               </div>
               
