@@ -575,7 +575,8 @@ export default function Calculator() {
     });
     
     const formulaData = {
-      cliente,
+      cliente: clienteSelecionado?.nome || cliente,
+      cliente_id: clienteSelecionado?.id || null,
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
