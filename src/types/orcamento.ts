@@ -214,6 +214,7 @@ export interface OrcamentoInsert {
 
 export interface OrcamentoUpdate {
   nome_cliente?: string;
+  cliente_id?: string;
   consultor_responsavel?: string;
   tipo_orcamento?: TipoOrcamento;
   itens_producao?: ItemProducao[];
