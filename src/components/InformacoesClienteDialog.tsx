@@ -280,6 +280,16 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
 
         <div className="space-y-4">
           <div className="space-y-1">
+            <Label className="text-xs font-semibold">Buscar Cliente Existente</Label>
+            <ClienteSelector
+              modo="completo"
+              clienteSelecionado={clienteSelecionado}
+              onSelect={handleClienteSelect}
+              onClear={() => setClienteSelecionado(null)}
+            />
+          </div>
+
+          <div className="space-y-1">
             <Label className="text-xs font-semibold">Tipo de Pessoa</Label>
             <Select value={tipoPessoa} onValueChange={(v) => setTipoPessoa(v as 'pj' | 'pf')}>
               <SelectTrigger><SelectValue /></SelectTrigger>
