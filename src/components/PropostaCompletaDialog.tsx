@@ -208,6 +208,32 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
     }
   }, [orcamento]);
 
+  const handleClienteSelect = (cliente: Cliente) => {
+    setClienteSelecionado(cliente);
+    setTipoPessoa(cliente.tipo_pessoa as 'pj' | 'pf' || 'pj');
+    setDadosCliente(prev => ({
+      ...prev,
+      tipo_pessoa: cliente.tipo_pessoa as 'pj' | 'pf',
+      cnpj: cliente.cnpj || prev.cnpj,
+      razao_social: cliente.razao_social || prev.razao_social,
+      inscricao_municipal: cliente.inscricao_municipal || prev.inscricao_municipal,
+      inscricao_estadual: cliente.inscricao_estadual || prev.inscricao_estadual,
+      endereco_cnpj: cliente.endereco_cnpj || prev.endereco_cnpj,
+      cep_cnpj: cliente.cep_cnpj || prev.cep_cnpj,
+      cidade: cliente.cidade_cnpj || cliente.cidade || prev.cidade,
+      estado: cliente.estado_cnpj || cliente.estado || prev.estado,
+      telefone: cliente.telefone || prev.telefone,
+      email: cliente.email || prev.email,
+    }));
+    if (cliente.responsavel_pj && Object.keys(cliente.responsavel_pj).length > 0) {
+      setResponsavelPJ(cliente.responsavel_pj);
+    }
+    if (cliente.pessoas_fisicas && cliente.pessoas_fisicas.length > 0) {
+      setPessoasFisicas(cliente.pessoas_fisicas);
+    }
+    setFormaVenda(cliente.forma_venda || 'sem_informacao');
+  };
+
   // Auto-set frete when envio tipo changes
   useEffect(() => {
     if (detalhamentoEnvio.tipo === 'total_produtor') {
