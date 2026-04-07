@@ -1,90 +1,54 @@
 
 
-## Plano Revisado: Sistema centralizado de clientes
+## Plano: Corrigir persistência de cliente no fluxo Pago e Resumo para Contrato
 
-### 1. Tabela `clientes` (migração SQL)
+### Problemas identificados
 
-```sql
-CREATE TABLE public.clientes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  nome text NOT NULL,                      -- Nome PF (sempre obrigatório)
-  telefone text NOT NULL,                  -- Telefone de contato (obrigatório)
-  tipo_pessoa text DEFAULT 'pf',           -- 'pf' | 'pj'
-  razao_social text,                       -- Obrigatório apenas no front quando PJ
-  cpf text,
-  cnpj text,
-  rg text,
-  email text,
-  endereco text,
-  cep text,
-  cidade text,
-  estado text,
-  estado_civil text,
-  inscricao_estadual text,
-  inscricao_municipal text,
-  endereco_cnpj text,
-  cep_cnpj text,
-  cidade_cnpj text,
-  estado_cnpj text,
-  telefone_cnpj text,
-  email_cnpj text,
-  forma_venda text,
-  responsavel_pj jsonb DEFAULT '{}',       -- QSA (PessoaFisicaResponsavel)
-  pessoas_fisicas jsonb DEFAULT '[]',      -- Lista de PFs adicionais
-  dados_extras jsonb DEFAULT '{}',
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+1. **`cliente_id` do orçamento nunca é usado para pré-carregar o cliente selecionado.** Quando o orçamento já tem um `cliente_id` (definido no Passo 1), os diálogos `PropostaCompletaDialog` e `InformacoesClienteDialog` não carregam esse cliente — o `clienteSelecionado` fica `null`.
 
-ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
--- RLS: authenticated full CRUD (mesma política das demais tabelas)
--- Trigger updated_at
--- ALTER TABLE orcamentos ADD COLUMN cliente_id uuid;
--- ALTER TABLE formulas ADD COLUMN cliente_id uuid;
+2. **Sem `clienteSelecionado` e sem telefone preenchido, nenhum cliente é criado/atualizado.** A lógica (linha 368-378 em Proposta, 252-261 em Informacoes) só persiste se `clienteSelecionado` existe OU se `clienteData.telefone` tem valor. Mas o `telefone` em `dadosCliente` é o telefone PJ (inicializado como `''`), e se o usuário não preenche esse campo específico, a condição falha silenciosamente.
+
+3. **`buscarPorTelefone` usa `ilike` com o telefone do formulário PJ**, que pode ser diferente do telefone de contato original do cliente PF. Isso impede a detecção de duplicata PF→PJ.
+
+4. **Erros são capturados silenciosamente** (`catch (err) { console.error(...) }`) — o usuário não recebe feedback.
+
+5. **O `cliente_id` não é atualizado no orçamento** após criar/atualizar o cliente nesses diálogos.
+
+### Correções planejadas
+
+**Arquivo: `PropostaCompletaDialog.tsx`**
+- No `useEffect` inicial, se `orcamento.cliente_id` existir, buscar o cliente pelo ID e chamar `setClienteSelecionado` + pré-preencher todos os campos
+- Na lógica de persistência: usar o telefone de contato original do cliente (do `orcamento` ou do `clienteSelecionado`) para busca de duplicata, não apenas o telefone PJ do formulário
+- Após criar/atualizar cliente, salvar o `cliente_id` resultante no orçamento via `updateOrcamento`
+- Mostrar toast de erro ao usuário em vez de capturar silenciosamente
+
+**Arquivo: `InformacoesClienteDialog.tsx`**
+- Mesmas correções: pré-carregar `clienteSelecionado` via `orcamento.cliente_id`, corrigir lógica de telefone para duplicata, salvar `cliente_id` de volta, exibir erro ao usuário
+
+**Arquivo: `useClientes.ts`**
+- Adicionar função `buscarPorId(id: string)` para carregar cliente pelo UUID
+
+### Detalhes técnicos
+
+```text
+Fluxo corrigido:
+
+1. Dialog abre → verifica orcamento.cliente_id
+   → Se existe: busca cliente por ID, seta clienteSelecionado, preenche campos
+   → Se não: mantém comportamento atual (busca manual)
+
+2. Usuário preenche dados PJ e salva
+   → Se clienteSelecionado existe: atualiza por ID ✓
+   → Se não existe: busca por telefone de contato (não PJ)
+     → Encontrou: exibe alerta de merge, atualiza
+     → Não encontrou: cria novo
+   → Salva cliente_id resultante no orçamento
+
+3. Feedback: toast de sucesso/erro visível ao usuário
 ```
 
-### 2. Hook `useClientes.ts`
-- CRUD completo com react-query
-- `buscarCliente(termo)`: busca por nome, razão social, telefone, CPF ou CNPJ via `ilike`
-- Detecção de duplicata: ao salvar PJ, verifica se existe PF com mesmo telefone → retorna cliente existente para merge
-
-### 3. Componente `ClienteSelector.tsx`
-
-**Props:** `modo: 'basico' | 'completo'`, `clienteId`, `onSelect`, `onClear`
-
-**Modo básico** (Calculator, Precificacao, GerarOrcamentoDialog Passo 1):
-- Campos: Nome (obrigatório) + Telefone (obrigatório)
-- Autocomplete por nome/telefone
-- Botão "Criar novo cliente" inline
-
-**Modo completo** (PropostaCompletaDialog, InformacoesClienteDialog):
-- Busca/seleção de cliente existente com auto-preenchimento de TODOS os campos
-- Mantém exatamente os mesmos campos já coletados hoje (tipo pessoa, CNPJ com busca BrasilAPI, razão social, inscrições, endereço, CEP, cidade, estado, telefone, email, responsável PJ/QSA, pessoas físicas, forma de venda)
-- Razão social obrigatória no front quando tipo_pessoa = 'pj'
-- Ao salvar, grava/atualiza na tabela `clientes`
-
-**Fluxo PF→PJ:**
-- Ao selecionar PJ e preencher telefone que já existe em cliente PF:
-  - Exibe dialog listando campos que serão atualizados (tipo_pessoa, razao_social, cnpj, etc.)
-  - Usuário confirma ou edita antes de salvar
-  - Atualiza o registro existente (não cria duplicata)
-
-### 4. Pontos de integração
-
-| Local | Arquivo | Modo |
-|-------|---------|------|
-| Criação de Produto | `Calculator.tsx` | `basico` |
-| Precificação | `Precificacao.tsx` | `basico` |
-| Orçamento Passo 1 | `GerarOrcamentoDialog.tsx` | `basico` |
-| Orçamento → Pago | `PropostaCompletaDialog.tsx` | `completo` |
-| Info Cliente | `InformacoesClienteDialog.tsx` | `completo` |
-
-### 5. Retrocompatibilidade
-- `nome_cliente` (orcamentos) e `cliente` (formulas) continuam preenchidos com string do nome
-- `cliente_id` adicionado como referência opcional
-- Dados completos sempre na tabela `clientes`
-
-### Arquivos criados/modificados
-- **Criar:** migração SQL, `src/hooks/useClientes.ts`, `src/components/ClienteSelector.tsx`
-- **Modificar:** `Calculator.tsx`, `Precificacao.tsx`, `GerarOrcamentoDialog.tsx`, `PropostaCompletaDialog.tsx`, `InformacoesClienteDialog.tsx`
+### Arquivos modificados
+- `src/hooks/useClientes.ts` — adicionar `buscarPorId`
+- `src/components/PropostaCompletaDialog.tsx` — pré-carregar cliente, corrigir persistência e feedback
+- `src/components/InformacoesClienteDialog.tsx` — mesmas correções
 
