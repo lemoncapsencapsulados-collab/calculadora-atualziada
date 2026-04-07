@@ -919,6 +919,23 @@ export default function GerarOrcamentoDialog({
                         <p className="text-sm font-medium">Impressão de rótulos</p>
                         <p className="text-xs text-muted-foreground">Custo varia por tipo de produto</p>
                       </div>
+                      {setupImpressaoSelecionado && !impressaoEdicaoLiberada && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSenhaImpressaoDialog(true)}
+                          title="Editar custos de impressão (requer senha)"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
+                      {setupImpressaoSelecionado && impressaoEdicaoLiberada && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <LockOpen className="w-3 h-3" />
+                          Editável
+                        </Badge>
+                      )}
                     </div>
 
                     {setupImpressaoSelecionado && setupImpressaoItens.length > 0 && (
