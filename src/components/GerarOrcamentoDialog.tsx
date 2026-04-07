@@ -944,7 +944,26 @@ export default function GerarOrcamentoDialog({
                           <div key={imp.tipoProduto} className="flex items-center gap-3">
                             <div className="flex-1">
                               <p className="text-sm">{imp.tipoProduto}</p>
-                              <p className="text-xs text-muted-foreground">{formatCurrency(imp.custoUnitario)}/un</p>
+                              {impressaoEdicaoLiberada ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">R$</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={10}
+                                    className="w-24 h-6 text-xs"
+                                    value={imp.custoUnitario}
+                                    onChange={(e) => {
+                                      setSetupImpressaoItens(prev => prev.map((si, i) =>
+                                        i === idx ? { ...si, custoUnitario: parseFloat(e.target.value) || 0 } : si
+                                      ));
+                                    }}
+                                  />
+                                  <span className="text-xs text-muted-foreground">/un</span>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">{formatCurrency(imp.custoUnitario)}/un</p>
+                              )}
                             </div>
                             <Input
                               type="number"
