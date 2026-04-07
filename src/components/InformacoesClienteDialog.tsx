@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, Loader2, User, Plus, Trash2 } from 'lucide-react';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchEnderecoPorCEP } from '@/lib/brasilData';
 import { validarCPF, validarEmail } from '@/lib/validators';
+import ClienteSelector from '@/components/ClienteSelector';
+import { useClientes, Cliente } from '@/hooks/useClientes';
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
   nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
