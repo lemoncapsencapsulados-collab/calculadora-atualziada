@@ -135,8 +135,19 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
   const [responsavelPJ, setResponsavelPJ] = useState<PessoaFisicaResponsavel>({ ...EMPTY_PF });
   const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisicaResponsavel[]>([{ ...EMPTY_PF }]);
 
+  // Pre-load client from orcamento.cliente_id
   useEffect(() => {
-    if (orcamento.dados_cliente) {
+    if (orcamento.cliente_id && !clienteSelecionado) {
+      buscarPorId(orcamento.cliente_id).then(cliente => {
+        if (cliente) {
+          handleClienteSelect(cliente);
+        }
+      }).catch(err => console.error('Erro ao carregar cliente:', err));
+    }
+  }, [orcamento.cliente_id]);
+
+  useEffect(() => {
+    if (orcamento.dados_cliente && !clienteSelecionado) {
       const dc = orcamento.dados_cliente;
       setDados(prev => ({ ...prev, ...dc }));
       setTipoPessoa(dc.tipo_pessoa || 'pj');
