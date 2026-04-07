@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePedidos } from '@/hooks/usePedidos';
+import { useClientes, Cliente } from '@/hooks/useClientes';
+import ClienteSelector from '@/components/ClienteSelector';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
