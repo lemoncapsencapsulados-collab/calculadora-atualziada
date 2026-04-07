@@ -641,6 +641,7 @@ export default function Calculator() {
   const handleClear = () => {
     if (confirm('Limpar todos os campos?')) {
       setCliente('');
+      setClienteSelecionado(null);
       setNomeFormula('');
       setTipoProduto('Encapsulados');
       setQtdCapsulas('60');
