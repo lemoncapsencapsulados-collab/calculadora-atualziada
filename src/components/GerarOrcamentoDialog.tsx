@@ -42,7 +42,10 @@ import {
   User,
   Truck,
   Settings2,
-  AlertTriangle
+  AlertTriangle,
+  Pencil,
+  Lock,
+  LockOpen
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
@@ -113,6 +116,15 @@ export default function GerarOrcamentoDialog({
   const [senhaSetupInput, setSenhaSetupInput] = useState('');
   const [setupMargemLiberada, setSetupMargemLiberada] = useState(false);
 
+  // Edição de custo de impressão protegida por senha
+  const [impressaoEdicaoLiberada, setImpressaoEdicaoLiberada] = useState(false);
+  const [senhaImpressaoDialog, setSenhaImpressaoDialog] = useState(false);
+  const [senhaImpressaoInput, setSenhaImpressaoInput] = useState('');
+
+  // Modo de cálculo: margem ou valor fixo
+  const [modoCalculoSetup, setModoCalculoSetup] = useState<'margem' | 'valor_fixo'>('margem');
+  const [valorFixoSetup, setValorFixoSetup] = useState(0);
+
   // Step 5: Dados opcionais (cliente e frete)
   const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
@@ -174,12 +186,20 @@ export default function GerarOrcamentoDialog({
 
   const precoVendaSetup = useMemo(() => {
     if (custoTotalSetup === 0) return 0;
+    if (modoCalculoSetup === 'valor_fixo') return valorFixoSetup;
     const divisor = 1 - 0.06 - 0.05 - 0.05 - (margemSetup / 100);
     if (divisor <= 0) return 0;
     return custoTotalSetup / divisor;
-  }, [custoTotalSetup, margemSetup]);
+  }, [custoTotalSetup, margemSetup, modoCalculoSetup, valorFixoSetup]);
 
-  const validacaoMargemSetup = validarMargemPorTipo(margemSetup, 'Setup');
+  // Margem derivada no modo valor fixo
+  const margemEfetiva = useMemo(() => {
+    if (modoCalculoSetup === 'margem') return margemSetup;
+    if (valorFixoSetup <= 0 || custoTotalSetup <= 0) return 0;
+    return (1 - (custoTotalSetup / valorFixoSetup) - 0.06 - 0.05 - 0.05) * 100;
+  }, [modoCalculoSetup, margemSetup, valorFixoSetup, custoTotalSetup]);
+
+  const validacaoMargemSetup = validarMargemPorTipo(margemEfetiva, 'Setup');
 
   // Carregar dados se editando
   useEffect(() => {
@@ -208,6 +228,8 @@ export default function GerarOrcamentoDialog({
           if (detalhes.impressao_selecionado !== undefined) setSetupImpressaoSelecionado(detalhes.impressao_selecionado);
           if (detalhes.impressao_itens) setSetupImpressaoItens(detalhes.impressao_itens);
           if (detalhes.margem !== undefined) setMargemSetup(detalhes.margem);
+          if (detalhes.modo_calculo) setModoCalculoSetup(detalhes.modo_calculo);
+          if (detalhes.valor_fixo !== undefined) setValorFixoSetup(detalhes.valor_fixo);
         }
       }
     }
@@ -239,8 +261,10 @@ export default function GerarOrcamentoDialog({
         items: setupItems,
         impressao_selecionado: setupImpressaoSelecionado,
         impressao_itens: setupImpressaoItens,
-        margem: margemSetup,
+        margem: margemEfetiva,
         custo_total: custoTotalSetup,
+        modo_calculo: modoCalculoSetup,
+        valor_fixo: valorFixoSetup,
       },
     } as any];
   };
@@ -459,6 +483,18 @@ export default function GerarOrcamentoDialog({
     } else {
       toast.error('Senha incorreta!');
       setSenhaSetupInput('');
+    }
+  };
+
+  const handleImpressaoSenhaConfirm = () => {
+    if (senhaImpressaoInput === SENHA_LIBERACAO_MARGEM) {
+      setImpressaoEdicaoLiberada(true);
+      setSenhaImpressaoDialog(false);
+      setSenhaImpressaoInput('');
+      toast.success('Edição de custos de impressão liberada!');
+    } else {
+      toast.error('Senha incorreta!');
+      setSenhaImpressaoInput('');
     }
   };
 
@@ -883,6 +919,23 @@ export default function GerarOrcamentoDialog({
                         <p className="text-sm font-medium">Impressão de rótulos</p>
                         <p className="text-xs text-muted-foreground">Custo varia por tipo de produto</p>
                       </div>
+                      {setupImpressaoSelecionado && !impressaoEdicaoLiberada && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSenhaImpressaoDialog(true)}
+                          title="Editar custos de impressão (requer senha)"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
+                      {setupImpressaoSelecionado && impressaoEdicaoLiberada && (
+                        <Badge variant="outline" className="text-xs gap-1">
+                          <LockOpen className="w-3 h-3" />
+                          Editável
+                        </Badge>
+                      )}
                     </div>
 
                     {setupImpressaoSelecionado && setupImpressaoItens.length > 0 && (
@@ -891,7 +944,26 @@ export default function GerarOrcamentoDialog({
                           <div key={imp.tipoProduto} className="flex items-center gap-3">
                             <div className="flex-1">
                               <p className="text-sm">{imp.tipoProduto}</p>
-                              <p className="text-xs text-muted-foreground">{formatCurrency(imp.custoUnitario)}/un</p>
+                              {impressaoEdicaoLiberada ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">R$</span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={10}
+                                    className="w-24 h-6 text-xs"
+                                    value={imp.custoUnitario}
+                                    onChange={(e) => {
+                                      setSetupImpressaoItens(prev => prev.map((si, i) =>
+                                        i === idx ? { ...si, custoUnitario: parseFloat(e.target.value) || 0 } : si
+                                      ));
+                                    }}
+                                  />
+                                  <span className="text-xs text-muted-foreground">/un</span>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">{formatCurrency(imp.custoUnitario)}/un</p>
+                              )}
                             </div>
                             <Input
                               type="number"
@@ -926,7 +998,7 @@ export default function GerarOrcamentoDialog({
                 const taxaAntecipacao = precoVendaSetup * 0.06;
                 const impostoSetup = precoVendaSetup * 0.05;
                 const comissaoSetup = precoVendaSetup * 0.05;
-                const margemLucroValor = precoVendaSetup * (margemSetup / 100);
+                const margemLucroValor = precoVendaSetup * (margemEfetiva / 100);
 
                 return (
                   <Card>
@@ -953,24 +1025,84 @@ export default function GerarOrcamentoDialog({
                         </div>
                       </div>
 
-                      {/* Margem de Lucro */}
-                      <div className="space-y-2">
-                        <Label className="text-sm">Margem de Lucro (%)</Label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={90}
-                            step={0.5}
-                            className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
-                            value={margemSetup}
-                            onChange={(e) => {
-                              setMargemSetup(parseFloat(e.target.value) || 0);
+                      {/* Modo de Cálculo Toggle */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-semibold">Modo de Cálculo</Label>
+                        <div className="flex rounded-lg border overflow-hidden w-fit">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModoCalculoSetup('margem');
                               setSetupMargemLiberada(false);
                             }}
-                          />
-                          <span className="text-sm">%</span>
+                            className={cn(
+                              'px-4 py-2 text-sm font-medium transition-all',
+                              modoCalculoSetup === 'margem'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            Margem %
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModoCalculoSetup('valor_fixo');
+                              setValorFixoSetup(precoVendaSetup > 0 ? Math.round(precoVendaSetup * 100) / 100 : 0);
+                              setSetupMargemLiberada(false);
+                            }}
+                            className={cn(
+                              'px-4 py-2 text-sm font-medium transition-all',
+                              modoCalculoSetup === 'valor_fixo'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            Valor Fixo R$
+                          </button>
                         </div>
+
+                        {modoCalculoSetup === 'margem' ? (
+                          <div className="space-y-2">
+                            <Label className="text-sm">Margem de Lucro (%)</Label>
+                            <div className="flex items-center gap-3">
+                              <Input
+                                type="number"
+                                min={0}
+                                max={90}
+                                step={0.5}
+                                className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
+                                value={margemSetup}
+                                onChange={(e) => {
+                                  setMargemSetup(parseFloat(e.target.value) || 0);
+                                  setSetupMargemLiberada(false);
+                                }}
+                              />
+                              <span className="text-sm">%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label className="text-sm">Valor cobrado de Setup (R$)</Label>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm">R$</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step={100}
+                                className={cn("w-36", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
+                                value={valorFixoSetup}
+                                onChange={(e) => {
+                                  setValorFixoSetup(parseFloat(e.target.value) || 0);
+                                  setSetupMargemLiberada(false);
+                                }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Margem resultante: <span className="font-semibold">{margemEfetiva.toFixed(1)}%</span>
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className={cn(
@@ -1012,7 +1144,7 @@ export default function GerarOrcamentoDialog({
                           <span>{formatCurrency(comissaoSetup)}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span>Margem de Lucro ({margemSetup}%)</span>
+                          <span>Margem de Lucro ({margemEfetiva.toFixed(1)}%)</span>
                           <span>{formatCurrency(margemLucroValor)}</span>
                         </div>
                         <Separator className="my-2" />
@@ -1116,7 +1248,7 @@ export default function GerarOrcamentoDialog({
                           <span>{formatCurrency(custoTotalSetup)}</span>
                         </div>
                         <div className="flex justify-between font-medium pt-1 border-t">
-                          <span>Preço de Venda Setup (margem {margemSetup}%):</span>
+                          <span>Preço de Venda Setup (margem {margemEfetiva.toFixed(1)}%):</span>
                           <span>{formatCurrency(precoVendaSetup)}</span>
                         </div>
                       </div>
@@ -1465,6 +1597,35 @@ export default function GerarOrcamentoDialog({
             Cancelar
           </Button>
           <Button onClick={handleSetupSenhaConfirm}>
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Dialog de senha para edição de custo de impressão */}
+    <Dialog open={senhaImpressaoDialog} onOpenChange={setSenhaImpressaoDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar custo de impressão</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Digite a senha para liberar a edição do custo de impressão de rótulos neste orçamento.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaImpressaoInput}
+          onChange={(e) => setSenhaImpressaoInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleImpressaoSenhaConfirm();
+          }}
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => { setSenhaImpressaoDialog(false); setSenhaImpressaoInput(''); }}>
+            Cancelar
+          </Button>
+          <Button onClick={handleImpressaoSenhaConfirm}>
             Confirmar
           </Button>
         </div>
