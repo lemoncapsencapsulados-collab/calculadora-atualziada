@@ -127,11 +127,13 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
+  const { atualizarCliente, criarCliente, buscarPorTelefone } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
   // Tipo pessoa
   const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
