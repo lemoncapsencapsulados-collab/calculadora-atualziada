@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { TrendingUp, ShoppingCart, Clock, DollarSign, Target, FileX, FileText } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Clock, DollarSign, Target, FileX, FileText, Wallet } from 'lucide-react';
 import type { KPIsGerais } from '@/types/dashboard';
 
 interface DashboardKPIsProps {
