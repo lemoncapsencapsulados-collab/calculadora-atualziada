@@ -74,6 +74,19 @@ export interface Formula {
   data: Date;
 }
 
+export type StatusProcesso = 'pendente' | 'entregue';
+export type StatusProcessoLogistica = 'pendente' | 'entregue' | 'nao_necessario';
+
+export interface AcompanhamentoProcessos {
+  criacao_marca: StatusProcesso;
+  producao: StatusProcesso;
+  integracao_logistica: StatusProcessoLogistica;
+  pagina_venda: StatusProcesso;
+  envio_produto: StatusProcesso;
+  satisfacao_nota: number | null;
+  satisfacao_observacoes: string | null;
+}
+
 export type StatusPedido = 
   | 'aguardando_producao' 
   | 'no_estoque' 
