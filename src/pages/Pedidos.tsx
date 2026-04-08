@@ -27,6 +27,7 @@ import { StatusPedido } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
+import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, deletePedido } = usePedidos();
