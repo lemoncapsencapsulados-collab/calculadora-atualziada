@@ -323,8 +323,11 @@ const Pedidos = () => {
           </Card>
         ) : (
           filteredPedidos.map((pedido) => {
-            const statusConfig = getStatusConfig(pedido.status);
+            const derivedStatus = getStatusFromAcompanhamento(pedido.acompanhamento_processos);
+            const displayStatus = derivedStatus || pedido.status;
+            const statusConfig = getStatusConfig(displayStatus);
             const StatusIcon = statusConfig.icon;
+            const isConcluido = displayStatus === 'concluido';
             const isOrcamento = !!pedido.orcamento_snapshot;
             const clienteName = isOrcamento 
               ? pedido.orcamento_snapshot?.nome_cliente 
