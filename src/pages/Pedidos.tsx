@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
-  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer
+  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
