@@ -23,11 +23,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
 import { formatCurrency } from '@/lib/unitConversion';
-import { StatusPedido } from '@/types/formula';
+import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
+
+const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
+  if (!acomp) return null;
+  const fields = ['criacao_marca', 'producao', 'integracao_logistica', 'pagina_venda', 'envio_produto'] as const;
+  const allDone = fields.every(k => acomp[k] === 'entregue' || acomp[k] === 'nao_necessario');
+  return allDone ? 'concluido' : null;
+};
 
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
@@ -316,15 +323,18 @@ const Pedidos = () => {
           </Card>
         ) : (
           filteredPedidos.map((pedido) => {
-            const statusConfig = getStatusConfig(pedido.status);
+            const derivedStatus = getStatusFromAcompanhamento(pedido.acompanhamento_processos);
+            const displayStatus = derivedStatus || pedido.status;
+            const statusConfig = getStatusConfig(displayStatus);
             const StatusIcon = statusConfig.icon;
+            const isConcluido = displayStatus === 'concluido';
             const isOrcamento = !!pedido.orcamento_snapshot;
             const clienteName = isOrcamento 
               ? pedido.orcamento_snapshot?.nome_cliente 
               : pedido.formula_snapshot?.cliente || 'Cliente';
 
             return (
-              <Card key={pedido.id} className="hover:shadow-lg transition-shadow">
+              <Card key={pedido.id} className={`hover:shadow-lg transition-shadow ${isConcluido ? 'border-green-400 bg-green-50/50' : ''}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1 flex-1">
@@ -361,38 +371,13 @@ const Pedidos = () => {
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="p-3 bg-muted/30 rounded-lg mt-1">
-                      <AcompanhamentoProcessos
+                       <AcompanhamentoProcessos
                         acompanhamento={pedido.acompanhamento_processos}
-                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp })}
+                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp, pedidoId: pedido.id })}
                       />
                     </CollapsibleContent>
                   </Collapsible>
 
-                  <div className="pt-3 border-t">
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Status do Pedido:</Label>
-                    <Select
-                      value={pedido.status}
-                      onValueChange={(newStatus) => updateStatus({ id: pedido.id, status: newStatus as StatusPedido })}
-                    >
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(['aguardando_producao', 'no_estoque', 'enviado', 'concluido'] as StatusPedido[]).map((status) => {
-                          const config = getStatusConfig(status);
-                          const Icon = config.icon;
-                          return (
-                            <SelectItem key={status} value={status}>
-                              <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4" />
-                                {config.label}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
                   <div className="flex gap-2 pt-2">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>

@@ -308,10 +308,14 @@ export const usePedidos = () => {
   });
 
   const updateAcompanhamento = useMutation({
-    mutationFn: async ({ id, acompanhamento }: { id: string; acompanhamento: AcompanhamentoProcessos }) => {
+    mutationFn: async ({ id, acompanhamento, pedidoId }: { id: string; acompanhamento: AcompanhamentoProcessos; pedidoId?: string }) => {
+      const fields = ['criacao_marca', 'producao', 'integracao_logistica', 'pagina_venda', 'envio_produto'] as const;
+      const allDone = fields.every(k => acompanhamento[k] === 'entregue' || acompanhamento[k] === 'nao_necessario');
+      const newStatus = allDone ? 'concluido' : 'aguardando_producao';
+
       const { data, error } = await supabase
         .from('pedidos')
-        .update({ acompanhamento_processos: acompanhamento as any })
+        .update({ acompanhamento_processos: acompanhamento as any, status: newStatus })
         .eq('id', id)
         .select()
         .single();
