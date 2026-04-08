@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
-  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer
+  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,9 +27,10 @@ import { StatusPedido } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
+import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, deletePedido } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
@@ -351,6 +352,21 @@ const Pedidos = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Acompanhamento de Processos */}
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-start text-xs h-8 px-2 font-semibold">
+                        <ClipboardList className="w-3.5 h-3.5 mr-1" /> Acompanhamento de Processos ▸
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="p-3 bg-muted/30 rounded-lg mt-1">
+                      <AcompanhamentoProcessos
+                        acompanhamento={pedido.acompanhamento_processos}
+                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp })}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
 
                   <div className="pt-3 border-t">
                     <Label className="text-xs font-medium text-muted-foreground mb-2 block">Status do Pedido:</Label>

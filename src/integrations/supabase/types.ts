@@ -458,6 +458,7 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          acompanhamento_processos: Json | null
           created_at: string | null
           data_entrega: string
           data_pedido: string
@@ -474,6 +475,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          acompanhamento_processos?: Json | null
           created_at?: string | null
           data_entrega: string
           data_pedido: string
@@ -490,6 +492,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          acompanhamento_processos?: Json | null
           created_at?: string | null
           data_entrega?: string
           data_pedido?: string

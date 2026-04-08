@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Pedido } from '@/types/formula';
+import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot } from '@/types/orcamento';
 import { useEffect, useRef, useCallback } from 'react';
 
@@ -82,6 +82,7 @@ export const usePedidos = () => {
         status: p.status as Pedido['status'],
         formula_snapshot: p.formula_snapshot as any || undefined,
         orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
+        acompanhamento_processos: (p as any).acompanhamento_processos as AcompanhamentoProcessos | undefined,
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];
@@ -306,6 +307,28 @@ export const usePedidos = () => {
     },
   });
 
+  const updateAcompanhamento = useMutation({
+    mutationFn: async ({ id, acompanhamento }: { id: string; acompanhamento: AcompanhamentoProcessos }) => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .update({ acompanhamento_processos: acompanhamento as any })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast.success('Acompanhamento atualizado!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar acompanhamento');
+    },
+  });
+
   const deletePedido = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -331,6 +354,7 @@ export const usePedidos = () => {
     createPedidoFromOrcamento: createPedidoFromOrcamento.mutateAsync,
     updateStatus: updateStatus.mutate,
     updateObservacoes: updateObservacoes.mutateAsync,
+    updateAcompanhamento: updateAcompanhamento.mutate,
     deletePedido: deletePedido.mutate,
   };
 };
