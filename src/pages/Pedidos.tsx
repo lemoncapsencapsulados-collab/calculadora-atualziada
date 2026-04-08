@@ -29,6 +29,13 @@ import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 
+const getStatusFromAcompanhamento = (acomp?: AcompanhamentoProcessos): StatusPedido | null => {
+  if (!acomp) return null;
+  const fields = ['criacao_marca', 'producao', 'integracao_logistica', 'pagina_venda', 'envio_produto'] as const;
+  const allDone = fields.every(k => acomp[k] === 'entregue' || acomp[k] === 'nao_necessario');
+  return allDone ? 'concluido' : null;
+};
+
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
