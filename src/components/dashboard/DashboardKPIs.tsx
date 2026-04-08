@@ -18,11 +18,18 @@ export function DashboardKPIs({ kpis, isLoading }: DashboardKPIsProps) {
 
   const cards = [
     {
-      title: 'Faturamento Total',
+      title: 'Valor Bruto Contratos',
       value: formatCurrency(kpis.faturamentoTotal),
       icon: DollarSign,
       color: 'text-green-600',
       bgColor: 'bg-green-100 dark:bg-green-900/30'
+    },
+    {
+      title: 'Entrada Financeira',
+      value: formatCurrency(kpis.entradaFinanceira),
+      icon: Wallet,
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-100 dark:bg-teal-900/30'
     },
     {
       title: 'Vendas Fechadas',
