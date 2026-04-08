@@ -29,7 +29,7 @@ import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 
-const getStatusFromAcompanhamento = (acomp?: AcompanhamentoProcessos): StatusPedido | null => {
+const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
   const fields = ['criacao_marca', 'producao', 'integracao_logistica', 'pagina_venda', 'envio_produto'] as const;
   const allDone = fields.every(k => acomp[k] === 'entregue' || acomp[k] === 'nao_necessario');
