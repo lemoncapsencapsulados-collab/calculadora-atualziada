@@ -1,73 +1,38 @@
 
 
-## Plano: Sistema de Acompanhamento de Processos nos Pedidos
+## Plano: Remover "Status do Pedido" manual + Corrigir filtro de data no ranking
 
-### Objetivo
-Adicionar dentro de cada card de pedido um painel de acompanhamento por etapas operacionais, agrupadas por tema. Quando todas as etapas estiverem concluídas, exibir avaliação de satisfação (0-10) e campo de observações.
+### 1. Remover "Status do Pedido" e derivar status do acompanhamento
 
-### Estrutura dos processos
+**Arquivo: `src/pages/Pedidos.tsx`**
+
+- Remover o bloco do `Select` de "Status do Pedido:" (linhas 371-395) — o status manual deixa de existir
+- Criar função `getStatusFromAcompanhamento(acomp)`: se todos os 5 campos de processo estiverem em "entregue" ou "nao_necessario", retorna `'concluido'`; caso contrário mantém o status atual do pedido
+- Atualizar o badge do card header (linha 334) para usar essa derivação: quando todos os processos estão concluídos, o card exibe badge verde "Concluído"
+- No callback `onUpdate` do `AcompanhamentoProcessos`, além de salvar o acompanhamento, automaticamente atualizar o `status` do pedido para `'concluido'` quando todos os processos estiverem finalizados (e reverter para `'aguardando_producao'` se algum voltar a pendente)
+
+**Arquivo: `src/hooks/usePedidos.ts`**
+- Ajustar `updateAcompanhamento` para também atualizar o campo `status` do pedido baseado nos processos
+
+### 2. Corrigir filtro de data no ranking do dashboard
+
+**Arquivo: `src/hooks/useDashboardComercial.ts`**
+
+O problema: `data_pagamento` no snapshot está em formato ISO com timezone UTC (ex: `2026-04-08T04:00:00+00:00`). A comparação com `startOfDay` pode gerar inconsistência dependendo do fuso do navegador.
+
+**Correção:** extrair apenas a parte da data (YYYY-MM-DD) como string e comparar diretamente, eliminando qualquer efeito de timezone:
 
 ```text
-Criação de Marca:
-  └ Designer: pendente | entregue
-
-Produção:
-  └ Produto: pendente | entregue
-
-Integração Logística:
-  └ Status: pendente | entregue | nao_necessario
-
-Criação de Página de Venda:
-  └ Status: pendente | entregue
-
-Envio do Produto (Modelo Estoque):
-  └ Status: pendente | entregue
+const dataPgtoStr = snap.data_pagamento.substring(0, 10); // "2026-04-08"
+const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+return dataPgtoStr >= inicioStr && dataPgtoStr <= fimStr;
 ```
 
-Satisfação (aparece quando tudo entregue/não necessário):
-  - Nota de 0 a 10 (slider ou select)
-  - Campo de observações de satisfação
+Isso garante que a data de pagamento do cliente seja comparada corretamente independente do fuso horário, e o ranking de consultores, KPIs e todas as métricas reflitam o período customizado selecionado.
 
-### Alterações
-
-**1. Migração de banco — nova coluna `acompanhamento_processos` na tabela `pedidos`**
-
-```sql
-ALTER TABLE pedidos ADD COLUMN acompanhamento_processos jsonb DEFAULT '{
-  "criacao_marca": "pendente",
-  "producao": "pendente",
-  "integracao_logistica": "pendente",
-  "pagina_venda": "pendente",
-  "envio_produto": "pendente",
-  "satisfacao_nota": null,
-  "satisfacao_observacoes": null
-}'::jsonb;
-```
-
-**2. Arquivo: `src/types/formula.ts`**
-- Adicionar interface `AcompanhamentoProcessos` com os campos acima
-- Adicionar `acompanhamento_processos?: AcompanhamentoProcessos` ao tipo `Pedido`
-
-**3. Arquivo: `src/hooks/usePedidos.ts`**
-- Mapear o novo campo na query de leitura
-- Criar mutation `updateAcompanhamento` que faz update parcial do JSONB no banco e notifica webhook
-
-**4. Novo componente: `src/components/AcompanhamentoProcessos.tsx`**
-- Recebe `acompanhamento` (dados atuais) e `onUpdate` (callback)
-- Renderiza cada grupo temático com label + Select inline para trocar status
-- Cores: pendente = amarelo, entregue = verde, não necessário = cinza
-- Quando todos os processos estiverem em "entregue" ou "nao_necessario", exibe seção de satisfação:
-  - Slider 0-10 com número visível
-  - Textarea para observações
-  - Botão salvar satisfação
-
-**5. Arquivo: `src/pages/Pedidos.tsx`**
-- Dentro de cada card, após a seção de status do pedido, adicionar `<Collapsible>` com título "Acompanhamento de Processos ▸"
-- Dentro do collapsible, renderizar `<AcompanhamentoProcessos>`
-- Passar callback que chama `updateAcompanhamento`
-
-### Detalhes técnicos
-- O JSONB permite evolução futura sem migrações (adicionar etapas)
-- Cada mudança de status persiste imediatamente no banco
-- O webhook existente é notificado nas atualizações para integração com n8n
+### Arquivos modificados
+- `src/pages/Pedidos.tsx`
+- `src/hooks/usePedidos.ts`
+- `src/hooks/useDashboardComercial.ts`
 
