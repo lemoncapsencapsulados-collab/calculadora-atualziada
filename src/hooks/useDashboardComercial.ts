@@ -85,14 +85,61 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   // Helper to extract snapshot fields
   const getSnap = (p: PedidoData) => p.orcamento_snapshot || {};
 
+  // Helper to calculate only the first installment (entry payment) from payment conditions
+  const calcularEntradaFinanceira = (snap: any): number => {
+    const condicoes = snap.condicoes_pagamento;
+    const valorTotal = Number(snap.valor_total || 0);
+    if (!condicoes) return valorTotal;
+
+    const calcValorParcela = (parcela: any, base: number): number => {
+      if (!parcela) return 0;
+      const valor = Number(parcela.valor || 0);
+      if (parcela.tipo_valor === 'percentual') return (valor / 100) * base;
+      return valor;
+    };
+
+    const metodo = condicoes.metodo_principal;
+
+    if (metodo === 'pix_boleto') {
+      const parcelas = condicoes.parcelas_pix_boleto;
+      if (Array.isArray(parcelas) && parcelas.length > 0) {
+        return calcValorParcela(parcelas[0], valorTotal);
+      }
+      return valorTotal;
+    }
+
+    if (metodo === 'cartao_credito') {
+      const cartoes = condicoes.cartoes;
+      if (Array.isArray(cartoes) && cartoes.length > 0) {
+        return calcValorParcela(cartoes[0], valorTotal);
+      }
+      return valorTotal;
+    }
+
+    if (metodo === 'misto') {
+      const parcelasPix = condicoes.misto_parcelas_pix_boleto;
+      if (Array.isArray(parcelasPix) && parcelasPix.length > 0) {
+        return calcValorParcela(parcelasPix[0], valorTotal);
+      }
+      return valorTotal;
+    }
+
+    // Legacy format
+    if (condicoes.valor_entrada != null) {
+      return Number(condicoes.valor_entrada);
+    }
+
+    return valorTotal;
+  };
+
   const pedidosFiltrados = useMemo(() => {
     return pedidos.filter(p => {
       const snap = getSnap(p);
       if (filtros.consultor && snap.consultor_responsavel !== filtros.consultor) return false;
       const dataPgto = snap.data_pagamento;
       if (dataPgto) {
-        const d = parseISO(dataPgto);
-        if (d < filtros.dataInicio || d > filtros.dataFim) return false;
+        const d = startOfDay(parseISO(dataPgto));
+        if (d < startOfDay(filtros.dataInicio) || d > startOfDay(filtros.dataFim)) return false;
       } else {
         return false;
       }
