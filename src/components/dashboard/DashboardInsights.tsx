@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Lightbulb, AlertTriangle, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import type { InsightDashboard } from '@/types/dashboard';
 
 interface DashboardInsightsProps {
@@ -16,25 +17,30 @@ const TIPO_OPTIONS = [
   { value: 'oportunidade', label: '📊 Oportunidade' },
 ];
 
+const ITEMS_PER_PAGE = 15;
+
 export function DashboardInsights({ insights }: DashboardInsightsProps) {
   const [filtroTipo, setFiltroTipo] = useState('todos');
-  const [filtroConsultor, setFiltroConsultor] = useState('todos');
-
-  const consultoresUnicos = useMemo(() => {
-    const set = new Set<string>();
-    insights.forEach(i => {
-      if (i.consultor) set.add(i.consultor);
-    });
-    return Array.from(set).sort();
-  }, [insights]);
+  const [paginaAtual, setPaginaAtual] = useState(1);
 
   const insightsFiltrados = useMemo(() => {
     return insights.filter(i => {
       if (filtroTipo !== 'todos' && i.tipo !== filtroTipo) return false;
-      if (filtroConsultor !== 'todos' && i.consultor !== filtroConsultor) return false;
       return true;
     });
-  }, [insights, filtroTipo, filtroConsultor]);
+  }, [insights, filtroTipo]);
+
+  const totalPaginas = Math.ceil(insightsFiltrados.length / ITEMS_PER_PAGE);
+
+  const insightsPaginados = useMemo(() => {
+    const start = (paginaAtual - 1) * ITEMS_PER_PAGE;
+    return insightsFiltrados.slice(start, start + ITEMS_PER_PAGE);
+  }, [insightsFiltrados, paginaAtual]);
+
+  const handleFiltroTipoChange = (value: string) => {
+    setFiltroTipo(value);
+    setPaginaAtual(1);
+  };
 
   const getInsightIcon = (tipo: InsightDashboard['tipo']) => {
     switch (tipo) {
@@ -75,6 +81,54 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
     }
   };
 
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisible = 5;
+
+    if (totalPaginas <= maxVisible) {
+      for (let i = 1; i <= totalPaginas; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink
+              isActive={paginaAtual === i}
+              onClick={() => setPaginaAtual(i)}
+              className="cursor-pointer"
+            >
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      items.push(
+        <PaginationItem key={1}>
+          <PaginationLink isActive={paginaAtual === 1} onClick={() => setPaginaAtual(1)} className="cursor-pointer">1</PaginationLink>
+        </PaginationItem>
+      );
+      if (paginaAtual > 3) {
+        items.push(<PaginationItem key="start-ellipsis"><PaginationEllipsis /></PaginationItem>);
+      }
+      const start = Math.max(2, paginaAtual - 1);
+      const end = Math.min(totalPaginas - 1, paginaAtual + 1);
+      for (let i = start; i <= end; i++) {
+        items.push(
+          <PaginationItem key={i}>
+            <PaginationLink isActive={paginaAtual === i} onClick={() => setPaginaAtual(i)} className="cursor-pointer">{i}</PaginationLink>
+          </PaginationItem>
+        );
+      }
+      if (paginaAtual < totalPaginas - 2) {
+        items.push(<PaginationItem key="end-ellipsis"><PaginationEllipsis /></PaginationItem>);
+      }
+      items.push(
+        <PaginationItem key={totalPaginas}>
+          <PaginationLink isActive={paginaAtual === totalPaginas} onClick={() => setPaginaAtual(totalPaginas)} className="cursor-pointer">{totalPaginas}</PaginationLink>
+        </PaginationItem>
+      );
+    }
+    return items;
+  };
+
   if (insights.length === 0) {
     return null;
   }
@@ -92,31 +146,16 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
               </span>
             )}
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                {TIPO_OPTIONS.map(opt => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {consultoresUnicos.length > 0 && (
-              <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
-                <SelectTrigger className="w-[180px] h-8 text-xs">
-                  <SelectValue placeholder="Consultor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os consultores</SelectItem>
-                  {consultoresUnicos.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          <Select value={filtroTipo} onValueChange={handleFiltroTipoChange}>
+            <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIPO_OPTIONS.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent>
@@ -126,7 +165,7 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
           </p>
         ) : (
           <div className="space-y-3">
-            {insightsFiltrados.map((insight, index) => (
+            {insightsPaginados.map((insight, index) => (
               <div
                 key={index}
                 className={`flex items-start gap-3 p-3 rounded-lg border ${getInsightBgColor(insight.tipo)}`}
@@ -145,6 +184,31 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
                 </div>
               </div>
             ))}
+
+            {totalPaginas > 1 && (
+              <div className="pt-2">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
+                        className={`cursor-pointer ${paginaAtual === 1 ? 'pointer-events-none opacity-50' : ''}`}
+                      />
+                    </PaginationItem>
+                    {renderPaginationItems()}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
+                        className={`cursor-pointer ${paginaAtual === totalPaginas ? 'pointer-events-none opacity-50' : ''}`}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+                <p className="text-xs text-muted-foreground text-center mt-1">
+                  Página {paginaAtual} de {totalPaginas} ({insightsFiltrados.length} insights)
+                </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
