@@ -307,6 +307,28 @@ export const usePedidos = () => {
     },
   });
 
+  const updateAcompanhamento = useMutation({
+    mutationFn: async ({ id, acompanhamento }: { id: string; acompanhamento: AcompanhamentoProcessos }) => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .update({ acompanhamento_processos: acompanhamento as any })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast.success('Acompanhamento atualizado!');
+      if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar acompanhamento');
+    },
+  });
+
   const deletePedido = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -332,6 +354,7 @@ export const usePedidos = () => {
     createPedidoFromOrcamento: createPedidoFromOrcamento.mutateAsync,
     updateStatus: updateStatus.mutate,
     updateObservacoes: updateObservacoes.mutateAsync,
+    updateAcompanhamento: updateAcompanhamento.mutate,
     deletePedido: deletePedido.mutate,
   };
 };
