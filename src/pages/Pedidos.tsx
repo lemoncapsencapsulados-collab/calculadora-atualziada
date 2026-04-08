@@ -30,7 +30,7 @@ import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, deletePedido } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
