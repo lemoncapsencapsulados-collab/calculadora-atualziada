@@ -1,43 +1,73 @@
 
 
-## Plano: Corrigir filtro de data + Separar valor bruto vs entrada financeira
+## Plano: Sistema de Acompanhamento de Processos nos Pedidos
 
-### Problema 1: Filtro de data com inconsistência de timezone
+### Objetivo
+Adicionar dentro de cada card de pedido um painel de acompanhamento por etapas operacionais, agrupadas por tema. Quando todas as etapas estiverem concluídas, exibir avaliação de satisfação (0-10) e campo de observações.
 
-No hook `useDashboardComercial.ts` (linha 94), `parseISO(dataPgto)` retorna a data em UTC, mas `filtros.dataInicio` e `filtros.dataFim` são criados com `startOfMonth(hoje)` / `endOfMonth(hoje)` em horário local. Isso causa divergência nos limites do mês (ex: pagamento em 01/04 às 21h BRT = 02/04 00h UTC, sai do filtro de março).
+### Estrutura dos processos
 
-**Correção no `useDashboardComercial.ts`:** normalizar a comparação de datas extraindo apenas ano-mês-dia (ignorando horário/timezone), usando `startOfDay` nas datas parseadas antes de comparar.
+```text
+Criação de Marca:
+  └ Designer: pendente | entregue
 
-### Problema 2: Dois indicadores financeiros distintos
+Produção:
+  └ Produto: pendente | entregue
 
-O usuário precisa distinguir:
-- **Valor Bruto de Contratos**: soma de `valor_total` dos orçamentos pagos no período (já existe como "Faturamento Total")
-- **Entrada Financeira Real**: apenas o valor da primeira parcela (entrada) que de fato entrou no caixa na data de pagamento
+Integração Logística:
+  └ Status: pendente | entregue | nao_necessario
 
-**Lógica para calcular a entrada financeira:**
-A partir de `condicoes_pagamento` no snapshot do pedido:
-- Se `metodo_principal === 'pix_boleto'`: primeira parcela de `parcelas_pix_boleto`
-- Se `metodo_principal === 'cartao_credito'`: primeiro cartão de `cartoes`
-- Se `metodo_principal === 'misto'`: primeira parcela pix/boleto de `misto_parcelas_pix_boleto`
-- Se legado com `valor_entrada`: usar diretamente
-- Se nenhuma condição definida ou apenas 1 parcela: considerar `valor_total` como entrada integral
+Criação de Página de Venda:
+  └ Status: pendente | entregue
 
-Cada parcela tem `tipo_valor` (`percentual` ou `fixo`) e `valor`. Se percentual, calcular sobre o `valor_total`.
+Envio do Produto (Modelo Estoque):
+  └ Status: pendente | entregue
+```
+
+Satisfação (aparece quando tudo entregue/não necessário):
+  - Nota de 0 a 10 (slider ou select)
+  - Campo de observações de satisfação
 
 ### Alterações
 
-**Arquivo: `src/hooks/useDashboardComercial.ts`**
-1. Criar função auxiliar `calcularEntradaFinanceira(snap)` que extrai o valor da primeira parcela do `condicoes_pagamento`
-2. Corrigir comparação de datas no `pedidosFiltrados`: normalizar para início do dia antes de comparar
-3. Adicionar `entradaFinanceira` ao cálculo dos KPIs (soma das entradas de todos os pedidos filtrados)
+**1. Migração de banco — nova coluna `acompanhamento_processos` na tabela `pedidos`**
 
-**Arquivo: `src/types/dashboard.ts`**
-4. Adicionar campo `entradaFinanceira: number` à interface `KPIsGerais`
+```sql
+ALTER TABLE pedidos ADD COLUMN acompanhamento_processos jsonb DEFAULT '{
+  "criacao_marca": "pendente",
+  "producao": "pendente",
+  "integracao_logistica": "pendente",
+  "pagina_venda": "pendente",
+  "envio_produto": "pendente",
+  "satisfacao_nota": null,
+  "satisfacao_observacoes": null
+}'::jsonb;
+```
 
-**Arquivo: `src/components/dashboard/DashboardKPIs.tsx`**
-5. Renomear o card "Faturamento Total" para "Valor Bruto Contratos"
-6. Adicionar novo card "Entrada Financeira" com ícone e cor distintos (ex: Wallet, azul-petróleo)
-7. Ajustar grid para 7 cards (`lg:grid-cols-7`)
+**2. Arquivo: `src/types/formula.ts`**
+- Adicionar interface `AcompanhamentoProcessos` com os campos acima
+- Adicionar `acompanhamento_processos?: AcompanhamentoProcessos` ao tipo `Pedido`
 
-Nenhuma alteração de banco de dados necessária — os dados já estão no snapshot.
+**3. Arquivo: `src/hooks/usePedidos.ts`**
+- Mapear o novo campo na query de leitura
+- Criar mutation `updateAcompanhamento` que faz update parcial do JSONB no banco e notifica webhook
+
+**4. Novo componente: `src/components/AcompanhamentoProcessos.tsx`**
+- Recebe `acompanhamento` (dados atuais) e `onUpdate` (callback)
+- Renderiza cada grupo temático com label + Select inline para trocar status
+- Cores: pendente = amarelo, entregue = verde, não necessário = cinza
+- Quando todos os processos estiverem em "entregue" ou "nao_necessario", exibe seção de satisfação:
+  - Slider 0-10 com número visível
+  - Textarea para observações
+  - Botão salvar satisfação
+
+**5. Arquivo: `src/pages/Pedidos.tsx`**
+- Dentro de cada card, após a seção de status do pedido, adicionar `<Collapsible>` com título "Acompanhamento de Processos ▸"
+- Dentro do collapsible, renderizar `<AcompanhamentoProcessos>`
+- Passar callback que chama `updateAcompanhamento`
+
+### Detalhes técnicos
+- O JSONB permite evolução futura sem migrações (adicionar etapas)
+- Cada mudança de status persiste imediatamente no banco
+- O webhook existente é notificado nas atualizações para integração com n8n
 
