@@ -192,6 +192,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
 
   const kpis = useMemo((): KPIsGerais => {
     const faturamentoTotal = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0);
+    const entradaFinanceira = pedidosFiltrados.reduce((acc, p) => acc + calcularEntradaFinanceira(getSnap(p)), 0);
     const novasVendas = pedidosFiltrados.length;
     const ticketMedio = novasVendas > 0 ? faturamentoTotal / novasVendas : 0;
     
@@ -208,6 +209,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
 
     return {
       faturamentoTotal,
+      entradaFinanceira,
       novasVendas,
       pipelineNegociacao,
       ticketMedio,
