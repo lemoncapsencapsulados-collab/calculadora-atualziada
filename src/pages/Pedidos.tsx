@@ -378,31 +378,6 @@ const Pedidos = () => {
                     </CollapsibleContent>
                   </Collapsible>
 
-                  <div className="pt-3 border-t">
-                    <Label className="text-xs font-medium text-muted-foreground mb-2 block">Status do Pedido:</Label>
-                    <Select
-                      value={pedido.status}
-                      onValueChange={(newStatus) => updateStatus({ id: pedido.id, status: newStatus as StatusPedido })}
-                    >
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(['aguardando_producao', 'no_estoque', 'enviado', 'concluido'] as StatusPedido[]).map((status) => {
-                          const config = getStatusConfig(status);
-                          const Icon = config.icon;
-                          return (
-                            <SelectItem key={status} value={status}>
-                              <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4" />
-                                {config.label}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
                   <div className="flex gap-2 pt-2">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
