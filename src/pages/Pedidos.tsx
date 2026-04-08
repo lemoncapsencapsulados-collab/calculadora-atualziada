@@ -353,6 +353,21 @@ const Pedidos = () => {
                     </div>
                   )}
 
+                  {/* Acompanhamento de Processos */}
+                  <Collapsible>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-start text-xs h-8 px-2 font-semibold">
+                        <ClipboardList className="w-3.5 h-3.5 mr-1" /> Acompanhamento de Processos ▸
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="p-3 bg-muted/30 rounded-lg mt-1">
+                      <AcompanhamentoProcessos
+                        acompanhamento={pedido.acompanhamento_processos}
+                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp })}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
+
                   <div className="pt-3 border-t">
                     <Label className="text-xs font-medium text-muted-foreground mb-2 block">Status do Pedido:</Label>
                     <Select
