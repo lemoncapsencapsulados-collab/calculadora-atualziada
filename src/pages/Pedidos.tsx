@@ -334,7 +334,7 @@ const Pedidos = () => {
               : pedido.formula_snapshot?.cliente || 'Cliente';
 
             return (
-              <Card key={pedido.id} className="hover:shadow-lg transition-shadow">
+              <Card key={pedido.id} className={`hover:shadow-lg transition-shadow ${isConcluido ? 'border-green-400 bg-green-50/50' : ''}`}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1 flex-1">
