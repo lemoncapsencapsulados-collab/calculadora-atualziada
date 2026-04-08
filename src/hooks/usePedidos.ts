@@ -82,6 +82,7 @@ export const usePedidos = () => {
         status: p.status as Pedido['status'],
         formula_snapshot: p.formula_snapshot as any || undefined,
         orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
+        acompanhamento_processos: (p as any).acompanhamento_processos as AcompanhamentoProcessos | undefined,
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];
