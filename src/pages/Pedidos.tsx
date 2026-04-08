@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
 import { formatCurrency } from '@/lib/unitConversion';
-import { StatusPedido } from '@/types/formula';
+import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
