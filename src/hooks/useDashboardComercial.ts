@@ -133,13 +133,16 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   };
 
   const pedidosFiltrados = useMemo(() => {
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
     return pedidos.filter(p => {
       const snap = getSnap(p);
       if (filtros.consultor && snap.consultor_responsavel !== filtros.consultor) return false;
       const dataPgto = snap.data_pagamento;
       if (dataPgto) {
-        const d = startOfDay(parseISO(dataPgto));
-        if (d < startOfDay(filtros.dataInicio) || d > startOfDay(filtros.dataFim)) return false;
+        const dataPgtoStr = dataPgto.substring(0, 10);
+        if (dataPgtoStr < inicioStr || dataPgtoStr > fimStr) return false;
       } else {
         return false;
       }

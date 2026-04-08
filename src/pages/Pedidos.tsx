@@ -371,9 +371,9 @@ const Pedidos = () => {
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="p-3 bg-muted/30 rounded-lg mt-1">
-                      <AcompanhamentoProcessos
+                       <AcompanhamentoProcessos
                         acompanhamento={pedido.acompanhamento_processos}
-                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp })}
+                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp, pedidoId: pedido.id })}
                       />
                     </CollapsibleContent>
                   </Collapsible>
