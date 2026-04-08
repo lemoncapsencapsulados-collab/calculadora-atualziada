@@ -7,6 +7,7 @@ export interface DashboardFiltros {
 
 export interface KPIsGerais {
   faturamentoTotal: number;
+  entradaFinanceira: number;
   novasVendas: number;
   pipelineNegociacao: number;
   ticketMedio: number;
