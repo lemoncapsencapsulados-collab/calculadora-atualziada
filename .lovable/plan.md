@@ -1,29 +1,20 @@
 
+## Plano: Filtro global nos Insights + Paginação
 
-## Plano: Remover asteriscos do QSA e melhorar fluxo "Novo Cliente"
+### Contexto
+Os insights já são gerados a partir de `pedidosFiltrados` e `orcamentosFiltrados` no hook, que respeitam o filtro de consultor global. Porém, o componente `DashboardInsights` tem um filtro de consultor próprio redundante. Além disso, todos os insights são exibidos de uma vez, gerando uma lista potencialmente infinita.
 
-### Problema 1: Asteriscos enganosos no Responsável QSA (fluxo Pago)
+### Alterações
 
-O componente `PessoaFisicaFields` em `AprovacaoOrcamentoDialog.tsx` exibe `<span className="text-destructive">*</span>` em todos os campos (Nome, CPF, RG, Estado Civil, Endereço, CEP, Estado, Cidade, Telefone, Email) nas linhas 91-139. A validação foi removida, mas os asteriscos permanecem.
+**Arquivo:** `src/components/dashboard/DashboardInsights.tsx`
 
-**Correção:** Aceitar uma prop `required` (default `true`) no componente `PessoaFisicaFields` e, quando `false`, não renderizar os asteriscos. Na chamada do Responsável QSA, passar `required={false}`.
+1. **Remover filtro de consultor local** — eliminar o estado `filtroConsultor`, o `Select` de consultores e o cálculo de `consultoresUnicos`. Manter apenas o filtro por tipo (alerta, atenção, positivo, oportunidade).
 
-**Arquivo:** `src/components/AprovacaoOrcamentoDialog.tsx`
+2. **Adicionar paginação com 15 itens por página:**
+   - Novo estado `paginaAtual` (default 1)
+   - Calcular `totalPaginas` a partir de `insightsFiltrados.length / 15`
+   - Exibir apenas o slice da página atual
+   - Adicionar controles de paginação abaixo da lista usando o componente `Pagination` já existente no projeto
+   - Resetar para página 1 quando o filtro de tipo mudar
 
----
-
-### Problema 2: Botão "Novo" do ClienteSelector é insuficiente nos fluxos finais
-
-O `ClienteSelector` ao clicar "Novo" abre um dialog que pede apenas Nome e Telefone, criando um cliente incompleto. Nos fluxos de Pago e Resumo para Contrato isso não faz sentido — o formulário completo já está ali.
-
-**Solução:** Quando o usuário clica "Novo" nos fluxos finais, em vez de abrir o mini-dialog, limpar o cliente selecionado e deixar o formulário da etapa atual em branco para preenchimento normal. O cliente será criado/salvo automaticamente ao confirmar a etapa (lógica que já existe no `handleConfirmAprovacao` e no `handleSalvar` do contrato).
-
-**Implementação:**
-- Adicionar prop opcional `onNovo` ao `ClienteSelector`. Quando fornecida, o botão "Novo" chama `onNovo()` em vez de abrir o dialog interno.
-- Em `AprovacaoOrcamentoDialog.tsx` e `InformacoesClienteDialog.tsx`, passar `onNovo` que limpa o `clienteSelecionado` e reseta os campos do formulário para vazios, permitindo preenchimento livre.
-
-**Arquivos:**
-- `src/components/ClienteSelector.tsx` — adicionar prop `onNovo`
-- `src/components/AprovacaoOrcamentoDialog.tsx` — passar `onNovo`, remover asteriscos QSA
-- `src/components/InformacoesClienteDialog.tsx` — passar `onNovo`
-
+Nenhum outro arquivo precisa ser alterado — o filtro global do dashboard já filtra os dados antes de chegarem ao componente.
