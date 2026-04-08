@@ -106,6 +106,7 @@ export interface Pedido {
   status: StatusPedido;
   formula_snapshot?: Formula;
   orcamento_snapshot?: OrcamentoSnapshot;
+  acompanhamento_processos?: AcompanhamentoProcessos;
   created_at: Date;
   updated_at: Date;
 }
