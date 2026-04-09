@@ -23,6 +23,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
 import { formatCurrency } from '@/lib/unitConversion';
+import {
+  gerarRelatorioPedidoPDF,
+  gerarRelatorioPedidosGeralPDF,
+  gerarRelatorioPedidoExcel,
+  gerarRelatorioPedidosGeralExcel,
+} from '@/lib/relatoriosPedidos';
 import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
