@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -50,9 +53,21 @@ const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
+  const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
+  const [dataInicioFiltro, setDataInicioFiltro] = useState<Date | undefined>();
+  const [dataFimFiltro, setDataFimFiltro] = useState<Date | undefined>();
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
+
+  const consultoresUnicos = useMemo(() => {
+    const set = new Set<string>();
+    pedidos.forEach(p => {
+      const c = p.orcamento_snapshot?.consultor_responsavel;
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort();
+  }, [pedidos]);
 
 
   const getStatusConfig = (status: StatusPedido) => {
