@@ -1,36 +1,26 @@
 
 
-## Plano: Adicionar filtros de Consultor e Data de Pagamento na página de Pedidos
+## Plano: Incluir composição do produto POD no PDF e Resumo para Contrato
 
-### Objetivo
-Adicionar dois filtros na página de Pedidos:
-1. **Filtro por Consultor** — select/combobox com os consultores existentes nos pedidos
-2. **Filtro por Data de Pagamento** — date range picker usando a `data_pagamento` do `orcamento_snapshot`
+### Problema
+Quando um produto é marcado como Print On Demand (POD), o PDF e o Resumo para Contrato omitem a composição da fórmula (`insumos_formula`), quantidade por frasco, e dose diária. Isso acontece porque o código trata POD como um caso simplificado que só mostra custo unitário.
 
-### Alterações
+### Correção
 
-**Arquivo: `src/pages/Pedidos.tsx`**
+**Arquivo: `src/lib/orcamentoGenerator.ts`** — função `renderProdutos` (linhas 385-397)
 
-1. Adicionar estados para os novos filtros:
-   - `filtroConsultor: string` (default `'todos'`)
-   - `dataInicioFiltro: Date | undefined`
-   - `dataFimFiltro: Date | undefined`
+Alterar o bloco `if (isPOD)` para que, em vez de pular toda a informação do produto, ele renderize:
+- Quantidade por frasco e unidade (se existirem)
+- Dose diária sugerida (se existir)
+- Composição da fórmula completa (lista de insumos com sanitização de "Amido de Milho" → "Excipiente")
+- Detalhes de produção (cores, sabores, etc.)
+- Custo unitário (mantém o que já existe)
 
-2. Extrair lista única de consultores dos pedidos carregados (do `orcamento_snapshot.consultor_responsavel`) para popular o Select
+A única diferença para o modelo estoque será: quantidade de frascos e subtotal não são exibidos (já que POD não tem lote fixo). O label "PRINT ON DEMAND" no cabeçalho do produto será mantido.
 
-3. Adicionar na barra de filtros (ao lado do campo de busca e filtro de status existentes):
-   - **Select de Consultor**: dropdown com opção "Todos" + lista de consultores
-   - **Date pickers**: dois campos de data (De / Até) usando Popover + Calendar para selecionar o intervalo da data de pagamento
+### Resultado esperado
+Tanto o "Gerar PDF" quanto o "Resumo para Contrato" passarão a mostrar a composição completa do produto POD, pois ambos usam a mesma função `renderProdutos` do `orcamentoGenerator.ts`.
 
-4. Atualizar o `filteredPedidos` (useMemo) para incluir:
-   - Filtro por consultor: comparar `orcamento_snapshot.consultor_responsavel` com o valor selecionado
-   - Filtro por data de pagamento: extrair `orcamento_snapshot.data_pagamento` (string ISO), converter para `YYYY-MM-DD` e comparar com o intervalo selecionado (mesma lógica de string comparison usada no dashboard para evitar problemas de timezone)
-
-5. Adicionar botão "Limpar filtros" para resetar todos os filtros de uma vez
-
-### Detalhes técnicos
-- A data de pagamento vem do `orcamento_snapshot.data_pagamento` (timestamp ISO com timezone)
-- Comparação via substring `YYYY-MM-DD` para consistência com o padrão já usado no dashboard
-- Imports adicionais: `Calendar` de `@/components/ui/calendar`, `Popover/PopoverContent/PopoverTrigger`
-- Nenhuma alteração de banco de dados necessária
+### Arquivo modificado
+- `src/lib/orcamentoGenerator.ts`
 
