@@ -429,6 +429,23 @@ const Pedidos = () => {
                         Baixar Ordem
                       </Button>
                     )}
+                    {isOrcamento && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" title="Relatório">
+                            <FileSpreadsheet className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => gerarRelatorioPedidoPDF(pedido)}>
+                            <FileText className="h-4 w-4 mr-2" /> PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => gerarRelatorioPedidoExcel(pedido)}>
+                            <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                     
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
