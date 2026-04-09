@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -50,9 +53,21 @@ const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
+  const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
+  const [dataInicioFiltro, setDataInicioFiltro] = useState<Date | undefined>();
+  const [dataFimFiltro, setDataFimFiltro] = useState<Date | undefined>();
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
+
+  const consultoresUnicos = useMemo(() => {
+    const set = new Set<string>();
+    pedidos.forEach(p => {
+      const c = p.orcamento_snapshot?.consultor_responsavel;
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort();
+  }, [pedidos]);
 
 
   const getStatusConfig = (status: StatusPedido) => {
@@ -85,9 +100,24 @@ const Pedidos = () => {
       }
 
       const matchesStatus = filterStatus === 'todos' || pedido.status === filterStatus;
-      return matchesSearch && matchesStatus;
+
+      const matchesConsultor = filtroConsultor === 'todos' || 
+        (snapshot?.consultor_responsavel || '') === filtroConsultor;
+
+      let matchesData = true;
+      if (dataInicioFiltro || dataFimFiltro) {
+        const dataPgtoStr = snapshot?.data_pagamento?.substring(0, 10);
+        if (!dataPgtoStr) {
+          matchesData = false;
+        } else {
+          if (dataInicioFiltro && dataPgtoStr < format(dataInicioFiltro, 'yyyy-MM-dd')) matchesData = false;
+          if (dataFimFiltro && dataPgtoStr > format(dataFimFiltro, 'yyyy-MM-dd')) matchesData = false;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesConsultor && matchesData;
     });
-  }, [pedidos, searchTerm, filterStatus]);
+  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro]);
 
   const renderOrcamentoPedido = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
@@ -314,6 +344,60 @@ const Pedidos = () => {
                 </Button>
               );
             })}
+          </div>
+
+          {/* Filtros de Consultor e Data de Pagamento */}
+          <div className="flex gap-3 flex-wrap items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">Consultor</Label>
+              <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
+                <SelectTrigger className="w-[200px] h-9">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {consultoresUnicos.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Pgto. De</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !dataInicioFiltro && "text-muted-foreground")}>
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {dataInicioFiltro ? format(dataInicioFiltro, 'dd/MM/yyyy') : 'Início'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={dataInicioFiltro} onSelect={setDataInicioFiltro} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Pgto. Até</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !dataFimFiltro && "text-muted-foreground")}>
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {dataFimFiltro ? format(dataFimFiltro, 'dd/MM/yyyy') : 'Fim'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={dataFimFiltro} onSelect={setDataFimFiltro} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro) && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); }}>
+                Limpar filtros
+              </Button>
+            )}
           </div>
 
           {/* Export buttons */}
