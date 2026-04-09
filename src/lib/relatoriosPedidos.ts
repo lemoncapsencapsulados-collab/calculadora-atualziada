@@ -8,7 +8,7 @@ interface PedidoReport {
   numero_pedido: string;
   orcamento_snapshot?: any;
   formula_snapshot?: any;
-  data_pedido: string;
+  data_pedido: string | Date;
 }
 
 const extractData = (pedido: PedidoReport) => {
