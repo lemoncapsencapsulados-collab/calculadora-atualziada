@@ -1,38 +1,54 @@
 
 
-## Plano: Remover "Status do Pedido" manual + Corrigir filtro de data no ranking
+## Plano: Relatório de Pedidos em PDF e Excel (individual e geral)
 
-### 1. Remover "Status do Pedido" e derivar status do acompanhamento
+### Objetivo
+Adicionar dois botões de exportação na página de Pedidos:
+1. **Relatório individual** — botão dentro de cada card de pedido
+2. **Relatório geral** — botão no topo da página, exporta todos os pedidos filtrados
 
-**Arquivo: `src/pages/Pedidos.tsx`**
+Ambos disponíveis em PDF e Excel, contendo: Nome do cliente, Consultor responsável, Produtos e quantidades, Setup de criação de marca e valor do serviço.
 
-- Remover o bloco do `Select` de "Status do Pedido:" (linhas 371-395) — o status manual deixa de existir
-- Criar função `getStatusFromAcompanhamento(acomp)`: se todos os 5 campos de processo estiverem em "entregue" ou "nao_necessario", retorna `'concluido'`; caso contrário mantém o status atual do pedido
-- Atualizar o badge do card header (linha 334) para usar essa derivação: quando todos os processos estão concluídos, o card exibe badge verde "Concluído"
-- No callback `onUpdate` do `AcompanhamentoProcessos`, além de salvar o acompanhamento, automaticamente atualizar o `status` do pedido para `'concluido'` quando todos os processos estiverem finalizados (e reverter para `'aguardando_producao'` se algum voltar a pendente)
+### Alterações
 
-**Arquivo: `src/hooks/usePedidos.ts`**
-- Ajustar `updateAcompanhamento` para também atualizar o campo `status` do pedido baseado nos processos
+**1. Novo arquivo: `src/lib/relatoriosPedidos.ts`**
 
-### 2. Corrigir filtro de data no ranking do dashboard
+Funções de geração:
 
-**Arquivo: `src/hooks/useDashboardComercial.ts`**
+- `gerarRelatorioPedidoPDF(pedido)` — PDF individual com jsPDF + autoTable
+- `gerarRelatorioPedidosGeralPDF(pedidos)` — PDF consolidado de todos os pedidos filtrados
+- `gerarRelatorioPedidoExcel(pedido)` — Excel individual com xlsx (SheetJS)
+- `gerarRelatorioPedidosGeralExcel(pedidos)` — Excel consolidado
 
-O problema: `data_pagamento` no snapshot está em formato ISO com timezone UTC (ex: `2026-04-08T04:00:00+00:00`). A comparação com `startOfDay` pode gerar inconsistência dependendo do fuso do navegador.
+Dados extraídos do `orcamento_snapshot` de cada pedido:
+- `nome_cliente` → Nome do cliente
+- `consultor_responsavel` → Consultor
+- `itens_producao[]` → nome_produto + quantidade + subtotal
+- `servicos_marca[]` → nome_plano + valor (setup de criação de marca/rótulo)
 
-**Correção:** extrair apenas a parte da data (YYYY-MM-DD) como string e comparar diretamente, eliminando qualquer efeito de timezone:
+Estrutura do PDF:
+- Cabeçalho com título e data de geração
+- Seção por pedido (no geral) ou seção única (no individual)
+- Tabela de produtos: Nome | Quantidade | Valor Unitário | Subtotal
+- Tabela de serviços de marca: Serviço | Valor
+- Totais
 
-```text
-const dataPgtoStr = snap.data_pagamento.substring(0, 10); // "2026-04-08"
-const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
-const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
-return dataPgtoStr >= inicioStr && dataPgtoStr <= fimStr;
-```
+Estrutura do Excel:
+- Aba "Pedidos" com colunas: Nº Pedido | Cliente | Consultor | Produto | Qtd | Valor Unit. | Subtotal Produto | Serviço Marca | Valor Serviço
+- Uma linha por produto, com dados do pedido repetidos (formato tabular para filtros)
 
-Isso garante que a data de pagamento do cliente seja comparada corretamente independente do fuso horário, e o ranking de consultores, KPIs e todas as métricas reflitam o período customizado selecionado.
+**2. Instalar dependência: `xlsx` (SheetJS)**
 
-### Arquivos modificados
-- `src/pages/Pedidos.tsx`
-- `src/hooks/usePedidos.ts`
-- `src/hooks/useDashboardComercial.ts`
+Para geração de arquivos `.xlsx` no navegador.
+
+**3. Arquivo: `src/pages/Pedidos.tsx`**
+
+- Adicionar no topo da página (ao lado da barra de busca) dois botões: "Exportar PDF" e "Exportar Excel" para relatório geral dos pedidos filtrados
+- Dentro de cada card de pedido, adicionar um dropdown ou botões "Relatório PDF" e "Relatório Excel" para exportação individual
+- Importar e chamar as funções do novo módulo
+
+### Detalhes técnicos
+- jsPDF já está instalado no projeto (usado em `pdfGenerator.ts`)
+- SheetJS (`xlsx`) será adicionado como dependência
+- Os dados vêm do `orcamento_snapshot` já carregado em memória, sem queries adicionais
 
