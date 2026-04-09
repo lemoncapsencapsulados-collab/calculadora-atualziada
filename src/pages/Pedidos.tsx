@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
-  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList
+  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
+  FileSpreadsheet, ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,6 +35,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
