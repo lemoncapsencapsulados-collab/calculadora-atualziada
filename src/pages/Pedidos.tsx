@@ -315,6 +315,27 @@ const Pedidos = () => {
               );
             })}
           </div>
+
+          {/* Export buttons */}
+          <div className="flex gap-2 pt-2 border-t">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar Geral
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralPDF(filteredPedidos)}>
+                  <FileText className="h-4 w-4 mr-2" /> PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralExcel(filteredPedidos)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardContent>
       </Card>
 
