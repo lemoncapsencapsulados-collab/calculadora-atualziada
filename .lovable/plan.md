@@ -1,54 +1,36 @@
 
 
-## Plano: Relatório de Pedidos em PDF e Excel (individual e geral)
+## Plano: Adicionar filtros de Consultor e Data de Pagamento na página de Pedidos
 
 ### Objetivo
-Adicionar dois botões de exportação na página de Pedidos:
-1. **Relatório individual** — botão dentro de cada card de pedido
-2. **Relatório geral** — botão no topo da página, exporta todos os pedidos filtrados
-
-Ambos disponíveis em PDF e Excel, contendo: Nome do cliente, Consultor responsável, Produtos e quantidades, Setup de criação de marca e valor do serviço.
+Adicionar dois filtros na página de Pedidos:
+1. **Filtro por Consultor** — select/combobox com os consultores existentes nos pedidos
+2. **Filtro por Data de Pagamento** — date range picker usando a `data_pagamento` do `orcamento_snapshot`
 
 ### Alterações
 
-**1. Novo arquivo: `src/lib/relatoriosPedidos.ts`**
+**Arquivo: `src/pages/Pedidos.tsx`**
 
-Funções de geração:
+1. Adicionar estados para os novos filtros:
+   - `filtroConsultor: string` (default `'todos'`)
+   - `dataInicioFiltro: Date | undefined`
+   - `dataFimFiltro: Date | undefined`
 
-- `gerarRelatorioPedidoPDF(pedido)` — PDF individual com jsPDF + autoTable
-- `gerarRelatorioPedidosGeralPDF(pedidos)` — PDF consolidado de todos os pedidos filtrados
-- `gerarRelatorioPedidoExcel(pedido)` — Excel individual com xlsx (SheetJS)
-- `gerarRelatorioPedidosGeralExcel(pedidos)` — Excel consolidado
+2. Extrair lista única de consultores dos pedidos carregados (do `orcamento_snapshot.consultor_responsavel`) para popular o Select
 
-Dados extraídos do `orcamento_snapshot` de cada pedido:
-- `nome_cliente` → Nome do cliente
-- `consultor_responsavel` → Consultor
-- `itens_producao[]` → nome_produto + quantidade + subtotal
-- `servicos_marca[]` → nome_plano + valor (setup de criação de marca/rótulo)
+3. Adicionar na barra de filtros (ao lado do campo de busca e filtro de status existentes):
+   - **Select de Consultor**: dropdown com opção "Todos" + lista de consultores
+   - **Date pickers**: dois campos de data (De / Até) usando Popover + Calendar para selecionar o intervalo da data de pagamento
 
-Estrutura do PDF:
-- Cabeçalho com título e data de geração
-- Seção por pedido (no geral) ou seção única (no individual)
-- Tabela de produtos: Nome | Quantidade | Valor Unitário | Subtotal
-- Tabela de serviços de marca: Serviço | Valor
-- Totais
+4. Atualizar o `filteredPedidos` (useMemo) para incluir:
+   - Filtro por consultor: comparar `orcamento_snapshot.consultor_responsavel` com o valor selecionado
+   - Filtro por data de pagamento: extrair `orcamento_snapshot.data_pagamento` (string ISO), converter para `YYYY-MM-DD` e comparar com o intervalo selecionado (mesma lógica de string comparison usada no dashboard para evitar problemas de timezone)
 
-Estrutura do Excel:
-- Aba "Pedidos" com colunas: Nº Pedido | Cliente | Consultor | Produto | Qtd | Valor Unit. | Subtotal Produto | Serviço Marca | Valor Serviço
-- Uma linha por produto, com dados do pedido repetidos (formato tabular para filtros)
-
-**2. Instalar dependência: `xlsx` (SheetJS)**
-
-Para geração de arquivos `.xlsx` no navegador.
-
-**3. Arquivo: `src/pages/Pedidos.tsx`**
-
-- Adicionar no topo da página (ao lado da barra de busca) dois botões: "Exportar PDF" e "Exportar Excel" para relatório geral dos pedidos filtrados
-- Dentro de cada card de pedido, adicionar um dropdown ou botões "Relatório PDF" e "Relatório Excel" para exportação individual
-- Importar e chamar as funções do novo módulo
+5. Adicionar botão "Limpar filtros" para resetar todos os filtros de uma vez
 
 ### Detalhes técnicos
-- jsPDF já está instalado no projeto (usado em `pdfGenerator.ts`)
-- SheetJS (`xlsx`) será adicionado como dependência
-- Os dados vêm do `orcamento_snapshot` já carregado em memória, sem queries adicionais
+- A data de pagamento vem do `orcamento_snapshot.data_pagamento` (timestamp ISO com timezone)
+- Comparação via substring `YYYY-MM-DD` para consistência com o padrão já usado no dashboard
+- Imports adicionais: `Calendar` de `@/components/ui/calendar`, `Popover/PopoverContent/PopoverTrigger`
+- Nenhuma alteração de banco de dados necessária
 
