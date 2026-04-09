@@ -410,7 +410,7 @@ const Pedidos = () => {
                   </Collapsible>
 
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-2 flex-wrap">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
                       <Info className="h-4 w-4 mr-1" />
                       Ver Detalhes
