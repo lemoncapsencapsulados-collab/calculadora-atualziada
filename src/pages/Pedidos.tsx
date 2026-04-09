@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
-  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList
+  Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
+  FileSpreadsheet, ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -23,11 +24,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { gerarPDFOrdemProducao } from '@/lib/pdfGenerator';
 import { formatCurrency } from '@/lib/unitConversion';
+import {
+  gerarRelatorioPedidoPDF,
+  gerarRelatorioPedidosGeralPDF,
+  gerarRelatorioPedidoExcel,
+  gerarRelatorioPedidosGeralExcel,
+} from '@/lib/relatoriosPedidos';
 import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -305,6 +315,27 @@ const Pedidos = () => {
               );
             })}
           </div>
+
+          {/* Export buttons */}
+          <div className="flex gap-2 pt-2 border-t">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-1" />
+                  Exportar Geral
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralPDF(filteredPedidos)}>
+                  <FileText className="h-4 w-4 mr-2" /> PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralExcel(filteredPedidos)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardContent>
       </Card>
 
@@ -379,7 +410,7 @@ const Pedidos = () => {
                   </Collapsible>
 
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-2 flex-wrap">
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
                       <Info className="h-4 w-4 mr-1" />
                       Ver Detalhes
@@ -397,6 +428,23 @@ const Pedidos = () => {
                         <Download className="h-4 w-4 mr-1" />
                         Baixar Ordem
                       </Button>
+                    )}
+                    {isOrcamento && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" title="Relatório">
+                            <FileSpreadsheet className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => gerarRelatorioPedidoPDF(pedido)}>
+                            <FileText className="h-4 w-4 mr-2" /> PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => gerarRelatorioPedidoExcel(pedido)}>
+                            <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                     
                     <AlertDialog>
