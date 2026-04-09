@@ -100,9 +100,24 @@ const Pedidos = () => {
       }
 
       const matchesStatus = filterStatus === 'todos' || pedido.status === filterStatus;
-      return matchesSearch && matchesStatus;
+
+      const matchesConsultor = filtroConsultor === 'todos' || 
+        (snapshot?.consultor_responsavel || '') === filtroConsultor;
+
+      let matchesData = true;
+      if (dataInicioFiltro || dataFimFiltro) {
+        const dataPgtoStr = snapshot?.data_pagamento?.substring(0, 10);
+        if (!dataPgtoStr) {
+          matchesData = false;
+        } else {
+          if (dataInicioFiltro && dataPgtoStr < format(dataInicioFiltro, 'yyyy-MM-dd')) matchesData = false;
+          if (dataFimFiltro && dataPgtoStr > format(dataFimFiltro, 'yyyy-MM-dd')) matchesData = false;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesConsultor && matchesData;
     });
-  }, [pedidos, searchTerm, filterStatus]);
+  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro]);
 
   const renderOrcamentoPedido = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
