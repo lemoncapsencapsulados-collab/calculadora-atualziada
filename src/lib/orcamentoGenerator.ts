@@ -383,9 +383,84 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     yPos += 12;
     
     if (isPOD) {
-      // POD: apenas custo unitário, sem composição/quantidade/dose
-      const col3 = pageWidth - LAYOUT.margin - 3;
+      // POD: composição completa + custo unitário (sem quantidade de frascos/subtotal de lote)
       
+      // Detalhes do produto
+      if (item.quantidade_por_pote && item.unidade_por_pote) {
+        doc.setTextColor(...COLORS.textDark);
+        doc.setFontSize(LAYOUT.fontSize.body);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Quantidade por frasco: ${item.quantidade_por_pote} ${item.unidade_por_pote}`, LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight;
+      }
+      
+      if (item.dose_diaria_sugerida) {
+        doc.setTextColor(...COLORS.textDark);
+        doc.setFontSize(LAYOUT.fontSize.body);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Dose diária sugerida: ${item.dose_diaria_sugerida}`, LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight;
+      }
+      
+      // Composição completa
+      if (item.insumos_formula && item.insumos_formula.length > 0) {
+        yPos += 2;
+        doc.setTextColor(...COLORS.textMedium);
+        doc.setFontSize(LAYOUT.fontSize.small);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Composição da Fórmula:', LAYOUT.margin + 5, yPos);
+        yPos += LAYOUT.lineHeight - 1;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.textDark);
+        
+        const sanitizarNome = (nome: string) => {
+          if (nome.toLowerCase().includes('amido') && nome.toLowerCase().includes('milho')) return 'Excipiente';
+          return nome;
+        };
+        
+        for (const insumo of item.insumos_formula) {
+          yPos = checkPageBreak(doc, yPos, 5);
+          doc.text(`• ${sanitizarNome(insumo.nome)} - ${insumo.quantidade} ${insumo.unidade}`, LAYOUT.margin + 10, yPos);
+          yPos += 5;
+        }
+      }
+      
+      // Detalhes de produção (cores, sabor, etc.)
+      if (item.detalhes_producao) {
+        const dp = item.detalhes_producao;
+        const detalhes = [
+          dp.cor_pote ? `Cor do Pote: ${dp.cor_pote}` : null,
+          dp.cor_tampa ? `Cor da Tampa: ${dp.cor_tampa}` : null,
+          dp.cor_gummy ? `Cor Gummy: ${dp.cor_gummy}` : null,
+          dp.sabor_gummy ? `Sabor Gummy: ${dp.sabor_gummy}` : null,
+          dp.sabor_soluvel ? `Sabor Solúvel: ${dp.sabor_soluvel}` : null,
+          dp.cor_soluvel ? `Cor Solúvel: ${dp.cor_soluvel}` : null,
+          dp.sabor_liquido ? `Sabor Líquido: ${dp.sabor_liquido}` : null,
+          dp.cor_liquido ? `Cor Líquido: ${dp.cor_liquido}` : null,
+          dp.observacao_producao ? `Obs. Produção: ${dp.observacao_producao}` : null,
+        ].filter(Boolean) as string[];
+
+        if (detalhes.length > 0) {
+          yPos += 2;
+          doc.setTextColor(...COLORS.textMedium);
+          doc.setFontSize(LAYOUT.fontSize.small);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Detalhes de Produção:', LAYOUT.margin + 5, yPos);
+          yPos += LAYOUT.lineHeight - 1;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...COLORS.textDark);
+          for (const detalhe of detalhes) {
+            yPos = checkPageBreak(doc, yPos, 5);
+            doc.text(`• ${detalhe}`, LAYOUT.margin + 10, yPos);
+            yPos += 5;
+          }
+        }
+      }
+
+      yPos += 3;
+      
+      const col3 = pageWidth - LAYOUT.margin - 3;
       doc.setFontSize(LAYOUT.fontSize.body);
       doc.setTextColor(...COLORS.textMedium);
       doc.setFont('helvetica', 'normal');
