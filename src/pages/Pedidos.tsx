@@ -578,6 +578,11 @@ const Pedidos = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
+                    {isOrcamento && (
+                      <Button variant="outline" size="sm" onClick={() => copiarRelatorioWhatsApp(pedido)} title="Copiar Relatório WhatsApp">
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
                     
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
