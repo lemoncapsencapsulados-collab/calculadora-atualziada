@@ -13,8 +13,9 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown
+  FileSpreadsheet, ChevronDown, Copy
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -68,6 +69,53 @@ const Pedidos = () => {
     });
     return Array.from(set).sort();
   }, [pedidos]);
+
+  const copiarRelatorioWhatsApp = (pedido: any) => {
+    const snap = pedido.orcamento_snapshot;
+    if (!snap) {
+      toast.error('Pedido sem dados de orçamento para copiar.');
+      return;
+    }
+
+    const dadosCliente = snap.dados_cliente || {};
+    const consultor = snap.consultor_responsavel || '-';
+    const nomeCliente = dadosCliente.nome_completo || snap.nome_cliente || '-';
+    const valorVenda = snap.valor_total || 0;
+    const isRecompra = snap.tipo_orcamento === 'recompra';
+    const tipoProdutorLabel = isRecompra ? 'Recompra' : 'Novo produtor';
+    const percentualComissao = isRecompra ? 0.01 : 0.05;
+    const comissaoValor = valorVenda * percentualComissao;
+
+    const email = dadosCliente.email || '-';
+    const cnpj = dadosCliente.cnpj || '-';
+    const telefone = dadosCliente.telefone || '-';
+    const cidade = dadosCliente.cidade && dadosCliente.estado
+      ? `${dadosCliente.cidade}/${dadosCliente.estado}`
+      : dadosCliente.cidade || '-';
+
+    const comissaoLabel = isRecompra
+      ? `Comissão de 1% da recompra: ${formatCurrency(comissaoValor)}`
+      : `Comissão de 5% do valor da venda: ${formatCurrency(comissaoValor)}`;
+
+    const texto = [
+      `Nome do consultor: ${consultor}`,
+      `Nome da Cliente: ${nomeCliente}`,
+      `Tipo de produtor: ${tipoProdutorLabel}`,
+      `Valor da venda: ${formatCurrency(valorVenda)}`,
+      `E-mail: ${email}`,
+      `Cnpj: ${cnpj}`,
+      `Telefone: ${telefone}`,
+      `Cidade: ${cidade}`,
+      '',
+      comissaoLabel,
+    ].join('\n');
+
+    navigator.clipboard.writeText(texto).then(() => {
+      toast.success('Relatório copiado para a área de transferência!');
+    }).catch(() => {
+      toast.error('Erro ao copiar relatório.');
+    });
+  };
 
 
   const getStatusConfig = (status: StatusPedido) => {
@@ -529,6 +577,11 @@ const Pedidos = () => {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    )}
+                    {isOrcamento && (
+                      <Button variant="outline" size="sm" onClick={() => copiarRelatorioWhatsApp(pedido)} title="Copiar Relatório WhatsApp">
+                        <Copy className="h-4 w-4" />
+                      </Button>
                     )}
                     
                     <AlertDialog>
