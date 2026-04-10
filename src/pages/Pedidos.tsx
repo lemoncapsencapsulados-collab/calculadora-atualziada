@@ -13,8 +13,9 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown
+  FileSpreadsheet, ChevronDown, Copy
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
