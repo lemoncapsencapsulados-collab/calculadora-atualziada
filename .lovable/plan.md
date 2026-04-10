@@ -1,26 +1,43 @@
 
 
-## Plano: Incluir composição do produto POD no PDF e Resumo para Contrato
+## Plano: Botão "Copiar Relatório" para WhatsApp em cada Pedido
 
-### Problema
-Quando um produto é marcado como Print On Demand (POD), o PDF e o Resumo para Contrato omitem a composição da fórmula (`insumos_formula`), quantidade por frasco, e dose diária. Isso acontece porque o código trata POD como um caso simplificado que só mostra custo unitário.
+### Objetivo
+Adicionar em cada card de pedido um botão que copia para a área de transferência um texto formatado com os dados do pedido, pronto para colar no WhatsApp.
 
-### Correção
+### Formato do texto copiado
 
-**Arquivo: `src/lib/orcamentoGenerator.ts`** — função `renderProdutos` (linhas 385-397)
+```text
+Nome do consultor: KILSON
+Nome da Cliente: SOLANGE FRANK
+Tipo de produtor: Novo produtor
+Valor da venda: 17.200,00
+E-mail: solangefrank@gmail.com
+Cnpj: 64.264.827/0001-95
+Telefone: (65) 99258-9912
+Cidade: Chapada dos Guimarães/MT
 
-Alterar o bloco `if (isPOD)` para que, em vez de pular toda a informação do produto, ele renderize:
-- Quantidade por frasco e unidade (se existirem)
-- Dose diária sugerida (se existir)
-- Composição da fórmula completa (lista de insumos com sanitização de "Amido de Milho" → "Excipiente")
-- Detalhes de produção (cores, sabores, etc.)
-- Custo unitário (mantém o que já existe)
+Comissão de 5% do valor da venda: R$ 860,00
+```
 
-A única diferença para o modelo estoque será: quantidade de frascos e subtotal não são exibidos (já que POD não tem lote fixo). O label "PRINT ON DEMAND" no cabeçalho do produto será mantido.
+- Se `tipo_orcamento === 'novo_produtor'` → "Novo produtor" + comissão de **5%**
+- Se `tipo_orcamento === 'recompra'` → "Recompra" + comissão de **1%**
 
-### Resultado esperado
-Tanto o "Gerar PDF" quanto o "Resumo para Contrato" passarão a mostrar a composição completa do produto POD, pois ambos usam a mesma função `renderProdutos` do `orcamentoGenerator.ts`.
+### Alteração
 
-### Arquivo modificado
-- `src/lib/orcamentoGenerator.ts`
+**Arquivo: `src/pages/Pedidos.tsx`**
+
+1. Criar função `copiarRelatorioWhatsApp(pedido)` que:
+   - Extrai do `orcamento_snapshot`: `consultor_responsavel`, `nome_cliente`, `valor_total`, `tipo_orcamento`
+   - Extrai de `dados_cliente`: `email`, `cnpj`, `telefone`, `cidade`, `estado`
+   - Monta o texto com formatação fixa (linhas separadas)
+   - Calcula comissão (5% novo produtor, 1% recompra) e adiciona ao final
+   - Usa `navigator.clipboard.writeText()` e exibe toast de confirmação
+
+2. Adicionar botão/ícone "Copiar Relatório" no card de cada pedido (ao lado dos botões existentes de relatório PDF/Excel), usando ícone `Copy` do lucide-react
+
+### Detalhes técnicos
+- Dados já disponíveis no `orcamento_snapshot` carregado em memória
+- Nenhuma query adicional necessária
+- Nenhuma dependência nova
 
