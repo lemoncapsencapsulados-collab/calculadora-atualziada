@@ -162,15 +162,17 @@ export default function GerarOrcamentoDialog({
       return { ...item, quantidade: numProdutos };
     }));
 
-    // Update impressao items
+    // Update impressao items — preserve custom custoUnitario if already set
     const tipos = Object.entries(produtosPorTipo);
-    setSetupImpressaoItens(
-      tipos.map(([tipo, qty]) => ({
+    setSetupImpressaoItens(prev => {
+      const prevMap: Record<string, number> = {};
+      prev.forEach(p => { prevMap[p.tipoProduto] = p.custoUnitario; });
+      return tipos.map(([tipo, qty]) => ({
         tipoProduto: tipo,
-        custoUnitario: CUSTOS_IMPRESSAO[tipo] || 940,
+        custoUnitario: prevMap[tipo] !== undefined ? prevMap[tipo] : (CUSTOS_IMPRESSAO[tipo] || 940),
         quantidade: qty,
-      }))
-    );
+      }));
+    });
   }, [numProdutos, produtosPorTipo]);
 
   // ── Setup cost calculations ──
