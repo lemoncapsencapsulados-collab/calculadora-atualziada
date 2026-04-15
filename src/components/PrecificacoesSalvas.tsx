@@ -35,6 +35,7 @@ import {
 interface PrecificacoesSalvasProps {
   configuracaoAtiva: ConfiguracaoCustos | null;
   margens: MargemLucro[] | null;
+  catalogoOnly?: boolean;
 }
 
 interface PrecificacaoComFormula {
@@ -64,7 +65,8 @@ const PAGE_SIZE = 15;
 
 export default function PrecificacoesSalvas({ 
   configuracaoAtiva, 
-  margens 
+  margens,
+  catalogoOnly 
 }: PrecificacoesSalvasProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -90,6 +92,7 @@ export default function PrecificacoesSalvas({
     page: currentPage,
     pageSize: PAGE_SIZE,
     searchTerm,
+    catalogoOnly,
   });
 
   // Reset page on search change

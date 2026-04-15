@@ -406,7 +406,7 @@ export default function Precificacao() {
       </div>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="produtos" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
             Produtos Criados
@@ -414,6 +414,10 @@ export default function Precificacao() {
           <TabsTrigger value="salvas" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             Produtos Precificados
+          </TabsTrigger>
+          <TabsTrigger value="catalogo" className="flex items-center gap-2">
+            <Star className="w-4 h-4" />
+            Produtos do Catálogo
           </TabsTrigger>
         </TabsList>
 
@@ -611,6 +615,16 @@ export default function Precificacao() {
           <PrecificacoesSalvas
             configuracaoAtiva={configuracaoAtiva}
             margens={margens}
+            catalogoOnly={false}
+          />
+        </TabsContent>
+
+        {/* ===== ABA 3: PRODUTOS DO CATÁLOGO ===== */}
+        <TabsContent value="catalogo" className="mt-6">
+          <PrecificacoesSalvas
+            configuracaoAtiva={configuracaoAtiva}
+            margens={margens}
+            catalogoOnly={true}
           />
         </TabsContent>
       </Tabs>
