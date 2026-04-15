@@ -45,7 +45,8 @@ import {
   AlertTriangle,
   Pencil,
   Lock,
-  LockOpen
+  LockOpen,
+  Star
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
