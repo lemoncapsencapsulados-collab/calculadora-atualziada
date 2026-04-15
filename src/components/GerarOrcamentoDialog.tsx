@@ -720,7 +720,85 @@ export default function GerarOrcamentoDialog({
                 </Card>
               )}
 
-              {/* Lista de Itens */}
+              {/* Seletor de Fórmulas do Catálogo */}
+              {showCatalogoSelector && (
+                <Card className="border-amber-500">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-500" />
+                        Fórmulas do Catálogo
+                      </Label>
+                      <Button variant="ghost" size="sm" onClick={() => { setShowCatalogoSelector(false); setBuscaPrecificacao(''); }}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <Input
+                      value={buscaPrecificacao}
+                      onChange={(e) => setBuscaPrecificacao(e.target.value)}
+                      placeholder="Buscar fórmula do catálogo..."
+                      className="h-9"
+                    />
+                    
+                    {precificacoesCatalogo.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nenhuma fórmula do catálogo disponível.</p>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto space-y-2">
+                        {precificacoesCatalogo.map((prec: any) => {
+                          const margemBaixa = isMargemBaixa(prec);
+                          const liberada = margemOrcLiberadaIds.includes(prec.id);
+                          return (
+                            <label 
+                              key={prec.id}
+                              className={cn(
+                                "flex items-center gap-3 p-2 border rounded-lg hover:bg-muted cursor-pointer",
+                                margemBaixa && !liberada && "border-destructive/50 bg-destructive/5"
+                              )}
+                            >
+                              <Checkbox
+                                checked={selectedPrecificacoes.includes(prec.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked && margemBaixa && !liberada) {
+                                    setSenhaMargemOrcDialog(true);
+                                    (window as any).__pendingMargemPrecId = prec.id;
+                                    return;
+                                  }
+                                  if (checked) {
+                                    setSelectedPrecificacoes(prev => [...prev, prec.id]);
+                                  } else {
+                                    setSelectedPrecificacoes(prev => prev.filter(id => id !== prec.id));
+                                  }
+                                }}
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{prec.formulas?.nome_formula}</p>
+                                <p className="text-xs text-muted-foreground">{prec.formulas?.cliente}</p>
+                              </div>
+                              {margemBaixa && !liberada && (
+                                <Badge variant="destructive" className="text-xs">Margem baixa</Badge>
+                              )}
+                              {margemBaixa && liberada && (
+                                <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">Liberada</Badge>
+                              )}
+                              <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
+                              <span className="font-semibold">{formatCurrency(Number(prec.preco_venda))}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {selectedPrecificacoes.length > 0 && (
+                      <Button onClick={handleAddPrecificacoes} className="w-full">
+                        <Check className="w-4 h-4 mr-2" />
+                        Adicionar {selectedPrecificacoes.length} item(ns)
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {itensProducao.length === 0 ? (
                 <div className="py-8 text-center border rounded-lg bg-muted/30">
                   <Package className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
