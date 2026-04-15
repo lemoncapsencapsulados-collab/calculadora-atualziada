@@ -656,6 +656,7 @@ export default function Inventario() {
                             <SelectItem value="Sachê">Sachê</SelectItem>
                             <SelectItem value="Sílica">Sílica</SelectItem>
                             <SelectItem value="Acessórios">Acessórios</SelectItem>
+                            <SelectItem value="Rótulos">Rótulos</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

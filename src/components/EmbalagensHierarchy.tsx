@@ -25,7 +25,7 @@ const getCategoriaIcon = (categoria: string) => {
     Tampa: <Circle className="w-4 h-4" />,
     Acessórios: <Settings className="w-4 h-4" />,
     Sachê: <Tag className="w-4 h-4" />,
-    Rótulo: <Tag className="w-4 h-4" />,
+    Rótulos: <Tag className="w-4 h-4" />,
     Sílica: <Package className="w-4 h-4" />,
   };
   return icons[categoria] || <Box className="w-4 h-4" />;
@@ -39,7 +39,7 @@ const CATEGORIA_ORDER: Record<string, number> = {
   'Cápsulas': 5,
   'Sílica': 6,
   'Sachê': 7,
-  'Rótulo': 8,
+  'Rótulos': 8,
   'Outros': 99,
 };
 
