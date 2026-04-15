@@ -1,43 +1,34 @@
 
 
-## Plano: Botão "Copiar Relatório" para WhatsApp em cada Pedido
+## Plano: Adicionar categoria "Rótulos" ao inventário de embalagens e integrar na precificação
 
-### Objetivo
-Adicionar em cada card de pedido um botão que copia para a área de transferência um texto formatado com os dados do pedido, pronto para colar no WhatsApp.
+### Problema atual
+O custo de rótulo é hardcoded no código (R$ 0,94 para Encapsulados, R$ 1,54 para Solúvel, etc.) e não pode ser gerenciado como item de inventário. O usuário quer cadastrar rótulos como embalagens na categoria "Rótulos" e selecioná-los na calculadora/precificação como qualquer outro acessório.
 
-### Formato do texto copiado
+### Alterações
 
-```text
-Nome do consultor: KILSON
-Nome da Cliente: SOLANGE FRANK
-Tipo de produtor: Novo produtor
-Valor da venda: 17.200,00
-E-mail: solangefrank@gmail.com
-Cnpj: 64.264.827/0001-95
-Telefone: (65) 99258-9912
-Cidade: Chapada dos Guimarães/MT
+**1. `src/pages/Inventario.tsx`**
+- Adicionar "Rótulos" como opção no Select de categorias do formulário de embalagens (ao lado de Potes PET, Frascos, Tampa, Acessórios, etc.)
 
-Comissão de 5% do valor da venda: R$ 860,00
-```
+**2. `src/pages/Calculator.tsx`**
+- Remover o `custoRotulo` hardcoded (linhas 435-443)
+- Tratar embalagens da categoria "Rótulos" como os outros acessórios: quando selecionada, seu `preco_unitario` entra no cálculo de `custoEmbalagensExtras`
+- Atualizar `totalEmbalagem` para não somar mais `custoRotulo` separadamente
+- Remover a linha fixa "Rótulo: R$ X,XX" do resumo e deixar o rótulo aparecer como item selecionado normal
 
-- Se `tipo_orcamento === 'novo_produtor'` → "Novo produtor" + comissão de **5%**
-- Se `tipo_orcamento === 'recompra'` → "Recompra" + comissão de **1%**
+**3. `src/pages/Precificacao.tsx`**
+- Remover a linha hardcoded "Rótulo: R$ 1,00" do detalhamento de embalagens
+- O rótulo agora aparecerá como parte das embalagens selecionadas na fórmula
 
-### Alteração
+**4. `src/components/PrecificacoesSalvas.tsx`**
+- Remover a linha hardcoded "Rótulo: R$ 1,00" do detalhamento
 
-**Arquivo: `src/pages/Pedidos.tsx`**
+**5. `src/components/EmbalagensHierarchy.tsx`**
+- Já possui suporte para categoria "Rótulo" (ícone e ordem definidos) - apenas verificar se está como "Rótulos" (plural) para consistência
 
-1. Criar função `copiarRelatorioWhatsApp(pedido)` que:
-   - Extrai do `orcamento_snapshot`: `consultor_responsavel`, `nome_cliente`, `valor_total`, `tipo_orcamento`
-   - Extrai de `dados_cliente`: `email`, `cnpj`, `telefone`, `cidade`, `estado`
-   - Monta o texto com formatação fixa (linhas separadas)
-   - Calcula comissão (5% novo produtor, 1% recompra) e adiciona ao final
-   - Usa `navigator.clipboard.writeText()` e exibe toast de confirmação
-
-2. Adicionar botão/ícone "Copiar Relatório" no card de cada pedido (ao lado dos botões existentes de relatório PDF/Excel), usando ícone `Copy` do lucide-react
-
-### Detalhes técnicos
-- Dados já disponíveis no `orcamento_snapshot` carregado em memória
-- Nenhuma query adicional necessária
-- Nenhuma dependência nova
+### Resultado
+- Rótulos serão cadastrados no inventário com nome, preço e fornecedor
+- Na calculadora, o usuário seleciona o rótulo correto como qualquer outra embalagem
+- O custo do rótulo selecionado é somado automaticamente na precificação
+- Sem mais valores hardcoded para rótulos
 
