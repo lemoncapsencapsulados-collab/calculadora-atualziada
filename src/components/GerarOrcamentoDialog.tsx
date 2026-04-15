@@ -102,6 +102,7 @@ export default function GerarOrcamentoDialog({
   // Step 2: Itens de produção
   const [itensProducao, setItensProducao] = useState<ItemProducao[]>([]);
   const [showPrecificacaoSelector, setShowPrecificacaoSelector] = useState(false);
+  const [showCatalogoSelector, setShowCatalogoSelector] = useState(false);
   const [buscaPrecificacao, setBuscaPrecificacao] = useState('');
   const [selectedPrecificacoes, setSelectedPrecificacoes] = useState<string[]>([]);
   
@@ -459,9 +460,27 @@ export default function GerarOrcamentoDialog({
     return true;
   };
 
-  // Precificações disponíveis
+  const isCatalogo = (cliente: string) => 
+    cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
+
+  // Precificações disponíveis (excluindo catálogo)
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
+    if (isCatalogo(p.formulas?.cliente || '')) return false;
+    
+    if (buscaPrecificacao.trim()) {
+      const termo = buscaPrecificacao.toLowerCase();
+      const nomeFormula = (p.formulas?.nome_formula || '').toLowerCase();
+      const cliente = (p.formulas?.cliente || '').toLowerCase();
+      return nomeFormula.includes(termo) || cliente.includes(termo);
+    }
+    return true;
+  }) || [];
+
+  // Precificações do catálogo
+  const precificacoesCatalogo = (precificacoes as any[])?.filter(p => {
+    if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
+    if (!isCatalogo(p.formulas?.cliente || '')) return false;
     
     if (buscaPrecificacao.trim()) {
       const termo = buscaPrecificacao.toLowerCase();
