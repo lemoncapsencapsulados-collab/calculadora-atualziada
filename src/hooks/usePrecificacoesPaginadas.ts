@@ -5,13 +5,14 @@ interface UsePrecificacoesPaginadasParams {
   page: number;
   pageSize: number;
   searchTerm: string;
+  catalogoOnly?: boolean;
 }
 
-export function usePrecificacoesPaginadas({ page, pageSize, searchTerm }: UsePrecificacoesPaginadasParams) {
+export function usePrecificacoesPaginadas({ page, pageSize, searchTerm, catalogoOnly }: UsePrecificacoesPaginadasParams) {
   const trimmed = searchTerm.trim();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['precificacoes-paginadas', page, pageSize, trimmed],
+    queryKey: ['precificacoes-paginadas', page, pageSize, trimmed, catalogoOnly],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       // Count query
@@ -24,6 +25,12 @@ export function usePrecificacoesPaginadas({ page, pageSize, searchTerm }: UsePre
           `nome_formula.ilike.%${trimmed}%,cliente.ilike.%${trimmed}%`,
           { referencedTable: 'formulas' }
         );
+      }
+
+      if (catalogoOnly === true) {
+        countQuery = countQuery.ilike('formulas.cliente', '%catálogo%');
+      } else if (catalogoOnly === false) {
+        countQuery = countQuery.not('formulas.cliente', 'ilike', '%catálogo%');
       }
 
       const { count, error: countError } = await countQuery;
@@ -44,6 +51,12 @@ export function usePrecificacoesPaginadas({ page, pageSize, searchTerm }: UsePre
           `nome_formula.ilike.%${trimmed}%,cliente.ilike.%${trimmed}%`,
           { referencedTable: 'formulas' }
         );
+      }
+
+      if (catalogoOnly === true) {
+        dataQuery = dataQuery.ilike('formulas.cliente', '%catálogo%');
+      } else if (catalogoOnly === false) {
+        dataQuery = dataQuery.not('formulas.cliente', 'ilike', '%catálogo%');
       }
 
       const { data: rows, error: dataError } = await dataQuery;
