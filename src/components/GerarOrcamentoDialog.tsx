@@ -626,10 +626,19 @@ export default function GerarOrcamentoDialog({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setShowPrecificacaoSelector(true)}
+                    onClick={() => { setShowPrecificacaoSelector(true); setShowCatalogoSelector(false); }}
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     Precificação Salva
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => { setShowCatalogoSelector(true); setShowPrecificacaoSelector(false); }}
+                    className="border-amber-500 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                  >
+                    <Star className="w-4 h-4 mr-1" />
+                    Fórmulas do Catálogo
                   </Button>
                 </div>
               </div>
