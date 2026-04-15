@@ -615,6 +615,16 @@ export default function Precificacao() {
           <PrecificacoesSalvas
             configuracaoAtiva={configuracaoAtiva}
             margens={margens}
+            catalogoOnly={false}
+          />
+        </TabsContent>
+
+        {/* ===== ABA 3: PRODUTOS DO CATÁLOGO ===== */}
+        <TabsContent value="catalogo" className="mt-6">
+          <PrecificacoesSalvas
+            configuracaoAtiva={configuracaoAtiva}
+            margens={margens}
+            catalogoOnly={true}
           />
         </TabsContent>
       </Tabs>
