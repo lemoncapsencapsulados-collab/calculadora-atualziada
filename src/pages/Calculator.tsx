@@ -432,17 +432,7 @@ export default function Calculator() {
       return sum + (emb ? emb.preco_unitario : 0);
     }, 0);
   }, [selectedEmbalagens, embalagens]);
-  const custoRotulo = useMemo(() => {
-    switch (tipoProduto) {
-      case 'Encapsulados': return 0.94;
-      case 'Solúvel': return 1.54;
-      case 'Gummy': return 1.34;
-      case 'Líquido': return 0.72;
-      default: return 1.14;
-    }
-  }, [tipoProduto]);
-
-  const totalEmbalagem = custoEmbalagensExtras + custoCapsulas + custoRotulo;
+  const totalEmbalagem = custoEmbalagensExtras + custoCapsulas;
   const custoTotal = totalMP + totalEmbalagem;
 
   // Group embalagens by categoria > subcategoria
@@ -1386,10 +1376,6 @@ export default function Calculator() {
                   </div>)}
               </div>)}
             
-            <div className="flex justify-between text-sm text-muted-foreground pt-2">
-              <span>Rótulo:</span>
-              <span>{formatCurrencyDetailed(custoRotulo)}</span>
-            </div>
             
             <div className="border-t pt-2">
               <p className="text-3xl font-bold text-foreground">

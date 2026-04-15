@@ -527,10 +527,6 @@ export default function Precificacao() {
                                   <span>{formatCurrency(item.custo_calculado)}</span>
                                 </div>
                               ))}
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Rótulo</span>
-                                <span>{formatCurrency(1)}</span>
-                              </div>
                               <div className="flex justify-between font-semibold pt-2 border-t">
                                 <span>Total Embalagem:</span>
                                 <span>{formatCurrency(formula.total_embalagem)}</span>
@@ -690,9 +686,6 @@ export default function Precificacao() {
                               disabled
                               className="bg-muted"
                             />
-                            <p className="text-xs text-muted-foreground">
-                              Inclui Rótulo: R$ 1,00
-                            </p>
                           </div>
                         </div>
 
