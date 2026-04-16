@@ -71,6 +71,22 @@ const Pedidos = () => {
   const comprovanteInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ pedidoId: string; tipo: 'contrato' | 'comprovante' } | null>(null);
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTarget) return;
+    await uploadAnexo(uploadTarget.pedidoId, uploadTarget.tipo, file);
+    setUploadTarget(null);
+    e.target.value = '';
+  };
+
+  const triggerUpload = (pedidoId: string, tipo: 'contrato' | 'comprovante') => {
+    setUploadTarget({ pedidoId, tipo });
+    setTimeout(() => {
+      if (tipo === 'contrato') contratoInputRef.current?.click();
+      else comprovanteInputRef.current?.click();
+    }, 50);
+  };
+
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
     pedidos.forEach(p => {
