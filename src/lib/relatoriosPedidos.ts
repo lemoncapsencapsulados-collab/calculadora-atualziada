@@ -102,6 +102,20 @@ const addPedidoToPDF = (doc: jsPDF, data: ReturnType<typeof extractData>, startY
     }
   }
 
+  // Observações
+  if (data.observacoes) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('Observações', 14, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const obsLines = doc.splitTextToSize(data.observacoes, 180);
+    obsLines.forEach((l: string) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.text(l, 16, y); y += 4;
+    });
+    y += 4;
+  }
+
   return y;
 };
 
