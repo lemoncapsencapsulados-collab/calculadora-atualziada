@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { usePedidos } from '@/hooks/usePedidos';
+import { usePedidoAnexos, PedidoAnexo } from '@/hooks/usePedidoAnexos';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown, Copy
+  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -61,6 +62,30 @@ const Pedidos = () => {
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
+  const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
+
+  const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
+  const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
+
+  const contratoInputRef = useRef<HTMLInputElement>(null);
+  const comprovanteInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ pedidoId: string; tipo: 'contrato' | 'comprovante' } | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTarget) return;
+    await uploadAnexo(uploadTarget.pedidoId, uploadTarget.tipo, file);
+    setUploadTarget(null);
+    e.target.value = '';
+  };
+
+  const triggerUpload = (pedidoId: string, tipo: 'contrato' | 'comprovante') => {
+    setUploadTarget({ pedidoId, tipo });
+    setTimeout(() => {
+      if (tipo === 'contrato') contratoInputRef.current?.click();
+      else comprovanteInputRef.current?.click();
+    }, 50);
+  };
 
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
@@ -606,6 +631,40 @@ const Pedidos = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
+
+                  {/* Botões de Anexos */}
+                  <div className="flex gap-2 flex-wrap">
+                    {(() => {
+                      const contratos = getAnexosPorPedido(pedido.id, 'contrato');
+                      const comprovantes = getAnexosPorPedido(pedido.id, 'comprovante');
+                      return (
+                        <>
+                          {contratos.length > 0 ? (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => window.open(contratos[0].arquivo_url, '_blank')}>
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Ver Contrato
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => triggerUpload(pedido.id, 'contrato')}>
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Anexar Contrato
+                            </Button>
+                          )}
+                          {comprovantes.length > 0 ? (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => setComprovantesDialogPedidoId(pedido.id)}>
+                              <Receipt className="h-3.5 w-3.5 mr-1" />
+                              Ver Comprovante(s)
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => triggerUpload(pedido.id, 'comprovante')}>
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Anexar Comprovante
+                            </Button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -652,6 +711,56 @@ const Pedidos = () => {
         open={!!fichaTecnicaPedido}
         onOpenChange={(open) => !open && setFichaTecnicaPedido(null)}
       />
+
+      {/* Hidden file inputs */}
+      <input type="file" ref={contratoInputRef} className="hidden" onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+      <input type="file" ref={comprovanteInputRef} className="hidden" onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png" />
+
+      {/* Dialog de Comprovantes */}
+      <Dialog open={!!comprovantesDialogPedidoId} onOpenChange={(open) => !open && setComprovantesDialogPedidoId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Comprovantes de Pagamento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {comprovantesDialogPedidoId && getAnexosPorPedido(comprovantesDialogPedidoId, 'comprovante').map((comp) => (
+              <div key={comp.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{comp.arquivo_nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(comp.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => window.open(comp.arquivo_url, '_blank')}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => deleteAnexo(comp)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {comprovantesDialogPedidoId && getAnexosPorPedido(comprovantesDialogPedidoId, 'comprovante').length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum comprovante anexado.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              if (comprovantesDialogPedidoId) triggerUpload(comprovantesDialogPedidoId, 'comprovante');
+            }}>
+              <Upload className="h-4 w-4 mr-1" />
+              Adicionar Comprovante
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
