@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { usePedidos } from '@/hooks/usePedidos';
+import { usePedidoAnexos, PedidoAnexo } from '@/hooks/usePedidoAnexos';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown, Copy
+  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
