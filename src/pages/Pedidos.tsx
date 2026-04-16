@@ -34,6 +34,7 @@ import {
   gerarRelatorioPedidoExcel,
   gerarRelatorioPedidosGeralExcel,
 } from '@/lib/relatoriosPedidos';
+import { formatarCondicoesPagamento as formatarCondicoesPagamentoUtil } from '@/lib/formatarPagamento';
 import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
@@ -97,6 +98,9 @@ const Pedidos = () => {
       ? `Comissão de 1% da recompra: ${formatCurrency(comissaoValor)}`
       : `Comissão de 5% do valor da venda: ${formatCurrency(comissaoValor)}`;
 
+    const condicoes = snap.condicoes_pagamento || {};
+    const linhasPagamento = formatarCondicoesPagamentoUtil(condicoes, valorVenda);
+
     const texto = [
       `Nome do consultor: ${consultor}`,
       `Nome da Cliente: ${nomeCliente}`,
@@ -108,6 +112,7 @@ const Pedidos = () => {
       `Cidade: ${cidade}`,
       '',
       comissaoLabel,
+      ...(linhasPagamento.length > 0 ? ['', '💳 Forma de Pagamento:', ...linhasPagamento] : []),
     ].join('\n');
 
     navigator.clipboard.writeText(texto).then(() => {
@@ -274,7 +279,7 @@ const Pedidos = () => {
         )}
 
         {/* Condições de Pagamento (collapsible) */}
-        {(condicoes.valor_entrada || condicoes.valor_termino) && (
+        {(condicoes.metodo_principal || condicoes.valor_entrada || condicoes.valor_termino) && (
           <Collapsible>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="w-full justify-start text-xs h-7 px-2">
@@ -282,12 +287,9 @@ const Pedidos = () => {
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="p-2 bg-muted/50 rounded text-xs space-y-1">
-              {condicoes.valor_entrada && (
-                <p><strong>Entrada:</strong> {formatCurrency(condicoes.valor_entrada)} ({condicoes.forma_pagamento_entrada || '-'})</p>
-              )}
-              {condicoes.valor_termino && (
-                <p><strong>Término:</strong> {formatCurrency(condicoes.valor_termino)} ({condicoes.forma_pagamento_termino || '-'})</p>
-              )}
+              {formatarCondicoesPagamentoUtil(condicoes, snap.valor_total).map((line, i) => (
+                <p key={i} className="whitespace-pre-wrap">{line}</p>
+              ))}
             </CollapsibleContent>
           </Collapsible>
         )}
