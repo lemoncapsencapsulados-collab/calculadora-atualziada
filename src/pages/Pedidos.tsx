@@ -631,6 +631,40 @@ const Pedidos = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
+
+                  {/* Botões de Anexos */}
+                  <div className="flex gap-2 flex-wrap">
+                    {(() => {
+                      const contratos = getAnexosPorPedido(pedido.id, 'contrato');
+                      const comprovantes = getAnexosPorPedido(pedido.id, 'comprovante');
+                      return (
+                        <>
+                          {contratos.length > 0 ? (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => window.open(contratos[0].arquivo_url, '_blank')}>
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              Ver Contrato
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => triggerUpload(pedido.id, 'contrato')}>
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Anexar Contrato
+                            </Button>
+                          )}
+                          {comprovantes.length > 0 ? (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => setComprovantesDialogPedidoId(pedido.id)}>
+                              <Receipt className="h-3.5 w-3.5 mr-1" />
+                              Ver Comprovante(s)
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => triggerUpload(pedido.id, 'comprovante')}>
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Anexar Comprovante
+                            </Button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </CardContent>
               </Card>
             );
