@@ -1,35 +1,45 @@
 
 
-## Plano: Segmentar "Fórmulas do Catálogo" em aba dedicada + botão no Orçamento
+## Plano: Adicionar informações de método de pagamento nos Detalhes, WhatsApp e PDF de Pedidos
 
-### Contexto
-Existem fórmulas com cliente contendo variações de "CATÁLOGO" (ex: "LEMON CAPS - FÓRMULAS DO CATÁLOGO", "CATÁLOGO - LEMON CAPS", etc.). Essas precisam ser separadas visualmente.
+### Problema
+As condições de pagamento (`condicoes_pagamento`) já estão salvas no `orcamento_snapshot` do pedido, mas:
+- Os **Detalhes do Pedido** só mostram campos legados (valor_entrada/termino) e ignoram os novos campos (metodo_principal, parcelas_pix_boleto, cartoes, misto)
+- O **Copiar Relatório WhatsApp** não inclui nenhuma informação de pagamento
+- O **Relatório PDF** não inclui informação de pagamento
+
+### Estrutura dos dados de pagamento
+O `condicoes_pagamento` pode conter:
+- `metodo_principal`: `'pix_boleto'`, `'cartao_credito'` ou `'misto'`
+- `parcelas_pix_boleto`: array de parcelas com tipo_valor e valor
+- `cartoes`: array com valor, parcelas e tipo_valor
+- Campos `misto_*` para pagamento misto
+- Tabela de juros: 1-3x sem juros, 4x 7%, 5x 8%, 6x 9%
 
 ### Alterações
 
-**1. `src/pages/Precificacao.tsx`** — Nova aba "Produtos do Catálogo"
-- Alterar as tabs de 2 para 3 colunas: "Produtos Criados" | "Produtos Precificados" | "Produtos do Catálogo"
-- Adicionar nova `TabsContent value="catalogo"` que renderiza o componente `PrecificacoesSalvas` com uma prop `catalogoOnly={true}`
-- Na aba "Produtos Precificados" existente, passar prop `catalogoOnly={false}` para excluir os do catálogo
+**1. `src/components/DetalhesPedidoDialog.tsx`** — Seção "Condições de Pagamento" completa
+- Substituir a condição atual (que só mostra se tem valor_entrada ou valor_termino) por uma que detecta qualquer dado de pagamento
+- Exibir método principal (Pix/Boleto, Cartão de Crédito, Misto)
+- Listar parcelas Pix/Boleto com valores
+- Listar cartões com número de parcelas e valores
+- Para misto, mostrar ambas as seções
+- Manter compatibilidade com campos legados
 
-**2. `src/components/PrecificacoesSalvas.tsx`** — Filtrar por catálogo
-- Receber nova prop `catalogoOnly?: boolean`
-- Quando `catalogoOnly === true`: filtrar precificações onde `formulas.cliente` contém "catálogo" (case-insensitive)
-- Quando `catalogoOnly === false`: filtrar precificações onde `formulas.cliente` NÃO contém "catálogo"
-- Quando `undefined`: manter comportamento atual (mostrar tudo)
+**2. `src/pages/Pedidos.tsx`** — Função `copiarRelatorioWhatsApp`
+- Adicionar bloco de texto com forma de pagamento após a comissão
+- Formato: "Forma de pagamento: Cartão de Crédito - 6x de R$ 1.200,00 (juros de 9%)" ou "Pix/Boleto - 2 parcelas" etc.
 
-**3. `src/hooks/usePrecificacoesPaginadas.ts`** — Suportar filtro de catálogo
-- Adicionar param `catalogoOnly?: boolean` 
-- Na query, aplicar filtro `.ilike('formulas.cliente', '%catálogo%')` ou `.not('formulas.cliente', 'ilike', '%catálogo%')` conforme o caso
+**3. `src/lib/relatoriosPedidos.ts`** — PDF e Excel
+- Extrair dados de pagamento no `extractData`
+- Adicionar seção "Condições de Pagamento" no PDF após serviços/total
+- Adicionar colunas de pagamento no Excel
 
-**4. `src/components/GerarOrcamentoDialog.tsx`** — Botão "Fórmulas do Catálogo" no Step 2
-- Adicionar novo botão "Fórmulas do Catálogo" ao lado de "Precificação Salva"
-- Novo state `showCatalogoSelector` com painel similar ao de precificações
-- Filtrar `precificacoesDisponiveis` mostrando apenas as que têm "catálogo" no nome do cliente
-- Reutilizar a mesma lógica de seleção (checkbox, margem baixa, etc.)
+### Função auxiliar
+Criar uma função `formatarCondicoesPagamento(condicoes)` reutilizável que retorna um array de strings descritivas, usada nos 3 locais.
 
-### Detecção de fórmula do catálogo
-Função utilitária: `const isCatalogo = (cliente: string) => cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo')`
-
-Aplicada consistentemente em todos os pontos.
+### Arquivos modificados
+- `src/components/DetalhesPedidoDialog.tsx`
+- `src/pages/Pedidos.tsx`
+- `src/lib/relatoriosPedidos.ts`
 
