@@ -456,6 +456,33 @@ export type Database = {
           },
         ]
       }
+      pedido_anexos: {
+        Row: {
+          arquivo_nome: string
+          arquivo_url: string
+          created_at: string | null
+          id: string
+          pedido_id: string
+          tipo: string
+        }
+        Insert: {
+          arquivo_nome: string
+          arquivo_url: string
+          created_at?: string | null
+          id?: string
+          pedido_id: string
+          tipo: string
+        }
+        Update: {
+          arquivo_nome?: string
+          arquivo_url?: string
+          created_at?: string | null
+          id?: string
+          pedido_id?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       pedidos: {
         Row: {
           acompanhamento_processos: Json | null
