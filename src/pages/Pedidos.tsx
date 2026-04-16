@@ -62,6 +62,14 @@ const Pedidos = () => {
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
+  const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
+
+  const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
+  const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
+
+  const contratoInputRef = useRef<HTMLInputElement>(null);
+  const comprovanteInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ pedidoId: string; tipo: 'contrato' | 'comprovante' } | null>(null);
 
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
