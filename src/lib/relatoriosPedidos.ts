@@ -10,6 +10,7 @@ interface PedidoReport {
   orcamento_snapshot?: any;
   formula_snapshot?: any;
   data_pedido: string | Date;
+  observacoes?: string | null;
 }
 
 const extractData = (pedido: PedidoReport) => {
@@ -24,6 +25,7 @@ const extractData = (pedido: PedidoReport) => {
     valorTotal: snap.valor_total || 0,
     dataPedido: pedido.data_pedido,
     condicoesPagamento: snap.condicoes_pagamento || null,
+    observacoes: pedido.observacoes || '',
   };
 };
 
@@ -163,13 +165,14 @@ const buildRows = (pedidos: PedidoReport[]) => {
         serv?.nome_plano || '',
         serv?.valor || '',
         i === 0 ? pagamentoResumo : '',
+        i === 0 ? data.observacoes : '',
       ]);
     }
   });
   return rows;
 };
 
-const headers = ['Nº Pedido', 'Cliente', 'Consultor', 'Produto', 'Qtd', 'Valor Unit.', 'Subtotal Produto', 'Serviço Marca', 'Valor Serviço', 'Forma Pagamento'];
+const headers = ['Nº Pedido', 'Cliente', 'Consultor', 'Produto', 'Qtd', 'Valor Unit.', 'Subtotal Produto', 'Serviço Marca', 'Valor Serviço', 'Forma Pagamento', 'Observações'];
 
 export const gerarRelatorioPedidoExcel = (pedido: PedidoReport) => {
   const rows = buildRows([pedido]);
