@@ -138,6 +138,7 @@ const Pedidos = () => {
       '',
       comissaoLabel,
       ...(linhasPagamento.length > 0 ? ['', '💳 Forma de Pagamento:', ...linhasPagamento] : []),
+      ...(pedido.observacoes ? ['', `📝 Observações: ${pedido.observacoes}`] : []),
     ].join('\n');
 
     navigator.clipboard.writeText(texto).then(() => {
