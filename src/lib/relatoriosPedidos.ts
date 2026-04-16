@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatarCondicoesPagamento } from './formatarPagamento';
 
 interface PedidoReport {
   numero_pedido: string;
@@ -22,6 +23,7 @@ const extractData = (pedido: PedidoReport) => {
     servicos: (snap.servicos_marca || []) as any[],
     valorTotal: snap.valor_total || 0,
     dataPedido: pedido.data_pedido,
+    condicoesPagamento: snap.condicoes_pagamento || null,
   };
 };
 
@@ -80,7 +82,23 @@ const addPedidoToPDF = (doc: jsPDF, data: ReturnType<typeof extractData>, startY
 
   doc.setFont('helvetica', 'bold');
   doc.text(`Total: ${fmt(data.valorTotal)}`, 14, y);
-  y += 10;
+  y += 8;
+
+  // Condições de Pagamento
+  if (data.condicoesPagamento) {
+    const linhas = formatarCondicoesPagamento(data.condicoesPagamento, data.valorTotal);
+    if (linhas.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Condições de Pagamento', 14, y); y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      linhas.forEach(l => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(l, 16, y); y += 4;
+      });
+      y += 4;
+    }
+  }
 
   return y;
 };
@@ -128,6 +146,9 @@ const buildRows = (pedidos: PedidoReport[]) => {
     if (!data) return;
     const hasServicos = data.servicos.length > 0;
     const maxRows = Math.max(data.itens.length, hasServicos ? data.servicos.length : 0, 1);
+    const pagamentoResumo = data.condicoesPagamento
+      ? formatarCondicoesPagamento(data.condicoesPagamento, data.valorTotal).join(' | ')
+      : '';
     for (let i = 0; i < maxRows; i++) {
       const item = data.itens[i];
       const serv = data.servicos[i];
@@ -141,13 +162,14 @@ const buildRows = (pedidos: PedidoReport[]) => {
         item?.subtotal || '',
         serv?.nome_plano || '',
         serv?.valor || '',
+        i === 0 ? pagamentoResumo : '',
       ]);
     }
   });
   return rows;
 };
 
-const headers = ['Nº Pedido', 'Cliente', 'Consultor', 'Produto', 'Qtd', 'Valor Unit.', 'Subtotal Produto', 'Serviço Marca', 'Valor Serviço'];
+const headers = ['Nº Pedido', 'Cliente', 'Consultor', 'Produto', 'Qtd', 'Valor Unit.', 'Subtotal Produto', 'Serviço Marca', 'Valor Serviço', 'Forma Pagamento'];
 
 export const gerarRelatorioPedidoExcel = (pedido: PedidoReport) => {
   const rows = buildRows([pedido]);

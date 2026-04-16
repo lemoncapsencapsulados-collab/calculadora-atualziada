@@ -8,6 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   User, Package, Layers, Wallet, Truck, Calendar, FileText, Info,
 } from 'lucide-react';
+import { formatarCondicoesPagamento } from '@/lib/formatarPagamento';
 
 interface DetalhesPedidoDialogProps {
   pedido: any;
@@ -254,15 +255,14 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
           )}
 
           {/* Condições de Pagamento */}
-          {isOrcamento && (condicoes.valor_entrada || condicoes.valor_termino) && (
+          {isOrcamento && (condicoes.metodo_principal || condicoes.valor_entrada || condicoes.valor_termino) && (
             <>
               <Separator />
               <Section icon={Wallet} title="Condições de Pagamento">
                 <div className="space-y-1 bg-muted/50 rounded-lg p-3">
-                  <InfoRow label="Valor Entrada" value={condicoes.valor_entrada ? formatCurrency(condicoes.valor_entrada) : undefined} />
-                  <InfoRow label="Forma Pgto Entrada" value={condicoes.forma_pagamento_entrada} />
-                  <InfoRow label="Valor Término" value={condicoes.valor_termino ? formatCurrency(condicoes.valor_termino) : undefined} />
-                  <InfoRow label="Forma Pgto Término" value={condicoes.forma_pagamento_termino} />
+                  {formatarCondicoesPagamento(condicoes, snap.valor_total).map((line, i) => (
+                    <p key={i} className="text-sm text-foreground whitespace-pre-wrap">{line}</p>
+                  ))}
                   {snap.data_pagamento && (
                     <InfoRow label="Data Pagamento" value={format(new Date(snap.data_pagamento), "dd/MM/yyyy", { locale: ptBR })} />
                   )}
