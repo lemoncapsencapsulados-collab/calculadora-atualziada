@@ -1,23 +1,23 @@
 
 
-## Plano: Incluir "Observações" do pedido em todos os relatórios
+## Plano: Discriminar Setup e Produção no relatório WhatsApp
 
-### Problema
-O campo `observacoes` de cada pedido não aparece nos relatórios WhatsApp, PDF nem Excel.
+### Alteração
+**Arquivo**: `src/pages/Pedidos.tsx` — função `copiarRelatorioWhatsApp` (linha 99).
 
-### Alterações
+Adicionar duas linhas após `Valor da venda`, extraindo do `orcamento_snapshot`:
+- `Valor de Produção: R$ X` ← `snap.subtotal_producao`
+- `Valor de Setup: R$ Y` ← `snap.subtotal_servicos`
 
-**1. `src/lib/relatoriosPedidos.ts`**
-- Na interface `PedidoReport`, adicionar campo `observacoes?: string`
-- No `extractData`, incluir `observacoes: pedido.observacoes || ''`
-- No `addPedidoToPDF`: após condições de pagamento, adicionar seção "Observações" (se não vazia)
-- No `buildRows` (Excel): adicionar coluna "Observações" no final — valor na primeira linha de cada pedido
-- Atualizar array `headers` com "Observações"
+### Texto resultante
+```
+Valor da venda: R$ 10.000,00
+Valor de Produção: R$ 7.000,00
+Valor de Setup (Serviços de Marca): R$ 3.000,00
+```
 
-**2. `src/pages/Pedidos.tsx`**
-- Na função `copiarRelatorioWhatsApp`: adicionar `pedido.observacoes` ao texto copiado, após forma de pagamento (ex: `📝 Observações: ...`)
+Linhas só aparecem quando o valor for > 0, para evitar poluição em pedidos só de produção ou só de setup.
 
-### Arquivos modificados
-- `src/lib/relatoriosPedidos.ts`
+### Arquivo modificado
 - `src/pages/Pedidos.tsx`
 
