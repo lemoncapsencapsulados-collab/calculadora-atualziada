@@ -111,6 +111,7 @@ const extractData = (pedido: PedidoReport) => {
     condicoesPagamento: snap.condicoes_pagamento || null,
     frete: formatarFrete(snap.detalhamento_frete),
     observacoes: pedido.observacoes || '',
+    acompanhamento: pedido.acompanhamento_processos || null,
   };
 };
 
@@ -231,6 +232,32 @@ const addPedidoToPDF = (doc: jsPDF, data: ReturnType<typeof extractData>, startY
     y += 2;
   }
 
+  // Acompanhamento de Processos
+  if (data.acompanhamento) {
+    ensure(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Acompanhamento de Processos', 14, y); y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const a = data.acompanhamento;
+    const linhasAcomp = [
+      `Criação de Marca: ${acompStatusLabel(a.criacao_marca)}`,
+      `Produção: ${acompStatusLabel(a.producao)}`,
+      `Integração Logística: ${acompStatusLabel(a.integracao_logistica)}`,
+      `Página de Venda: ${acompStatusLabel(a.pagina_venda)}`,
+      `Envio do Produto: ${acompStatusLabel(a.envio_produto)}`,
+    ];
+    linhasAcomp.forEach(l => { ensure(); doc.text(l, 16, y); y += 4; });
+    if (a.satisfacao_nota != null) {
+      ensure();
+      const satTxt = `Satisfação: ${a.satisfacao_nota}/10${a.satisfacao_observacoes ? ` — ${a.satisfacao_observacoes}` : ''}`;
+      const satLines = doc.splitTextToSize(satTxt, 180);
+      satLines.forEach((l: string) => { ensure(); doc.text(l, 16, y); y += 4; });
+    }
+    y += 2;
+  }
+
   // Observações
   if (data.observacoes) {
     ensure(2);
@@ -316,6 +343,9 @@ const headers = [
   'Serviço Marca', 'Valor Serviço',
   'Orç. Setup', 'Orç. Produção', 'Orç. Total',
   'Forma Pagamento', 'Frete', 'Observações',
+  'Status Criação Marca', 'Status Produção', 'Status Integração Logística',
+  'Status Página Venda', 'Status Envio Produto',
+  'Satisfação (Nota)', 'Satisfação (Obs.)',
 ];
 
 const buildRows = (pedidos: PedidoReport[]) => {
