@@ -131,6 +131,8 @@ const Pedidos = () => {
       `Nome da Cliente: ${nomeCliente}`,
       `Tipo de produtor: ${tipoProdutorLabel}`,
       `Valor da venda: ${formatCurrency(valorVenda)}`,
+      ...((snap.subtotal_producao || 0) > 0 ? [`Valor de Produção: ${formatCurrency(snap.subtotal_producao)}`] : []),
+      ...((snap.subtotal_servicos || 0) > 0 ? [`Valor de Setup (Serviços de Marca): ${formatCurrency(snap.subtotal_servicos)}`] : []),
       `E-mail: ${email}`,
       `Cnpj: ${cnpj}`,
       `Telefone: ${telefone}`,
