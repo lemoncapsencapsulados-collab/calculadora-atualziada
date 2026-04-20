@@ -1,50 +1,44 @@
 
 
-## Plano: Enriquecer "Exportar Geral" de Pedidos com todos os detalhes + filtros aplicados
+## Plano: Data de pagamento + Acompanhamento de Processos nos relatórios
 
-### Problema
-O export atual (PDF e Excel) tem apenas dados básicos: produto, qtd, valor unit., subtotal, serviço, pagamento, observações. Faltam: consultor, CNPJ, tipo de produto, modelo de compra, subtotais separados (Setup/Produção), data de pagamento, frete e o filtro de datas usado.
+### O que falta hoje
+1. **WhatsApp**: não envia `Data de Pagamento` por pedido (PDF/Excel já enviam).
+2. **PDF/Excel/WhatsApp**: nenhum mostra os status do **Acompanhar Processos** (Criação de Marca, **Produção**, Integração Logística, Página de Venda, Envio do Produto, e Avaliação de Satisfação se houver).
 
 ### Alterações
 
-**1. `src/lib/relatoriosPedidos.ts`** — reescrever `extractData`, `headers`, `buildRows` e `addPedidoToPDF`
+**1. `src/lib/relatoriosPedidos.ts`**
+- Em `PedidoReport`: adicionar `acompanhamento_processos?: any`.
+- Em `extractData`: extrair `acompanhamento` com 5 status + nota/observações de satisfação.
+- Mapeamento de labels de status:
+  - `pendente` → "⏳ Pendente"
+  - `entregue` → "✅ Entregue"
+  - `nao_necessario` → "— Não Necessário"
+- Em `addPedidoToPDF`: novo bloco **"Acompanhamento de Processos"** (após Frete, antes de Observações) listando:
+  - Criação de Marca: status
+  - **Produção: status**
+  - Integração Logística: status
+  - Página de Venda: status
+  - Envio do Produto: status
+  - Linha extra de Satisfação (Nota X/10 + observações) se `satisfacao_nota != null`.
+- Em `headers` Excel: adicionar 5 colunas de status + 2 de satisfação ao final:
+  `Status Criação Marca | Status Produção | Status Integração Logística | Status Página Venda | Status Envio Produto | Satisfação (Nota) | Satisfação (Obs.)`
+- Em `buildRows`: preencher essas colunas só na primeira linha de cada pedido.
 
-Novo `extractData` extrai do `orcamento_snapshot`:
-- `consultor`, `nomeCliente`, `cnpj`, `email`, `telefone`, `cidadeEstado`
-- `subtotalSetup` (subtotal_servicos), `subtotalProducao` (subtotal_producao), `valorTotal`
-- `dataPagamento`, `tipoOrcamento` (Recompra/Novo Produtor)
-- Para cada item: `nomeProduto`, `tipoProduto` (Encapsulado/Solúvel/Líquido/Gummy — derivado de `formula_snapshot` ou item), `modeloCompra` (Estoque/POD), `quantidade`, `precoUnitario`, `subtotal`
-- `condicoesPagamento` (formatadas em string)
-- `frete` (tipo de envio + descrição + frete Lemon Caps)
-
-**Novos headers Excel** (uma linha por item de produto, com dados do pedido replicados na primeira linha):
-```
-Nº Pedido | Data Pedido | Data Pagamento | Consultor | Cliente | CNPJ | Email | Telefone | Cidade/Estado | Tipo Orçamento | Produto | Tipo Produto | Modelo Compra | Quantidade | Preço Unit. | Subtotal Produto | Serviço Marca | Valor Serviço | Orç. Setup | Orç. Produção | Orç. Total | Forma Pagamento | Frete | Observações
-```
-
-**Novo PDF**: `addPedidoToPDF` ganha bloco "Dados do Cliente" (consultor, CNPJ, telefone, cidade), tabela de produtos com colunas extras (Tipo Produto, Modelo), bloco "Resumo Financeiro" (Setup / Produção / Total), seção de Frete e linha "Data de Pagamento".
-
-**2. Filtro aplicado nos exports** — `gerarRelatorioPedidosGeralPDF` e `...Excel` recebem um segundo parâmetro opcional `filtros: { dataInicio?: Date; dataFim?: Date; consultor?: string; status?: string }`:
-- PDF: cabeçalho mostra "Período: dd/MM/yyyy a dd/MM/yyyy", "Consultor: X", "Status: Y" quando aplicáveis.
-- Excel: nome do arquivo vira `Relatorio_Pedidos_2026-01-01_a_2026-04-20.xlsx`; primeira linha do sheet exibe os filtros antes dos headers.
-
-**3. `src/pages/Pedidos.tsx`** — chamar exports passando os filtros:
-```ts
-gerarRelatorioPedidosGeralPDF(filteredPedidos, {
-  dataInicio: dataInicioFiltro, dataFim: dataFimFiltro,
-  consultor: filtroConsultor !== 'todos' ? filtroConsultor : undefined,
-  status: filterStatus !== 'todos' ? filterStatus : undefined,
-});
-```
-Idem para o Excel.
-
-### Detecção do "Tipo de Produto"
-Prioridade:
-1. `item.formula_snapshot?.tipo_produto` ou `item.tipo_produto` (do snapshot do orçamento)
-2. `pedido.formula_snapshot?.tipo_produto` (fallback para pedidos antigos)
-3. `'-'` se ausente
-
-Mapeamento para label legível: `encapsulado` → "Encapsulado", `soluvel` → "Solúvel", `liquido_gotas` → "Líquido (Gotas)", `liquido_spray` → "Líquido (Spray)", `gummy` → "Gummy".
+**2. `src/pages/Pedidos.tsx`** — função `copiarRelatorioWhatsApp` (linha 99)
+- Adicionar `Data de Pagamento: dd/MM/yyyy` (de `snap.data_pagamento`) logo após "Tipo de produtor".
+- Adicionar bloco final com emoji 🔄:
+  ```
+  🔄 Acompanhamento de Processos:
+  • Criação de Marca: ⏳ Pendente
+  • Produção: ✅ Entregue
+  • Integração Logística: — Não Necessário
+  • Página de Venda: ⏳ Pendente
+  • Envio do Produto: ⏳ Pendente
+  ⭐ Satisfação: 9/10 — "ótimo atendimento"   (só se houver nota)
+  ```
+- Bloco só aparece se `pedido.acompanhamento_processos` existir.
 
 ### Arquivos modificados
 - `src/lib/relatoriosPedidos.ts`
