@@ -11,7 +11,16 @@ interface PedidoReport {
   formula_snapshot?: any;
   data_pedido: string | Date;
   observacoes?: string | null;
+  acompanhamento_processos?: any;
 }
+
+const ACOMP_STATUS_LABELS: Record<string, string> = {
+  pendente: '⏳ Pendente',
+  entregue: '✅ Entregue',
+  nao_necessario: '— Não Necessário',
+};
+
+const acompStatusLabel = (v?: string) => (v ? ACOMP_STATUS_LABELS[v] || v : '-');
 
 export interface RelatorioFiltros {
   dataInicio?: Date;
