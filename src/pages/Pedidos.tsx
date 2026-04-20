@@ -489,10 +489,20 @@ const Pedidos = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralPDF(filteredPedidos)}>
+                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralPDF(filteredPedidos, {
+                  dataInicio: dataInicioFiltro,
+                  dataFim: dataFimFiltro,
+                  consultor: filtroConsultor !== 'todos' ? filtroConsultor : undefined,
+                  status: filterStatus !== 'todos' ? filterStatus : undefined,
+                })}>
                   <FileText className="h-4 w-4 mr-2" /> PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralExcel(filteredPedidos)}>
+                <DropdownMenuItem onClick={() => gerarRelatorioPedidosGeralExcel(filteredPedidos, {
+                  dataInicio: dataInicioFiltro,
+                  dataFim: dataFimFiltro,
+                  consultor: filtroConsultor !== 'todos' ? filtroConsultor : undefined,
+                  status: filterStatus !== 'todos' ? filterStatus : undefined,
+                })}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
                 </DropdownMenuItem>
               </DropdownMenuContent>
