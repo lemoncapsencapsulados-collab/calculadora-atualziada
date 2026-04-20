@@ -362,6 +362,7 @@ const buildRows = (pedidos: PedidoReport[]) => {
       const item = data.itens[i];
       const serv = data.servicos[i];
       const first = i === 0;
+      const a = data.acompanhamento;
       rows.push([
         first ? data.numeroPedido : '',
         first ? fmtDate(data.dataPedido) : '',
@@ -387,6 +388,13 @@ const buildRows = (pedidos: PedidoReport[]) => {
         first ? pagamentoResumo : '',
         first ? data.frete : '',
         first ? data.observacoes : '',
+        first && a ? acompStatusLabel(a.criacao_marca) : '',
+        first && a ? acompStatusLabel(a.producao) : '',
+        first && a ? acompStatusLabel(a.integracao_logistica) : '',
+        first && a ? acompStatusLabel(a.pagina_venda) : '',
+        first && a ? acompStatusLabel(a.envio_produto) : '',
+        first && a?.satisfacao_nota != null ? a.satisfacao_nota : '',
+        first && a?.satisfacao_observacoes ? a.satisfacao_observacoes : '',
       ]);
     }
   });
