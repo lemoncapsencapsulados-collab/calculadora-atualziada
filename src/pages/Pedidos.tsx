@@ -126,10 +126,30 @@ const Pedidos = () => {
     const condicoes = snap.condicoes_pagamento || {};
     const linhasPagamento = formatarCondicoesPagamentoUtil(condicoes, valorVenda);
 
+    const acomp = pedido.acompanhamento_processos;
+    const statusLbl: Record<string, string> = {
+      pendente: '⏳ Pendente',
+      entregue: '✅ Entregue',
+      nao_necessario: '— Não Necessário',
+    };
+    const acompLinhas = acomp ? [
+      '',
+      '🔄 Acompanhamento de Processos:',
+      `• Criação de Marca: ${statusLbl[acomp.criacao_marca] || '-'}`,
+      `• Produção: ${statusLbl[acomp.producao] || '-'}`,
+      `• Integração Logística: ${statusLbl[acomp.integracao_logistica] || '-'}`,
+      `• Página de Venda: ${statusLbl[acomp.pagina_venda] || '-'}`,
+      `• Envio do Produto: ${statusLbl[acomp.envio_produto] || '-'}`,
+      ...(acomp.satisfacao_nota != null
+        ? [`⭐ Satisfação: ${acomp.satisfacao_nota}/10${acomp.satisfacao_observacoes ? ` — "${acomp.satisfacao_observacoes}"` : ''}`]
+        : []),
+    ] : [];
+
     const texto = [
       `Nome do consultor: ${consultor}`,
       `Nome da Cliente: ${nomeCliente}`,
       `Tipo de produtor: ${tipoProdutorLabel}`,
+      ...(snap.data_pagamento ? [`Data de Pagamento: ${format(new Date(snap.data_pagamento), 'dd/MM/yyyy', { locale: ptBR })}`] : []),
       `Valor da venda: ${formatCurrency(valorVenda)}`,
       ...((snap.subtotal_producao || 0) > 0 ? [`Valor de Produção: ${formatCurrency(snap.subtotal_producao)}`] : []),
       ...((snap.subtotal_servicos || 0) > 0 ? [`Valor de Setup (Serviços de Marca): ${formatCurrency(snap.subtotal_servicos)}`] : []),
@@ -140,6 +160,7 @@ const Pedidos = () => {
       '',
       comissaoLabel,
       ...(linhasPagamento.length > 0 ? ['', '💳 Forma de Pagamento:', ...linhasPagamento] : []),
+      ...acompLinhas,
       ...(pedido.observacoes ? ['', `📝 Observações: ${pedido.observacoes}`] : []),
     ].join('\n');
 
