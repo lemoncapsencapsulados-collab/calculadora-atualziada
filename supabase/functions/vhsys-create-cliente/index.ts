@@ -122,8 +122,21 @@ Deno.serve(async (req) => {
       anyData?.data?.code >= 400;
 
     if (!vhsysResp.ok || returnedHtml || apiReturnedLogicalError) {
-      // Tenta extrair mensagem de erro útil do payload da VhSys
+      // Tenta extrair mensagem de erro útil do payload da VhSys.
+      // Em 422, a VhSys retorna { campo: ["mensagem"], ... }
+      let validationMessage: string | undefined;
+      if (anyData && typeof anyData === "object" && !Array.isArray(anyData)) {
+        const flat: string[] = [];
+        for (const [k, v] of Object.entries(anyData)) {
+          if (Array.isArray(v) && v.length && typeof v[0] === "string") {
+            flat.push(`${k}: ${(v as string[]).join("; ")}`);
+          }
+        }
+        if (flat.length) validationMessage = flat.join(" | ");
+      }
+
       const message =
+        validationMessage ||
         (returnedHtml ? "VhSys retornou uma página HTML em vez de confirmar o cadastro. Verifique credenciais e formato da requisição." : undefined) ||
         anyData?.data?.error ||
         anyData?.data?.message ||
