@@ -206,7 +206,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
         body: {
           nome: nomeFinal,
           nome_fantasia: tipoPessoa === 'pj'
-            ? (dadosCliente.razao_social || dadosCliente.nome_fantasia || nomeFinal)
+            ? (dadosCliente.razao_social || nomeFinal)
             : nomeFinal,
           tipo_pessoa: tipoPessoa === 'pj' ? 'J' : 'F',
           cnpj_cpf: cnpjCpf,
