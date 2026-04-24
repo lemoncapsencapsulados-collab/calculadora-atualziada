@@ -166,6 +166,79 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
   // Detalhes de produção por item
   const [detalhesProducao, setDetalhesProducao] = useState<Record<number, Record<string, string>>>({});
 
+  // VhSys: estado do botão de cadastro
+  const [vhsysLoading, setVhsysLoading] = useState(false);
+
+  const handleCadastrarVhSys = async () => {
+    const pf = pessoasFisicas[0];
+    const nomeFinal = (
+      tipoPessoa === 'pj'
+        ? (dadosCliente.razao_social || orcamento.nome_cliente)
+        : (pf?.nome || orcamento.nome_cliente)
+    )?.trim();
+
+    const cnpjCpf = (
+      tipoPessoa === 'pj' ? dadosCliente.cnpj : pf?.cpf
+    )?.trim();
+
+    if (!nomeFinal) {
+      toast.error('Informe o nome (ou razão social) do cliente.');
+      return;
+    }
+    if (!cnpjCpf) {
+      toast.error(tipoPessoa === 'pj' ? 'Informe o CNPJ do cliente.' : 'Informe o CPF do cliente.');
+      return;
+    }
+
+    const email =
+      tipoPessoa === 'pj' ? (dadosCliente.email || pf?.email) : (pf?.email || dadosCliente.email);
+    const telefone =
+      tipoPessoa === 'pj' ? (dadosCliente.telefone || pf?.telefone) : (pf?.telefone || dadosCliente.telefone);
+    const cep = tipoPessoa === 'pj' ? (dadosCliente.cep_cnpj || pf?.cep) : (pf?.cep || dadosCliente.cep_cnpj);
+    const logradouro =
+      tipoPessoa === 'pj' ? (dadosCliente.endereco_cnpj || pf?.endereco) : (pf?.endereco || dadosCliente.endereco_cnpj);
+    const cidade = tipoPessoa === 'pj' ? (dadosCliente.cidade || pf?.cidade) : (pf?.cidade || dadosCliente.cidade);
+    const uf = tipoPessoa === 'pj' ? (dadosCliente.estado || pf?.estado) : (pf?.estado || dadosCliente.estado);
+
+    setVhsysLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
+        body: {
+          nome: nomeFinal,
+          cnpj_cpf: cnpjCpf,
+          email: email || undefined,
+          telefone: telefone || undefined,
+          cep: cep || undefined,
+          logradouro: logradouro || undefined,
+          cidade: cidade || undefined,
+          uf: uf || undefined,
+        },
+      });
+
+      if (error) {
+        const ctx: any = (error as any).context;
+        let serverMsg: string | undefined;
+        try {
+          const parsed = ctx?.body ? JSON.parse(ctx.body) : null;
+          serverMsg = parsed?.error || parsed?.message;
+        } catch { /* ignore */ }
+        toast.error(serverMsg || error.message || 'Falha ao cadastrar cliente no VhSys.');
+        return;
+      }
+
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        return;
+      }
+
+      toast.success('Cliente cadastrado com sucesso no VhSys!');
+    } catch (err) {
+      toast.error((err as Error).message || 'Erro inesperado ao cadastrar no VhSys.');
+    } finally {
+      setVhsysLoading(false);
+    }
+  };
+
   const updateDetalhe = (idx: number, campo: string, valor: string) => {
     setDetalhesProducao(prev => ({
       ...prev,
