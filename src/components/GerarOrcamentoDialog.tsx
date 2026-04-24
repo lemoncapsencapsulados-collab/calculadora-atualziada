@@ -46,7 +46,9 @@ import {
   Pencil,
   Lock,
   LockOpen,
-  Star
+  Star,
+  UserPlus,
+  Loader2
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
