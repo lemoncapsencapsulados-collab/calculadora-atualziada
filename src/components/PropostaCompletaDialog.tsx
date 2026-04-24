@@ -205,6 +205,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
         body: {
           nome: nomeFinal,
+          nome_fantasia: tipoPessoa === 'pj'
+            ? (dadosCliente.razao_social || dadosCliente.nome_fantasia || nomeFinal)
+            : nomeFinal,
+          tipo_pessoa: tipoPessoa === 'pj' ? 'J' : 'F',
           cnpj_cpf: cnpjCpf,
           email: email || undefined,
           telefone: telefone || undefined,
@@ -212,6 +216,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
           logradouro: logradouro || undefined,
           cidade: cidade || undefined,
           uf: uf || undefined,
+          inscricao_estadual: tipoPessoa === 'pj' ? (dadosCliente.inscricao_estadual || undefined) : undefined,
+          inscricao_municipal: tipoPessoa === 'pj' ? (dadosCliente.inscricao_municipal || undefined) : undefined,
         },
       });
 
