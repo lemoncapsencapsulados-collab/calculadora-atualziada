@@ -1,21 +1,26 @@
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { z } from "https://deno.land/x/zod@v3.24.1/mod.ts";
 
-interface ClientePayload {
-  nome?: string;
-  nome_fantasia?: string;
-  tipo_pessoa?: "F" | "J" | "pf" | "pj";
-  cnpj_cpf?: string;
-  email?: string;
-  telefone?: string;
-  cep?: string;
-  logradouro?: string;
-  numero?: string;
-  bairro?: string;
-  cidade?: string;
-  uf?: string;
-  inscricao_estadual?: string;
-  inscricao_municipal?: string;
-}
+const ClientePayloadSchema = z.object({
+  nome: z.string().trim().min(1).max(255),
+  nome_fantasia: z.string().trim().max(255).optional(),
+  tipo_pessoa: z.enum(["F", "J", "pf", "pj", "PF", "PJ"]).optional(),
+  cnpj_cpf: z.string().trim().min(11).max(18),
+  email: z.string().trim().email().max(255).optional(),
+  telefone: z.string().trim().max(20).optional(),
+  cep: z.string().trim().max(10).optional(),
+  logradouro: z.string().trim().max(255).optional(),
+  numero: z.string().trim().max(7).optional(),
+  bairro: z.string().trim().max(45).optional(),
+  complemento: z.string().trim().max(45).optional(),
+  cidade: z.string().trim().max(255).optional(),
+  uf: z.string().trim().max(2).optional(),
+  contato: z.string().trim().max(255).optional(),
+  inscricao_estadual: z.string().trim().max(45).optional(),
+  inscricao_municipal: z.string().trim().max(45).optional(),
+});
+
+type ClientePayload = z.infer<typeof ClientePayloadSchema>;
 
 function onlyDigits(v?: string) {
   return (v || "").replace(/\D/g, "");
@@ -37,21 +42,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    const body = (await req.json()) as ClientePayload;
-
-    if (!body?.nome || !body?.cnpj_cpf) {
+    const parsed = ClientePayloadSchema.safeParse(await req.json());
+    if (!parsed.success) {
       return new Response(
-        JSON.stringify({ error: "Campos obrigatórios: nome e cnpj_cpf." }),
+        JSON.stringify({ error: "Dados inválidos para cadastro do cliente.", details: parsed.error.flatten() }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    const body = parsed.data;
+
     const cnpjCpfDigits = onlyDigits(body.cnpj_cpf);
-    // Detecta tipo de pessoa: F (CPF, 11 dígitos) ou J (CNPJ, 14 dígitos)
     let tipoPessoa: "PF" | "PJ" =
-      body.tipo_pessoa === "F" || body.tipo_pessoa === "pf"
+      body.tipo_pessoa === "F" || body.tipo_pessoa === "pf" || body.tipo_pessoa === "PF"
         ? "PF"
-        : body.tipo_pessoa === "J" || body.tipo_pessoa === "pj"
+        : body.tipo_pessoa === "J" || body.tipo_pessoa === "pj" || body.tipo_pessoa === "PJ"
         ? "PJ"
         : cnpjCpfDigits.length === 11
         ? "PF"
@@ -59,27 +64,29 @@ Deno.serve(async (req) => {
 
     const telDigits = onlyDigits(body.telefone);
 
-    // Mapeia para os campos esperados pela VhSys v2
-    // (a API exige razao_social como nome principal e tipo_pessoa F/J)
     const payload: Record<string, string> = {
-      razao_social: body.nome,
-      nome_fantasia: body.nome_fantasia || body.nome,
+      razao_cliente: body.nome,
       tipo_pessoa: tipoPessoa,
-      cnpj_cpf: cnpjCpfDigits,
+      tipo_cadastro: "Cliente",
+      cnpj_cliente: cnpjCpfDigits,
+      fantasia_cliente: body.nome_fantasia || body.nome,
+      situacao_cliente: "Ativo",
     };
-    if (body.email) payload.email = body.email;
+    if (body.email) payload.email_cliente = body.email;
     if (telDigits) {
-      payload.celular_pessoal = telDigits;
-      payload.telefone_pessoal = telDigits;
+      payload.celular_cliente = telDigits;
+      payload.fone_cliente = telDigits;
     }
-    if (body.cep) payload.cep = onlyDigits(body.cep);
-    if (body.logradouro) payload.endereco = body.logradouro;
-    if (body.numero) payload.numero_endereco = body.numero;
-    if (body.bairro) payload.bairro = body.bairro;
-    if (body.cidade) payload.cidade = body.cidade;
-    if (body.uf) payload.uf = body.uf.toUpperCase();
-    if (body.inscricao_estadual) payload.inscricao_estadual = body.inscricao_estadual;
-    if (body.inscricao_municipal) payload.inscricao_municipal = body.inscricao_municipal;
+    if (body.cep) payload.cep_cliente = body.cep;
+    if (body.logradouro) payload.endereco_cliente = body.logradouro;
+    if (body.numero) payload.numero_cliente = body.numero;
+    if (body.bairro) payload.bairro_cliente = body.bairro;
+    if (body.complemento) payload.complemento_cliente = body.complemento;
+    if (body.cidade) payload.cidade_cliente = body.cidade;
+    if (body.uf) payload.uf_cliente = body.uf.toUpperCase();
+    if (body.contato) payload.contato_cliente = body.contato;
+    if (body.inscricao_estadual) payload.insc_estadual_cliente = body.inscricao_estadual;
+    if (body.inscricao_municipal) payload.insc_municipal_cliente = body.inscricao_municipal;
 
     console.log("VhSys request payload", JSON.stringify(payload));
 
@@ -88,9 +95,9 @@ Deno.serve(async (req) => {
       headers: {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Access-Token": accessToken,
-        "Secret-Access-Token": secretService,
-        "Secret-Service": secretService,
+        "access-token": accessToken,
+        "secret-access-token": secretService,
+        "User-Agent": "LovableApp/1.0",
       },
       body: JSON.stringify(payload),
     });
