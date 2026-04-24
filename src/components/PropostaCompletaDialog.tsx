@@ -210,6 +210,20 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       ? enderecoBruto.split(' - ').pop()?.trim()
       : undefined;
 
+    // Monta observação com produtos do orçamento
+    const linhasProdutos = (orcamento.itens_producao || [])
+      .map((item) => {
+        const nome = (item.nome_produto || '').trim();
+        if (!nome) return null;
+        const qtd = item.quantidade ?? 0;
+        const seg = item.segmento ? ` [${item.segmento}]` : '';
+        return `• ${nome}${seg} - Qtd: ${qtd}`;
+      })
+      .filter(Boolean) as string[];
+    const observacaoProdutos = linhasProdutos.length
+      ? `Produtos do orçamento ${orcamento.numero_orcamento || ''}:\n${linhasProdutos.join('\n')}`.trim()
+      : undefined;
+
     setVhsysLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
@@ -231,6 +245,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
           contato: contato || undefined,
           inscricao_estadual: tipoPessoa === 'pj' ? (dadosCliente.inscricao_estadual || undefined) : undefined,
           inscricao_municipal: tipoPessoa === 'pj' ? (dadosCliente.inscricao_municipal || undefined) : undefined,
+          observacao: observacaoProdutos,
         },
       });
 
