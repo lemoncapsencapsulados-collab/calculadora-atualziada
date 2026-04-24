@@ -3,6 +3,7 @@ import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
 import { useClientes, Cliente } from '@/hooks/useClientes';
 import {
@@ -16,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2 } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
@@ -164,6 +165,79 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
 
   // Detalhes de produção por item
   const [detalhesProducao, setDetalhesProducao] = useState<Record<number, Record<string, string>>>({});
+
+  // VhSys: estado do botão de cadastro
+  const [vhsysLoading, setVhsysLoading] = useState(false);
+
+  const handleCadastrarVhSys = async () => {
+    const pf = pessoasFisicas[0];
+    const nomeFinal = (
+      tipoPessoa === 'pj'
+        ? (dadosCliente.razao_social || orcamento.nome_cliente)
+        : (pf?.nome || orcamento.nome_cliente)
+    )?.trim();
+
+    const cnpjCpf = (
+      tipoPessoa === 'pj' ? dadosCliente.cnpj : pf?.cpf
+    )?.trim();
+
+    if (!nomeFinal) {
+      toast.error('Informe o nome (ou razão social) do cliente.');
+      return;
+    }
+    if (!cnpjCpf) {
+      toast.error(tipoPessoa === 'pj' ? 'Informe o CNPJ do cliente.' : 'Informe o CPF do cliente.');
+      return;
+    }
+
+    const email =
+      tipoPessoa === 'pj' ? (dadosCliente.email || pf?.email) : (pf?.email || dadosCliente.email);
+    const telefone =
+      tipoPessoa === 'pj' ? (dadosCliente.telefone || pf?.telefone) : (pf?.telefone || dadosCliente.telefone);
+    const cep = tipoPessoa === 'pj' ? (dadosCliente.cep_cnpj || pf?.cep) : (pf?.cep || dadosCliente.cep_cnpj);
+    const logradouro =
+      tipoPessoa === 'pj' ? (dadosCliente.endereco_cnpj || pf?.endereco) : (pf?.endereco || dadosCliente.endereco_cnpj);
+    const cidade = tipoPessoa === 'pj' ? (dadosCliente.cidade || pf?.cidade) : (pf?.cidade || dadosCliente.cidade);
+    const uf = tipoPessoa === 'pj' ? (dadosCliente.estado || pf?.estado) : (pf?.estado || dadosCliente.estado);
+
+    setVhsysLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
+        body: {
+          nome: nomeFinal,
+          cnpj_cpf: cnpjCpf,
+          email: email || undefined,
+          telefone: telefone || undefined,
+          cep: cep || undefined,
+          logradouro: logradouro || undefined,
+          cidade: cidade || undefined,
+          uf: uf || undefined,
+        },
+      });
+
+      if (error) {
+        const ctx: any = (error as any).context;
+        let serverMsg: string | undefined;
+        try {
+          const parsed = ctx?.body ? JSON.parse(ctx.body) : null;
+          serverMsg = parsed?.error || parsed?.message;
+        } catch { /* ignore */ }
+        toast.error(serverMsg || error.message || 'Falha ao cadastrar cliente no VhSys.');
+        return;
+      }
+
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        return;
+      }
+
+      toast.success('Cliente cadastrado com sucesso no VhSys!');
+    } catch (err) {
+      toast.error((err as Error).message || 'Erro inesperado ao cadastrar no VhSys.');
+    } finally {
+      setVhsysLoading(false);
+    }
+  };
 
   const updateDetalhe = (idx: number, campo: string, valor: string) => {
     setDetalhesProducao(prev => ({
@@ -478,6 +552,18 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreview(false)}>Voltar</Button>
+            <Button
+              variant="outline"
+              onClick={handleCadastrarVhSys}
+              disabled={vhsysLoading}
+            >
+              {vhsysLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <UserPlus className="w-4 h-4 mr-2" />
+              )}
+              {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
+            </Button>
             <Button onClick={handleDownload}>
               <Download className="w-4 h-4 mr-2" />
               Baixar PDF
