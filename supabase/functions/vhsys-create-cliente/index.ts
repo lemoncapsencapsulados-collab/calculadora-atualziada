@@ -18,6 +18,7 @@ const ClientePayloadSchema = z.object({
   contato: z.string().trim().max(255).optional(),
   inscricao_estadual: z.string().trim().max(45).optional(),
   inscricao_municipal: z.string().trim().max(45).optional(),
+  observacao: z.string().trim().max(2000).optional(),
 });
 
 type ClientePayload = z.infer<typeof ClientePayloadSchema>;
