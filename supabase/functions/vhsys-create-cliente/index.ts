@@ -55,6 +55,8 @@ Deno.serve(async (req) => {
     if (body.cidade) payload.cidade = body.cidade;
     if (body.uf) payload.uf = body.uf.toUpperCase();
 
+    console.log("VhSys request payload", JSON.stringify(payload));
+
     const vhsysResp = await fetch("https://api.vhsys.com.br/v2/clientes", {
       method: "POST",
       headers: {
