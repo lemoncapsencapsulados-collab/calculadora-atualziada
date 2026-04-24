@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "Access-Token": accessToken,
+        "Secret-Access-Token": secretService,
         "Secret-Service": secretService,
       },
       body: JSON.stringify(payload),
@@ -106,12 +107,21 @@ Deno.serve(async (req) => {
     console.log("VhSys response", vhsysResp.status, data);
 
     const returnedHtml = contentType.includes("text/html") || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text);
+    const anyData = data as any;
+    const apiReturnedLogicalError =
+      anyData?.status === "error" ||
+      anyData?.code >= 400 ||
+      anyData?.data?.status === "error" ||
+      anyData?.data?.code >= 400;
 
-    if (!vhsysResp.ok || returnedHtml) {
+    if (!vhsysResp.ok || returnedHtml || apiReturnedLogicalError) {
       // Tenta extrair mensagem de erro útil do payload da VhSys
-      const anyData = data as any;
       const message =
         (returnedHtml ? "VhSys retornou uma página HTML em vez de confirmar o cadastro. Verifique credenciais e formato da requisição." : undefined) ||
+        anyData?.data?.error ||
+        anyData?.data?.message ||
+        anyData?.data?.mensagem ||
+        (typeof anyData?.data?.data === "string" ? anyData.data.data : undefined) ||
         anyData?.error ||
         anyData?.message ||
         anyData?.mensagem ||
