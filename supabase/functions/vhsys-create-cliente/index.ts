@@ -2,6 +2,8 @@ import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 
 interface ClientePayload {
   nome?: string;
+  nome_fantasia?: string;
+  tipo_pessoa?: "F" | "J" | "pf" | "pj";
   cnpj_cpf?: string;
   email?: string;
   telefone?: string;
@@ -11,6 +13,8 @@ interface ClientePayload {
   bairro?: string;
   cidade?: string;
   uf?: string;
+  inscricao_estadual?: string;
+  inscricao_municipal?: string;
 }
 
 function onlyDigits(v?: string) {
@@ -42,18 +46,40 @@ Deno.serve(async (req) => {
       );
     }
 
+    const cnpjCpfDigits = onlyDigits(body.cnpj_cpf);
+    // Detecta tipo de pessoa: F (CPF, 11 dígitos) ou J (CNPJ, 14 dígitos)
+    let tipoPessoa: "F" | "J" =
+      body.tipo_pessoa === "F" || body.tipo_pessoa === "pf"
+        ? "F"
+        : body.tipo_pessoa === "J" || body.tipo_pessoa === "pj"
+        ? "J"
+        : cnpjCpfDigits.length === 11
+        ? "F"
+        : "J";
+
+    const telDigits = onlyDigits(body.telefone);
+
+    // Mapeia para os campos esperados pela VhSys v2
+    // (a API exige razao_social como nome principal e tipo_pessoa F/J)
     const payload: Record<string, string> = {
-      nome: body.nome,
-      cnpj_cpf: onlyDigits(body.cnpj_cpf),
+      razao_social: body.nome,
+      nome_fantasia: body.nome_fantasia || body.nome,
+      tipo_pessoa: tipoPessoa,
+      cnpj_cpf: cnpjCpfDigits,
     };
     if (body.email) payload.email = body.email;
-    if (body.telefone) payload.telefone = onlyDigits(body.telefone);
+    if (telDigits) {
+      payload.celular_pessoal = telDigits;
+      payload.telefone_pessoal = telDigits;
+    }
     if (body.cep) payload.cep = onlyDigits(body.cep);
-    if (body.logradouro) payload.logradouro = body.logradouro;
-    if (body.numero) payload.numero = body.numero;
+    if (body.logradouro) payload.endereco = body.logradouro;
+    if (body.numero) payload.numero_endereco = body.numero;
     if (body.bairro) payload.bairro = body.bairro;
     if (body.cidade) payload.cidade = body.cidade;
     if (body.uf) payload.uf = body.uf.toUpperCase();
+    if (body.inscricao_estadual) payload.inscricao_estadual = body.inscricao_estadual;
+    if (body.inscricao_municipal) payload.inscricao_municipal = body.inscricao_municipal;
 
     console.log("VhSys request payload", JSON.stringify(payload));
 
