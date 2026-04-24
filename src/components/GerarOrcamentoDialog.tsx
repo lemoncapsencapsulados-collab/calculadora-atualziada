@@ -1482,6 +1482,19 @@ export default function GerarOrcamentoDialog({
                         <Check className="w-3 h-3 ml-1" />
                       )}
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCadastrarVhSys}
+                      disabled={vhsysLoading}
+                    >
+                      {vhsysLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <UserPlus className="w-4 h-4 mr-2" />
+                      )}
+                      {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
+                    </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
                     Esses dados podem ser adicionados depois na tela de orçamentos
