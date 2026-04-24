@@ -48,14 +48,14 @@ Deno.serve(async (req) => {
 
     const cnpjCpfDigits = onlyDigits(body.cnpj_cpf);
     // Detecta tipo de pessoa: F (CPF, 11 dígitos) ou J (CNPJ, 14 dígitos)
-    let tipoPessoa: "F" | "J" =
+    let tipoPessoa: "PF" | "PJ" =
       body.tipo_pessoa === "F" || body.tipo_pessoa === "pf"
-        ? "F"
+        ? "PF"
         : body.tipo_pessoa === "J" || body.tipo_pessoa === "pj"
-        ? "J"
+        ? "PJ"
         : cnpjCpfDigits.length === 11
-        ? "F"
-        : "J";
+        ? "PF"
+        : "PJ";
 
     const telDigits = onlyDigits(body.telefone);
 
@@ -87,13 +87,16 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json",
         "Access-Token": accessToken,
         "Secret-Access-Token": secretService,
+        "Secret-Service": secretService,
       },
       body: JSON.stringify(payload),
     });
 
     const text = await vhsysResp.text();
+    const contentType = vhsysResp.headers.get("content-type") || "";
     let data: unknown;
     try {
       data = JSON.parse(text);
@@ -103,10 +106,22 @@ Deno.serve(async (req) => {
 
     console.log("VhSys response", vhsysResp.status, data);
 
-    if (!vhsysResp.ok) {
+    const returnedHtml = contentType.includes("text/html") || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text);
+    const anyData = data as any;
+    const apiReturnedLogicalError =
+      anyData?.status === "error" ||
+      anyData?.code >= 400 ||
+      anyData?.data?.status === "error" ||
+      anyData?.data?.code >= 400;
+
+    if (!vhsysResp.ok || returnedHtml || apiReturnedLogicalError) {
       // Tenta extrair mensagem de erro útil do payload da VhSys
-      const anyData = data as any;
       const message =
+        (returnedHtml ? "VhSys retornou uma página HTML em vez de confirmar o cadastro. Verifique credenciais e formato da requisição." : undefined) ||
+        anyData?.data?.error ||
+        anyData?.data?.message ||
+        anyData?.data?.mensagem ||
+        (typeof anyData?.data?.data === "string" ? anyData.data.data : undefined) ||
         anyData?.error ||
         anyData?.message ||
         anyData?.mensagem ||
@@ -116,7 +131,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ error: message, details: data, status: vhsysResp.status }),
-        { status: vhsysResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: vhsysResp.ok ? 502 : vhsysResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
