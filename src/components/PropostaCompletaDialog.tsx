@@ -552,6 +552,18 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreview(false)}>Voltar</Button>
+            <Button
+              variant="outline"
+              onClick={handleCadastrarVhSys}
+              disabled={vhsysLoading}
+            >
+              {vhsysLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <UserPlus className="w-4 h-4 mr-2" />
+              )}
+              {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
+            </Button>
             <Button onClick={handleDownload}>
               <Download className="w-4 h-4 mr-2" />
               Baixar PDF
