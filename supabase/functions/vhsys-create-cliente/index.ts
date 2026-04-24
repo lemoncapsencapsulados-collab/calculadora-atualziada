@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
     if (body.contato) payload.contato_cliente = body.contato;
     if (body.inscricao_estadual) payload.insc_estadual_cliente = body.inscricao_estadual;
     if (body.inscricao_municipal) payload.insc_municipal_cliente = body.inscricao_municipal;
+    if (body.observacao) payload.obs_cliente = body.observacao;
 
     console.log("VhSys request payload", JSON.stringify(payload));
 
