@@ -171,6 +171,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
 
   const handleCadastrarVhSys = async () => {
     const pf = pessoasFisicas[0];
+    const contato = tipoPessoa === 'pj'
+      ? (responsavelPJ.nome || pf?.nome || '').trim()
+      : (pf?.nome || '').trim();
     const nomeFinal = (
       tipoPessoa === 'pj'
         ? (dadosCliente.razao_social || orcamento.nome_cliente)
@@ -199,6 +202,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       tipoPessoa === 'pj' ? (dadosCliente.endereco_cnpj || pf?.endereco) : (pf?.endereco || dadosCliente.endereco_cnpj);
     const cidade = tipoPessoa === 'pj' ? (dadosCliente.cidade || pf?.cidade) : (pf?.cidade || dadosCliente.cidade);
     const uf = tipoPessoa === 'pj' ? (dadosCliente.estado || pf?.estado) : (pf?.estado || dadosCliente.estado);
+    const enderecoBruto = (logradouro || '').trim();
+    const enderecoPartes = enderecoBruto.split(',').map((parte) => parte.trim()).filter(Boolean);
+    const numeroDetectado = enderecoPartes.length > 1 ? enderecoPartes[1] : undefined;
+    const logradouroDetectado = enderecoPartes[0] || undefined;
+    const bairroDetectado = enderecoBruto.includes(' - ')
+      ? enderecoBruto.split(' - ').pop()?.trim()
+      : undefined;
 
     setVhsysLoading(true);
     try {
@@ -213,9 +223,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
           email: email || undefined,
           telefone: telefone || undefined,
           cep: cep || undefined,
-          logradouro: logradouro || undefined,
+          logradouro: logradouroDetectado || logradouro || undefined,
+          numero: numeroDetectado || undefined,
+          bairro: bairroDetectado || undefined,
           cidade: cidade || undefined,
           uf: uf || undefined,
+          contato: contato || undefined,
           inscricao_estadual: tipoPessoa === 'pj' ? (dadosCliente.inscricao_estadual || undefined) : undefined,
           inscricao_municipal: tipoPessoa === 'pj' ? (dadosCliente.inscricao_municipal || undefined) : undefined,
         },
