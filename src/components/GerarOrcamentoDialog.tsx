@@ -47,8 +47,6 @@ import {
   Lock,
   LockOpen,
   Star,
-  UserPlus,
-  Loader2
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
@@ -137,67 +135,6 @@ export default function GerarOrcamentoDialog({
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
   const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
   const [showFreteInline, setShowFreteInline] = useState(false);
-
-  // VhSys: estado do botão de cadastro
-  const [vhsysLoading, setVhsysLoading] = useState(false);
-
-  const handleCadastrarVhSys = async () => {
-    const cnpjCpf = (dadosClienteTemp.cnpj || dadosClienteTemp.cpf || '').trim();
-    const nomeFinal = (
-      dadosClienteTemp.razao_social ||
-      dadosClienteTemp.nome_completo ||
-      nomeCliente ||
-      ''
-    ).trim();
-
-    if (!nomeFinal) {
-      toast.error('Informe o nome do cliente antes de cadastrar no VhSys.');
-      return;
-    }
-    if (!cnpjCpf) {
-      toast.error('Informe o CPF ou CNPJ do cliente em "Info Cliente".');
-      return;
-    }
-
-    setVhsysLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
-        body: {
-          nome: nomeFinal,
-          cnpj_cpf: cnpjCpf,
-          email: dadosClienteTemp.email || undefined,
-          telefone: dadosClienteTemp.telefone || undefined,
-          cep: dadosClienteTemp.cep_cnpj || undefined,
-          logradouro: dadosClienteTemp.endereco_cnpj || undefined,
-          cidade: dadosClienteTemp.cidade || undefined,
-          uf: dadosClienteTemp.estado || undefined,
-        },
-      });
-
-      if (error) {
-        // Erros HTTP são entregues aqui com a mensagem do servidor
-        const ctx: any = (error as any).context;
-        let serverMsg: string | undefined;
-        try {
-          const parsed = ctx?.body ? JSON.parse(ctx.body) : null;
-          serverMsg = parsed?.error || parsed?.message;
-        } catch { /* ignore */ }
-        toast.error(serverMsg || error.message || 'Falha ao cadastrar cliente no VhSys.');
-        return;
-      }
-
-      if ((data as any)?.error) {
-        toast.error((data as any).error);
-        return;
-      }
-
-      toast.success('Cliente cadastrado com sucesso no VhSys!');
-    } catch (err) {
-      toast.error((err as Error).message || 'Erro inesperado ao cadastrar no VhSys.');
-    } finally {
-      setVhsysLoading(false);
-    }
-  };
 
   // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
