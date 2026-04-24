@@ -48,14 +48,14 @@ Deno.serve(async (req) => {
 
     const cnpjCpfDigits = onlyDigits(body.cnpj_cpf);
     // Detecta tipo de pessoa: F (CPF, 11 dígitos) ou J (CNPJ, 14 dígitos)
-    let tipoPessoa: "F" | "J" =
+    let tipoPessoa: "PF" | "PJ" =
       body.tipo_pessoa === "F" || body.tipo_pessoa === "pf"
-        ? "F"
+        ? "PF"
         : body.tipo_pessoa === "J" || body.tipo_pessoa === "pj"
-        ? "J"
+        ? "PJ"
         : cnpjCpfDigits.length === 11
-        ? "F"
-        : "J";
+        ? "PF"
+        : "PJ";
 
     const telDigits = onlyDigits(body.telefone);
 
