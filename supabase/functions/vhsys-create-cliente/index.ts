@@ -87,13 +87,15 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Accept": "application/json",
         "Access-Token": accessToken,
-        "Secret-Access-Token": secretService,
+        "Secret-Service": secretService,
       },
       body: JSON.stringify(payload),
     });
 
     const text = await vhsysResp.text();
+    const contentType = vhsysResp.headers.get("content-type") || "";
     let data: unknown;
     try {
       data = JSON.parse(text);
@@ -103,10 +105,13 @@ Deno.serve(async (req) => {
 
     console.log("VhSys response", vhsysResp.status, data);
 
-    if (!vhsysResp.ok) {
+    const returnedHtml = contentType.includes("text/html") || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text);
+
+    if (!vhsysResp.ok || returnedHtml) {
       // Tenta extrair mensagem de erro útil do payload da VhSys
       const anyData = data as any;
       const message =
+        (returnedHtml ? "VhSys retornou uma página HTML em vez de confirmar o cadastro. Verifique credenciais e formato da requisição." : undefined) ||
         anyData?.error ||
         anyData?.message ||
         anyData?.mensagem ||
@@ -116,7 +121,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ error: message, details: data, status: vhsysResp.status }),
-        { status: vhsysResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: vhsysResp.ok ? 502 : vhsysResp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
