@@ -235,9 +235,17 @@ const Pedidos = () => {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesConsultor && matchesData;
+      let matchesEntrega = true;
+      if (entregaInicioFiltro || entregaFimFiltro) {
+        const { dataPrevista } = calcularPrazoEntrega(pedido);
+        const dataPrevStr = format(dataPrevista, 'yyyy-MM-dd');
+        if (entregaInicioFiltro && dataPrevStr < format(entregaInicioFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
+        if (entregaFimFiltro && dataPrevStr > format(entregaFimFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
+      }
+
+      return matchesSearch && matchesStatus && matchesConsultor && matchesData && matchesEntrega;
     });
-  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro]);
+  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
 
   const renderOrcamentoPedido = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
