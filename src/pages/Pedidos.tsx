@@ -592,6 +592,10 @@ const Pedidos = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" size="sm" onClick={() => exportarCSV(filteredPedidos)}>
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              Exportar CSV
+            </Button>
           </div>
         </CardContent>
       </Card>
