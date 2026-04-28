@@ -324,6 +324,14 @@ const Pedidos = () => {
           </div>
         )}
 
+        {snap.data_pagamento && (
+          <div className="flex items-center gap-1 text-sm text-blue-600">
+            <Package className="w-3 h-3" />
+            Entrega prevista: {format(addDays(new Date(snap.data_pagamento), PRAZO_PRODUCAO_DIAS), "dd/MM/yyyy", { locale: ptBR })}
+            <span className="text-xs text-muted-foreground ml-1">(30 dias após pagamento)</span>
+          </div>
+        )}
+
         {snap.updated_at && (
           <div className="flex items-center gap-1 text-sm text-amber-600">
             <Pencil className="w-3 h-3" />
