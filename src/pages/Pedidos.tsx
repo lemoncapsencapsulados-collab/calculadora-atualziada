@@ -68,6 +68,56 @@ const calcularPrazoEntrega = (pedido: any) => {
   return { dataPrevista, diasRestantes };
 };
 
+const csvEscape = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  const s = String(val).replace(/"/g, '""');
+  return `"${s}"`;
+};
+
+const exportarCSV = (pedidos: any[]) => {
+  if (!pedidos || pedidos.length === 0) {
+    toast.error('Nenhum pedido para exportar');
+    return;
+  }
+  const headers = [
+    'Número', 'Cliente', 'Email', 'Telefone', 'Consultor', 'Status',
+    'Data Pedido', 'Data Pagamento', 'Entrega Prevista', 'Dias Restantes',
+    'Valor Total', 'Pagamento', 'Produtos', 'Observações',
+  ];
+  const rows = pedidos.map((p) => {
+    const snap = p.orcamento_snapshot || {};
+    const { dataPrevista, diasRestantes } = calcularPrazoEntrega(p);
+    const produtos = (snap.itens_producao || [])
+      .map((it: any) => `${it.nome_produto || ''} (${it.quantidade ?? 0})`)
+      .join(' | ');
+    return [
+      p.numero_pedido || '',
+      snap.cliente_nome || p.cliente_nome || '',
+      snap.cliente_email || '',
+      snap.cliente_telefone || '',
+      snap.consultor_nome || '',
+      p.status || '',
+      p.data_pedido ? format(new Date(p.data_pedido), 'dd/MM/yyyy') : '',
+      snap.data_pagamento ? format(new Date(snap.data_pagamento), 'dd/MM/yyyy') : '',
+      format(dataPrevista, 'dd/MM/yyyy'),
+      diasRestantes,
+      typeof p.valor_total === 'number' ? p.valor_total.toFixed(2).replace('.', ',') : '',
+      snap.metodo_pagamento || '',
+      produtos,
+      (p.observacoes || '').replace(/\n/g, ' '),
+    ];
+  });
+  const csv = [headers, ...rows].map((r) => r.map(csvEscape).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `pedidos_${format(new Date(), 'yyyy-MM-dd_HHmm')}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast.success(`${pedidos.length} pedido(s) exportado(s)`);
+};
+
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
