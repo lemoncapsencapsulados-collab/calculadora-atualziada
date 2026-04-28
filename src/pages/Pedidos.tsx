@@ -621,6 +621,23 @@ const Pedidos = () => {
               ? pedido.orcamento_snapshot?.nome_cliente 
               : pedido.formula_snapshot?.cliente || 'Cliente';
 
+            const { dataPrevista, diasRestantes } = calcularPrazoEntrega(pedido);
+            let prazoColor = 'bg-green-100 text-green-800 border-green-300';
+            let prazoLabel = `${diasRestantes} dias restantes`;
+            if (isConcluido) {
+              prazoColor = 'bg-gray-100 text-gray-700 border-gray-300';
+              prazoLabel = 'Entregue';
+            } else if (diasRestantes < 0) {
+              prazoColor = 'bg-red-100 text-red-800 border-red-300';
+              prazoLabel = `Atrasado ${Math.abs(diasRestantes)} ${Math.abs(diasRestantes) === 1 ? 'dia' : 'dias'}`;
+            } else if (diasRestantes === 0) {
+              prazoColor = 'bg-red-100 text-red-800 border-red-300';
+              prazoLabel = 'Entrega hoje';
+            } else if (diasRestantes <= 10) {
+              prazoColor = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+              prazoLabel = `${diasRestantes} ${diasRestantes === 1 ? 'dia restante' : 'dias restantes'}`;
+            }
+
             return (
               <Card key={pedido.id} className={`hover:shadow-lg transition-shadow ${isConcluido ? 'border-green-400 bg-green-50/50' : ''}`}>
                 <CardHeader className="pb-3">
@@ -633,6 +650,15 @@ const Pedidos = () => {
                       <StatusIcon className="h-3 w-3" />
                       <span className="text-xs">{statusConfig.label}</span>
                     </Badge>
+                  </div>
+                  <div className={`mt-2 flex items-center justify-between gap-2 px-3 py-2 rounded-md border ${prazoColor}`}>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-sm font-bold">{prazoLabel}</span>
+                    </div>
+                    <span className="text-xs opacity-90">
+                      Entrega: {format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}
+                    </span>
                   </div>
                 </CardHeader>
 
