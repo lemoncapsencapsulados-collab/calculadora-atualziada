@@ -526,8 +526,38 @@ const Pedidos = () => {
               </Popover>
             </div>
 
-            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro) && (
-              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); }}>
+            <div className="space-y-1">
+              <Label className="text-xs">Entrega De</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !entregaInicioFiltro && "text-muted-foreground")}>
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {entregaInicioFiltro ? format(entregaInicioFiltro, 'dd/MM/yyyy') : 'Início'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={entregaInicioFiltro} onSelect={setEntregaInicioFiltro} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Entrega Até</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !entregaFimFiltro && "text-muted-foreground")}>
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {entregaFimFiltro ? format(entregaFimFiltro, 'dd/MM/yyyy') : 'Fim'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={entregaFimFiltro} onSelect={setEntregaFimFiltro} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
                 Limpar filtros
               </Button>
             )}
