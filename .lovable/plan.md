@@ -1,46 +1,44 @@
+# Prazo de entrega de 30 dias na tela de Pedidos
 
+Adicionar visibilidade do prazo de produção (30 dias corridos a partir da data de pagamento), destacar os dias restantes em cada card, e adicionar filtro por data de entrega.
 
-## Plano: Data de pagamento + Acompanhamento de Processos nos relatórios
+## O que será implementado
 
-### O que falta hoje
-1. **WhatsApp**: não envia `Data de Pagamento` por pedido (PDF/Excel já enviam).
-2. **PDF/Excel/WhatsApp**: nenhum mostra os status do **Acompanhar Processos** (Criação de Marca, **Produção**, Integração Logística, Página de Venda, Envio do Produto, e Avaliação de Satisfação se houver).
+### 1. Cálculo do prazo (30 dias após o pagamento)
+- Criar helper `calcularPrazoEntrega(dataPagamento)` em `src/pages/Pedidos.tsx`:
+  - `dataPrevistaEntrega = dataPagamento + 30 dias corridos`
+  - `diasRestantes = dias entre hoje e dataPrevistaEntrega`
+- Fonte da data de pagamento: `pedido.orcamento_snapshot.data_pagamento`. Se não existir, usar `pedido.data_pedido` como fallback.
+- Pedidos já concluídos não mostram contagem (mostram "Entregue").
 
-### Alterações
+### 2. Destaque visual no topo de cada card de pedido
+No `CardHeader` de cada pedido (`src/pages/Pedidos.tsx`, ~linha 562), adicionar uma faixa de destaque logo abaixo do nome do cliente, contendo:
+- **Badge grande com os dias restantes** (ex: `⏱ 18 dias restantes`)
+- **Data prevista de entrega** (ex: `Entrega prevista: 28/05/2026`)
 
-**1. `src/lib/relatoriosPedidos.ts`**
-- Em `PedidoReport`: adicionar `acompanhamento_processos?: any`.
-- Em `extractData`: extrair `acompanhamento` com 5 status + nota/observações de satisfação.
-- Mapeamento de labels de status:
-  - `pendente` → "⏳ Pendente"
-  - `entregue` → "✅ Entregue"
-  - `nao_necessario` → "— Não Necessário"
-- Em `addPedidoToPDF`: novo bloco **"Acompanhamento de Processos"** (após Frete, antes de Observações) listando:
-  - Criação de Marca: status
-  - **Produção: status**
-  - Integração Logística: status
-  - Página de Venda: status
-  - Envio do Produto: status
-  - Linha extra de Satisfação (Nota X/10 + observações) se `satisfacao_nota != null`.
-- Em `headers` Excel: adicionar 5 colunas de status + 2 de satisfação ao final:
-  `Status Criação Marca | Status Produção | Status Integração Logística | Status Página Venda | Status Envio Produto | Satisfação (Nota) | Satisfação (Obs.)`
-- Em `buildRows`: preencher essas colunas só na primeira linha de cada pedido.
+Cores semânticas do badge:
+- Verde: > 10 dias restantes
+- Amarelo: entre 1 e 10 dias
+- Vermelho: 0 dias ou atrasado (ex: `Atrasado 3 dias`)
+- Cinza: pedido já concluído
 
-**2. `src/pages/Pedidos.tsx`** — função `copiarRelatorioWhatsApp` (linha 99)
-- Adicionar `Data de Pagamento: dd/MM/yyyy` (de `snap.data_pagamento`) logo após "Tipo de produtor".
-- Adicionar bloco final com emoji 🔄:
-  ```
-  🔄 Acompanhamento de Processos:
-  • Criação de Marca: ⏳ Pendente
-  • Produção: ✅ Entregue
-  • Integração Logística: — Não Necessário
-  • Página de Venda: ⏳ Pendente
-  • Envio do Produto: ⏳ Pendente
-  ⭐ Satisfação: 9/10 — "ótimo atendimento"   (só se houver nota)
-  ```
-- Bloco só aparece se `pedido.acompanhamento_processos` existir.
+### 3. Linha de prazo dentro do bloco de detalhes
+Em `renderOrcamentoPedido` (perto do bloco de "Pgto:"), adicionar uma linha:
+- `📦 Entrega prevista: 28/05/2026 (30 dias após pagamento)`
 
-### Arquivos modificados
-- `src/lib/relatoriosPedidos.ts`
-- `src/pages/Pedidos.tsx`
+### 4. Novo filtro por data de entrega
+Em `src/pages/Pedidos.tsx`, ao lado dos filtros existentes "Pgto. De / Pgto. Até", adicionar:
+- `Entrega De` (date picker)
+- `Entrega Até` (date picker)
 
+Lógica de filtro: calcular `dataPrevistaEntrega` de cada pedido (pagamento + 30 dias) e comparar com o intervalo selecionado. Atualizar o botão "Limpar filtros" para resetar também esses dois novos campos.
+
+### 5. (Opcional, mas útil) Ordenação por urgência
+Adicionar um botão/select "Ordenar por: Mais urgente" que reordena `filteredPedidos` por `diasRestantes` ascendente. Pedidos concluídos vão para o final.
+
+## Arquivos afetados
+- `src/pages/Pedidos.tsx` — único arquivo a alterar.
+
+## Observações
+- Prazo fixo de 30 dias corridos, conforme regra de negócio atual. Se no futuro precisar ser configurável por pedido, pode-se adicionar um campo `prazo_dias` no pedido — não está no escopo agora.
+- Sem mudanças no banco de dados.

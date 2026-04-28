@@ -17,7 +17,7 @@ import {
   FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -52,6 +52,22 @@ const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido |
   return allDone ? 'concluido' : null;
 };
 
+const PRAZO_PRODUCAO_DIAS = 30;
+
+const getDataBaseEntrega = (pedido: any): Date => {
+  const dataPgto = pedido.orcamento_snapshot?.data_pagamento;
+  if (dataPgto) return new Date(dataPgto);
+  return new Date(pedido.data_pedido);
+};
+
+const calcularPrazoEntrega = (pedido: any) => {
+  const base = getDataBaseEntrega(pedido);
+  const dataPrevista = addDays(base, PRAZO_PRODUCAO_DIAS);
+  const hoje = new Date();
+  const diasRestantes = differenceInCalendarDays(dataPrevista, hoje);
+  return { dataPrevista, diasRestantes };
+};
+
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +75,8 @@ const Pedidos = () => {
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
   const [dataInicioFiltro, setDataInicioFiltro] = useState<Date | undefined>();
   const [dataFimFiltro, setDataFimFiltro] = useState<Date | undefined>();
+  const [entregaInicioFiltro, setEntregaInicioFiltro] = useState<Date | undefined>();
+  const [entregaFimFiltro, setEntregaFimFiltro] = useState<Date | undefined>();
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
