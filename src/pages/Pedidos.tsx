@@ -17,7 +17,7 @@ import {
   FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -52,6 +52,22 @@ const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido |
   return allDone ? 'concluido' : null;
 };
 
+const PRAZO_PRODUCAO_DIAS = 30;
+
+const getDataBaseEntrega = (pedido: any): Date => {
+  const dataPgto = pedido.orcamento_snapshot?.data_pagamento;
+  if (dataPgto) return new Date(dataPgto);
+  return new Date(pedido.data_pedido);
+};
+
+const calcularPrazoEntrega = (pedido: any) => {
+  const base = getDataBaseEntrega(pedido);
+  const dataPrevista = addDays(base, PRAZO_PRODUCAO_DIAS);
+  const hoje = new Date();
+  const diasRestantes = differenceInCalendarDays(dataPrevista, hoje);
+  return { dataPrevista, diasRestantes };
+};
+
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +75,8 @@ const Pedidos = () => {
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
   const [dataInicioFiltro, setDataInicioFiltro] = useState<Date | undefined>();
   const [dataFimFiltro, setDataFimFiltro] = useState<Date | undefined>();
+  const [entregaInicioFiltro, setEntregaInicioFiltro] = useState<Date | undefined>();
+  const [entregaFimFiltro, setEntregaFimFiltro] = useState<Date | undefined>();
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
@@ -217,9 +235,17 @@ const Pedidos = () => {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesConsultor && matchesData;
+      let matchesEntrega = true;
+      if (entregaInicioFiltro || entregaFimFiltro) {
+        const { dataPrevista } = calcularPrazoEntrega(pedido);
+        const dataPrevStr = format(dataPrevista, 'yyyy-MM-dd');
+        if (entregaInicioFiltro && dataPrevStr < format(entregaInicioFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
+        if (entregaFimFiltro && dataPrevStr > format(entregaFimFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
+      }
+
+      return matchesSearch && matchesStatus && matchesConsultor && matchesData && matchesEntrega;
     });
-  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro]);
+  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
 
   const renderOrcamentoPedido = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
@@ -295,6 +321,14 @@ const Pedidos = () => {
           <div className="flex items-center gap-1 text-sm text-green-600">
             <Calendar className="w-3 h-3" />
             Pgto: {format(new Date(snap.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
+          </div>
+        )}
+
+        {snap.data_pagamento && (
+          <div className="flex items-center gap-1 text-sm text-blue-600">
+            <Package className="w-3 h-3" />
+            Entrega prevista: {format(addDays(new Date(snap.data_pagamento), PRAZO_PRODUCAO_DIAS), "dd/MM/yyyy", { locale: ptBR })}
+            <span className="text-xs text-muted-foreground ml-1">(30 dias após pagamento)</span>
           </div>
         )}
 
@@ -492,8 +526,38 @@ const Pedidos = () => {
               </Popover>
             </div>
 
-            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro) && (
-              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); }}>
+            <div className="space-y-1">
+              <Label className="text-xs">Entrega De</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !entregaInicioFiltro && "text-muted-foreground")}>
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {entregaInicioFiltro ? format(entregaInicioFiltro, 'dd/MM/yyyy') : 'Início'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={entregaInicioFiltro} onSelect={setEntregaInicioFiltro} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Entrega Até</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !entregaFimFiltro && "text-muted-foreground")}>
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {entregaFimFiltro ? format(entregaFimFiltro, 'dd/MM/yyyy') : 'Fim'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent mode="single" selected={entregaFimFiltro} onSelect={setEntregaFimFiltro} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
                 Limpar filtros
               </Button>
             )}
@@ -557,6 +621,23 @@ const Pedidos = () => {
               ? pedido.orcamento_snapshot?.nome_cliente 
               : pedido.formula_snapshot?.cliente || 'Cliente';
 
+            const { dataPrevista, diasRestantes } = calcularPrazoEntrega(pedido);
+            let prazoColor = 'bg-green-100 text-green-800 border-green-300';
+            let prazoLabel = `${diasRestantes} dias restantes`;
+            if (isConcluido) {
+              prazoColor = 'bg-gray-100 text-gray-700 border-gray-300';
+              prazoLabel = 'Entregue';
+            } else if (diasRestantes < 0) {
+              prazoColor = 'bg-red-100 text-red-800 border-red-300';
+              prazoLabel = `Atrasado ${Math.abs(diasRestantes)} ${Math.abs(diasRestantes) === 1 ? 'dia' : 'dias'}`;
+            } else if (diasRestantes === 0) {
+              prazoColor = 'bg-red-100 text-red-800 border-red-300';
+              prazoLabel = 'Entrega hoje';
+            } else if (diasRestantes <= 10) {
+              prazoColor = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+              prazoLabel = `${diasRestantes} ${diasRestantes === 1 ? 'dia restante' : 'dias restantes'}`;
+            }
+
             return (
               <Card key={pedido.id} className={`hover:shadow-lg transition-shadow ${isConcluido ? 'border-green-400 bg-green-50/50' : ''}`}>
                 <CardHeader className="pb-3">
@@ -569,6 +650,15 @@ const Pedidos = () => {
                       <StatusIcon className="h-3 w-3" />
                       <span className="text-xs">{statusConfig.label}</span>
                     </Badge>
+                  </div>
+                  <div className={`mt-2 flex items-center justify-between gap-2 px-3 py-2 rounded-md border ${prazoColor}`}>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span className="text-sm font-bold">{prazoLabel}</span>
+                    </div>
+                    <span className="text-xs opacity-90">
+                      Entrega: {format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}
+                    </span>
                   </div>
                 </CardHeader>
 
