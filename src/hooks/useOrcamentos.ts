@@ -64,6 +64,7 @@ export function useOrcamentos() {
           dados_cliente: orcamento.dados_cliente as any,
           detalhamento_frete: orcamento.detalhamento_frete as any,
           condicoes_pagamento: orcamento.condicoes_pagamento as any,
+          cliente_id: orcamento.cliente_id,
         }])
         .select()
         .single();

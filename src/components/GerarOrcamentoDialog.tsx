@@ -51,7 +51,7 @@ import {
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 import ClienteSelector from '@/components/ClienteSelector';
-import { Cliente } from '@/hooks/useClientes';
+import { Cliente, useClientes } from '@/hooks/useClientes';
 
 // ── Setup cost types ──
 interface SetupItem {
@@ -88,6 +88,7 @@ export default function GerarOrcamentoDialog({
 }: GerarOrcamentoDialogProps) {
   const { createOrcamento, updateOrcamento, getNextNumeroOrcamento } = useOrcamentos();
   const { precificacoes } = usePrecificacao();
+  const { buscarPorId } = useClientes();
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,6 +219,12 @@ export default function GerarOrcamentoDialog({
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
       setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
+      // Carregar cliente vinculado para validar telefone
+      if ((orcamentoExistente as any).cliente_id) {
+        buscarPorId((orcamentoExistente as any).cliente_id).then((c) => {
+          if (c) setClienteSelecionado(c);
+        }).catch(() => {});
+      }
       if (orcamentoExistente.dados_cliente) {
         setDadosClienteTemp(orcamentoExistente.dados_cliente);
       }
@@ -405,6 +412,7 @@ export default function GerarOrcamentoDialog({
           id: orcamentoExistente.id,
           updates: {
             nome_cliente: nomeCliente,
+            ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
             consultor_responsavel: consultorResponsavel,
             tipo_orcamento: tipoOrcamento,
             validade_dias: validadeDias,
@@ -424,6 +432,7 @@ export default function GerarOrcamentoDialog({
         const novoOrcamento: OrcamentoInsert = {
           numero_orcamento: numeroOrcamento,
           nome_cliente: nomeCliente,
+          ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
           consultor_responsavel: consultorResponsavel,
           tipo_orcamento: tipoOrcamento,
           validade_dias: validadeDias,
@@ -452,7 +461,13 @@ export default function GerarOrcamentoDialog({
   };
 
   const canGoNext = () => {
-    if (step === 1) return nomeCliente.trim().length > 0 && consultorResponsavel.trim().length > 0;
+    if (step === 1) {
+      const temNome = nomeCliente.trim().length > 0;
+      const temConsultor = consultorResponsavel.trim().length > 0;
+      const tel = (clienteSelecionado?.telefone || '').replace(/\D/g, '');
+      const temTelefone = tel.length >= 10;
+      return temNome && temConsultor && temTelefone;
+    }
     if (step === 2) return itensProducao.length > 0;
     if (step === 3) {
       // Block if margin is below minimum and not unlocked
@@ -589,6 +604,17 @@ export default function GerarOrcamentoDialog({
                   onSelect={(c) => { setClienteSelecionado(c); setNomeCliente(c.nome); }}
                   onClear={() => { setClienteSelecionado(null); setNomeCliente(''); }}
                 />
+                {clienteSelecionado && (clienteSelecionado.telefone || '').replace(/\D/g, '').length < 10 && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    WhatsApp do cliente é obrigatório (com DDD). Edite o cadastro do cliente.
+                  </p>
+                )}
+                {!clienteSelecionado && (
+                  <p className="text-xs text-muted-foreground">
+                    Selecione ou crie um cliente. Nome e WhatsApp com DDD são obrigatórios.
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">

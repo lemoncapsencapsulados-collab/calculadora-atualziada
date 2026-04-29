@@ -10,6 +10,7 @@ import Inventario from "./pages/Inventario";
 import Pedidos from "./pages/Pedidos";
 import Precificacao from "./pages/Precificacao";
 import Orcamentos from "./pages/Orcamentos";
+import LeadsOrcamento from "./pages/LeadsOrcamento";
 import DashboardComercial from "./pages/DashboardComercial";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -72,6 +73,7 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/precificacao" element={<Precificacao />} />
           <Route path="/orcamentos" element={<Orcamentos />} />
+          <Route path="/leads-orcamento" element={<LeadsOrcamento />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/inventario" element={<Inventario />} />
           <Route path="/dashboard" element={<DashboardComercial />} />
