@@ -51,7 +51,7 @@ import {
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 import ClienteSelector from '@/components/ClienteSelector';
-import { Cliente } from '@/hooks/useClientes';
+import { Cliente, useClientes } from '@/hooks/useClientes';
 
 // ── Setup cost types ──
 interface SetupItem {
@@ -88,6 +88,7 @@ export default function GerarOrcamentoDialog({
 }: GerarOrcamentoDialogProps) {
   const { createOrcamento, updateOrcamento, getNextNumeroOrcamento } = useOrcamentos();
   const { precificacoes } = usePrecificacao();
+  const { buscarPorId } = useClientes();
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -218,6 +219,12 @@ export default function GerarOrcamentoDialog({
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
       setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
+      // Carregar cliente vinculado para validar telefone
+      if ((orcamentoExistente as any).cliente_id) {
+        buscarPorId((orcamentoExistente as any).cliente_id).then((c) => {
+          if (c) setClienteSelecionado(c);
+        }).catch(() => {});
+      }
       if (orcamentoExistente.dados_cliente) {
         setDadosClienteTemp(orcamentoExistente.dados_cliente);
       }
