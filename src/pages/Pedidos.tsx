@@ -831,7 +831,39 @@ const Pedidos = () => {
                         <Copy className="h-4 w-4" />
                       </Button>
                     )}
-                    
+
+                    {(() => {
+                      const telefone = getTelefoneCliente(pedido);
+                      const nomeCliente = pedido.orcamento_snapshot?.dados_cliente?.nome_completo
+                        || pedido.orcamento_snapshot?.nome_cliente
+                        || pedido.formula_snapshot?.cliente
+                        || 'cliente';
+                      const msg = `Olá ${nomeCliente}, tudo bem? Sou da Lemon Caps, entrando em contato sobre o seu pedido ${pedido.numero_pedido}. Previsão de entrega: ${format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}.`;
+                      const url = buildWhatsappUrl(telefone, msg);
+                      const habilitado = !!url;
+                      return (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={!habilitado ? 'inline-block cursor-not-allowed' : 'inline-block'}>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  disabled={!habilitado}
+                                  onClick={() => url && window.open(url, '_blank')}
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {habilitado ? 'Abrir conversa no WhatsApp' : 'Telefone do cliente indisponível'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm">
