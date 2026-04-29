@@ -604,6 +604,17 @@ export default function GerarOrcamentoDialog({
                   onSelect={(c) => { setClienteSelecionado(c); setNomeCliente(c.nome); }}
                   onClear={() => { setClienteSelecionado(null); setNomeCliente(''); }}
                 />
+                {clienteSelecionado && (clienteSelecionado.telefone || '').replace(/\D/g, '').length < 10 && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    WhatsApp do cliente é obrigatório (com DDD). Edite o cadastro do cliente.
+                  </p>
+                )}
+                {!clienteSelecionado && (
+                  <p className="text-xs text-muted-foreground">
+                    Selecione ou crie um cliente. Nome e WhatsApp com DDD são obrigatórios.
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
