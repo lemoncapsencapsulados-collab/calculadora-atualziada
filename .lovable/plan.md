@@ -1,44 +1,78 @@
-# Prazo de entrega de 30 dias na tela de Pedidos
+## Objetivo
 
-Adicionar visibilidade do prazo de produção (30 dias corridos a partir da data de pagamento), destacar os dias restantes em cada card, e adicionar filtro por data de entrega.
+Criar uma nova aba **"Leads Orçamento"** no menu, listando todos os clientes que possuem ao menos um orçamento gerado. Cada lead exibirá nome, telefone com DDD, botão direto para WhatsApp e a lista expansível de todos os orçamentos do cliente com seus detalhes.
 
-## O que será implementado
+Também garantir que, ao gerar um orçamento, o nome do cliente e o telefone com DDD sejam obrigatórios e capturados corretamente para alimentar essa aba.
 
-### 1. Cálculo do prazo (30 dias após o pagamento)
-- Criar helper `calcularPrazoEntrega(dataPagamento)` em `src/pages/Pedidos.tsx`:
-  - `dataPrevistaEntrega = dataPagamento + 30 dias corridos`
-  - `diasRestantes = dias entre hoje e dataPrevistaEntrega`
-- Fonte da data de pagamento: `pedido.orcamento_snapshot.data_pagamento`. Se não existir, usar `pedido.data_pedido` como fallback.
-- Pedidos já concluídos não mostram contagem (mostram "Entregue").
+---
 
-### 2. Destaque visual no topo de cada card de pedido
-No `CardHeader` de cada pedido (`src/pages/Pedidos.tsx`, ~linha 562), adicionar uma faixa de destaque logo abaixo do nome do cliente, contendo:
-- **Badge grande com os dias restantes** (ex: `⏱ 18 dias restantes`)
-- **Data prevista de entrega** (ex: `Entrega prevista: 28/05/2026`)
+## 1. Garantir captura de Nome + WhatsApp no Orçamento
 
-Cores semânticas do badge:
-- Verde: > 10 dias restantes
-- Amarelo: entre 1 e 10 dias
-- Vermelho: 0 dias ou atrasado (ex: `Atrasado 3 dias`)
-- Cinza: pedido já concluído
+No `GerarOrcamentoDialog.tsx` (Step 1) o `ClienteSelector` no modo `basico` já força nome + telefone ao criar novo cliente. Vou:
 
-### 3. Linha de prazo dentro do bloco de detalhes
-Em `renderOrcamentoPedido` (perto do bloco de "Pgto:"), adicionar uma linha:
-- `📦 Entrega prevista: 28/05/2026 (30 dias após pagamento)`
+- Validar obrigatoriedade do telefone do cliente selecionado antes de avançar (bloquear "Próximo" se `clienteSelecionado.telefone` estiver vazio).
+- Garantir que o `cliente_id` é salvo em `orcamentos.cliente_id` (campo já existe na tabela; vou adicionar ao payload do `createOrcamento` e `updateOrcamento`).
+- No `ClienteSelector` (criação inline), adicionar máscara/validação de telefone brasileiro com DDD: mínimo 10 dígitos, formatação `(11) 91234-5678`.
 
-### 4. Novo filtro por data de entrega
-Em `src/pages/Pedidos.tsx`, ao lado dos filtros existentes "Pgto. De / Pgto. Até", adicionar:
-- `Entrega De` (date picker)
-- `Entrega Até` (date picker)
+## 2. Nova rota e item de menu "Leads Orçamento"
 
-Lógica de filtro: calcular `dataPrevistaEntrega` de cada pedido (pagamento + 30 dias) e comparar com o intervalo selecionado. Atualizar o botão "Limpar filtros" para resetar também esses dois novos campos.
+- Adicionar rota `/leads-orcamento` em `src/App.tsx`.
+- Adicionar link no `Navigation.tsx` com ícone `Users` (entre "Orçamentos" e "Pedidos").
 
-### 5. (Opcional, mas útil) Ordenação por urgência
-Adicionar um botão/select "Ordenar por: Mais urgente" que reordena `filteredPedidos` por `diasRestantes` ascendente. Pedidos concluídos vão para o final.
+## 3. Página `src/pages/LeadsOrcamento.tsx`
 
-## Arquivos afetados
-- `src/pages/Pedidos.tsx` — único arquivo a alterar.
+Estrutura:
 
-## Observações
-- Prazo fixo de 30 dias corridos, conforme regra de negócio atual. Se no futuro precisar ser configurável por pedido, pode-se adicionar um campo `prazo_dias` no pedido — não está no escopo agora.
-- Sem mudanças no banco de dados.
+- **Hook novo** `src/hooks/useLeadsOrcamento.ts`: faz JOIN lógico — busca todos `orcamentos`, agrupa por `cliente_id` (fallback para `nome_cliente` quando `cliente_id` é nulo, para orçamentos antigos), e enriquece com dados de `clientes` (nome, telefone, email).
+- **Lista** de cards, um por cliente:
+  - Nome do cliente + badge com nº total de orçamentos
+  - Telefone formatado com DDD
+  - **Botão WhatsApp** (verde) → abre `https://wa.me/55<DDD><numero>?text=...` em nova aba
+  - Resumo: valor total acumulado, último orçamento (data), consultor mais recente
+  - Accordion expansível "Ver orçamentos" listando cada orçamento com:
+    - Nº orçamento, status (badge), data criação, valor total
+    - Produtos (lista resumida com nome e quantidade)
+    - Botões: "Ver PDF" (abre `PreviewPdfDialog`), "Editar" (abre `GerarOrcamentoDialog`)
+- **Filtros** no topo: busca por nome/telefone, filtro por status (ao menos 1 orçamento no status), filtro por consultor.
+
+## 4. Detalhes técnicos
+
+```text
+LeadsOrcamento (page)
+├── Filtros (busca, status, consultor)
+└── Lista de leads agrupados
+    └── Card do cliente
+        ├── Header: nome + telefone + botão WhatsApp
+        ├── Resumo: total orçamentos | valor acumulado | último contato
+        └── Accordion: lista de orçamentos
+            └── Item: nº | status | data | produtos | valor | ações
+```
+
+**Agrupamento (no hook):**
+- Chave: `cliente_id` quando presente, senão `nome_cliente` normalizado.
+- Para cada grupo, buscar dados completos do cliente em `clientes` (uma query `in` por todos os `cliente_id` distintos).
+- Ordenar leads pelo orçamento mais recente (desc).
+
+**Link WhatsApp:**
+```ts
+const numero = telefone.replace(/\D/g, '');
+const numeroComDDI = numero.startsWith('55') ? numero : `55${numero}`;
+const url = `https://wa.me/${numeroComDDI}?text=${encodeURIComponent(`Olá ${nome}, sobre seu orçamento...`)}`;
+```
+
+**Reuso de componentes:**
+- `PreviewPdfDialog` para visualizar PDF.
+- `GerarOrcamentoDialog` para editar (passa `orcamentoExistente`).
+- `STATUS_CONFIG` (copiar de `Orcamentos.tsx`) para badges consistentes.
+
+## 5. Arquivos a criar/editar
+
+- **Criar** `src/hooks/useLeadsOrcamento.ts`
+- **Criar** `src/pages/LeadsOrcamento.tsx`
+- **Editar** `src/App.tsx` (nova rota)
+- **Editar** `src/components/Navigation.tsx` (novo link)
+- **Editar** `src/components/GerarOrcamentoDialog.tsx` (validar telefone obrigatório no step 1; salvar `cliente_id`)
+- **Editar** `src/hooks/useOrcamentos.ts` (aceitar `cliente_id` no insert/update — já está no tipo `OrcamentoUpdate`, falta no `OrcamentoInsert`)
+- **Editar** `src/types/orcamento.ts` (adicionar `cliente_id?: string` em `OrcamentoInsert`)
+
+Sem necessidade de migração — todos os campos já existem no banco (`orcamentos.cliente_id`, `clientes.telefone`).
