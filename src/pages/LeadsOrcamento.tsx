@@ -19,6 +19,7 @@ import { ptBR } from 'date-fns/locale';
 import { Orcamento } from '@/types/orcamento';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
+import { buildWhatsappUrl as sharedBuildWhatsappUrl, formatTelefone as sharedFormatTelefone, isTelefoneValido } from '@/lib/whatsapp';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -27,19 +28,10 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
-function formatTelefone(tel: string): string {
-  const n = (tel || '').replace(/\D/g, '');
-  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
-  if (n.length === 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
-  return tel || '';
-}
-
+const formatTelefone = sharedFormatTelefone;
 function buildWhatsappUrl(telefone: string, nome: string): string | null {
-  const n = (telefone || '').replace(/\D/g, '');
-  if (n.length < 10) return null;
-  const comDDI = n.startsWith('55') ? n : `55${n}`;
   const msg = `Olá ${nome}, tudo bem? Sou da Lemon Caps e estou entrando em contato sobre seu orçamento.`;
-  return `https://wa.me/${comDDI}?text=${encodeURIComponent(msg)}`;
+  return sharedBuildWhatsappUrl(telefone, msg);
 }
 
 function formatCurrency(v: number): string {
@@ -191,8 +183,7 @@ interface LeadCardProps {
 
 function LeadCard({ lead, onEdit, onPreview }: LeadCardProps) {
   const whatsappUrl = buildWhatsappUrl(lead.telefone, lead.nome);
-  const telLimpo = (lead.telefone || '').replace(/\D/g, '');
-  const temWhats = telLimpo.length >= 10;
+  const temWhats = isTelefoneValido(lead.telefone);
 
   return (
     <Card className="overflow-hidden">

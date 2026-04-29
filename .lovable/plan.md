@@ -1,78 +1,45 @@
-## Objetivo
+## Plano: Botão WhatsApp em cada pedido com fallback e tooltip
 
-Criar uma nova aba **"Leads Orçamento"** no menu, listando todos os clientes que possuem ao menos um orçamento gerado. Cada lead exibirá nome, telefone com DDD, botão direto para WhatsApp e a lista expansível de todos os orçamentos do cliente com seus detalhes.
+### 1. Helper compartilhado — `src/lib/whatsapp.ts` (novo)
+Extrair lógica reaproveitável de `LeadsOrcamento.tsx`:
+- `normalizeTelefone(tel)` — remove não-dígitos.
+- `isTelefoneValido(tel)` — `length >= 10`.
+- `buildWhatsappUrl(telefone, mensagem)` — adiciona DDI 55 e codifica mensagem; retorna `null` se inválido.
 
-Também garantir que, ao gerar um orçamento, o nome do cliente e o telefone com DDD sejam obrigatórios e capturados corretamente para alimentar essa aba.
+### 2. Pedidos — `src/pages/Pedidos.tsx`
 
----
+**Resolver telefone com fallback (ordem):**
+1. `pedido.orcamento_snapshot?.dados_cliente?.telefone`
+2. `pedido.orcamento_snapshot?.cliente_telefone`
+3. `pedido.formula_snapshot?.telefone` (se houver)
+4. Fallback no cadastro `clientes` via `cliente_id` do snapshot — usar hook `useClientes()` (já carrega todos os clientes em cache via React Query) e fazer match por `id` ou por nome normalizado.
 
-## 1. Garantir captura de Nome + WhatsApp no Orçamento
+Implementação:
+- Importar `useClientes` no topo do componente para reaproveitar o cache existente.
+- Função `getTelefoneCliente(pedido, clientesById, clientesByNome)` retorna o primeiro telefone válido encontrado.
 
-No `GerarOrcamentoDialog.tsx` (Step 1) o `ClienteSelector` no modo `basico` já força nome + telefone ao criar novo cliente. Vou:
+**Botão WhatsApp no card do pedido:**
+- Adicionar entre os botões existentes de ação (linha 750-790, depois do botão "Copiar Relatório WhatsApp").
+- Ícone: `MessageCircle` (lucide-react).
+- Estilo verde: `className="bg-green-600 hover:bg-green-700 text-white"`.
+- `disabled` quando telefone não for válido.
+- Mensagem pré-preenchida:
+  ```
+  Olá {nome_cliente}, tudo bem? Sou da Lemon Caps, entrando em contato sobre o seu pedido {numero_pedido}. Previsão de entrega: {dd/MM/yyyy}.
+  ```
+- `onClick`: `window.open(url, '_blank')`.
 
-- Validar obrigatoriedade do telefone do cliente selecionado antes de avançar (bloquear "Próximo" se `clienteSelecionado.telefone` estiver vazio).
-- Garantir que o `cliente_id` é salvo em `orcamentos.cliente_id` (campo já existe na tabela; vou adicionar ao payload do `createOrcamento` e `updateOrcamento`).
-- No `ClienteSelector` (criação inline), adicionar máscara/validação de telefone brasileiro com DDD: mínimo 10 dígitos, formatação `(11) 91234-5678`.
+**Tooltip:**
+- Envolver o botão em `<Tooltip>` (`@/components/ui/tooltip`) — TooltipProvider já existe globalmente; caso não exista no escopo, embrulhar localmente.
+- Quando habilitado: tooltip "Abrir conversa no WhatsApp".
+- Quando desabilitado: tooltip "Telefone do cliente indisponível". Como `disabled` bloqueia eventos de hover no `<button>`, embrulhar em um `<span>` para o `TooltipTrigger` capturar o hover mesmo com botão desabilitado.
 
-## 2. Nova rota e item de menu "Leads Orçamento"
+### 3. LeadsOrcamento — `src/pages/LeadsOrcamento.tsx`
+Refatorar para usar o novo helper de `src/lib/whatsapp.ts` (remove duplicação). Mensagem mantida.
 
-- Adicionar rota `/leads-orcamento` em `src/App.tsx`.
-- Adicionar link no `Navigation.tsx` com ícone `Users` (entre "Orçamentos" e "Pedidos").
+### Arquivos afetados
+- **Criado:** `src/lib/whatsapp.ts`
+- **Editado:** `src/pages/Pedidos.tsx` — botão WhatsApp + fallback de telefone via `useClientes`.
+- **Editado:** `src/pages/LeadsOrcamento.tsx` — usar helper compartilhado.
 
-## 3. Página `src/pages/LeadsOrcamento.tsx`
-
-Estrutura:
-
-- **Hook novo** `src/hooks/useLeadsOrcamento.ts`: faz JOIN lógico — busca todos `orcamentos`, agrupa por `cliente_id` (fallback para `nome_cliente` quando `cliente_id` é nulo, para orçamentos antigos), e enriquece com dados de `clientes` (nome, telefone, email).
-- **Lista** de cards, um por cliente:
-  - Nome do cliente + badge com nº total de orçamentos
-  - Telefone formatado com DDD
-  - **Botão WhatsApp** (verde) → abre `https://wa.me/55<DDD><numero>?text=...` em nova aba
-  - Resumo: valor total acumulado, último orçamento (data), consultor mais recente
-  - Accordion expansível "Ver orçamentos" listando cada orçamento com:
-    - Nº orçamento, status (badge), data criação, valor total
-    - Produtos (lista resumida com nome e quantidade)
-    - Botões: "Ver PDF" (abre `PreviewPdfDialog`), "Editar" (abre `GerarOrcamentoDialog`)
-- **Filtros** no topo: busca por nome/telefone, filtro por status (ao menos 1 orçamento no status), filtro por consultor.
-
-## 4. Detalhes técnicos
-
-```text
-LeadsOrcamento (page)
-├── Filtros (busca, status, consultor)
-└── Lista de leads agrupados
-    └── Card do cliente
-        ├── Header: nome + telefone + botão WhatsApp
-        ├── Resumo: total orçamentos | valor acumulado | último contato
-        └── Accordion: lista de orçamentos
-            └── Item: nº | status | data | produtos | valor | ações
-```
-
-**Agrupamento (no hook):**
-- Chave: `cliente_id` quando presente, senão `nome_cliente` normalizado.
-- Para cada grupo, buscar dados completos do cliente em `clientes` (uma query `in` por todos os `cliente_id` distintos).
-- Ordenar leads pelo orçamento mais recente (desc).
-
-**Link WhatsApp:**
-```ts
-const numero = telefone.replace(/\D/g, '');
-const numeroComDDI = numero.startsWith('55') ? numero : `55${numero}`;
-const url = `https://wa.me/${numeroComDDI}?text=${encodeURIComponent(`Olá ${nome}, sobre seu orçamento...`)}`;
-```
-
-**Reuso de componentes:**
-- `PreviewPdfDialog` para visualizar PDF.
-- `GerarOrcamentoDialog` para editar (passa `orcamentoExistente`).
-- `STATUS_CONFIG` (copiar de `Orcamentos.tsx`) para badges consistentes.
-
-## 5. Arquivos a criar/editar
-
-- **Criar** `src/hooks/useLeadsOrcamento.ts`
-- **Criar** `src/pages/LeadsOrcamento.tsx`
-- **Editar** `src/App.tsx` (nova rota)
-- **Editar** `src/components/Navigation.tsx` (novo link)
-- **Editar** `src/components/GerarOrcamentoDialog.tsx` (validar telefone obrigatório no step 1; salvar `cliente_id`)
-- **Editar** `src/hooks/useOrcamentos.ts` (aceitar `cliente_id` no insert/update — já está no tipo `OrcamentoUpdate`, falta no `OrcamentoInsert`)
-- **Editar** `src/types/orcamento.ts` (adicionar `cliente_id?: string` em `OrcamentoInsert`)
-
-Sem necessidade de migração — todos os campos já existem no banco (`orcamentos.cliente_id`, `clientes.telefone`).
+Sem mudanças no banco de dados.

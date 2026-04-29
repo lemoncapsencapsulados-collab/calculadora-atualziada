@@ -14,7 +14,7 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt
+  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
@@ -44,6 +44,9 @@ import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useClientes, type Cliente } from '@/hooks/useClientes';
+import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -120,6 +123,7 @@ const exportarCSV = (pedidos: any[]) => {
 
 const Pedidos = () => {
   const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
+  const { clientes } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
@@ -163,6 +167,45 @@ const Pedidos = () => {
     });
     return Array.from(set).sort();
   }, [pedidos]);
+
+  const clientesById = useMemo(() => {
+    const map = new Map<string, Cliente>();
+    clientes.forEach(c => map.set(c.id, c));
+    return map;
+  }, [clientes]);
+
+  const clientesByNome = useMemo(() => {
+    const map = new Map<string, Cliente>();
+    clientes.forEach(c => {
+      const key = (c.nome || '').trim().toLowerCase();
+      if (key) map.set(key, c);
+    });
+    return map;
+  }, [clientes]);
+
+  const getTelefoneCliente = (pedido: any): string => {
+    const snap = pedido.orcamento_snapshot || {};
+    const candidatos = [
+      snap?.dados_cliente?.telefone,
+      snap?.cliente_telefone,
+      pedido.formula_snapshot?.telefone,
+    ];
+    for (const t of candidatos) {
+      if (isTelefoneValido(t)) return t as string;
+    }
+    // Fallback: cadastro de clientes
+    const clienteId = snap?.cliente_id || snap?.dados_cliente?.cliente_id;
+    if (clienteId && clientesById.has(clienteId)) {
+      const c = clientesById.get(clienteId)!;
+      if (isTelefoneValido(c.telefone)) return c.telefone;
+    }
+    const nome = (snap?.dados_cliente?.nome_completo || snap?.nome_cliente || pedido.formula_snapshot?.cliente || '').trim().toLowerCase();
+    if (nome && clientesByNome.has(nome)) {
+      const c = clientesByNome.get(nome)!;
+      if (isTelefoneValido(c.telefone)) return c.telefone;
+    }
+    return '';
+  };
 
   const copiarRelatorioWhatsApp = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
@@ -788,7 +831,39 @@ const Pedidos = () => {
                         <Copy className="h-4 w-4" />
                       </Button>
                     )}
-                    
+
+                    {(() => {
+                      const telefone = getTelefoneCliente(pedido);
+                      const nomeCliente = pedido.orcamento_snapshot?.dados_cliente?.nome_completo
+                        || pedido.orcamento_snapshot?.nome_cliente
+                        || pedido.formula_snapshot?.cliente
+                        || 'cliente';
+                      const msg = `Olá ${nomeCliente}, tudo bem? Sou da Lemon Caps, entrando em contato sobre o seu pedido ${pedido.numero_pedido}. Previsão de entrega: ${format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}.`;
+                      const url = buildWhatsappUrl(telefone, msg);
+                      const habilitado = !!url;
+                      return (
+                        <TooltipProvider delayDuration={150}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={!habilitado ? 'inline-block cursor-not-allowed' : 'inline-block'}>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  disabled={!habilitado}
+                                  onClick={() => url && window.open(url, '_blank')}
+                                >
+                                  <MessageCircle className="h-4 w-4" />
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {habilitado ? 'Abrir conversa no WhatsApp' : 'Telefone do cliente indisponível'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm">
