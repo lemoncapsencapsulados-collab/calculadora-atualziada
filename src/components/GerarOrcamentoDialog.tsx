@@ -405,6 +405,7 @@ export default function GerarOrcamentoDialog({
           id: orcamentoExistente.id,
           updates: {
             nome_cliente: nomeCliente,
+            ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
             consultor_responsavel: consultorResponsavel,
             tipo_orcamento: tipoOrcamento,
             validade_dias: validadeDias,
@@ -424,6 +425,7 @@ export default function GerarOrcamentoDialog({
         const novoOrcamento: OrcamentoInsert = {
           numero_orcamento: numeroOrcamento,
           nome_cliente: nomeCliente,
+          ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
           consultor_responsavel: consultorResponsavel,
           tipo_orcamento: tipoOrcamento,
           validade_dias: validadeDias,
@@ -452,7 +454,13 @@ export default function GerarOrcamentoDialog({
   };
 
   const canGoNext = () => {
-    if (step === 1) return nomeCliente.trim().length > 0 && consultorResponsavel.trim().length > 0;
+    if (step === 1) {
+      const temNome = nomeCliente.trim().length > 0;
+      const temConsultor = consultorResponsavel.trim().length > 0;
+      const tel = (clienteSelecionado?.telefone || '').replace(/\D/g, '');
+      const temTelefone = tel.length >= 10;
+      return temNome && temConsultor && temTelefone;
+    }
     if (step === 2) return itensProducao.length > 0;
     if (step === 3) {
       // Block if margin is below minimum and not unlocked
