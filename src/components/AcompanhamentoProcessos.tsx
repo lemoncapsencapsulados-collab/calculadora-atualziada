@@ -122,7 +122,7 @@ const AcompanhamentoProcessos = ({ acompanhamento, onUpdate, setupCategorias }: 
   return (
     <div className="space-y-3">
       {groups.map(({ label, icon: Icon, field, options }) => {
-        const currentVal = data[field] as string;
+        const currentVal = ((data as any)[field] as string) || 'pendente';
         return (
           <div key={field} className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
