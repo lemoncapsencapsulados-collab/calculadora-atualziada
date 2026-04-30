@@ -567,6 +567,21 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
       setShowPreview(true);
+
+      // Salvar PDF + dados no storage/tabela (substitui versão anterior)
+      try {
+        await salvarResumoMutation.mutateAsync({
+          orcamento: orcamentoAtualizado,
+          dadosCliente: dadosClienteCompletos,
+          detalhamentoFrete,
+          condicoesPagamento,
+          detalhesProducao,
+          clienteId: clienteSelecionado?.id ?? orcamento.cliente_id ?? null,
+          pdfBlob: blob,
+        });
+      } catch (err) {
+        console.error('Erro ao salvar resumo no storage:', err);
+      }
     } catch (error) {
       console.error('Erro ao gerar resumo para contrato:', error);
     } finally {
