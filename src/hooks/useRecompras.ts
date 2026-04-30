@@ -133,8 +133,10 @@ export function useRecompras() {
         const original = itensOrigem.find(it => it.precificacao_id && it.precificacao_id === p.precificacaoId)
           || itensOrigem.find(it => (it.nome_produto || '').toLowerCase() === p.nome.toLowerCase());
         const isPOD = p.modeloNegocio === 'print_on_demand';
-        const qtd = isPOD ? 0 : p.quantidade;
-        const subtotal = isPOD ? 0 : (p.quantidade * p.valorUnitario);
+        // Em recompra POD, o faturamento = qtd consumida × valor unitário
+        // (pagamento já ocorreu dentro do período informado).
+        const qtd = p.quantidade;
+        const subtotal = p.quantidade * p.valorUnitario;
         return {
           tipo: original?.tipo || 'avulso',
           precificacao_id: original?.precificacao_id || p.precificacaoId,
@@ -154,7 +156,7 @@ export function useRecompras() {
           dose_diaria_sugerida: original?.dose_diaria_sugerida,
           detalhes_producao: original?.detalhes_producao,
           ...(isPOD ? {
-            pod_consumo_quantidade: p.podConsumoQuantidade,
+            pod_consumo_quantidade: p.podConsumoQuantidade ?? p.quantidade,
             pod_consumo_inicio: p.podConsumoInicio,
             pod_consumo_fim: p.podConsumoFim,
           } : {}),
@@ -166,6 +168,11 @@ export function useRecompras() {
 
       const numeroOrcamento = `RECOMPRA-${pedidoOrigem.numero_pedido || snapOrigem.numero_orcamento || ''}-${Date.now().toString().slice(-4)}`;
 
+      // Período POD (vem repetido nos itens, pegamos do primeiro item POD)
+      const primeiroItemPOD = itensNovos.find((i: any) => i.modelo_negocio === 'print_on_demand');
+      const podPeriodoInicio = (primeiroItemPOD as any)?.pod_consumo_inicio;
+      const podPeriodoFim = (primeiroItemPOD as any)?.pod_consumo_fim;
+
       const novoSnapshot: OrcamentoSnapshot = {
         id: recompraData.id, // referência simbólica (não há orçamento real)
         numero_orcamento: numeroOrcamento,
@@ -176,7 +183,9 @@ export function useRecompras() {
         servicos_marca: [],
         dados_cliente: snapOrigem.dados_cliente,
         detalhamento_frete: snapOrigem.detalhamento_frete,
-        condicoes_pagamento: isModoPOD ? ({ pago_no_periodo: true } as any) : condicoes_pagamento,
+        condicoes_pagamento: isModoPOD
+          ? ({ pago_no_periodo: true, periodo_inicio: podPeriodoInicio, periodo_fim: podPeriodoFim } as any)
+          : condicoes_pagamento,
         subtotal_producao: subtotalProducao,
         subtotal_servicos: 0,
         valor_total: valorTotalSnap,
@@ -197,7 +206,8 @@ export function useRecompras() {
           data_entrega: dataIso,
           quantidade_produto: quantidadeTotal,
           unidade_produto: 'potes',
-          status: 'aguardando_producao',
+          // POD é apenas registro de faturamento já pago — não há produção a executar
+          status: isModoPOD ? 'concluido' : 'aguardando_producao',
           formula_id: null,
           formula_snapshot: null,
           observacoes: observacao || null,

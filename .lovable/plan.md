@@ -1,79 +1,51 @@
-## Objetivo
+# Recompra Print on Demand → calcular faturamento e marcar como pago
 
-Tornar o tipo da recompra explícito **logo no início do popup**, com dois caminhos distintos:
+## O que muda (comportamento)
 
-1. **Novo Pedido** (estoque) — fluxo atual: produtos, quantidade, valor, forma de pagamento.
-2. **Print on Demand (Registro de Faturamento)** — apenas registro de consumo já ocorrido: produto + intervalo de datas + qtd consumida + valor unitário. **Sem forma de pagamento** (já foi pago no período).
+Hoje, ao salvar uma recompra no modo **Print on Demand**, o cartão do pedido criado mostra **TOTAL = R$ 0,00**, porque o snapshot zera quantidade e subtotal dos itens POD. Vamos ajustar para que:
 
-A escolha do tipo passa a ser um filtro/toggle no topo do diálogo, e a UI se adapta — não mais por linha de produto.
+1. Cada produto POD tenha o cálculo: **faturamento = quantidade de potes consumidos × custo por pote**.
+2. A soma dos produtos selecionados gere o **valor_total do pedido**, exibido em destaque no campo **TOTAL** do card em "Pedidos → Visão Geral".
+3. O pedido POD seja registrado como **PAGO** (data de pagamento = data do registro da recompra) e identificado como tal no card, já que o pagamento ocorreu dentro do período informado.
+4. O selo "Recompra POD" continua aparecendo, mas agora acompanhado do valor de faturamento real (ex.: *Recompra POD — R$ 12.500,00 — Pago em 30/04/2026*).
 
-## Mudanças
+## Onde mexer (técnico)
 
-### 1. `AdicionarRecompraDialog.tsx`
+### 1. `src/hooks/useRecompras.ts` — `criarRecompraComPedido`
+- Remover o "zerar" do POD nos itens do snapshot. Hoje:
+  ```ts
+  const qtd = isPOD ? 0 : p.quantidade;
+  const subtotal = isPOD ? 0 : (p.quantidade * p.valorUnitario);
+  ```
+  Passar a usar **sempre** `p.quantidade` e `p.quantidade * p.valorUnitario`, mantendo `pod_consumo_quantidade/inicio/fim` para os itens POD (rastreabilidade do período).
+- Com isso, `subtotalProducao` e `valor_total` do snapshot já refletem o faturamento POD automaticamente.
+- Em `pedidos.insert`, manter `quantidade_produto = quantidadeTotal` (já faz isso).
+- Para POD, definir o pedido como pago:
+  - `status: 'concluido'` (em vez de `aguardando_producao`), pois não há produção a executar — é apenas registro de faturamento.
+  - `novoSnapshot.data_pagamento` continua sendo a data da recompra (já preenchido).
+  - `condicoes_pagamento` do snapshot: passar a gravar `{ pago_no_periodo: true, periodo_inicio, periodo_fim }` para o card poder mostrar o período.
 
-- Adicionar **toggle/RadioGroup** no topo: **"Novo Pedido"** vs **"Print on Demand (registro)"**.
-- O campo `modeloNegocio` por linha **deixa de existir na UI**. O modelo é definido pelo tipo selecionado no topo e aplicado a todas as linhas.
+### 2. `src/pages/Pedidos.tsx` — card da Visão Geral
+- O campo TOTAL (`snap.valor_total`) passará a refletir o faturamento POD automaticamente, sem código novo.
+- Adicionar, no badge/linha "Recompra POD", um sufixo "Pago" (verde) quando `tipo_orcamento === 'recompra_pod'`, e exibir o período de consumo logo abaixo (já existe a renderização das datas POD por item; manteremos).
+- Exportações CSV/PDF que dependem de `snap.valor_total` passam a contar o faturamento POD corretamente — nenhuma mudança extra necessária.
 
-**Modo "Novo Pedido":**
-- Mantém UI atual: lista de produtos com qtd, valor unit.
-- Mantém `CondicoesPagamentoForm`.
-- Sem campos de período POD.
+### 3. `src/components/pedidos/AdicionarRecompraDialog.tsx`
+- Trocar o rótulo do bloco de total no modo POD de "Faturamento do período" para algo mais explícito: **"Faturamento POD (qtd × valor unit.)"**, deixando claro que esse valor irá para o TOTAL do pedido como já pago.
+- Pequeno texto de apoio: *"Este valor será registrado como faturamento já recebido no período informado."*
 
-**Modo "Print on Demand":**
-- Para cada produto selecionado, mostrar:
-  - Quantidade consumida (potes)
-  - Valor unitário (R$)
-  - **Período de consumo único** (Início / Fim) — exibido **uma vez no topo da seção de produtos**, não por linha (todas as linhas compartilham o mesmo intervalo, já que representa o faturamento do período).
-- **Ocultar** completamente o `CondicoesPagamentoForm`.
-- Validação: período obrigatório, fim ≥ início, ao menos 1 produto com qtd > 0.
-- Texto do botão muda para **"Registrar Consumo POD"**; cor mantida (laranja).
+### 4. Subpáginas de entregáveis e demais telas
+- Como recompras POD são apenas registro de faturamento (não geram entregáveis de setup), nada muda em `SubpaginaEntregaveis` / `DemandasSetupResumo`. O filtro atual já ignora tipos `recompra*` para entregáveis de setup; manteremos.
 
-### 2. `useRecompras.ts` — `criarRecompraComPedido`
-
-- Aceitar novo campo `modo: 'novo_pedido' | 'print_on_demand'` no payload.
-- Se `print_on_demand`:
-  - Aplicar `modeloNegocio = 'print_on_demand'` a todos produtos.
-  - Propagar `podConsumoInicio`/`podConsumoFim` (vindos do nível raiz) para cada produto.
-  - **Não exigir** `condicoes_pagamento` (passar `{}` ou marcador `{ pago_no_periodo: true }` no snapshot).
-  - No snapshot do pedido gerado: `tipo_orcamento: 'recompra_pod'` (novo subtipo) para diferenciar visualmente do `'recompra'` regular. Quantidades de produção zeradas (regra POD do projeto).
-- Se `novo_pedido`: comportamento atual mantido com `tipo_orcamento: 'recompra'`.
-
-### 3. `Pedidos.tsx` — visualização do card
-
-- Reconhecer o novo `tipo_orcamento === 'recompra_pod'` e exibir badge **"Recompra POD"** (cor diferenciada — ex.: roxo/violeta) ao invés do badge laranja "Recompra".
-- No resumo do produto, quando POD: mostrar "Faturamento POD: 500 potes (01/04/26 – 30/04/26)" e ocultar bloco de pagamento.
-
-### 4. Tipos
-
-`src/types/dashboard.ts` — `RecompraProduto` já comporta os campos POD; nada a alterar.
-
-Adicionar campo opcional `tipo_recompra?: 'novo_pedido' | 'print_on_demand'` na interface `Recompra` para filtros futuros no Dashboard Comercial (não obrigatório agora, mas facilita).
-
-## Fluxo visual
+## Resultado esperado
 
 ```text
-Popup "Adicionar Recompra"
- ├─ [ Tipo da Recompra ]  ( Novo Pedido | Print on Demand )
- │
- ├─ Cliente (read-only) | Consultor | Data da recompra
- │
- ├─ SE "Print on Demand":
- │    ├─ Período de consumo (Início → Fim)   ← único bloco
- │    └─ Lista de produtos
- │         └─ checkbox | nome | qtd consumida | valor unit
- │    (sem forma de pagamento)
- │
- ├─ SE "Novo Pedido":
- │    ├─ Lista de produtos
- │    │    └─ checkbox | nome | qtd | valor unit
- │    └─ CondicoesPagamentoForm
- │
- ├─ Observação
- └─ Totais + botão "Registrar Consumo POD" ou "Salvar Recompra"
+[ Card do Pedido — Cliente X ]
+  PED-042  •  Recompra POD  •  Pago em 30/04/2026
+  Período: 01/04/2026 – 30/04/2026
+  Produto Y — 500 potes × R$ 25,00
+  --------------------------------
+  TOTAL                      R$ 12.500,00
 ```
 
-## Não está no escopo
-
-- Filtro/visualização separada de POD vs Novo Pedido no Dashboard Comercial (pode vir em iteração seguinte usando `tipo_recompra`).
-- Edição posterior do registro POD.
-- Migrações no banco — `produtos` e `orcamento_snapshot` são jsonb e já comportam os campos.
+Nenhuma migração de banco é necessária — os dados antigos com `valor_total = 0` permanecem como estão; novos registros POD passam a vir com o faturamento correto.
