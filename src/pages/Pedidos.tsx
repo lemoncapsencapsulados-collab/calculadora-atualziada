@@ -390,12 +390,21 @@ const Pedidos = () => {
             <Package className="w-3 h-3" /> Produtos ({itens.length})
           </p>
           {itens.map((item: any, idx: number) => (
-            <div key={idx} className="text-sm flex justify-between items-center">
-              <span className="truncate flex-1">
-                {item.nome_produto}
-                {item.modelo_negocio === 'print_on_demand' ? ' (POD)' : ` x${item.quantidade}`}
-              </span>
-              <span className="font-medium ml-2">{formatCurrency(item.subtotal)}</span>
+            <div key={idx} className="text-sm">
+              <div className="flex justify-between items-center">
+                <span className="truncate flex-1">
+                  {item.nome_produto}
+                  {item.modelo_negocio === 'print_on_demand' ? ' (POD)' : ` x${item.quantidade}`}
+                </span>
+                <span className="font-medium ml-2">{formatCurrency(item.subtotal)}</span>
+              </div>
+              {item.modelo_negocio === 'print_on_demand' && item.pod_consumo_inicio && item.pod_consumo_fim && (
+                <div className="text-xs text-purple-700 ml-1">
+                  Consumo: {item.pod_consumo_quantidade ?? 0} potes (
+                  {format(new Date(item.pod_consumo_inicio), 'dd/MM/yy', { locale: ptBR })}
+                  –{format(new Date(item.pod_consumo_fim), 'dd/MM/yy', { locale: ptBR })})
+                </div>
+              )}
             </div>
           ))}
         </div>
