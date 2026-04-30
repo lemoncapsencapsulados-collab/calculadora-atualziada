@@ -85,6 +85,10 @@ export interface AcompanhamentoProcessos {
   envio_produto: StatusProcesso;
   satisfacao_nota: number | null;
   satisfacao_observacoes: string | null;
+  // Setup extras (categorias gerenciadas nas subpáginas de Pedidos)
+  registro_inpi?: StatusProcessoLogistica;
+  impressao_rotulos?: StatusProcessoLogistica;
+  codigo_barras?: StatusProcessoLogistica;
 }
 
 export type StatusPedido = 
