@@ -427,7 +427,7 @@ const Pedidos = () => {
               <div className="flex justify-between items-center">
                 <span className="truncate flex-1">
                   {item.nome_produto}
-                  {item.modelo_negocio === 'print_on_demand' ? ' (POD)' : ` x${item.quantidade}`}
+                  {item.modelo_negocio === 'print_on_demand' ? ` (POD) x${Number(item.pod_consumo_quantidade) || Number(item.quantidade) || 0}` : ` x${item.quantidade}`}
                 </span>
                 <span className="font-medium ml-2">{formatCurrency(getItemValorEfetivo(item))}</span>
               </div>
