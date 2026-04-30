@@ -377,6 +377,9 @@ const Pedidos = () => {
               ? 'Recompra POD'
               : snap.tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
           </Badge>
+          {snap.tipo_orcamento === 'recompra_pod' && (
+            <Badge variant="outline" className="border-green-500 text-green-700">Pago</Badge>
+          )}
           {itens.some((i: any) => i.modelo_negocio === 'print_on_demand') && (
             <Badge variant="outline" className="border-purple-500 text-purple-700">POD</Badge>
           )}
@@ -442,7 +445,7 @@ const Pedidos = () => {
           </div>
         )}
 
-        {snap.data_pagamento && (
+        {snap.data_pagamento && snap.tipo_orcamento !== 'recompra_pod' && (
           <div className="flex items-center gap-1 text-sm text-blue-600">
             <Package className="w-3 h-3" />
             Entrega prevista: {format(addDays(new Date(snap.data_pagamento), PRAZO_PRODUCAO_DIAS), "dd/MM/yyyy", { locale: ptBR })}
