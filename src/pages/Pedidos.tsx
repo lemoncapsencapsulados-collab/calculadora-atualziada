@@ -807,6 +807,16 @@ const Pedidos = () => {
                        <AcompanhamentoProcessos
                         acompanhamento={pedido.acompanhamento_processos}
                         onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp, pedidoId: pedido.id })}
+                        setupCategorias={(() => {
+                          const cats = todasDemandas
+                            .filter(d => d.pedido_id === pedido.id)
+                            .map(d => d.categoria);
+                          return {
+                            registro_inpi: cats.includes('registro_inpi'),
+                            impressao_rotulos: cats.includes('impressao_rotulos'),
+                            codigo_barras: cats.includes('codigo_barras'),
+                          };
+                        })()}
                       />
                     </CollapsibleContent>
                   </Collapsible>
