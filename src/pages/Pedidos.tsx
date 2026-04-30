@@ -47,6 +47,12 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
 import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  CATEGORIAS_ENTREGAVEIS, EntregavelCategoria, extrairTodasDemandas,
+} from '@/lib/entregaveis';
+import DemandasSetupResumo from '@/components/pedidos/DemandasSetupResumo';
+import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -135,6 +141,7 @@ const Pedidos = () => {
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
   const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
+  const [tabAtiva, setTabAtiva] = useState<string>('overview');
 
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
   const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
