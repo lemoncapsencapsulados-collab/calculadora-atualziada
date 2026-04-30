@@ -229,8 +229,9 @@ const Pedidos = () => {
     const consultor = snap.consultor_responsavel || '-';
     const nomeCliente = dadosCliente.nome_completo || snap.nome_cliente || '-';
     const valorVenda = snap.valor_total || 0;
-    const isRecompra = snap.tipo_orcamento === 'recompra';
-    const tipoProdutorLabel = isRecompra ? 'Recompra' : 'Novo produtor';
+    const isRecompraPOD = snap.tipo_orcamento === 'recompra_pod';
+    const isRecompra = snap.tipo_orcamento === 'recompra' || isRecompraPOD;
+    const tipoProdutorLabel = isRecompraPOD ? 'Recompra POD' : (isRecompra ? 'Recompra' : 'Novo produtor');
     const percentualComissao = isRecompra ? 0.01 : 0.05;
     const comissaoValor = valorVenda * percentualComissao;
 
@@ -366,11 +367,15 @@ const Pedidos = () => {
         {/* Header info */}
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline" className={
-            snap.tipo_orcamento === 'recompra'
-              ? 'border-orange-500 text-orange-700'
-              : 'border-blue-500 text-blue-700'
+            snap.tipo_orcamento === 'recompra_pod'
+              ? 'border-purple-500 text-purple-700'
+              : snap.tipo_orcamento === 'recompra'
+                ? 'border-orange-500 text-orange-700'
+                : 'border-blue-500 text-blue-700'
           }>
-            {snap.tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
+            {snap.tipo_orcamento === 'recompra_pod'
+              ? 'Recompra POD'
+              : snap.tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
           </Badge>
           {itens.some((i: any) => i.modelo_negocio === 'print_on_demand') && (
             <Badge variant="outline" className="border-purple-500 text-purple-700">POD</Badge>
