@@ -500,16 +500,16 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     // Biggest sale
     if (pedidosFiltrados.length > 0) {
       const maior = pedidosFiltrados.reduce((max, p) => {
-        const vMax = Number(getSnap(max).valor_total || 0);
+        const vMax = getSnapValorEfetivo(getSnap(max));
         const vP = getSnapValorEfetivo(getSnap(p));
         return vP > vMax ? p : max;
       });
       const snapMaior = getSnap(maior);
       resultado.push({
         tipo: 'positivo',
-        mensagem: `Maior venda do período: ${snapMaior.consultor_responsavel || 'Sem consultor'} - R$ ${Number(snapMaior.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${snapMaior.nome_cliente})`,
+        mensagem: `Maior venda do período: ${snapMaior.consultor_responsavel || 'Sem consultor'} - R$ ${getSnapValorEfetivo(snapMaior).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${snapMaior.nome_cliente})`,
         consultor: snapMaior.consultor_responsavel || undefined,
-        valor: Number(snapMaior.valor_total || 0)
+        valor: getSnapValorEfetivo(snapMaior)
       });
     }
     
