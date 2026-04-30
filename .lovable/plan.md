@@ -1,104 +1,79 @@
 ## Objetivo
 
-Em **Pedidos → Visão Geral**, adicionar em cada card de pedido um botão **"Adicionar Recompra"**. Ao clicar, abre um popup pré-preenchido com os dados do cliente/consultor do pedido original onde o usuário escolhe:
+Tornar o tipo da recompra explícito **logo no início do popup**, com dois caminhos distintos:
 
-- Produto(s) que entram na recompra (vindos do próprio pedido)
-- Quantidade e valor unitário de cada produto
-- Modelo de negócio: **Estoque** ou **Print on Demand**
-- Forma/condições de pagamento
-- (Opcional) Observação
+1. **Novo Pedido** (estoque) — fluxo atual: produtos, quantidade, valor, forma de pagamento.
+2. **Print on Demand (Registro de Faturamento)** — apenas registro de consumo já ocorrido: produto + intervalo de datas + qtd consumida + valor unitário. **Sem forma de pagamento** (já foi pago no período).
 
-Ao salvar, o sistema cria **dois registros**:
+A escolha do tipo passa a ser um filtro/toggle no topo do diálogo, e a UI se adapta — não mais por linha de produto.
 
-1. Um novo **pedido** (PED-XXX) vinculado ao mesmo cliente, herdando consultor e dados do pedido original. Esse pedido aparece como mais um card na Visão Geral.
-2. Um registro em **`recompras`** (alimenta o Dashboard Comercial existente).
+## Mudanças
 
-### Regra POD: consumo em período personalizado
+### 1. `AdicionarRecompraDialog.tsx`
 
-Quando o modelo selecionado for **Print on Demand**, cada produto exibe campos extras:
-- Quantidade de potes consumidos
-- Período: data inicial e data final (ex.: 01/04/2026 → 30/04/2026)
+- Adicionar **toggle/RadioGroup** no topo: **"Novo Pedido"** vs **"Print on Demand (registro)"**.
+- O campo `modeloNegocio` por linha **deixa de existir na UI**. O modelo é definido pelo tipo selecionado no topo e aplicado a todas as linhas.
 
-Esses dados são gravados no produto da recompra/pedido para histórico de consumo. Em POD, a quantidade do pedido fica zerada (regra do projeto), mas o consumo no período fica registrado.
+**Modo "Novo Pedido":**
+- Mantém UI atual: lista de produtos com qtd, valor unit.
+- Mantém `CondicoesPagamentoForm`.
+- Sem campos de período POD.
 
-## Mudanças propostas
+**Modo "Print on Demand":**
+- Para cada produto selecionado, mostrar:
+  - Quantidade consumida (potes)
+  - Valor unitário (R$)
+  - **Período de consumo único** (Início / Fim) — exibido **uma vez no topo da seção de produtos**, não por linha (todas as linhas compartilham o mesmo intervalo, já que representa o faturamento do período).
+- **Ocultar** completamente o `CondicoesPagamentoForm`.
+- Validação: período obrigatório, fim ≥ início, ao menos 1 produto com qtd > 0.
+- Texto do botão muda para **"Registrar Consumo POD"**; cor mantida (laranja).
 
-### 1. Tipos
-`src/types/dashboard.ts` — estender `RecompraProduto`:
-```ts
-interface RecompraProduto {
-  nome: string;
-  quantidade: number;
-  valorUnitario: number;
-  modeloNegocio?: 'estoque' | 'print_on_demand';
-  // Apenas POD
-  podConsumoQuantidade?: number;
-  podConsumoInicio?: string; // YYYY-MM-DD
-  podConsumoFim?: string;    // YYYY-MM-DD
-  // Referência ao item original do pedido (opcional)
-  precificacaoId?: string;
-}
-```
+### 2. `useRecompras.ts` — `criarRecompraComPedido`
 
-### 2. Novo componente `src/components/pedidos/AdicionarRecompraDialog.tsx`
-Popup com os passos:
-- **Cabeçalho**: Cliente (read-only do pedido), Consultor (editável), Data da recompra (DatePicker, default hoje).
-- **Produtos**: lista pré-carregada a partir de `pedido.orcamento_snapshot.itens_producao`. Usuário marca quais entram, ajusta quantidade, valor unitário e escolhe modelo (Estoque / POD).
-  - Se POD: aparecem 3 inputs (Qtd consumida, Início, Fim) usando o DatePicker padrão (`Calendar` em `Popover` com `pointer-events-auto`).
-- **Pagamento**: reutilizar componente já existente `CondicoesPagamentoForm` (mesmo usado no orçamento), gravando o objeto `condicoes_pagamento` no snapshot do novo pedido.
-- **Observação**: textarea opcional.
-- **Totais**: soma automática quantidade + valor.
+- Aceitar novo campo `modo: 'novo_pedido' | 'print_on_demand'` no payload.
+- Se `print_on_demand`:
+  - Aplicar `modeloNegocio = 'print_on_demand'` a todos produtos.
+  - Propagar `podConsumoInicio`/`podConsumoFim` (vindos do nível raiz) para cada produto.
+  - **Não exigir** `condicoes_pagamento` (passar `{}` ou marcador `{ pago_no_periodo: true }` no snapshot).
+  - No snapshot do pedido gerado: `tipo_orcamento: 'recompra_pod'` (novo subtipo) para diferenciar visualmente do `'recompra'` regular. Quantidades de produção zeradas (regra POD do projeto).
+- Se `novo_pedido`: comportamento atual mantido com `tipo_orcamento: 'recompra'`.
 
-### 3. Hook `useRecompras` — extensão
-Adicionar mutation `criarRecompraComPedido` que:
-1. Faz `INSERT` em `recompras` (já existe).
-2. Faz `INSERT` em `pedidos` montando um `orcamento_snapshot` "sintético" com:
-   - `tipo_orcamento: 'recompra'`
-   - `nome_cliente`, `consultor_responsavel`, `dados_cliente` herdados do pedido original
-   - `itens_producao` derivados dos produtos selecionados (com `modelo_negocio` e — em POD — quantidade zerada conforme regra do projeto, e `dados_extras` guardando consumo POD)
-   - `condicoes_pagamento` do formulário
-   - `valor_total`, `subtotal_producao`, `subtotal_servicos: 0`
-   - `numero_orcamento` placeholder do tipo `RECOMPRA-{numero_pedido_origem}-{nº}`
-3. Numera o pedido com `PED-XXX` (mesma função `getNextPedNumber`).
-4. Invalida queries de `pedidos` e `recompras` para que o novo card apareça imediatamente na Visão Geral.
+### 3. `Pedidos.tsx` — visualização do card
 
-### 4. Botão no card do pedido (`src/pages/Pedidos.tsx`)
-- Acrescentar botão **"Adicionar Recompra"** (ícone `RefreshCw` ou `RotateCcw`) na barra de ações do card, dentro do bloco da Visão Geral. Mostrar apenas para pedidos com `orcamento_snapshot` (recompra precisa do contexto de cliente/itens).
-- Ao clicar, abre `AdicionarRecompraDialog` com o pedido como contexto.
+- Reconhecer o novo `tipo_orcamento === 'recompra_pod'` e exibir badge **"Recompra POD"** (cor diferenciada — ex.: roxo/violeta) ao invés do badge laranja "Recompra".
+- No resumo do produto, quando POD: mostrar "Faturamento POD: 500 potes (01/04/26 – 30/04/26)" e ocultar bloco de pagamento.
 
-### 5. Visualização no card gerado
-Como reaproveitamos o snapshot atual de pedido + `tipo_orcamento: 'recompra'`, o card já será exibido com o badge "Recompra" laranja existente (já renderizado em `renderOrcamentoPedido`). Em POD, mostraremos no resumo do produto a linha "Consumo: 500 potes (01/04/26–30/04/26)".
+### 4. Tipos
 
-## Detalhes técnicos
+`src/types/dashboard.ts` — `RecompraProduto` já comporta os campos POD; nada a alterar.
+
+Adicionar campo opcional `tipo_recompra?: 'novo_pedido' | 'print_on_demand'` na interface `Recompra` para filtros futuros no Dashboard Comercial (não obrigatório agora, mas facilita).
+
+## Fluxo visual
 
 ```text
-AdicionarRecompraDialog
- ├─ Cliente / Consultor / DatePicker(Data)
- ├─ Lista de produtos pré-preenchidos do pedido original
- │    ├─ checkbox incluir
- │    ├─ qtd, valor unit
- │    ├─ select modelo (Estoque | POD)
- │    └─ se POD:
- │         ├─ qtd consumida (input number)
- │         ├─ DatePicker início
- │         └─ DatePicker fim  (validação: fim >= início)
- ├─ CondicoesPagamentoForm (existente)
+Popup "Adicionar Recompra"
+ ├─ [ Tipo da Recompra ]  ( Novo Pedido | Print on Demand )
+ │
+ ├─ Cliente (read-only) | Consultor | Data da recompra
+ │
+ ├─ SE "Print on Demand":
+ │    ├─ Período de consumo (Início → Fim)   ← único bloco
+ │    └─ Lista de produtos
+ │         └─ checkbox | nome | qtd consumida | valor unit
+ │    (sem forma de pagamento)
+ │
+ ├─ SE "Novo Pedido":
+ │    ├─ Lista de produtos
+ │    │    └─ checkbox | nome | qtd | valor unit
+ │    └─ CondicoesPagamentoForm
+ │
  ├─ Observação
- └─ Totais + Salvar
+ └─ Totais + botão "Registrar Consumo POD" ou "Salvar Recompra"
 ```
-
-Persistência:
-- `recompras.produtos` (jsonb) recebe array com novos campos.
-- `pedidos.orcamento_snapshot` (jsonb) recebe um snapshot sintético com `tipo_orcamento='recompra'` e `itens_producao[].dados_extras = { pod_consumo_qtd, pod_consumo_inicio, pod_consumo_fim }`.
-- Sem migração: ambos os campos já são jsonb. Datas em formato `YYYY-MM-DD` (regra do projeto).
-
-Validações:
-- Pelo menos 1 produto com qtd > 0 e valor > 0.
-- POD: período obrigatório com `fim >= início`.
-- Consultor obrigatório.
 
 ## Não está no escopo
 
-- Mexer no fluxo de orçamento original.
-- Disparar webhook n8n para a nova recompra (manter comportamento atual de pedidos é suficiente — o `INSERT` em `pedidos` já dispara o sync existente).
-- Edição posterior do consumo POD (pode ser próxima iteração).
+- Filtro/visualização separada de POD vs Novo Pedido no Dashboard Comercial (pode vir em iteração seguinte usando `tipo_recompra`).
+- Edição posterior do registro POD.
+- Migrações no banco — `produtos` e `orcamento_snapshot` são jsonb e já comportam os campos.
