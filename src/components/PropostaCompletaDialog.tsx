@@ -658,6 +658,48 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     );
   }
 
+  // Modo visualizar: mostra o PDF salvo no storage com opção de baixar/editar
+  if (viewMode === 'visualizar') {
+    const signedUrl = resumoSalvo?.signedUrl;
+    return (
+      <Dialog open onOpenChange={() => onClose()}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Resumo do Contrato — {orcamento.nome_cliente}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {loadingResumo ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Carregando resumo...
+              </div>
+            ) : signedUrl ? (
+              <iframe src={signedUrl} className="w-full h-full border rounded-lg" title="Resumo do Contrato" />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                <AlertTriangle className="w-8 h-8" />
+                <p>Nenhum resumo de contrato salvo para este orçamento.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Fechar</Button>
+            <Button variant="outline" onClick={() => setViewMode('editar')}>
+              <FileCheck className="w-4 h-4 mr-2" />Editar Resumo
+            </Button>
+            {resumoSalvo?.resumo && (
+              <Button onClick={() => baixarPdfContrato(
+                resumoSalvo.resumo.pdf_path,
+                `Resumo-Contrato-${orcamento.numero_orcamento}.pdf`
+              )}>
+                <Download className="w-4 h-4 mr-2" />Baixar PDF
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
