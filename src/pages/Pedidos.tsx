@@ -146,6 +146,8 @@ const Pedidos = () => {
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
   const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
 
+  const todasDemandas = useMemo(() => extrairTodasDemandas(pedidos as any), [pedidos]);
+
   const contratoInputRef = useRef<HTMLInputElement>(null);
   const comprovanteInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ pedidoId: string; tipo: 'contrato' | 'comprovante' } | null>(null);
