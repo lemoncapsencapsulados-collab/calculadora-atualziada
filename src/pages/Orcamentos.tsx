@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   Search, Pencil, Trash2, Calendar, Package, Palette,
-  FileText, Plus, CheckCircle2, FileCheck,
+  FileText, Plus, CheckCircle2, FileCheck, FileSignature,
   ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -26,6 +26,7 @@ import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 import AprovacaoOrcamentoDialog from '@/components/AprovacaoOrcamentoDialog';
 import OrcamentoKanbanView from '@/components/OrcamentoKanbanView';
+import { useResumosContratoExistentes } from '@/hooks/useResumoContrato';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -50,6 +51,8 @@ export default function Orcamentos() {
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
+  const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
+  const { data: resumosExistentes } = useResumosContratoExistentes();
 
   // State para popup de aprovação com proposta completa
   const [aprovandoOrcamento, setAprovandoOrcamento] = useState<Orcamento | null>(null);
@@ -192,6 +195,8 @@ export default function Orcamentos() {
               onDelete={setDeletandoId}
               onPreview={setPreviewOrcamento}
               onPropostaCompleta={setPropostaCompletaOrcamento}
+              onVerResumoContrato={setVerResumoContrato}
+              resumosExistentes={resumosExistentes}
               onStatusChange={handleStatusChange}
             />
           )}
@@ -325,6 +330,11 @@ export default function Orcamentos() {
                               <Button variant="default" size="sm" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
                                 <FileCheck className="w-4 h-4 mr-2" />Resumo para Contrato
                               </Button>
+                              {resumosExistentes?.has(orcamento.id) && (
+                                <Button variant="outline" size="sm" onClick={() => setVerResumoContrato(orcamento)}>
+                                  <FileSignature className="w-4 h-4 mr-2" />Ver Resumo do Contrato
+                                </Button>
+                              )}
                               <Button variant="destructive" size="sm" onClick={() => setDeletandoId(orcamento.id)}>
                                 <Trash2 className="w-4 h-4 mr-2" />Excluir
                               </Button>
@@ -372,6 +382,14 @@ export default function Orcamentos() {
 
       {propostaCompletaOrcamento && (
         <PropostaCompletaDialog orcamento={propostaCompletaOrcamento} onClose={() => setPropostaCompletaOrcamento(null)} />
+      )}
+
+      {verResumoContrato && (
+        <PropostaCompletaDialog
+          orcamento={verResumoContrato}
+          modo="visualizar"
+          onClose={() => setVerResumoContrato(null)}
+        />
       )}
 
       {/* Dialog de confirmação de exclusão */}
