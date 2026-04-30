@@ -21,6 +21,7 @@ interface CriarRecompraComPedidoInput {
   produtos: RecompraProduto[];
   condicoes_pagamento?: CondicoesPagamento;
   observacao?: string;
+  modo?: 'novo_pedido' | 'print_on_demand';
 }
 
 const getNextPedNumber = async (): Promise<string> => {
@@ -99,7 +100,8 @@ export function useRecompras() {
   // (para que apareça como mais um card na Visão Geral de Pedidos).
   const criarRecompraComPedido = useMutation({
     mutationFn: async (input: CriarRecompraComPedidoInput) => {
-      const { pedidoOrigem, consultor, dataRecompra, produtos, condicoes_pagamento, observacao } = input;
+      const { pedidoOrigem, consultor, dataRecompra, produtos, condicoes_pagamento, observacao, modo } = input;
+      const isModoPOD = modo === 'print_on_demand';
       const snapOrigem: any = pedidoOrigem.orcamento_snapshot || {};
       const nomeCliente: string = snapOrigem.nome_cliente
         || snapOrigem.dados_cliente?.nome_completo
@@ -169,12 +171,12 @@ export function useRecompras() {
         numero_orcamento: numeroOrcamento,
         nome_cliente: nomeCliente,
         consultor_responsavel: consultor,
-        tipo_orcamento: 'recompra',
+        tipo_orcamento: isModoPOD ? ('recompra_pod' as any) : 'recompra',
         itens_producao: itensNovos,
         servicos_marca: [],
         dados_cliente: snapOrigem.dados_cliente,
         detalhamento_frete: snapOrigem.detalhamento_frete,
-        condicoes_pagamento,
+        condicoes_pagamento: isModoPOD ? ({ pago_no_periodo: true } as any) : condicoes_pagamento,
         subtotal_producao: subtotalProducao,
         subtotal_servicos: 0,
         valor_total: valorTotalSnap,
