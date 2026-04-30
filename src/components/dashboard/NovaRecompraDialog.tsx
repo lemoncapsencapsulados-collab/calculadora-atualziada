@@ -59,7 +59,7 @@ export function NovaRecompraDialog({
     const novos = [...produtos];
     if (field === 'nome') {
       novos[index].nome = value as string;
-    } else {
+    } else if (field === 'quantidade' || field === 'valorUnitario') {
       novos[index][field] = Number(value) || 0;
     }
     setProdutos(novos);
