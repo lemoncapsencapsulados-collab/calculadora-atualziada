@@ -81,6 +81,12 @@ export interface RecompraProduto {
   nome: string;
   quantidade: number;
   valorUnitario: number;
+  modeloNegocio?: 'estoque' | 'print_on_demand';
+  precificacaoId?: string;
+  // Print on Demand: consumo em período personalizado
+  podConsumoQuantidade?: number;
+  podConsumoInicio?: string; // YYYY-MM-DD
+  podConsumoFim?: string;    // YYYY-MM-DD
 }
 
 export interface MetricasRecorrencia {

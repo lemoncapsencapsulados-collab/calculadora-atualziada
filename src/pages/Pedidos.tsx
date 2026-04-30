@@ -14,7 +14,7 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle
+  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
@@ -53,6 +53,7 @@ import {
 } from '@/lib/entregaveis';
 import DemandasSetupResumo from '@/components/pedidos/DemandasSetupResumo';
 import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
+import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialog';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -142,6 +143,7 @@ const Pedidos = () => {
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
   const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
   const [tabAtiva, setTabAtiva] = useState<string>('overview');
+  const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
 
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
   const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
@@ -388,12 +390,21 @@ const Pedidos = () => {
             <Package className="w-3 h-3" /> Produtos ({itens.length})
           </p>
           {itens.map((item: any, idx: number) => (
-            <div key={idx} className="text-sm flex justify-between items-center">
-              <span className="truncate flex-1">
-                {item.nome_produto}
-                {item.modelo_negocio === 'print_on_demand' ? ' (POD)' : ` x${item.quantidade}`}
-              </span>
-              <span className="font-medium ml-2">{formatCurrency(item.subtotal)}</span>
+            <div key={idx} className="text-sm">
+              <div className="flex justify-between items-center">
+                <span className="truncate flex-1">
+                  {item.nome_produto}
+                  {item.modelo_negocio === 'print_on_demand' ? ' (POD)' : ` x${item.quantidade}`}
+                </span>
+                <span className="font-medium ml-2">{formatCurrency(item.subtotal)}</span>
+              </div>
+              {item.modelo_negocio === 'print_on_demand' && item.pod_consumo_inicio && item.pod_consumo_fim && (
+                <div className="text-xs text-purple-700 ml-1">
+                  Consumo: {item.pod_consumo_quantidade ?? 0} potes (
+                  {format(new Date(item.pod_consumo_inicio), 'dd/MM/yy', { locale: ptBR })}
+                  –{format(new Date(item.pod_consumo_fim), 'dd/MM/yy', { locale: ptBR })})
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -864,6 +875,19 @@ const Pedidos = () => {
                       </Button>
                     )}
 
+                    {isOrcamento && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRecompraPedido(pedido)}
+                        title="Adicionar Recompra"
+                        className="border-orange-400 text-orange-700 hover:bg-orange-50"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Recompra
+                      </Button>
+                    )}
+
                     {(() => {
                       const telefone = getTelefoneCliente(pedido);
                       const nomeCliente = pedido.orcamento_snapshot?.dados_cliente?.nome_completo
@@ -1011,6 +1035,13 @@ const Pedidos = () => {
         pedido={fichaTecnicaPedido}
         open={!!fichaTecnicaPedido}
         onOpenChange={(open) => !open && setFichaTecnicaPedido(null)}
+      />
+
+      <AdicionarRecompraDialog
+        pedido={recompraPedido}
+        open={!!recompraPedido}
+        onOpenChange={(o) => !o && setRecompraPedido(null)}
+        consultoresDisponiveis={consultoresUnicos}
       />
 
       {/* Hidden file inputs */}
