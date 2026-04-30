@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
 import { useClientes, Cliente } from '@/hooks/useClientes';
+import { useResumoContrato, useSalvarResumoContrato, baixarPdfContrato } from '@/hooks/useResumoContrato';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -25,6 +26,7 @@ import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
   onClose: () => void;
+  modo?: 'editar' | 'visualizar';
 }
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
@@ -127,9 +129,12 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
   );
 }
 
-export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaCompletaDialogProps) {
+export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
+  const { data: resumoSalvo, isLoading: loadingResumo } = useResumoContrato(orcamento.id);
+  const salvarResumoMutation = useSalvarResumoContrato();
+  const [viewMode, setViewMode] = useState<'editar' | 'visualizar'>(modo);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
@@ -330,6 +335,36 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       setDetalhesProducao(prev => ({ ...prev, ...existingDetails }));
     }
   }, [orcamento]);
+
+  // Sobrescrever pré-preenchimento com snapshot do resumo salvo (se existir)
+  useEffect(() => {
+    if (!resumoSalvo?.resumo) return;
+    const r = resumoSalvo.resumo;
+    if (r.dados_cliente) {
+      const dc = r.dados_cliente;
+      setDadosCliente(prev => ({ ...prev, ...dc }));
+      if (dc.tipo_pessoa) setTipoPessoa(dc.tipo_pessoa);
+      if (dc.forma_venda) setFormaVenda(dc.forma_venda);
+      if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
+      if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
+    }
+    if (r.detalhamento_frete) {
+      setFreteLemonCaps(r.detalhamento_frete.frete_lemon_caps ?? true);
+      setUsaTabelaTradicional(r.detalhamento_frete.usa_tabela_tradicional ?? true);
+      if (r.detalhamento_frete.detalhamento_envio) {
+        setDetalhamentoEnvio(r.detalhamento_frete.detalhamento_envio);
+      }
+    }
+    if (r.condicoes_pagamento) {
+      setCondicoesPagamento(r.condicoes_pagamento);
+    }
+    if (r.detalhes_producao && typeof r.detalhes_producao === 'object') {
+      // Convert keys to numbers
+      const dp: Record<number, Record<string, string>> = {};
+      Object.entries(r.detalhes_producao).forEach(([k, v]) => { dp[Number(k)] = v as Record<string, string>; });
+      setDetalhesProducao(dp);
+    }
+  }, [resumoSalvo?.resumo?.id]);
 
   const handleClienteSelect = (cliente: Cliente) => {
     setClienteSelecionado(cliente);
