@@ -704,6 +704,54 @@ export type Database = {
         }
         Relationships: []
       }
+      resumos_contrato: {
+        Row: {
+          cliente_id: string | null
+          condicoes_pagamento: Json | null
+          created_at: string
+          dados_cliente: Json
+          detalhamento_frete: Json
+          detalhes_producao: Json
+          id: string
+          nome_cliente: string
+          numero_orcamento: string
+          orcamento_id: string
+          pdf_path: string
+          pdf_size_bytes: number | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          condicoes_pagamento?: Json | null
+          created_at?: string
+          dados_cliente?: Json
+          detalhamento_frete?: Json
+          detalhes_producao?: Json
+          id?: string
+          nome_cliente: string
+          numero_orcamento: string
+          orcamento_id: string
+          pdf_path: string
+          pdf_size_bytes?: number | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string | null
+          condicoes_pagamento?: Json | null
+          created_at?: string
+          dados_cliente?: Json
+          detalhamento_frete?: Json
+          detalhes_producao?: Json
+          id?: string
+          nome_cliente?: string
+          numero_orcamento?: string
+          orcamento_id?: string
+          pdf_path?: string
+          pdf_size_bytes?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       usuarios: {
         Row: {
           ativo: boolean

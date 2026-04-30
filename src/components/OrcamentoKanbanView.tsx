@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Pencil, Trash2, FileText, FileCheck, Calendar, DollarSign } from 'lucide-react';
+import { Pencil, Trash2, FileText, FileCheck, Calendar, DollarSign, FileSignature } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/unitConversion';
@@ -23,11 +23,13 @@ interface Props {
   onDelete: (id: string) => void;
   onPreview: (o: Orcamento) => void;
   onPropostaCompleta: (o: Orcamento) => void;
+  onVerResumoContrato?: (o: Orcamento) => void;
+  resumosExistentes?: Set<string>;
   onStatusChange: (id: string, newStatus: string) => void;
 }
 
 
-export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPreview, onPropostaCompleta, onStatusChange }: Props) {
+export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPreview, onPropostaCompleta, onVerResumoContrato, resumosExistentes, onStatusChange }: Props) {
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
   const grouped = COLUMNS.map(col => ({
@@ -155,6 +157,16 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                           </TooltipTrigger>
                           <TooltipContent>Resumo para Contrato</TooltipContent>
                         </Tooltip>
+                        {resumosExistentes?.has(o.id) && onVerResumoContrato && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onVerResumoContrato(o)}>
+                                <FileSignature className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Ver Resumo do Contrato</TooltipContent>
+                          </Tooltip>
+                        )}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => onDelete(o.id)}>

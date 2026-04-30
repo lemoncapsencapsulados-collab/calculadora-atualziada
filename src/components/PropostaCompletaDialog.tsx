@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
 import { useClientes, Cliente } from '@/hooks/useClientes';
+import { useResumoContrato, useSalvarResumoContrato, baixarPdfContrato } from '@/hooks/useResumoContrato';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -17,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
@@ -25,6 +26,7 @@ import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
   onClose: () => void;
+  modo?: 'editar' | 'visualizar';
 }
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
@@ -127,9 +129,12 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
   );
 }
 
-export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaCompletaDialogProps) {
+export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
+  const { data: resumoSalvo, isLoading: loadingResumo } = useResumoContrato(orcamento.id);
+  const salvarResumoMutation = useSalvarResumoContrato();
+  const [viewMode, setViewMode] = useState<'editar' | 'visualizar'>(modo);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
@@ -330,6 +335,36 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       setDetalhesProducao(prev => ({ ...prev, ...existingDetails }));
     }
   }, [orcamento]);
+
+  // Sobrescrever pré-preenchimento com snapshot do resumo salvo (se existir)
+  useEffect(() => {
+    if (!resumoSalvo?.resumo) return;
+    const r = resumoSalvo.resumo;
+    if (r.dados_cliente) {
+      const dc = r.dados_cliente;
+      setDadosCliente(prev => ({ ...prev, ...dc }));
+      if (dc.tipo_pessoa) setTipoPessoa(dc.tipo_pessoa);
+      if (dc.forma_venda) setFormaVenda(dc.forma_venda);
+      if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
+      if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
+    }
+    if (r.detalhamento_frete) {
+      setFreteLemonCaps(r.detalhamento_frete.frete_lemon_caps ?? true);
+      setUsaTabelaTradicional(r.detalhamento_frete.usa_tabela_tradicional ?? true);
+      if (r.detalhamento_frete.detalhamento_envio) {
+        setDetalhamentoEnvio(r.detalhamento_frete.detalhamento_envio);
+      }
+    }
+    if (r.condicoes_pagamento) {
+      setCondicoesPagamento(r.condicoes_pagamento);
+    }
+    if (r.detalhes_producao && typeof r.detalhes_producao === 'object') {
+      // Convert keys to numbers
+      const dp: Record<number, Record<string, string>> = {};
+      Object.entries(r.detalhes_producao).forEach(([k, v]) => { dp[Number(k)] = v as Record<string, string>; });
+      setDetalhesProducao(dp);
+    }
+  }, [resumoSalvo?.resumo?.id]);
 
   const handleClienteSelect = (cliente: Cliente) => {
     setClienteSelecionado(cliente);
@@ -532,6 +567,21 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
       setShowPreview(true);
+
+      // Salvar PDF + dados no storage/tabela (substitui versão anterior)
+      try {
+        await salvarResumoMutation.mutateAsync({
+          orcamento: orcamentoAtualizado,
+          dadosCliente: dadosClienteCompletos,
+          detalhamentoFrete,
+          condicoesPagamento,
+          detalhesProducao,
+          clienteId: clienteSelecionado?.id ?? orcamento.cliente_id ?? null,
+          pdfBlob: blob,
+        });
+      } catch (err) {
+        console.error('Erro ao salvar resumo no storage:', err);
+      }
     } catch (error) {
       console.error('Erro ao gerar resumo para contrato:', error);
     } finally {
@@ -602,6 +652,48 @@ export default function PropostaCompletaDialog({ orcamento, onClose }: PropostaC
               <Download className="w-4 h-4 mr-2" />
               Baixar PDF
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Modo visualizar: mostra o PDF salvo no storage com opção de baixar/editar
+  if (viewMode === 'visualizar') {
+    const signedUrl = resumoSalvo?.signedUrl;
+    return (
+      <Dialog open onOpenChange={() => onClose()}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Resumo do Contrato — {orcamento.nome_cliente}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {loadingResumo ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Carregando resumo...
+              </div>
+            ) : signedUrl ? (
+              <iframe src={signedUrl} className="w-full h-full border rounded-lg" title="Resumo do Contrato" />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                <AlertTriangle className="w-8 h-8" />
+                <p>Nenhum resumo de contrato salvo para este orçamento.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Fechar</Button>
+            <Button variant="outline" onClick={() => setViewMode('editar')}>
+              <FileCheck className="w-4 h-4 mr-2" />Editar Resumo
+            </Button>
+            {resumoSalvo?.resumo && (
+              <Button onClick={() => baixarPdfContrato(
+                resumoSalvo.resumo.pdf_path,
+                `Resumo-Contrato-${orcamento.numero_orcamento}.pdf`
+              )}>
+                <Download className="w-4 h-4 mr-2" />Baixar PDF
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
