@@ -946,6 +946,22 @@ const Pedidos = () => {
           })
         )}
       </div>
+        </TabsContent>
+
+        {CATEGORIAS_ENTREGAVEIS.map((c) => (
+          <TabsContent key={c.value} value={c.value} className="mt-0">
+            <SubpaginaEntregaveis
+              categoria={c.value as EntregavelCategoria}
+              demandas={todasDemandas}
+              onAbrirPedido={(p) => setPedidoDetalhe(p)}
+              onAtualizarStatus={(pedidoId, acomp) =>
+                updateAcompanhamento({ id: pedidoId, acompanhamento: acomp, pedidoId })
+              }
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
+
       <DetalhesPedidoDialog
         pedido={pedidoDetalhe}
         open={!!pedidoDetalhe}
