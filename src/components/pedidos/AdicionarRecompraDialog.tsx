@@ -320,13 +320,20 @@ export default function AdicionarRecompraDialog({ pedido, open, onOpenChange, co
             <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={2} placeholder="Notas internas..." />
           </div>
 
-          <div className="bg-muted/50 rounded p-3 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              {isPOD ? 'Faturamento do período' : 'Valor Total'}
-            </span>
-            <span className={cn('text-lg font-bold', isPOD ? 'text-purple-600' : 'text-orange-600')}>
-              {formatCurrency(valorTotal)}
-            </span>
+          <div className={cn('rounded p-3 space-y-1', isPOD ? 'bg-purple-50 dark:bg-purple-950/20 border border-purple-200' : 'bg-muted/50')}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {isPOD ? 'Faturamento POD (qtd × valor unit.)' : 'Valor Total'}
+              </span>
+              <span className={cn('text-lg font-bold', isPOD ? 'text-purple-600' : 'text-orange-600')}>
+                {formatCurrency(valorTotal)}
+              </span>
+            </div>
+            {isPOD && (
+              <p className="text-xs text-muted-foreground">
+                Este valor será registrado como faturamento já recebido no período informado e aparecerá em <strong>TOTAL</strong> do pedido.
+              </p>
+            )}
           </div>
         </div>
 
