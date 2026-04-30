@@ -36,6 +36,10 @@ export interface ItemProducao {
   dose_diaria_sugerida?: string;
   // Detalhes de produção (preenchidos na aprovação)
   detalhes_producao?: DetalhesProducao;
+  // Print on Demand: registro de consumo em período (opcional)
+  pod_consumo_quantidade?: number;
+  pod_consumo_inicio?: string; // YYYY-MM-DD
+  pod_consumo_fim?: string;    // YYYY-MM-DD
 }
 
 export interface Entregavel {
