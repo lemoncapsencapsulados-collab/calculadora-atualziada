@@ -17,6 +17,39 @@ import type {
   OrcamentosPorConsultorStatus
 } from '@/types/dashboard';
 
+// Faturamento efetivo de um item POD = qtd consumida × preço unitário
+// (cobre registros antigos salvos com quantidade/subtotal zerados).
+const getItemValorEfetivo = (item: any): number => {
+  const subtotal = Number(item?.subtotal) || 0;
+  if (subtotal > 0) return subtotal;
+  if (item?.modelo_negocio === 'print_on_demand') {
+    const qtd = Number(item?.pod_consumo_quantidade) || Number(item?.quantidade) || 0;
+    const preco = Number(item?.preco_unitario) || 0;
+    return qtd * preco;
+  }
+  return (Number(item?.quantidade) || 0) * (Number(item?.preco_unitario) || 0);
+};
+
+// Total efetivo do snapshot — recalcula quando o snapshot veio com 0
+const getSnapValorEfetivo = (snap: any): number => {
+  const total = Number(snap?.valor_total) || 0;
+  if (total > 0) return total;
+  const itens = (snap?.itens_producao || []) as any[];
+  const servicos = (snap?.servicos_marca || []) as any[];
+  const somaItens = itens.reduce((s, i) => s + getItemValorEfetivo(i), 0);
+  const somaServicos = servicos.reduce((s, i) => s + (Number(i?.valor) || 0), 0);
+  return somaItens + somaServicos;
+};
+
+// subtotal_producao efetivo
+const getSnapSubtotalProducaoEfetivo = (snap: any): number => {
+  const v = Number(snap?.subtotal_producao) || 0;
+  if (v > 0) return v;
+  const itens = (snap?.itens_producao || []) as any[];
+  return itens.reduce((s, i) => s + getItemValorEfetivo(i), 0);
+};
+
+
 interface PedidoData {
   id: string;
   numero_pedido: string;
@@ -88,7 +121,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   // Helper to calculate only the first installment (entry payment) from payment conditions
   const calcularEntradaFinanceira = (snap: any): number => {
     const condicoes = snap.condicoes_pagamento;
-    const valorTotal = Number(snap.valor_total || 0);
+    const valorTotal = getSnapValorEfetivo(snap);
     if (!condicoes) return valorTotal;
 
     const calcValorParcela = (parcela: any, base: number): number => {
@@ -194,7 +227,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [orcamentosFiltrados]);
 
   const kpis = useMemo((): KPIsGerais => {
-    const faturamentoTotal = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0);
+    const faturamentoTotal = pedidosFiltrados.reduce((acc, p) => acc + getSnapValorEfetivo(getSnap(p)), 0);
     const entradaFinanceira = pedidosFiltrados.reduce((acc, p) => acc + calcularEntradaFinanceira(getSnap(p)), 0);
     const novasVendas = pedidosFiltrados.length;
     const ticketMedio = novasVendas > 0 ? faturamentoTotal / novasVendas : 0;
@@ -229,7 +262,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       const consultor = snap.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || { vendas: 0, faturamento: 0, clientes: new Set<string>() };
       atual.vendas += 1;
-      atual.faturamento += Number(snap.valor_total || 0);
+      atual.faturamento += getSnapValorEfetivo(snap);
       atual.clientes.add(snap.nome_cliente || '');
       porConsultor.set(consultor, atual);
     });
@@ -255,9 +288,9 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         novo_produtor: { qtd: 0, valor: 0 },
         recompra: { qtd: 0, valor: 0 },
       };
-      const tipo = snap.tipo_orcamento === 'recompra' ? 'recompra' : 'novo_produtor';
+      const tipo = (snap.tipo_orcamento === 'recompra' || snap.tipo_orcamento === 'recompra_pod') ? 'recompra' : 'novo_produtor';
       atual[tipo].qtd += 1;
-      atual[tipo].valor += Number(snap.valor_total || 0);
+      atual[tipo].valor += getSnapValorEfetivo(snap);
       porConsultor.set(consultor, atual);
     });
 
@@ -276,7 +309,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       const consultor = snap.consultor_responsavel || 'Sem Consultor';
       const atual = porConsultor.get(consultor) || { propostas: 0, valorTotal: 0, diasTotal: 0 };
       atual.propostas += 1;
-      atual.valorTotal += Number(snap.valor_total || 0);
+      atual.valorTotal += getSnapValorEfetivo(snap);
       if (p.created_at) {
         atual.diasTotal += differenceInDays(hoje, parseISO(p.created_at));
       }
@@ -304,8 +337,8 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         itens.forEach(item => {
           const nome = item.nome_produto || item.nome || item.nomeFormula || 'Produto sem nome';
           const atual = produtos.get(nome) || { quantidade: 0, faturamento: 0 };
-          atual.quantidade += Number(item.quantidade || item.quantidadePote || 0);
-          atual.faturamento += Number(item.subtotal || item.valorTotal || item.precoVenda || 0);
+          atual.quantidade += Number(item.quantidade || item.quantidadePote || item.pod_consumo_quantidade || 0);
+          atual.faturamento += getItemValorEfetivo(item);
           produtos.set(nome, atual);
         });
       }
@@ -325,7 +358,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
   }, [pedidosFiltrados]);
 
   const mixVendas = useMemo((): MixVendas => {
-    const totalProducao = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).subtotal_producao || 0), 0);
+    const totalProducao = pedidosFiltrados.reduce((acc, p) => acc + getSnapSubtotalProducaoEfetivo(getSnap(p)), 0);
     const totalServicos = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).subtotal_servicos || 0), 0);
     const total = totalProducao + totalServicos;
     
@@ -355,9 +388,9 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         if (dias > 7) {
           resultado.push({
             tipo: 'alerta',
-            mensagem: `${snap.consultor_responsavel || 'Sem consultor'} tem R$ ${Number(snap.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} aguardando produção há ${dias} dias (${snap.nome_cliente})`,
+            mensagem: `${snap.consultor_responsavel || 'Sem consultor'} tem R$ ${getSnapValorEfetivo(snap).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} aguardando produção há ${dias} dias (${snap.nome_cliente})`,
             consultor: snap.consultor_responsavel || undefined,
-            valor: Number(snap.valor_total || 0)
+            valor: getSnapValorEfetivo(snap)
           });
         }
       });
@@ -468,7 +501,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     if (pedidosFiltrados.length > 0) {
       const maior = pedidosFiltrados.reduce((max, p) => {
         const vMax = Number(getSnap(max).valor_total || 0);
-        const vP = Number(getSnap(p).valor_total || 0);
+        const vP = getSnapValorEfetivo(getSnap(p));
         return vP > vMax ? p : max;
       });
       const snapMaior = getSnap(maior);
@@ -520,7 +553,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       
       meses.push({
         periodo: format(mesRef, 'MMM/yy', { locale: ptBR }),
-        faturamento: pedidosDoMes.reduce((acc, p) => acc + Number(getSnap(p).valor_total || 0), 0),
+        faturamento: pedidosDoMes.reduce((acc, p) => acc + getSnapValorEfetivo(getSnap(p)), 0),
         vendas: pedidosDoMes.length,
         recorrencia: 0
       });
@@ -549,7 +582,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       
       const atual = canais.get(canal) || { clientes: new Set<string>(), faturamento: 0 };
       atual.clientes.add(snap.nome_cliente || '');
-      atual.faturamento += Number(snap.valor_total || 0);
+      atual.faturamento += getSnapValorEfetivo(snap);
       canais.set(canal, atual);
     });
     
@@ -577,7 +610,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       const temPod = Array.isArray(itens) && itens.some((i: any) => i.modelo_negocio === 'print_on_demand');
       const tipo = temPod ? 'pod' : 'estoque';
       atual[tipo].qtd += 1;
-      atual[tipo].valor += Number(snap.valor_total || 0);
+      atual[tipo].valor += getSnapValorEfetivo(snap);
       porConsultor.set(consultor, atual);
     });
 
