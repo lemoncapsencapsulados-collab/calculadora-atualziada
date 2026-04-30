@@ -47,6 +47,12 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
 import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  CATEGORIAS_ENTREGAVEIS, EntregavelCategoria, extrairTodasDemandas,
+} from '@/lib/entregaveis';
+import DemandasSetupResumo from '@/components/pedidos/DemandasSetupResumo';
+import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -135,9 +141,12 @@ const Pedidos = () => {
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
   const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
+  const [tabAtiva, setTabAtiva] = useState<string>('overview');
 
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
   const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
+
+  const todasDemandas = useMemo(() => extrairTodasDemandas(pedidos as any), [pedidos]);
 
   const contratoInputRef = useRef<HTMLInputElement>(null);
   const comprovanteInputRef = useRef<HTMLInputElement>(null);
@@ -530,7 +539,20 @@ const Pedidos = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <Card>
+      <Tabs value={tabAtiva} onValueChange={setTabAtiva} className="space-y-4">
+        <TabsList className="flex flex-wrap h-auto w-full justify-start">
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          {CATEGORIAS_ENTREGAVEIS.map((c) => (
+            <TabsTrigger key={c.value} value={c.value}>{c.label}</TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 mt-0">
+          <DemandasSetupResumo
+            demandas={todasDemandas}
+            onAbrirAba={(cat) => setTabAtiva(cat)}
+          />
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
@@ -785,6 +807,16 @@ const Pedidos = () => {
                        <AcompanhamentoProcessos
                         acompanhamento={pedido.acompanhamento_processos}
                         onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp, pedidoId: pedido.id })}
+                        setupCategorias={(() => {
+                          const cats = todasDemandas
+                            .filter(d => d.pedido_id === pedido.id)
+                            .map(d => d.categoria);
+                          return {
+                            registro_inpi: cats.includes('registro_inpi'),
+                            impressao_rotulos: cats.includes('impressao_rotulos'),
+                            codigo_barras: cats.includes('codigo_barras'),
+                          };
+                        })()}
                       />
                     </CollapsibleContent>
                   </Collapsible>
@@ -924,6 +956,22 @@ const Pedidos = () => {
           })
         )}
       </div>
+        </TabsContent>
+
+        {CATEGORIAS_ENTREGAVEIS.map((c) => (
+          <TabsContent key={c.value} value={c.value} className="mt-0">
+            <SubpaginaEntregaveis
+              categoria={c.value as EntregavelCategoria}
+              demandas={todasDemandas}
+              onAbrirPedido={(p) => setPedidoDetalhe(p)}
+              onAtualizarStatus={(pedidoId, acomp) =>
+                updateAcompanhamento({ id: pedidoId, acompanhamento: acomp, pedidoId })
+              }
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
+
       <DetalhesPedidoDialog
         pedido={pedidoDetalhe}
         open={!!pedidoDetalhe}

@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Palette, Factory, Truck, Globe, Package, Star, Save } from 'lucide-react';
+import { Palette, Factory, Truck, Globe, Package, Star, Save, FileBadge, Printer, Barcode } from 'lucide-react';
 
 const DEFAULT_ACOMPANHAMENTO: AcompanhamentoType = {
   criacao_marca: 'pendente',
@@ -26,9 +26,15 @@ const statusColors: Record<string, string> = {
 interface Props {
   acompanhamento?: AcompanhamentoType;
   onUpdate: (data: AcompanhamentoType) => void;
+  // Mostra as linhas extras de setup somente quando o pedido contratou cada um deles
+  setupCategorias?: {
+    registro_inpi?: boolean;
+    impressao_rotulos?: boolean;
+    codigo_barras?: boolean;
+  };
 }
 
-const AcompanhamentoProcessos = ({ acompanhamento, onUpdate }: Props) => {
+const AcompanhamentoProcessos = ({ acompanhamento, onUpdate, setupCategorias }: Props) => {
   const data = acompanhamento || DEFAULT_ACOMPANHAMENTO;
   const [nota, setNota] = useState<number>(data.satisfacao_nota ?? 5);
   const [obs, setObs] = useState(data.satisfacao_observacoes || '');
@@ -98,10 +104,25 @@ const AcompanhamentoProcessos = ({ acompanhamento, onUpdate }: Props) => {
     },
   ];
 
+  const setupOptions = [
+    { value: 'pendente', label: 'Pendente' },
+    { value: 'entregue', label: 'Entregue' },
+    { value: 'nao_necessario', label: 'Não Necessário' },
+  ];
+  if (setupCategorias?.registro_inpi) {
+    groups.push({ label: 'Registro no INPI', icon: FileBadge, field: 'registro_inpi' as any, options: setupOptions });
+  }
+  if (setupCategorias?.impressao_rotulos) {
+    groups.push({ label: 'Impressão de Rótulos', icon: Printer, field: 'impressao_rotulos' as any, options: setupOptions });
+  }
+  if (setupCategorias?.codigo_barras) {
+    groups.push({ label: 'Código de Barras', icon: Barcode, field: 'codigo_barras' as any, options: setupOptions });
+  }
+
   return (
     <div className="space-y-3">
       {groups.map(({ label, icon: Icon, field, options }) => {
-        const currentVal = data[field] as string;
+        const currentVal = ((data as any)[field] as string) || 'pendente';
         return (
           <div key={field} className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">

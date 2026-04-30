@@ -1,87 +1,113 @@
-## Plano: Persistência e Visualização do Resumo para Contrato
+## Objetivo
 
-Toda vez que o usuário gerar um "Resumo para Contrato", o PDF + os dados preenchidos serão salvos. No card do orçamento (lista e kanban) aparecerá um botão "Ver Resumo do Contrato" que abre o popup já pré-preenchido, com opção de baixar. Ao salvar uma nova versão, a anterior é substituída automaticamente.
+Dentro da página **Pedidos**, criar subpáginas/abas para a equipe de setup acompanhar separadamente as demandas de cada entregável vendido nos orçamentos:
 
-### 1. Backend (Migration)
+- **Visão Geral** (página atual)
+- **Páginas de Vendas**
+- **Designer de Rótulos**
+- **Registro no INPI**
+- **Impressão de Rótulos**
+- **Código de Barras**
 
-**Novo bucket privado de Storage**
-- `contratos` (private). Caminho: `contratos/{orcamento_id}/{timestamp}.pdf`.
-- RLS: apenas usuários autenticados podem `SELECT/INSERT/UPDATE/DELETE` em `storage.objects WHERE bucket_id='contratos'`.
+Cada subpágina lista somente os pedidos que contrataram aquele entregável, mostrando: **cliente**, **prazo de entrega**, **quantidade contratada**, **consultor**, e **status do entregável** (pendente / em andamento / entregue / não necessário). A Visão Geral ganha um resumo consolidado dessas demandas.
 
-**Nova tabela `resumos_contrato`**
-| Coluna | Tipo | Notas |
-|---|---|---|
-| `id` | uuid PK | gen_random_uuid() |
-| `orcamento_id` | uuid | índice único — 1 resumo ativo por orçamento |
-| `cliente_id` | uuid | nullable |
-| `numero_orcamento` | text | snapshot |
-| `nome_cliente` | text | snapshot |
-| `dados_cliente` | jsonb | snapshot completo do form |
-| `detalhamento_frete` | jsonb | |
-| `condicoes_pagamento` | jsonb | |
-| `detalhes_producao` | jsonb | por item |
-| `pdf_path` | text | path no bucket `contratos` |
-| `pdf_size_bytes` | int | |
-| `created_at` / `updated_at` | timestamptz | default now() |
+## De onde vêm os entregáveis
 
-- RLS: 4 políticas para `authenticated` (`auth.uid() IS NOT NULL`), seguindo o padrão das demais tabelas.
-- Constraint `UNIQUE(orcamento_id)` — garante substituição via upsert.
-- Sem foreign keys (consistência com o resto do schema).
+Os entregáveis já são gravados no orçamento (e por consequência no `orcamento_snapshot` do pedido) em dois lugares:
 
-### 2. Hook `useResumoContrato` (novo)
+1. **`servicos_marca[].entregaveis[]`** (gerados em `GerarOrcamentoDialog`):
+   - `Código de barras (Nx)` → categoria **codigo_barras**
+   - `Design de rótulos (Nx)` → categoria **design_rotulos**
+   - `Página de vendas (Nx)` → categoria **pagina_vendas**
+   - `Registro de Marca no INPI (Nx)` → categoria **registro_inpi**
+   - `Impressão de rótulos - {tipoProduto} (Nx)` → categoria **impressao_rotulos**
+2. **`servicos_marca[].dados_extras.impressao_itens[]`** para detalhar o tipo de produto da impressão.
 
-`src/hooks/useResumoContrato.ts`
-- `useResumoContrato(orcamentoId)` → query que retorna o resumo + signed URL do PDF (válida ~1h via `storage.from('contratos').createSignedUrl(path, 3600)`).
-- `salvarResumo({ orcamento, dadosCliente, detalhamentoFrete, condicoesPagamento, detalhesProducao, pdfBlob })`:
-  1. Busca resumo existente por `orcamento_id`.
-  2. Se existir, deleta o arquivo antigo do bucket (`storage.remove([oldPath])`).
-  3. Faz upload do novo PDF: `storage.upload(newPath, blob, { contentType: 'application/pdf', upsert: true })`.
-  4. Faz `upsert` na tabela `resumos_contrato` com `onConflict: 'orcamento_id'`.
-- `baixarPdf(path)` → cria signed URL e dispara download.
-- `excluirResumo(id, path)` (utilitário, opcional para já cobrir limpezas).
+A categorização por palavra-chave já é determinística (sempre os mesmos rótulos vindos do dialog), então conseguimos extrair sem migração.
 
-### 3. `PropostaCompletaDialog` (atualizar)
+## Mudanças propostas
 
-- Aceitar nova prop opcional `modo: 'editar' | 'visualizar'` (default `'editar'`).
-- Ao montar, se já existe `resumo_contrato` para o orçamento, **pré-preencher todos os campos** (dados_cliente, frete, condições de pagamento, detalhes de produção) a partir do snapshot salvo, sobrescrevendo o pré-preenchimento atual baseado em `orcamento.dados_cliente`. O usuário pode editar tudo livremente.
-- Ao clicar em "Gerar/Salvar Resumo": além das atualizações já feitas no orçamento e em `clientes`, chamar `salvarResumo(...)` passando o `pdfBlob` já gerado. Toast: "Resumo de contrato salvo. Versão anterior substituída.".
-- Botão "Baixar PDF" continua funcionando (faz download do blob recém-gerado).
-- Em `modo: 'visualizar'` (acionado pelo novo botão no card), abre direto na tela de preview com o PDF do storage (via signed URL no `<iframe>`), com botões "Editar" (volta para o formulário pré-preenchido) e "Baixar".
+### 1. Novo arquivo `src/lib/entregaveis.ts`
+Função utilitária `extrairEntregaveisDoPedido(pedido)` que percorre `orcamento_snapshot.servicos_marca[].entregaveis[]`, classifica cada um em uma das 5 categorias por regex no `nome`, e retorna:
 
-### 4. Card do orçamento (Lista e Kanban)
+```ts
+type EntregavelCategoria = 'pagina_vendas' | 'design_rotulos' | 'registro_inpi' | 'impressao_rotulos' | 'codigo_barras';
 
-Adicionar botão **"Ver Resumo do Contrato"** (ícone `FileSignature` ou `FileCheck2`, cor `outline`) que aparece **apenas se o orçamento já possui resumo salvo** (consulta agregada — ver passo 5). Ao clicar, abre `PropostaCompletaDialog` em `modo: 'visualizar'`.
-
-Layout:
-```text
-[Editar] [Gerar PDF] [Resumo para Contrato] [Ver Resumo do Contrato*] [Excluir]
-                                              └─ * só aparece se já existe
+interface DemandaEntregavel {
+  pedido_id: string;
+  numero_pedido: string;
+  cliente: string;
+  consultor?: string;
+  categoria: EntregavelCategoria;
+  nome: string;            // rótulo original (ex.: "Página de vendas (2x)")
+  detalhe?: string;        // ex.: tipo de produto na impressão
+  quantidade: number;
+  data_pedido: Date;
+  data_pagamento?: Date;
+  prazo_previsto: Date;    // calcularPrazoEntrega
+  dias_restantes: number;
+  status_pedido: StatusPedido;
+  status_entregavel: 'pendente' | 'entregue' | 'nao_necessario';
+}
 ```
 
-- `src/pages/Orcamentos.tsx`: novo state `verResumoOrcamento`, botão condicional, render do dialog em modo visualizar.
-- `src/components/OrcamentoKanbanView.tsx`: mesmo botão (icon-only) no rodapé do card.
+Mapeamento `categoria → campo do acompanhamento_processos` para inferir `status_entregavel`:
+- `pagina_vendas` → `acompanhamento_processos.pagina_venda`
+- `design_rotulos` → `acompanhamento_processos.criacao_marca`
+- `impressao_rotulos`, `registro_inpi`, `codigo_barras` → não existem hoje no acompanhamento; vamos persistir um novo bloco `acompanhamento_setup` (ver item 3).
 
-### 5. Hook auxiliar `useResumosContratoIds`
+### 2. Nova navegação por abas em `Pedidos.tsx`
+Adicionar um `Tabs` no topo da página com 6 abas:
+`Visão Geral | Páginas de Vendas | Designer de Rótulos | Registro INPI | Impressão de Rótulos | Código de Barras`
 
-Para evitar N+1, criar `useResumosContratoExistentes()` que retorna um `Set<string>` com `orcamento_id` que possuem resumo salvo. Usado pelos componentes de lista/kanban para decidir se mostram o botão. Invalidação ao salvar/excluir resumo.
+- **Visão Geral**: conteúdo atual + um novo card "Demandas de Setup" no topo, com 5 mini-cards (um por categoria) mostrando quantos entregáveis estão pendentes, em produção e atrasados, com link para a aba correspondente.
+- **Subpáginas**: novo componente `SubpaginaEntregaveis` que recebe `categoria` e renderiza tabela/cards filtrados, com:
+  - busca por cliente / nº pedido
+  - filtros por status do entregável e por consultor
+  - colunas: Cliente, Consultor, Qtd, Data Pgto, Prazo, Dias restantes (com badge vermelho se atrasado), Status, Ações (mudar status, abrir detalhes do pedido)
+  - linhas agrupadas/colapsáveis quando o mesmo pedido tem mais de 1 unidade
 
-### 6. Detalhes técnicos
+### 3. Novo bloco `acompanhamento_setup` no pedido
+Como hoje só existem campos para `pagina_venda` e `criacao_marca`, vamos estender `pedidos.acompanhamento_processos` com 3 chaves adicionais via JSONB (sem migração de schema, é jsonb):
 
-- Naming PDF: `contratos/{orcamento_id}/{Date.now()}.pdf` (timestamp evita cache de signed URL).
-- Substituição: como `UNIQUE(orcamento_id)` está na tabela, usamos `upsert({...}, { onConflict: 'orcamento_id' })`. O arquivo antigo é deletado **antes** do upload do novo via `storage.remove`.
-- Signed URL: `createSignedUrl(path, 3600)` — recriada toda vez que o dialog abre.
-- Snapshot: o jsonb salva exatamente o que foi preenchido no momento do clique (independente de futuras edições do orçamento).
-- Sem alteração nos status do kanban — o botão é sempre visível quando há resumo, em qualquer coluna.
+```json
+{
+  "registro_inpi": "pendente|entregue|nao_necessario",
+  "impressao_rotulos": "pendente|entregue|nao_necessario",
+  "codigo_barras": "pendente|entregue|nao_necessario"
+}
+```
 
-### Arquivos afetados
+Defaults via leitura: se a chave não existir, considera `pendente`. Atualização usa o mesmo `updateAcompanhamento` já existente no hook `usePedidos` (merge no JSONB).
 
-- **Migration nova:** criar tabela `resumos_contrato` + bucket `contratos` + RLS.
-- **Criado:** `src/hooks/useResumoContrato.ts`.
-- **Editado:** `src/components/PropostaCompletaDialog.tsx` (modo visualizar, pré-preenchimento por resumo salvo, salvar PDF/dados).
-- **Editado:** `src/pages/Orcamentos.tsx` (botão "Ver Resumo do Contrato" + state).
-- **Editado:** `src/components/OrcamentoKanbanView.tsx` (mesmo botão no card).
+A página de detalhes / o componente `AcompanhamentoProcessos.tsx` ganha 3 novas linhas (somente quando o pedido tem aquele entregável contratado).
 
-### Fora de escopo
+### 4. Componentes novos
+- `src/components/pedidos/DemandasSetupResumo.tsx` — cards-resumo por categoria, exibido no topo da Visão Geral.
+- `src/components/pedidos/SubpaginaEntregaveis.tsx` — lista filtrável por categoria.
 
-- Histórico de versões anteriores (apaga a versão antiga conforme solicitado).
-- Notificação/log de quem alterou.
+### 5. Roteamento
+Manter `/pedidos` como rota única; abas controladas por estado interno + `?tab=...` em `searchParams` para deep-link (ex.: clicar no card-resumo abre a aba correta).
+
+## Detalhes técnicos
+
+```text
+Pedidos.tsx
+ ├─ <Tabs value={tab}>
+ │   ├─ TabsList: Visão Geral / Páginas / Designer / INPI / Impressão / Código Barras
+ │   ├─ TabsContent value="overview"
+ │   │   ├─ <DemandasSetupResumo demandas={todasDemandas} onAbrirAba={...}/>
+ │   │   └─ (lista de pedidos atual, sem alterações)
+ │   └─ TabsContent value="pagina_vendas" ...
+ │        └─ <SubpaginaEntregaveis categoria="pagina_vendas" demandas={...}/>
+```
+
+Cálculo de prazo reaproveita `calcularPrazoEntrega` já existente (D+30 a partir da data de pagamento ou do pedido).
+
+Status do entregável é resolvido por `useMemo` combinando categoria → campo do `acompanhamento_processos`.
+
+## Não está no escopo
+
+- Migrações de banco (usaremos o JSONB já existente).
+- Mexer no fluxo de criação de orçamento (entregáveis já são gravados corretamente).
+- Notificações automáticas / atribuição por usuário (pode ser próxima iteração).
