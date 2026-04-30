@@ -64,6 +64,31 @@ const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido |
 
 const PRAZO_PRODUCAO_DIAS = 30;
 
+// Faturamento efetivo de um item POD = qtd consumida × preço unitário
+// (cobre registros antigos salvos com quantidade/subtotal zerados).
+const getItemValorEfetivo = (item: any): number => {
+  const subtotal = Number(item?.subtotal) || 0;
+  if (subtotal > 0) return subtotal;
+  if (item?.modelo_negocio === 'print_on_demand') {
+    const qtd = Number(item?.pod_consumo_quantidade) || Number(item?.quantidade) || 0;
+    const preco = Number(item?.preco_unitario) || 0;
+    return qtd * preco;
+  }
+  return (Number(item?.quantidade) || 0) * (Number(item?.preco_unitario) || 0);
+};
+
+// Total efetivo do pedido — recalcula POD a partir dos itens quando o snapshot veio com 0
+const getPedidoValorEfetivo = (snap: any): number => {
+  const total = Number(snap?.valor_total) || 0;
+  if (total > 0) return total;
+  const itens = (snap?.itens_producao || []) as any[];
+  const servicos = (snap?.servicos_marca || []) as any[];
+  const somaItens = itens.reduce((s, i) => s + getItemValorEfetivo(i), 0);
+  const somaServicos = servicos.reduce((s, i) => s + (Number(i?.valor) || 0), 0);
+  return somaItens + somaServicos;
+};
+
+
 const getDataBaseEntrega = (pedido: any): Date => {
   const dataPgto = pedido.orcamento_snapshot?.data_pagamento;
   if (dataPgto) return new Date(dataPgto);
@@ -228,7 +253,7 @@ const Pedidos = () => {
     const dadosCliente = snap.dados_cliente || {};
     const consultor = snap.consultor_responsavel || '-';
     const nomeCliente = dadosCliente.nome_completo || snap.nome_cliente || '-';
-    const valorVenda = snap.valor_total || 0;
+    const valorVenda = getPedidoValorEfetivo(snap);
     const isRecompraPOD = snap.tipo_orcamento === 'recompra_pod';
     const isRecompra = snap.tipo_orcamento === 'recompra' || isRecompraPOD;
     const tipoProdutorLabel = isRecompraPOD ? 'Recompra POD' : (isRecompra ? 'Recompra' : 'Novo produtor');
@@ -402,9 +427,9 @@ const Pedidos = () => {
               <div className="flex justify-between items-center">
                 <span className="truncate flex-1">
                   {item.nome_produto}
-                  {item.modelo_negocio === 'print_on_demand' ? ' (POD)' : ` x${item.quantidade}`}
+                  {item.modelo_negocio === 'print_on_demand' ? ` (POD) x${Number(item.pod_consumo_quantidade) || Number(item.quantidade) || 0}` : ` x${item.quantidade}`}
                 </span>
-                <span className="font-medium ml-2">{formatCurrency(item.subtotal)}</span>
+                <span className="font-medium ml-2">{formatCurrency(getItemValorEfetivo(item))}</span>
               </div>
               {item.modelo_negocio === 'print_on_demand' && item.pod_consumo_inicio && item.pod_consumo_fim && (
                 <div className="text-xs text-purple-700 ml-1">
@@ -435,7 +460,7 @@ const Pedidos = () => {
         {/* Totais */}
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-muted-foreground text-sm">Total</span>
-          <span className="text-lg font-bold text-primary">{formatCurrency(snap.valor_total)}</span>
+          <span className="text-lg font-bold text-primary">{formatCurrency(getPedidoValorEfetivo(snap))}</span>
         </div>
 
         {snap.data_pagamento && (
