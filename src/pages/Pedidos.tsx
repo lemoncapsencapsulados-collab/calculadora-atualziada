@@ -537,7 +537,20 @@ const Pedidos = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <Card>
+      <Tabs value={tabAtiva} onValueChange={setTabAtiva} className="space-y-4">
+        <TabsList className="flex flex-wrap h-auto w-full justify-start">
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          {CATEGORIAS_ENTREGAVEIS.map((c) => (
+            <TabsTrigger key={c.value} value={c.value}>{c.label}</TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 mt-0">
+          <DemandasSetupResumo
+            demandas={todasDemandas}
+            onAbrirAba={(cat) => setTabAtiva(cat)}
+          />
+          <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
