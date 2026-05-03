@@ -337,7 +337,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         itens.forEach(item => {
           const nome = item.nome_produto || item.nome || item.nomeFormula || 'Produto sem nome';
           const atual = produtos.get(nome) || { quantidade: 0, faturamento: 0 };
-          atual.quantidade += Number(item.quantidade || item.quantidadePote || item.pod_consumo_quantidade || 0);
+          atual.quantidade += Number(item.quantidade || item.quantidadePote || (item as any).pod_consumo_quantidade || 0);
           atual.faturamento += getItemValorEfetivo(item);
           produtos.set(nome, atual);
         });
