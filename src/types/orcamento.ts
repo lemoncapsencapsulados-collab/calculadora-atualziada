@@ -189,10 +189,12 @@ export interface Orcamento {
   subtotal_servicos: number;
   valor_total: number;
   observacoes?: string;
+  observacoes_internas?: string | null;
   forma_pagamento?: string;
   validade_dias: number;
   status: 'rascunho' | 'enviado' | 'pago' | 'recusado';
   data_pagamento?: string | null;
+  data_envio?: string | null;
   created_at: string;
   updated_at: string;
 }
