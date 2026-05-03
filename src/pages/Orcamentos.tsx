@@ -525,63 +525,114 @@ export default function Orcamentos() {
         />
       )}
 
-      {/* Dialog: registrar data de envio */}
-      <Dialog open={!!enviandoOrcamento} onOpenChange={(open) => !open && setEnviandoOrcamento(null)}>
-        <DialogContent>
+      {/* Dialog: histórico de contatos */}
+      <Dialog open={!!historicoOrcamento} onOpenChange={(open) => !open && setHistoricoOrcamento(null)}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Marcar como Enviado</DialogTitle>
+            <DialogTitle>Histórico de contatos {historicoOrcamento ? `— ${historicoOrcamento.nome_cliente}` : ''}</DialogTitle>
             <DialogDescription>
-              Selecione a data em que o orçamento foi enviado ao cliente.
+              Registre cada envio de orçamento e cada conversa com o cliente. Esses dados alimentam os Insights do Dashboard.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>Data de envio</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(dataEnvioSelecionada, "dd/MM/yyyy", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker
-                  mode="single"
-                  selected={dataEnvioSelecionada}
-                  onSelect={(d) => d && setDataEnvioSelecionada(d)}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEnviandoOrcamento(null)}>Cancelar</Button>
-            <Button onClick={confirmarEnvio} disabled={updateStatus.isPending}>
-              <Send className="w-4 h-4 mr-2" />Confirmar envio
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* Dialog: observação interna */}
-      <Dialog open={!!observandoOrcamento} onOpenChange={(open) => !open && setObservandoOrcamento(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Observação interna</DialogTitle>
-            <DialogDescription>
-              Anote o contexto comercial deste orçamento. Esta nota aparece nos Insights do Dashboard e não vai para o PDF do cliente.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={textoObservacao}
-            onChange={(e) => setTextoObservacao(e.target.value)}
-            placeholder="Ex: Cliente pediu desconto, retornar na próxima semana..."
-            rows={6}
-          />
+          {/* Timeline */}
+          <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+            {(historicoOrcamento?.historico_contatos || []).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum contato registrado ainda.
+              </p>
+            ) : (
+              [...(historicoOrcamento?.historico_contatos || [])]
+                .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+                .map((c) => (
+                  <div
+                    key={c.id}
+                    className={cn(
+                      'flex items-start gap-2 p-2 rounded border text-sm',
+                      c.tipo === 'envio'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                        : 'bg-muted/40 border-border/60'
+                    )}
+                  >
+                    {c.tipo === 'envio'
+                      ? <Send className="w-4 h-4 mt-0.5 text-blue-600 shrink-0" />
+                      : <MessageSquare className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase">
+                          {c.tipo === 'envio' ? 'Envio' : 'Contato'} · {format(new Date(c.data), 'dd/MM/yyyy', { locale: ptBR })}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => removerContato(c.id)}
+                          disabled={removeContato.isPending}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      {c.observacao && (
+                        <p className="whitespace-pre-wrap break-words mt-1">{c.observacao}</p>
+                      )}
+                    </div>
+                  </div>
+                ))
+            )}
+          </div>
+
+          {/* Novo contato */}
+          <div className="space-y-3 pt-3 border-t">
+            <p className="text-sm font-semibold">Registrar novo</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo</Label>
+                <Select value={novoContatoTipo} onValueChange={(v) => setNovoContatoTipo(v as TipoContato)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="envio">📤 Envio do orçamento</SelectItem>
+                    <SelectItem value="contato">💬 Contato com cliente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Data</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn('w-full justify-start text-left font-normal')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(novoContatoData, 'dd/MM/yyyy', { locale: ptBR })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker
+                      mode="single"
+                      selected={novoContatoData}
+                      onSelect={(d) => d && setNovoContatoData(d)}
+                      initialFocus
+                      className={cn('p-3 pointer-events-auto')}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+            <Textarea
+              value={novoContatoTexto}
+              onChange={(e) => setNovoContatoTexto(e.target.value)}
+              placeholder={novoContatoTipo === 'envio'
+                ? 'Opcional: nota sobre o envio (ex.: enviado por WhatsApp)'
+                : 'Feedback da conversa (ex.: cliente pediu desconto, ligar terça)'}
+              rows={3}
+            />
+          </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setObservandoOrcamento(null)}>Cancelar</Button>
-            <Button onClick={salvarObservacao} disabled={updateObservacoesInternas.isPending}>
-              Salvar observação
+            <Button variant="outline" onClick={() => setHistoricoOrcamento(null)}>Fechar</Button>
+            <Button
+              onClick={adicionarContato}
+              disabled={addContato.isPending || (novoContatoTipo === 'contato' && !novoContatoTexto.trim())}
+            >
+              <Plus className="w-4 h-4 mr-2" />Adicionar
             </Button>
           </DialogFooter>
         </DialogContent>
