@@ -411,23 +411,13 @@ export default function Orcamentos() {
                               </div>
                             </div>
                             <div className="flex flex-wrap md:flex-col lg:flex-col gap-2 justify-end">
-                              {orcamento.status !== 'enviado' && orcamento.status !== 'pago' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-blue-500 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
-                                  onClick={() => abrirDialogEnviado(orcamento)}
-                                >
-                                  <Send className="w-4 h-4 mr-2" />Enviado
-                                </Button>
-                              )}
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => abrirDialogObservacao(orcamento)}
+                                onClick={() => abrirHistorico(orcamento)}
                               >
-                                <MessageSquare className="w-4 h-4 mr-2" />
-                                {orcamento.observacoes_internas ? 'Editar Obs.' : 'Observação'}
+                                <History className="w-4 h-4 mr-2" />
+                                Histórico ({orcamento.historico_contatos?.length || 0})
                               </Button>
                               {orcamento.status === 'enviado' && (
                                 <Button
