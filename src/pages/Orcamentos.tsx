@@ -97,35 +97,40 @@ export default function Orcamentos() {
     setCurrentPage(1);
   }, [searchTerm, consultorFilter]);
 
-  // Deep-link: abre orçamento quando ?focus=<id> está presente
+  // Deep-link: localiza e destaca o orçamento na lista quando ?focus=<id> está presente.
+  // Não abre o diálogo de edição — o usuário ajusta status diretamente no card.
   const focusId = searchParams.get('focus');
+  const focusNumero = searchParams.get('numero');
   useEffect(() => {
     if (!focusId) return;
-    const all = [...orcamentos, ...kanbanOrcamentos];
-    const found = all.find((o) => o.id === focusId);
-    if (found) {
-      setEditandoOrcamento(found);
-      searchParams.delete('focus');
-      setSearchParams(searchParams, { replace: true });
-    } else {
-      // Buscar direto
-      (async () => {
-        const { data } = await supabase.from('orcamentos').select('*').eq('id', focusId).maybeSingle();
-        if (data) {
-          setEditandoOrcamento({
-            ...(data as any),
-            itens_producao: (data as any).itens_producao || [],
-            servicos_marca: (data as any).servicos_marca || [],
-            dados_cliente: (data as any).dados_cliente || {},
-            detalhamento_frete: (data as any).detalhamento_frete || {},
-          });
-        }
-        searchParams.delete('focus');
-        setSearchParams(searchParams, { replace: true });
-      })();
+    // Se veio número, aplica filtro de busca para garantir que o card apareça.
+    if (focusNumero && searchTerm !== focusNumero) {
+      setSearchTerm(focusNumero);
     }
+    let attempts = 0;
+    const tryHighlight = () => {
+      const el = document.getElementById(`orc-card-${focusId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+        }, 2500);
+        searchParams.delete('focus');
+        searchParams.delete('numero');
+        setSearchParams(searchParams, { replace: true });
+        return true;
+      }
+      return false;
+    };
+    if (tryHighlight()) return;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (tryHighlight() || attempts > 20) clearInterval(interval);
+    }, 200);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusId, orcamentos.length, kanbanOrcamentos.length]);
+  }, [focusId, focusNumero, orcamentos.length, kanbanOrcamentos.length]);
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
@@ -303,6 +308,7 @@ export default function Orcamentos() {
                     return (
                       <Card
                         key={orcamento.id}
+                        id={`orc-card-${orcamento.id}`}
                         className={`overflow-hidden transition-all ${
                           isPago
                             ? 'border-green-500 bg-green-50 dark:bg-green-950/20 shadow-green-100 dark:shadow-green-900/20 shadow-md'

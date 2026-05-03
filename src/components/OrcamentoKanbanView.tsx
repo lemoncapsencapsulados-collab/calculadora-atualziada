@@ -90,6 +90,7 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
               {col.items.map(o => (
                 <Card
                   key={o.id}
+                  id={`orc-card-${o.id}`}
                   className="shadow-sm cursor-grab active:cursor-grabbing"
                   draggable
                   onDragStart={(e) => handleDragStart(e, o.id)}
