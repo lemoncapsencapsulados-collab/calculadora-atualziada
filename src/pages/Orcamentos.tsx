@@ -527,6 +527,68 @@ export default function Orcamentos() {
           onSuccess={invalidateAll}
         />
       )}
+
+      {/* Dialog: registrar data de envio */}
+      <Dialog open={!!enviandoOrcamento} onOpenChange={(open) => !open && setEnviandoOrcamento(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Marcar como Enviado</DialogTitle>
+            <DialogDescription>
+              Selecione a data em que o orçamento foi enviado ao cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Data de envio</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(dataEnvioSelecionada, "dd/MM/yyyy", { locale: ptBR })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={dataEnvioSelecionada}
+                  onSelect={(d) => d && setDataEnvioSelecionada(d)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnviandoOrcamento(null)}>Cancelar</Button>
+            <Button onClick={confirmarEnvio} disabled={updateStatus.isPending}>
+              <Send className="w-4 h-4 mr-2" />Confirmar envio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: observação interna */}
+      <Dialog open={!!observandoOrcamento} onOpenChange={(open) => !open && setObservandoOrcamento(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Observação interna</DialogTitle>
+            <DialogDescription>
+              Anote o contexto comercial deste orçamento. Esta nota aparece nos Insights do Dashboard e não vai para o PDF do cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={textoObservacao}
+            onChange={(e) => setTextoObservacao(e.target.value)}
+            placeholder="Ex: Cliente pediu desconto, retornar na próxima semana..."
+            rows={6}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setObservandoOrcamento(null)}>Cancelar</Button>
+            <Button onClick={salvarObservacao} disabled={updateObservacoesInternas.isPending}>
+              Salvar observação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
