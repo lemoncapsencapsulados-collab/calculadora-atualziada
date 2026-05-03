@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Orcamento, OrcamentoInsert, OrcamentoUpdate, OrcamentoSnapshot, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento } from '@/types/orcamento';
+import { Orcamento, OrcamentoInsert, OrcamentoUpdate, OrcamentoSnapshot, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento, ContatoOrcamento } from '@/types/orcamento';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to parse JSONB fields
@@ -12,6 +12,7 @@ function parseOrcamento(row: any): Orcamento {
     dados_cliente: (row.dados_cliente || {}) as DadosCliente,
     detalhamento_frete: (row.detalhamento_frete || {}) as DetalhamentoFrete,
     condicoes_pagamento: row.condicoes_pagamento as CondicoesPagamento | undefined,
+    historico_contatos: (row.historico_contatos || []) as ContatoOrcamento[],
   };
 }
 
@@ -204,6 +205,25 @@ export function useOrcamentos() {
         // Auto-set data_envio se não foi setada manualmente
         updateData.data_envio = new Date().toISOString();
       }
+      // Quando muda para "enviado", anexa item ao histórico (se ainda não houver envio na mesma data)
+      if (status === 'enviado') {
+        const { data: atual } = await supabase
+          .from('orcamentos')
+          .select('historico_contatos')
+          .eq('id', id)
+          .limit(1)
+          .single();
+        const hist = ((atual as any)?.historico_contatos || []) as ContatoOrcamento[];
+        const novaData = updateData.data_envio || new Date().toISOString();
+        const dia = novaData.slice(0, 10);
+        const jaTem = hist.some(h => h.tipo === 'envio' && (h.data || '').slice(0, 10) === dia);
+        if (!jaTem) {
+          updateData.historico_contatos = [
+            ...hist,
+            { id: crypto.randomUUID(), data: novaData, tipo: 'envio', observacao: '' },
+          ] as any;
+        }
+      }
       const { data, error } = await supabase
         .from('orcamentos')
         .update(updateData)
@@ -254,6 +274,74 @@ export function useOrcamentos() {
     },
     onError: (error: any) => {
       toast({ title: 'Erro ao salvar observação', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // Adicionar item ao histórico de contatos
+  const addContato = useMutation({
+    mutationFn: async ({ id, contato }: { id: string; contato: Omit<ContatoOrcamento, 'id'> }) => {
+      const { data: atual } = await supabase
+        .from('orcamentos')
+        .select('historico_contatos')
+        .eq('id', id)
+        .limit(1)
+        .single();
+      const hist = ((atual as any)?.historico_contatos || []) as ContatoOrcamento[];
+      const novo: ContatoOrcamento = { id: crypto.randomUUID(), ...contato };
+      const novoHist = [...hist, novo];
+      const updateData: any = { historico_contatos: novoHist };
+      if (contato.tipo === 'envio') {
+        updateData.data_envio = contato.data;
+      }
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return parseOrcamento(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
+      toast({ title: 'Contato registrado', description: 'O histórico foi atualizado.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro ao registrar contato', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const removeContato = useMutation({
+    mutationFn: async ({ id, contatoId }: { id: string; contatoId: string }) => {
+      const { data: atual } = await supabase
+        .from('orcamentos')
+        .select('historico_contatos')
+        .eq('id', id)
+        .limit(1)
+        .single();
+      const hist = ((atual as any)?.historico_contatos || []) as ContatoOrcamento[];
+      const novoHist = hist.filter(h => h.id !== contatoId);
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .update({ historico_contatos: novoHist } as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return parseOrcamento(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
+      toast({ title: 'Contato removido' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro ao remover contato', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -326,6 +414,8 @@ export function useOrcamentos() {
     updateDadosCliente,
     updateDetalhamentoFrete,
     updateObservacoesInternas,
+    addContato,
+    removeContato,
     getNextNumeroOrcamento,
   };
 }
