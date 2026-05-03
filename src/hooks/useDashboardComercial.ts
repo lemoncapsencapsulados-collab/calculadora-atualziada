@@ -75,6 +75,7 @@ interface OrcamentoData {
   itens_producao: any;
   data_envio?: string | null;
   observacoes_internas?: string | null;
+  historico_contatos?: Array<{ id: string; data: string; tipo: 'envio' | 'contato'; observacao: string }> | null;
 }
 
 interface ItemProducao {
@@ -109,7 +110,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orcamentos')
-        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, tipo_orcamento, created_at, updated_at, dados_cliente, itens_producao, data_envio, observacoes_internas')
+        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, tipo_orcamento, created_at, updated_at, dados_cliente, itens_producao, data_envio, observacoes_internas, historico_contatos')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -415,96 +416,84 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         }
       });
 
-    // Orçamentos enviados - análise granular por tempo
-    const enviadosSemRetorno = orcamentosFiltrados.filter(o => o.status === 'enviado' && (o.data_envio || o.updated_at));
-    
+    // Orçamentos enviados — relatório consolidado por orçamento (1º envio, 2º envio, último contato, feedback)
+    const enviadosSemRetorno = orcamentosFiltrados.filter(o =>
+      o.status === 'enviado' && (o.data_envio || (o.historico_contatos && o.historico_contatos.length > 0) || o.updated_at)
+    );
+
+    const enviadosPorConsultor = new Map<string, number>();
+
     enviadosSemRetorno.forEach(o => {
-      const refData = o.data_envio || o.updated_at!;
-      const dias = differenceInDays(hoje, parseISO(refData));
-      const dataEnvioFmt = format(parseISO(refData), 'dd/MM/yyyy', { locale: ptBR });
+      const hist = (o.historico_contatos || []).slice().sort(
+        (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
+      );
+      const envios = hist.filter(h => h.tipo === 'envio');
+      const contatos = hist.filter(h => h.tipo === 'contato');
+
+      const primeiroEnvio = envios[0]?.data || o.data_envio || o.updated_at!;
+      const segundoEnvio = envios[1]?.data;
+      const ultimoEvento = hist[hist.length - 1];
+      const ultimoContato = ultimoEvento?.data || primeiroEnvio;
+      const ultimoFeedback = [...contatos].reverse().find(c => c.observacao?.trim())?.observacao
+        || (o.observacoes_internas || '').trim()
+        || undefined;
+
+      const diasDesdeUltimo = differenceInDays(hoje, parseISO(ultimoContato));
       const valor = Number(o.valor_total || 0);
       const consultor = o.consultor_responsavel || 'Sem consultor';
-      
-      if (dias > 14) {
-        resultado.push({
-          tipo: 'alerta',
-          mensagem: `⚠️ URGENTE: Orçamento para "${o.nome_cliente}" enviado em ${dataEnvioFmt} (há ${dias} dias) sem retorno (${consultor}) - R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          consultor: o.consultor_responsavel || undefined,
-          valor,
-          orcamento_id: o.id,
-          numero_orcamento: o.numero_orcamento,
-          observacao: o.observacoes_internas || undefined,
-          data_envio: refData,
-        });
-      } else if (dias >= 3) {
-        resultado.push({
-          tipo: 'atencao',
-          mensagem: `Follow-up necessário: Orçamento para "${o.nome_cliente}" enviado em ${dataEnvioFmt} (há ${dias} dias) (${consultor}) - R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          consultor: o.consultor_responsavel || undefined,
-          valor,
-          orcamento_id: o.id,
-          numero_orcamento: o.numero_orcamento,
-          observacao: o.observacoes_internas || undefined,
-          data_envio: refData,
-        });
-      }
+      const fmt = (d?: string) => (d ? format(parseISO(d), 'dd/MM/yyyy', { locale: ptBR }) : '—');
 
-      // Alerta específico para valores altos
-      if (dias >= 3 && valor >= 5000) {
-        resultado.push({
-          tipo: 'alerta',
-          mensagem: `💰 Valor alto em risco: R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para "${o.nome_cliente}" sem retorno há ${dias} dias (enviado ${dataEnvioFmt}, ${consultor})`,
-          consultor: o.consultor_responsavel || undefined,
-          valor,
-          orcamento_id: o.id,
-          numero_orcamento: o.numero_orcamento,
-          observacao: o.observacoes_internas || undefined,
-          data_envio: refData,
-        });
+      let tipo: InsightDashboard['tipo'];
+      if (diasDesdeUltimo > 14) tipo = 'alerta';
+      else if (diasDesdeUltimo >= 5) tipo = 'atencao';
+      else tipo = 'oportunidade';
+
+      const partes: string[] = [];
+      partes.push(`1º envio: ${fmt(primeiroEnvio)}`);
+      partes.push(`2º envio: ${segundoEnvio ? fmt(segundoEnvio) : '—'}`);
+      partes.push(`último contato: ${fmt(ultimoContato)} (há ${diasDesdeUltimo} ${diasDesdeUltimo === 1 ? 'dia' : 'dias'})`);
+
+      resultado.push({
+        tipo,
+        mensagem: `"${o.nome_cliente}" (${consultor}) — R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. ${partes.join(' · ')}.`,
+        consultor: o.consultor_responsavel || undefined,
+        valor,
+        orcamento_id: o.id,
+        numero_orcamento: o.numero_orcamento,
+        observacao: ultimoFeedback,
+        data_envio: primeiroEnvio,
+        historico: {
+          primeiro_envio: primeiroEnvio,
+          segundo_envio: segundoEnvio,
+          ultimo_contato: ultimoContato,
+          ultimo_feedback: ultimoFeedback,
+          total_envios: envios.length || 1,
+          total_contatos: contatos.length,
+          dias_desde_ultimo: diasDesdeUltimo,
+        },
+      });
+
+      if (diasDesdeUltimo >= 5) {
+        enviadosPorConsultor.set(consultor, (enviadosPorConsultor.get(consultor) || 0) + 1);
       }
     });
 
     // Resumo de orçamentos enviados aguardando retorno
     if (enviadosSemRetorno.length > 0) {
       const valorTotalEnviados = enviadosSemRetorno.reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
-      const diasMedia = Math.round(enviadosSemRetorno.reduce((acc, o) => acc + differenceInDays(hoje, parseISO(o.data_envio || o.updated_at!)), 0) / enviadosSemRetorno.length);
       resultado.push({
         tipo: 'oportunidade',
-        mensagem: `${enviadosSemRetorno.length} orçamento(s) enviado(s) aguardando retorno, totalizando R$ ${valorTotalEnviados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (média de ${diasMedia} dias)`,
-        valor: valorTotalEnviados
+        mensagem: `${enviadosSemRetorno.length} orçamento(s) enviado(s) aguardando retorno, totalizando R$ ${valorTotalEnviados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        valor: valorTotalEnviados,
       });
     }
 
-    // Por consultor: quem tem mais orçamentos enviados parados
-    const enviadosPorConsultor = new Map<string, number>();
-    enviadosSemRetorno.filter(o => differenceInDays(hoje, parseISO(o.data_envio || o.updated_at!)) >= 3).forEach(o => {
-      const c = o.consultor_responsavel || 'Sem consultor';
-      enviadosPorConsultor.set(c, (enviadosPorConsultor.get(c) || 0) + 1);
-    });
-
-    // Observações internas — mostra contexto comercial
-    orcamentosFiltrados
-      .filter(o => o.observacoes_internas && o.observacoes_internas.trim() && o.status !== 'recusado')
-      .forEach(o => {
-        const texto = (o.observacoes_internas || '').trim();
-        const preview = texto.length > 200 ? texto.slice(0, 200) + '…' : texto;
-        resultado.push({
-          tipo: 'oportunidade',
-          mensagem: `Observação em "${o.nome_cliente}" (${o.consultor_responsavel || 'Sem consultor'}): ${preview}`,
-          consultor: o.consultor_responsavel || undefined,
-          valor: Number(o.valor_total || 0),
-          orcamento_id: o.id,
-          numero_orcamento: o.numero_orcamento,
-          observacao: texto,
-          data_envio: o.data_envio || undefined,
-        });
-      });
     enviadosPorConsultor.forEach((qtd, consultor) => {
       if (qtd >= 2) {
         resultado.push({
           tipo: 'atencao',
-          mensagem: `${consultor} tem ${qtd} orçamentos enviados parados aguardando retorno`,
-          consultor
+          mensagem: `${consultor} tem ${qtd} orçamentos enviados sem contato recente`,
+          consultor,
         });
       }
     });

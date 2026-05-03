@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Lightbulb, AlertTriangle, AlertCircle, CheckCircle, TrendingUp, ExternalLink, MessageSquare } from 'lucide-react';
+import { Lightbulb, AlertTriangle, AlertCircle, CheckCircle, TrendingUp, ExternalLink, MessageSquare, Send, Phone } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import type { InsightDashboard } from '@/types/dashboard';
@@ -184,7 +186,34 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
                     </span>
                   )}
                   <span className="text-sm">{insight.mensagem}</span>
-                  {insight.observacao && (
+                  {insight.historico && (
+                    <div className="mt-2 grid gap-1 text-xs bg-background/60 rounded p-2 border border-border/50">
+                      <div className="flex items-center gap-2">
+                        <Send className="w-3 h-3 text-blue-600 shrink-0" />
+                        <span><strong>1º envio:</strong> {insight.historico.primeiro_envio ? format(parseISO(insight.historico.primeiro_envio), 'dd/MM/yyyy', { locale: ptBR }) : '—'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Send className="w-3 h-3 text-blue-600 shrink-0" />
+                        <span><strong>2º envio:</strong> {insight.historico.segundo_envio ? format(parseISO(insight.historico.segundo_envio), 'dd/MM/yyyy', { locale: ptBR }) : 'nenhum reenvio'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span><strong>Último contato:</strong> {insight.historico.ultimo_contato ? format(parseISO(insight.historico.ultimo_contato), 'dd/MM/yyyy', { locale: ptBR }) : '—'} (há {insight.historico.dias_desde_ultimo} {insight.historico.dias_desde_ultimo === 1 ? 'dia' : 'dias'})</span>
+                      </div>
+                      {insight.historico.ultimo_feedback ? (
+                        <div className="flex items-start gap-2">
+                          <MessageSquare className="w-3 h-3 mt-0.5 text-muted-foreground shrink-0" />
+                          <span><strong>Feedback:</strong> <em>{insight.historico.ultimo_feedback}</em></span>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2 text-muted-foreground">
+                          <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
+                          <span className="italic">Sem feedback registrado — cobre o consultor.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!insight.historico && insight.observacao && (
                     <div className="mt-2 flex items-start gap-2 text-xs italic text-muted-foreground bg-background/60 rounded p-2 border border-border/50">
                       <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
                       <span className="whitespace-pre-wrap break-words">{insight.observacao}</span>

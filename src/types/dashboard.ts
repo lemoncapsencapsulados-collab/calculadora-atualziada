@@ -59,6 +59,15 @@ export interface InsightDashboard {
   numero_orcamento?: string;
   observacao?: string;
   data_envio?: string;
+  historico?: {
+    primeiro_envio?: string;
+    segundo_envio?: string;
+    ultimo_contato?: string;
+    ultimo_feedback?: string;
+    total_envios: number;
+    total_contatos: number;
+    dias_desde_ultimo: number;
+  };
 }
 
 export interface EvolucaoTemporal {

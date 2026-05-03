@@ -154,6 +154,15 @@ export interface DetalhamentoFrete {
 
 export type TipoOrcamento = 'novo_produtor' | 'recompra';
 
+export type TipoContato = 'envio' | 'contato';
+
+export interface ContatoOrcamento {
+  id: string;
+  data: string; // ISO timestamp
+  tipo: TipoContato;
+  observacao: string;
+}
+
 export interface OrcamentoSnapshot {
   id: string;
   numero_orcamento: string;
@@ -195,6 +204,7 @@ export interface Orcamento {
   status: 'rascunho' | 'enviado' | 'pago' | 'recusado';
   data_pagamento?: string | null;
   data_envio?: string | null;
+  historico_contatos?: ContatoOrcamento[];
   created_at: string;
   updated_at: string;
 }
