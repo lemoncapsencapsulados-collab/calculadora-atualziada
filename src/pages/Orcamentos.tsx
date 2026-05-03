@@ -365,6 +365,12 @@ export default function Orcamentos() {
                                     Pgto: {format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
                                   </div>
                                 )}
+                                {orcamento.data_envio && (
+                                  <div className="flex items-center gap-1 text-blue-600">
+                                    <Send className="w-3 h-3" />
+                                    Enviado: {format(new Date(orcamento.data_envio), "dd/MM/yyyy", { locale: ptBR })}
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-1">
                                   <Package className="w-3 h-3" />
                                   {orcamento.itens_producao?.length || 0} produto(s)
@@ -374,6 +380,12 @@ export default function Orcamentos() {
                                   {orcamento.servicos_marca?.length || 0} serviço(s)
                                 </div>
                               </div>
+                              {orcamento.observacoes_internas && (
+                                <div className="flex items-start gap-2 text-xs italic text-muted-foreground bg-muted/40 rounded p-2 border border-border/50">
+                                  <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
+                                  <span className="whitespace-pre-wrap break-words line-clamp-3">{orcamento.observacoes_internas}</span>
+                                </div>
+                              )}
                               <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div>
                                   <p className="text-muted-foreground text-xs">Produção</p>
@@ -392,6 +404,24 @@ export default function Orcamentos() {
                               </div>
                             </div>
                             <div className="flex flex-wrap md:flex-col lg:flex-col gap-2 justify-end">
+                              {orcamento.status !== 'enviado' && orcamento.status !== 'pago' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-blue-500 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                                  onClick={() => abrirDialogEnviado(orcamento)}
+                                >
+                                  <Send className="w-4 h-4 mr-2" />Enviado
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => abrirDialogObservacao(orcamento)}
+                              >
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                {orcamento.observacoes_internas ? 'Editar Obs.' : 'Observação'}
+                              </Button>
                               {orcamento.status === 'enviado' && (
                                 <Button
                                   variant="outline"
