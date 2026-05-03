@@ -73,6 +73,8 @@ interface OrcamentoData {
   updated_at: string | null;
   dados_cliente: any;
   itens_producao: any;
+  data_envio?: string | null;
+  observacoes_internas?: string | null;
 }
 
 interface ItemProducao {
@@ -107,7 +109,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orcamentos')
-        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, tipo_orcamento, created_at, updated_at, dados_cliente, itens_producao')
+        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, tipo_orcamento, created_at, updated_at, dados_cliente, itens_producao, data_envio, observacoes_internas')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
