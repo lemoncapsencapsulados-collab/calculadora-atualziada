@@ -196,7 +196,7 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
                         variant="outline"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => navigate(`/orcamentos?focus=${insight.orcamento_id}`)}
+                        onClick={() => navigate(`/orcamentos?focus=${insight.orcamento_id}${insight.numero_orcamento ? `&numero=${encodeURIComponent(insight.numero_orcamento)}` : ''}`)}
                       >
                         <ExternalLink className="w-3 h-3 mr-1" />
                         Ver Orçamento{insight.numero_orcamento ? ` ${insight.numero_orcamento}` : ''}
