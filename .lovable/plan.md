@@ -1,51 +1,62 @@
-# Recompra Print on Demand → calcular faturamento e marcar como pago
+# Plano: Enviado com data, Observações e atalho "Ver Orçamento" nos Insights
 
-## O que muda (comportamento)
+## Objetivo
+Permitir registrar a data exata de envio de um orçamento, anexar observações livres por orçamento, refletir tudo isso em "Insights e Alertas" do Dashboard, garantir que orçamentos recusados saiam dos alertas de atenção, e adicionar atalho para abrir o orçamento direto da notificação.
 
-Hoje, ao salvar uma recompra no modo **Print on Demand**, o cartão do pedido criado mostra **TOTAL = R$ 0,00**, porque o snapshot zera quantidade e subtotal dos itens POD. Vamos ajustar para que:
+## Mudanças no banco
+Adicionar duas colunas na tabela `orcamentos`:
+- `data_envio` (timestamptz, nullable) — data/hora em que o orçamento foi marcado como enviado.
+- `observacoes_internas` (text, nullable) — texto livre do consultor sobre o orçamento (separado de `observacoes` que já existe e é exibido no PDF para o cliente).
 
-1. Cada produto POD tenha o cálculo: **faturamento = quantidade de potes consumidos × custo por pote**.
-2. A soma dos produtos selecionados gere o **valor_total do pedido**, exibido em destaque no campo **TOTAL** do card em "Pedidos → Visão Geral".
-3. O pedido POD seja registrado como **PAGO** (data de pagamento = data do registro da recompra) e identificado como tal no card, já que o pagamento ocorreu dentro do período informado.
-4. O selo "Recompra POD" continua aparecendo, mas agora acompanhado do valor de faturamento real (ex.: *Recompra POD — R$ 12.500,00 — Pago em 30/04/2026*).
+Migração simples via ALTER TABLE; sem alterar RLS (já cobertas pelas políticas existentes).
 
-## Onde mexer (técnico)
+## Página "Orçamentos" (`src/pages/Orcamentos.tsx` + Kanban)
+1. **Botão "Enviado"** em cada card:
+   - Marca o status como `enviado` e grava `data_envio = now()`.
+   - Abre um pequeno popover/dialog perguntando a data de envio (default: hoje) caso o usuário queira registrar uma data diferente.
+   - Se o status for trocado pelo Select para `enviado`, também grava `data_envio` automaticamente (apenas na primeira vez ou quando o usuário editar).
+   - Exibe a data de envio no card (linha de metadados, junto de "Criado/Editado/Pgto").
 
-### 1. `src/hooks/useRecompras.ts` — `criarRecompraComPedido`
-- Remover o "zerar" do POD nos itens do snapshot. Hoje:
-  ```ts
-  const qtd = isPOD ? 0 : p.quantidade;
-  const subtotal = isPOD ? 0 : (p.quantidade * p.valorUnitario);
-  ```
-  Passar a usar **sempre** `p.quantidade` e `p.quantidade * p.valorUnitario`, mantendo `pod_consumo_quantidade/inicio/fim` para os itens POD (rastreabilidade do período).
-- Com isso, `subtotalProducao` e `valor_total` do snapshot já refletem o faturamento POD automaticamente.
-- Em `pedidos.insert`, manter `quantidade_produto = quantidadeTotal` (já faz isso).
-- Para POD, definir o pedido como pago:
-  - `status: 'concluido'` (em vez de `aguardando_producao`), pois não há produção a executar — é apenas registro de faturamento.
-  - `novoSnapshot.data_pagamento` continua sendo a data da recompra (já preenchido).
-  - `condicoes_pagamento` do snapshot: passar a gravar `{ pago_no_periodo: true, periodo_inicio, periodo_fim }` para o card poder mostrar o período.
+2. **Botão "Observação"** em cada card:
+   - Abre um dialog com textarea pré-preenchido com `observacoes_internas` atual.
+   - Salva via novo mutation `updateObservacoesInternas`.
+   - Indicador visual no card quando há observação registrada (ícone + preview).
 
-### 2. `src/pages/Pedidos.tsx` — card da Visão Geral
-- O campo TOTAL (`snap.valor_total`) passará a refletir o faturamento POD automaticamente, sem código novo.
-- Adicionar, no badge/linha "Recompra POD", um sufixo "Pago" (verde) quando `tipo_orcamento === 'recompra_pod'`, e exibir o período de consumo logo abaixo (já existe a renderização das datas POD por item; manteremos).
-- Exportações CSV/PDF que dependem de `snap.valor_total` passam a contar o faturamento POD corretamente — nenhuma mudança extra necessária.
+3. **Status "Recusado"**: já existe — apenas garantir que ao mudar para `recusado` os insights deixem de listá-lo (tratado no hook do Dashboard).
 
-### 3. `src/components/pedidos/AdicionarRecompraDialog.tsx`
-- Trocar o rótulo do bloco de total no modo POD de "Faturamento do período" para algo mais explícito: **"Faturamento POD (qtd × valor unit.)"**, deixando claro que esse valor irá para o TOTAL do pedido como já pago.
-- Pequeno texto de apoio: *"Este valor será registrado como faturamento já recebido no período informado."*
+## Hook de orçamentos (`src/hooks/useOrcamentos.ts`)
+- Estender `updateStatus` para aceitar e gravar `data_envio` quando `status === 'enviado'`.
+- Adicionar mutation `updateObservacoesInternas({ id, texto })`.
+- Atualizar `parseOrcamento` e tipos para os novos campos.
 
-### 4. Subpáginas de entregáveis e demais telas
-- Como recompras POD são apenas registro de faturamento (não geram entregáveis de setup), nada muda em `SubpaginaEntregaveis` / `DemandasSetupResumo`. O filtro atual já ignora tipos `recompra*` para entregáveis de setup; manteremos.
+## Tipos (`src/types/orcamento.ts` e `src/types/dashboard.ts`)
+- `Orcamento`: incluir `data_envio?: string | null` e `observacoes_internas?: string | null`.
+- `InsightDashboard`: incluir campos opcionais para deep-link e nota:
+  - `orcamento_id?: string`
+  - `numero_orcamento?: string`
+  - `observacao?: string`
+  - `data_envio?: string`
 
-## Resultado esperado
+## Hook do Dashboard (`src/hooks/useDashboardComercial.ts`)
+1. Selecionar `data_envio` e `observacoes_internas` no query de `orcamentos-dashboard`.
+2. Trocar a base de cálculo de "enviado há X dias" de `updated_at` para `data_envio` (fallback para `updated_at` em registros antigos).
+3. Garantir que orçamentos com `status === 'recusado'` não geram nenhum insight de atenção/alerta (já é o caso da lógica de "enviado", basta confirmar). Adicionar insight `positivo`/`atencao` resumindo recusas se relevante (já existe).
+4. Em todo `resultado.push({...})` referente a um orçamento específico, anexar `orcamento_id` e `numero_orcamento` para permitir o botão "Ver Orçamento".
+5. Novo bloco de insights: **Observações de orçamentos**
+   - Para cada orçamento (não recusado/concluído) que possua `observacoes_internas`, gerar um insight tipo `oportunidade` com a mensagem "Obs: {texto curto}" e os campos de deep-link.
+6. Para orçamentos enviados, incluir `data_envio` formatada na mensagem ("enviado em dd/mm/aaaa - X dias atrás").
 
-```text
-[ Card do Pedido — Cliente X ]
-  PED-042  •  Recompra POD  •  Pago em 30/04/2026
-  Período: 01/04/2026 – 30/04/2026
-  Produto Y — 500 potes × R$ 25,00
-  --------------------------------
-  TOTAL                      R$ 12.500,00
-```
+## Componente de Insights (`src/components/dashboard/DashboardInsights.tsx`)
+1. Renderizar botão **"Ver Orçamento"** quando o insight tiver `orcamento_id`.
+   - Ao clicar: navegar para `/orcamentos?focus={orcamento_id}` (ou abrir dialog de edição). Solução mais simples: usar `react-router` `useNavigate` para `/orcamentos` com query param e `Orcamentos.tsx` lê o param para abrir o `GerarOrcamentoDialog` com aquele orçamento.
+2. Mostrar a `data_envio` quando presente.
+3. Mostrar `observacao` em itálico abaixo da mensagem quando o insight a contiver.
 
-Nenhuma migração de banco é necessária — os dados antigos com `valor_total = 0` permanecem como estão; novos registros POD passam a vir com o faturamento correto.
+## Página Orçamentos – deep-link
+- Em `src/pages/Orcamentos.tsx`, ler `useSearchParams()` para `focus`. Quando presente, buscar o orçamento (já carregado na lista paginada — se não estiver na página atual, fazer fetch direto por id) e abrir `editandoOrcamento`.
+
+## Resultado para o usuário
+- Botão "Enviado" registra data e mostra no card e nos insights.
+- Botão "Observação" permite anotar contexto comercial visível no Dashboard.
+- Cada notificação no Dashboard tem botão "Ver Orçamento" que abre o orçamento correspondente.
+- Quando o status vira "Recusado", o orçamento desaparece dos alertas de atenção/alerta automaticamente.

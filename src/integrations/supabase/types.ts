@@ -383,6 +383,7 @@ export type Database = {
           consultor_responsavel: string | null
           created_at: string | null
           dados_cliente: Json | null
+          data_envio: string | null
           data_pagamento: string | null
           detalhamento_frete: Json | null
           forma_pagamento: string | null
@@ -391,6 +392,7 @@ export type Database = {
           nome_cliente: string
           numero_orcamento: string
           observacoes: string | null
+          observacoes_internas: string | null
           servicos_marca: Json
           status: string
           subtotal_producao: number
@@ -406,6 +408,7 @@ export type Database = {
           consultor_responsavel?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
+          data_envio?: string | null
           data_pagamento?: string | null
           detalhamento_frete?: Json | null
           forma_pagamento?: string | null
@@ -414,6 +417,7 @@ export type Database = {
           nome_cliente: string
           numero_orcamento: string
           observacoes?: string | null
+          observacoes_internas?: string | null
           servicos_marca?: Json
           status?: string
           subtotal_producao?: number
@@ -429,6 +433,7 @@ export type Database = {
           consultor_responsavel?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
+          data_envio?: string | null
           data_pagamento?: string | null
           detalhamento_frete?: Json | null
           forma_pagamento?: string | null
@@ -437,6 +442,7 @@ export type Database = {
           nome_cliente?: string
           numero_orcamento?: string
           observacoes?: string | null
+          observacoes_internas?: string | null
           servicos_marca?: Json
           status?: string
           subtotal_producao?: number
