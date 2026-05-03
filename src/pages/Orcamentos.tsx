@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
-import { Orcamento } from '@/types/orcamento';
+import { Orcamento, ContatoOrcamento, TipoContato } from '@/types/orcamento';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import {
   Search, Pencil, Trash2, Calendar, Package, Palette,
   FileText, Plus, CheckCircle2, FileCheck, FileSignature,
   ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign,
-  Send, MessageSquare
+  Send, MessageSquare, History, X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -52,7 +52,7 @@ type ViewMode = 'list' | 'kanban';
 
 export default function Orcamentos() {
   const queryClient = useQueryClient();
-  const { deleteOrcamento, updateStatus, updateObservacoesInternas } = useOrcamentos();
+  const { deleteOrcamento, updateStatus, addContato, removeContato } = useOrcamentos();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,13 +69,11 @@ export default function Orcamentos() {
   // State para popup de aprovação com proposta completa
   const [aprovandoOrcamento, setAprovandoOrcamento] = useState<Orcamento | null>(null);
 
-  // Dialog "Enviado" — escolher data
-  const [enviandoOrcamento, setEnviandoOrcamento] = useState<Orcamento | null>(null);
-  const [dataEnvioSelecionada, setDataEnvioSelecionada] = useState<Date>(new Date());
-
-  // Dialog "Observação"
-  const [observandoOrcamento, setObservandoOrcamento] = useState<Orcamento | null>(null);
-  const [textoObservacao, setTextoObservacao] = useState('');
+  // Dialog "Histórico de Contatos"
+  const [historicoOrcamento, setHistoricoOrcamento] = useState<Orcamento | null>(null);
+  const [novoContatoData, setNovoContatoData] = useState<Date>(new Date());
+  const [novoContatoTipo, setNovoContatoTipo] = useState<TipoContato>('contato');
+  const [novoContatoTexto, setNovoContatoTexto] = useState('');
 
   const consultores = useConsultoresDisponiveis();
 
@@ -140,34 +138,37 @@ export default function Orcamentos() {
     queryClient.invalidateQueries({ queryKey: ['pedidos'] });
   };
 
-  const abrirDialogEnviado = (orc: Orcamento) => {
-    setEnviandoOrcamento(orc);
-    setDataEnvioSelecionada(orc.data_envio ? new Date(orc.data_envio) : new Date());
+  const abrirHistorico = (orc: Orcamento) => {
+    setHistoricoOrcamento(orc);
+    setNovoContatoData(new Date());
+    setNovoContatoTipo('contato');
+    setNovoContatoTexto('');
   };
 
-  const confirmarEnvio = async () => {
-    if (!enviandoOrcamento) return;
-    await updateStatus.mutateAsync({
-      id: enviandoOrcamento.id,
-      status: 'enviado',
-      data_envio: dataEnvioSelecionada.toISOString(),
+  const adicionarContato = async () => {
+    if (!historicoOrcamento) return;
+    if (novoContatoTipo === 'contato' && !novoContatoTexto.trim()) return;
+    await addContato.mutateAsync({
+      id: historicoOrcamento.id,
+      contato: {
+        data: novoContatoData.toISOString(),
+        tipo: novoContatoTipo,
+        observacao: novoContatoTexto.trim(),
+      },
     });
-    setEnviandoOrcamento(null);
+    // Recarrega o orçamento atualizado para refletir o novo item na timeline
+    const allOrcamentos = viewMode === 'list' ? orcamentos : kanbanOrcamentos;
+    const atualizado = allOrcamentos.find(o => o.id === historicoOrcamento.id);
+    if (atualizado) setHistoricoOrcamento(atualizado);
+    setNovoContatoData(new Date());
+    setNovoContatoTipo('contato');
+    setNovoContatoTexto('');
     invalidateAll();
   };
 
-  const abrirDialogObservacao = (orc: Orcamento) => {
-    setObservandoOrcamento(orc);
-    setTextoObservacao(orc.observacoes_internas || '');
-  };
-
-  const salvarObservacao = async () => {
-    if (!observandoOrcamento) return;
-    await updateObservacoesInternas.mutateAsync({
-      id: observandoOrcamento.id,
-      observacoes_internas: textoObservacao,
-    });
-    setObservandoOrcamento(null);
+  const removerContato = async (contatoId: string) => {
+    if (!historicoOrcamento) return;
+    await removeContato.mutateAsync({ id: historicoOrcamento.id, contatoId });
     invalidateAll();
   };
 
