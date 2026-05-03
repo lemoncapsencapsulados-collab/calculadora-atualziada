@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { Orcamento } from '@/types/orcamento';
@@ -9,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, Pencil, Trash2, Calendar, Package, Palette,
   FileText, Plus, CheckCircle2, FileCheck, FileSignature,
-  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign
+  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign,
+  Send, MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,6 +23,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
@@ -41,7 +52,8 @@ type ViewMode = 'list' | 'kanban';
 
 export default function Orcamentos() {
   const queryClient = useQueryClient();
-  const { deleteOrcamento, updateStatus } = useOrcamentos();
+  const { deleteOrcamento, updateStatus, updateObservacoesInternas } = useOrcamentos();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [consultorFilter, setConsultorFilter] = useState('');
@@ -56,6 +68,14 @@ export default function Orcamentos() {
 
   // State para popup de aprovação com proposta completa
   const [aprovandoOrcamento, setAprovandoOrcamento] = useState<Orcamento | null>(null);
+
+  // Dialog "Enviado" — escolher data
+  const [enviandoOrcamento, setEnviandoOrcamento] = useState<Orcamento | null>(null);
+  const [dataEnvioSelecionada, setDataEnvioSelecionada] = useState<Date>(new Date());
+
+  // Dialog "Observação"
+  const [observandoOrcamento, setObservandoOrcamento] = useState<Orcamento | null>(null);
+  const [textoObservacao, setTextoObservacao] = useState('');
 
   const consultores = useConsultoresDisponiveis();
 
@@ -77,12 +97,73 @@ export default function Orcamentos() {
     setCurrentPage(1);
   }, [searchTerm, consultorFilter]);
 
+  // Deep-link: abre orçamento quando ?focus=<id> está presente
+  const focusId = searchParams.get('focus');
+  useEffect(() => {
+    if (!focusId) return;
+    const all = [...orcamentos, ...kanbanOrcamentos];
+    const found = all.find((o) => o.id === focusId);
+    if (found) {
+      setEditandoOrcamento(found);
+      searchParams.delete('focus');
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      // Buscar direto
+      (async () => {
+        const { data } = await supabase.from('orcamentos').select('*').eq('id', focusId).maybeSingle();
+        if (data) {
+          setEditandoOrcamento({
+            ...(data as any),
+            itens_producao: (data as any).itens_producao || [],
+            servicos_marca: (data as any).servicos_marca || [],
+            dados_cliente: (data as any).dados_cliente || {},
+            detalhamento_frete: (data as any).detalhamento_frete || {},
+          });
+        }
+        searchParams.delete('focus');
+        setSearchParams(searchParams, { replace: true });
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId, orcamentos.length, kanbanOrcamentos.length]);
+
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
     queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
     queryClient.invalidateQueries({ queryKey: ['consultores-disponiveis'] });
     queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
     queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+  };
+
+  const abrirDialogEnviado = (orc: Orcamento) => {
+    setEnviandoOrcamento(orc);
+    setDataEnvioSelecionada(orc.data_envio ? new Date(orc.data_envio) : new Date());
+  };
+
+  const confirmarEnvio = async () => {
+    if (!enviandoOrcamento) return;
+    await updateStatus.mutateAsync({
+      id: enviandoOrcamento.id,
+      status: 'enviado',
+      data_envio: dataEnvioSelecionada.toISOString(),
+    });
+    setEnviandoOrcamento(null);
+    invalidateAll();
+  };
+
+  const abrirDialogObservacao = (orc: Orcamento) => {
+    setObservandoOrcamento(orc);
+    setTextoObservacao(orc.observacoes_internas || '');
+  };
+
+  const salvarObservacao = async () => {
+    if (!observandoOrcamento) return;
+    await updateObservacoesInternas.mutateAsync({
+      id: observandoOrcamento.id,
+      observacoes_internas: textoObservacao,
+    });
+    setObservandoOrcamento(null);
+    invalidateAll();
   };
 
   const handleConfirmDelete = async () => {
