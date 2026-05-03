@@ -55,6 +55,10 @@ export interface InsightDashboard {
   mensagem: string;
   consultor?: string;
   valor?: number;
+  orcamento_id?: string;
+  numero_orcamento?: string;
+  observacao?: string;
+  data_envio?: string;
 }
 
 export interface EvolucaoTemporal {

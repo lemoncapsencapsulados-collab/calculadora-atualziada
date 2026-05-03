@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { Orcamento } from '@/types/orcamento';
@@ -9,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Search, Pencil, Trash2, Calendar, Package, Palette,
   FileText, Plus, CheckCircle2, FileCheck, FileSignature,
-  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign
+  ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign,
+  Send, MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,6 +23,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
@@ -41,7 +52,8 @@ type ViewMode = 'list' | 'kanban';
 
 export default function Orcamentos() {
   const queryClient = useQueryClient();
-  const { deleteOrcamento, updateStatus } = useOrcamentos();
+  const { deleteOrcamento, updateStatus, updateObservacoesInternas } = useOrcamentos();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [consultorFilter, setConsultorFilter] = useState('');
@@ -56,6 +68,14 @@ export default function Orcamentos() {
 
   // State para popup de aprovação com proposta completa
   const [aprovandoOrcamento, setAprovandoOrcamento] = useState<Orcamento | null>(null);
+
+  // Dialog "Enviado" — escolher data
+  const [enviandoOrcamento, setEnviandoOrcamento] = useState<Orcamento | null>(null);
+  const [dataEnvioSelecionada, setDataEnvioSelecionada] = useState<Date>(new Date());
+
+  // Dialog "Observação"
+  const [observandoOrcamento, setObservandoOrcamento] = useState<Orcamento | null>(null);
+  const [textoObservacao, setTextoObservacao] = useState('');
 
   const consultores = useConsultoresDisponiveis();
 
@@ -77,12 +97,73 @@ export default function Orcamentos() {
     setCurrentPage(1);
   }, [searchTerm, consultorFilter]);
 
+  // Deep-link: abre orçamento quando ?focus=<id> está presente
+  const focusId = searchParams.get('focus');
+  useEffect(() => {
+    if (!focusId) return;
+    const all = [...orcamentos, ...kanbanOrcamentos];
+    const found = all.find((o) => o.id === focusId);
+    if (found) {
+      setEditandoOrcamento(found);
+      searchParams.delete('focus');
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      // Buscar direto
+      (async () => {
+        const { data } = await supabase.from('orcamentos').select('*').eq('id', focusId).maybeSingle();
+        if (data) {
+          setEditandoOrcamento({
+            ...(data as any),
+            itens_producao: (data as any).itens_producao || [],
+            servicos_marca: (data as any).servicos_marca || [],
+            dados_cliente: (data as any).dados_cliente || {},
+            detalhamento_frete: (data as any).detalhamento_frete || {},
+          });
+        }
+        searchParams.delete('focus');
+        setSearchParams(searchParams, { replace: true });
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId, orcamentos.length, kanbanOrcamentos.length]);
+
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
     queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
     queryClient.invalidateQueries({ queryKey: ['consultores-disponiveis'] });
     queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
     queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+  };
+
+  const abrirDialogEnviado = (orc: Orcamento) => {
+    setEnviandoOrcamento(orc);
+    setDataEnvioSelecionada(orc.data_envio ? new Date(orc.data_envio) : new Date());
+  };
+
+  const confirmarEnvio = async () => {
+    if (!enviandoOrcamento) return;
+    await updateStatus.mutateAsync({
+      id: enviandoOrcamento.id,
+      status: 'enviado',
+      data_envio: dataEnvioSelecionada.toISOString(),
+    });
+    setEnviandoOrcamento(null);
+    invalidateAll();
+  };
+
+  const abrirDialogObservacao = (orc: Orcamento) => {
+    setObservandoOrcamento(orc);
+    setTextoObservacao(orc.observacoes_internas || '');
+  };
+
+  const salvarObservacao = async () => {
+    if (!observandoOrcamento) return;
+    await updateObservacoesInternas.mutateAsync({
+      id: observandoOrcamento.id,
+      observacoes_internas: textoObservacao,
+    });
+    setObservandoOrcamento(null);
+    invalidateAll();
   };
 
   const handleConfirmDelete = async () => {
@@ -284,6 +365,12 @@ export default function Orcamentos() {
                                     Pgto: {format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
                                   </div>
                                 )}
+                                {orcamento.data_envio && (
+                                  <div className="flex items-center gap-1 text-blue-600">
+                                    <Send className="w-3 h-3" />
+                                    Enviado: {format(new Date(orcamento.data_envio), "dd/MM/yyyy", { locale: ptBR })}
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-1">
                                   <Package className="w-3 h-3" />
                                   {orcamento.itens_producao?.length || 0} produto(s)
@@ -293,6 +380,12 @@ export default function Orcamentos() {
                                   {orcamento.servicos_marca?.length || 0} serviço(s)
                                 </div>
                               </div>
+                              {orcamento.observacoes_internas && (
+                                <div className="flex items-start gap-2 text-xs italic text-muted-foreground bg-muted/40 rounded p-2 border border-border/50">
+                                  <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
+                                  <span className="whitespace-pre-wrap break-words line-clamp-3">{orcamento.observacoes_internas}</span>
+                                </div>
+                              )}
                               <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div>
                                   <p className="text-muted-foreground text-xs">Produção</p>
@@ -311,6 +404,24 @@ export default function Orcamentos() {
                               </div>
                             </div>
                             <div className="flex flex-wrap md:flex-col lg:flex-col gap-2 justify-end">
+                              {orcamento.status !== 'enviado' && orcamento.status !== 'pago' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-blue-500 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                                  onClick={() => abrirDialogEnviado(orcamento)}
+                                >
+                                  <Send className="w-4 h-4 mr-2" />Enviado
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => abrirDialogObservacao(orcamento)}
+                              >
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                {orcamento.observacoes_internas ? 'Editar Obs.' : 'Observação'}
+                              </Button>
                               {orcamento.status === 'enviado' && (
                                 <Button
                                   variant="outline"
@@ -416,6 +527,68 @@ export default function Orcamentos() {
           onSuccess={invalidateAll}
         />
       )}
+
+      {/* Dialog: registrar data de envio */}
+      <Dialog open={!!enviandoOrcamento} onOpenChange={(open) => !open && setEnviandoOrcamento(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Marcar como Enviado</DialogTitle>
+            <DialogDescription>
+              Selecione a data em que o orçamento foi enviado ao cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Data de envio</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full justify-start text-left font-normal")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(dataEnvioSelecionada, "dd/MM/yyyy", { locale: ptBR })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={dataEnvioSelecionada}
+                  onSelect={(d) => d && setDataEnvioSelecionada(d)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnviandoOrcamento(null)}>Cancelar</Button>
+            <Button onClick={confirmarEnvio} disabled={updateStatus.isPending}>
+              <Send className="w-4 h-4 mr-2" />Confirmar envio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: observação interna */}
+      <Dialog open={!!observandoOrcamento} onOpenChange={(open) => !open && setObservandoOrcamento(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Observação interna</DialogTitle>
+            <DialogDescription>
+              Anote o contexto comercial deste orçamento. Esta nota aparece nos Insights do Dashboard e não vai para o PDF do cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={textoObservacao}
+            onChange={(e) => setTextoObservacao(e.target.value)}
+            placeholder="Ex: Cliente pediu desconto, retornar na próxima semana..."
+            rows={6}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setObservandoOrcamento(null)}>Cancelar</Button>
+            <Button onClick={salvarObservacao} disabled={updateObservacoesInternas.isPending}>
+              Salvar observação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

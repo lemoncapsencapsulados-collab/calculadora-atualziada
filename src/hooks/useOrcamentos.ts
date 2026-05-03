@@ -193,10 +193,16 @@ export function useOrcamentos() {
 
   // Update status
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, data_pagamento }: { id: string; status: Orcamento['status']; data_pagamento?: string }) => {
+    mutationFn: async ({ id, status, data_pagamento, data_envio }: { id: string; status: Orcamento['status']; data_pagamento?: string; data_envio?: string | null }) => {
       const updateData: any = { status };
       if (data_pagamento !== undefined) {
         updateData.data_pagamento = data_pagamento;
+      }
+      if (data_envio !== undefined) {
+        updateData.data_envio = data_envio;
+      } else if (status === 'enviado') {
+        // Auto-set data_envio se não foi setada manualmente
+        updateData.data_envio = new Date().toISOString();
       }
       const { data, error } = await supabase
         .from('orcamentos')
@@ -210,6 +216,9 @@ export function useOrcamentos() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
       toast({
         title: 'Status atualizado',
         description: 'O status do orçamento foi alterado.',
@@ -221,6 +230,30 @@ export function useOrcamentos() {
         description: error.message,
         variant: 'destructive',
       });
+    },
+  });
+
+  // Update observações internas
+  const updateObservacoesInternas = useMutation({
+    mutationFn: async ({ id, observacoes_internas }: { id: string; observacoes_internas: string }) => {
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .update({ observacoes_internas } as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return parseOrcamento(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
+      toast({ title: 'Observação salva', description: 'A observação interna foi atualizada.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Erro ao salvar observação', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -292,6 +325,7 @@ export function useOrcamentos() {
     updateStatus,
     updateDadosCliente,
     updateDetalhamentoFrete,
+    updateObservacoesInternas,
     getNextNumeroOrcamento,
   };
 }

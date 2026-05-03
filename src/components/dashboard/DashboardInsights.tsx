@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Lightbulb, AlertTriangle, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { Lightbulb, AlertTriangle, AlertCircle, CheckCircle, TrendingUp, ExternalLink, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import type { InsightDashboard } from '@/types/dashboard';
 
@@ -20,6 +22,7 @@ const TIPO_OPTIONS = [
 const ITEMS_PER_PAGE = 15;
 
 export function DashboardInsights({ insights }: DashboardInsightsProps) {
+  const navigate = useNavigate();
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [paginaAtual, setPaginaAtual] = useState(1);
 
@@ -181,6 +184,25 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
                     </span>
                   )}
                   <span className="text-sm">{insight.mensagem}</span>
+                  {insight.observacao && (
+                    <div className="mt-2 flex items-start gap-2 text-xs italic text-muted-foreground bg-background/60 rounded p-2 border border-border/50">
+                      <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
+                      <span className="whitespace-pre-wrap break-words">{insight.observacao}</span>
+                    </div>
+                  )}
+                  {insight.orcamento_id && (
+                    <div className="mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => navigate(`/orcamentos?focus=${insight.orcamento_id}`)}
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        Ver Orçamento{insight.numero_orcamento ? ` ${insight.numero_orcamento}` : ''}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
