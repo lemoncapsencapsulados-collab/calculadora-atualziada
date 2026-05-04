@@ -275,6 +275,17 @@ export default function Orcamentos() {
     setNovoContatoTexto('');
   };
 
+  // Mantém o diálogo sincronizado com a versão mais recente do orçamento
+  useEffect(() => {
+    if (!historicoOrcamento) return;
+    const all = [...orcamentos, ...kanbanOrcamentos];
+    const atualizado = all.find(o => o.id === historicoOrcamento.id);
+    if (atualizado && atualizado.updated_at !== historicoOrcamento.updated_at) {
+      setHistoricoOrcamento(atualizado);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orcamentos, kanbanOrcamentos]);
+
   const adicionarContato = async () => {
     if (!historicoOrcamento) return;
     if (novoContatoTipo === 'contato' && !novoContatoTexto.trim()) return;
