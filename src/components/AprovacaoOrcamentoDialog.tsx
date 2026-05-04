@@ -15,8 +15,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -25,6 +23,7 @@ import { cn } from '@/lib/utils';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
+import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -189,10 +188,14 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
-  // Data de pagamento
-  const [dataPagamento, setDataPagamento] = useState<Date | undefined>(
-    orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : undefined
-  );
+  // Data de pagamento (inputs numéricos DD/MM/AAAA)
+  const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
+  const [diaPg, setDiaPg] = useState<string>(dataInicial ? String(dataInicial.getDate()).padStart(2, '0') : '');
+  const [mesPg, setMesPg] = useState<string>(dataInicial ? String(dataInicial.getMonth() + 1).padStart(2, '0') : '');
+  const [anoPg, setAnoPg] = useState<string>(dataInicial ? String(dataInicial.getFullYear()) : '');
+  const dataPagamento: Date | null = buildDate(diaPg, mesPg, anoPg);
+  const dataPagamentoFutura = !!dataPagamento && dataPagamento > new Date();
+  const dataPagamentoValida = !!dataPagamento && !dataPagamentoFutura;
 
   // Tipo pessoa
   const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
