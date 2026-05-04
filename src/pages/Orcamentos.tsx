@@ -619,23 +619,17 @@ export default function Orcamentos() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Data</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn('w-full justify-start text-left font-normal')}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(novoContatoData, 'dd/MM/yyyy', { locale: ptBR })}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarPicker
-                      mode="single"
-                      selected={novoContatoData}
-                      onSelect={(d) => d && setNovoContatoData(d)}
-                      initialFocus
-                      className={cn('p-3 pointer-events-auto')}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DateNumericInput
+                  dia={dataDia}
+                  mes={dataMes}
+                  ano={dataAno}
+                  onChange={(d, m, a, date) => {
+                    setDataDia(d);
+                    setDataMes(m);
+                    setDataAno(a);
+                    if (date) setNovoContatoData(date);
+                  }}
+                />
               </div>
             </div>
             <Textarea
