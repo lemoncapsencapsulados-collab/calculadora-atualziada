@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
@@ -26,8 +26,6 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -49,6 +47,131 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
 const PAGE_SIZE = 15;
 
 type ViewMode = 'list' | 'kanban';
+
+function lastDayOfMonth(year: number, month1to12: number): number {
+  return new Date(year, month1to12, 0).getDate();
+}
+
+function buildDate(d: string, m: string, a: string): Date | null {
+  if (d.length === 0 || m.length === 0 || a.length !== 4) return null;
+  const dia = parseInt(d, 10);
+  const mes = parseInt(m, 10);
+  const ano = parseInt(a, 10);
+  if (!dia || !mes || !ano) return null;
+  if (mes < 1 || mes > 12) return null;
+  const last = lastDayOfMonth(ano, mes);
+  const diaFinal = Math.min(Math.max(dia, 1), last);
+  return new Date(ano, mes - 1, diaFinal);
+}
+
+interface DateNumericInputProps {
+  dia: string;
+  mes: string;
+  ano: string;
+  onChange: (dia: string, mes: string, ano: string, date: Date | null) => void;
+}
+
+function DateNumericInput({ dia, mes, ano, onChange }: DateNumericInputProps) {
+  const mesRef = useRef<HTMLInputElement>(null);
+  const anoRef = useRef<HTMLInputElement>(null);
+
+  const update = (d: string, m: string, a: string) => {
+    onChange(d, m, a, buildDate(d, m, a));
+  };
+
+  const handleDia = (raw: string) => {
+    const v = raw.replace(/\D/g, '').slice(0, 2);
+    let next = v;
+    if (v.length === 1 && parseInt(v, 10) > 3) {
+      next = '0' + v;
+      update(next, mes, ano);
+      mesRef.current?.focus();
+      return;
+    }
+    if (v.length === 2) {
+      const n = parseInt(v, 10);
+      if (n > 31) next = '31';
+      else if (n < 1) next = '01';
+      update(next, mes, ano);
+      mesRef.current?.focus();
+      return;
+    }
+    update(next, mes, ano);
+  };
+
+  const handleMes = (raw: string) => {
+    const v = raw.replace(/\D/g, '').slice(0, 2);
+    let next = v;
+    if (v.length === 1 && parseInt(v, 10) > 1) {
+      next = '0' + v;
+      update(dia, next, ano);
+      anoRef.current?.focus();
+      return;
+    }
+    if (v.length === 2) {
+      const n = parseInt(v, 10);
+      if (n > 12) next = '12';
+      else if (n < 1) next = '01';
+      update(dia, next, ano);
+      anoRef.current?.focus();
+      return;
+    }
+    update(dia, next, ano);
+  };
+
+  const handleAno = (raw: string) => {
+    const v = raw.replace(/\D/g, '').slice(0, 4);
+    let next = v;
+    if (v.length === 4) {
+      const n = parseInt(v, 10);
+      if (n < 2000) next = '2000';
+      else if (n > 2100) next = '2100';
+    }
+    update(dia, mes, next);
+  };
+
+  const padBlur = (val: string, setter: (v: string) => void) => {
+    if (val.length === 1) setter('0' + val);
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        type="text"
+        inputMode="numeric"
+        value={dia}
+        onChange={(e) => handleDia(e.target.value)}
+        onBlur={() => padBlur(dia, (v) => update(v, mes, ano))}
+        placeholder="DD"
+        maxLength={2}
+        className="w-12 text-center px-1"
+      />
+      <span className="text-muted-foreground">/</span>
+      <Input
+        ref={mesRef}
+        type="text"
+        inputMode="numeric"
+        value={mes}
+        onChange={(e) => handleMes(e.target.value)}
+        onBlur={() => padBlur(mes, (v) => update(dia, v, ano))}
+        placeholder="MM"
+        maxLength={2}
+        className="w-12 text-center px-1"
+      />
+      <span className="text-muted-foreground">/</span>
+      <Input
+        ref={anoRef}
+        type="text"
+        inputMode="numeric"
+        value={ano}
+        onChange={(e) => handleAno(e.target.value)}
+        placeholder="AAAA"
+        maxLength={4}
+        className="w-20 text-center px-1"
+      />
+    </div>
+  );
+}
 
 export default function Orcamentos() {
   const queryClient = useQueryClient();
@@ -74,6 +197,9 @@ export default function Orcamentos() {
   const [novoContatoData, setNovoContatoData] = useState<Date>(new Date());
   const [novoContatoTipo, setNovoContatoTipo] = useState<TipoContato>('contato');
   const [novoContatoTexto, setNovoContatoTexto] = useState('');
+  const [dataDia, setDataDia] = useState('');
+  const [dataMes, setDataMes] = useState('');
+  const [dataAno, setDataAno] = useState('');
 
   const consultores = useConsultoresDisponiveis();
 
@@ -140,27 +266,55 @@ export default function Orcamentos() {
 
   const abrirHistorico = (orc: Orcamento) => {
     setHistoricoOrcamento(orc);
-    setNovoContatoData(new Date());
+    const hoje = new Date();
+    setNovoContatoData(hoje);
+    setDataDia(String(hoje.getDate()).padStart(2, '0'));
+    setDataMes(String(hoje.getMonth() + 1).padStart(2, '0'));
+    setDataAno(String(hoje.getFullYear()));
     setNovoContatoTipo('contato');
     setNovoContatoTexto('');
   };
 
+  // Mantém o diálogo sincronizado com a versão mais recente do orçamento
+  useEffect(() => {
+    if (!historicoOrcamento) return;
+    const all = [...orcamentos, ...kanbanOrcamentos];
+    const atualizado = all.find(o => o.id === historicoOrcamento.id);
+    if (atualizado && atualizado.updated_at !== historicoOrcamento.updated_at) {
+      setHistoricoOrcamento(atualizado);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orcamentos, kanbanOrcamentos]);
+
   const adicionarContato = async () => {
     if (!historicoOrcamento) return;
     if (novoContatoTipo === 'contato' && !novoContatoTexto.trim()) return;
+    const novoItem: ContatoOrcamento = {
+      id: (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+      data: novoContatoData.toISOString(),
+      tipo: novoContatoTipo,
+      observacao: novoContatoTexto.trim(),
+    };
+    // Atualização otimista da timeline
+    setHistoricoOrcamento(prev => prev ? {
+      ...prev,
+      historico_contatos: [...(prev.historico_contatos || []), novoItem],
+    } : prev);
     await addContato.mutateAsync({
       id: historicoOrcamento.id,
       contato: {
-        data: novoContatoData.toISOString(),
-        tipo: novoContatoTipo,
-        observacao: novoContatoTexto.trim(),
+        data: novoItem.data,
+        tipo: novoItem.tipo,
+        observacao: novoItem.observacao,
       },
     });
-    // Recarrega o orçamento atualizado para refletir o novo item na timeline
-    const allOrcamentos = viewMode === 'list' ? orcamentos : kanbanOrcamentos;
-    const atualizado = allOrcamentos.find(o => o.id === historicoOrcamento.id);
-    if (atualizado) setHistoricoOrcamento(atualizado);
-    setNovoContatoData(new Date());
+    const hoje = new Date();
+    setNovoContatoData(hoje);
+    setDataDia(String(hoje.getDate()).padStart(2, '0'));
+    setDataMes(String(hoje.getMonth() + 1).padStart(2, '0'));
+    setDataAno(String(hoje.getFullYear()));
     setNovoContatoTipo('contato');
     setNovoContatoTexto('');
     invalidateAll();
@@ -168,6 +322,10 @@ export default function Orcamentos() {
 
   const removerContato = async (contatoId: string) => {
     if (!historicoOrcamento) return;
+    setHistoricoOrcamento(prev => prev ? {
+      ...prev,
+      historico_contatos: (prev.historico_contatos || []).filter(c => c.id !== contatoId),
+    } : prev);
     await removeContato.mutateAsync({ id: historicoOrcamento.id, contatoId });
     invalidateAll();
   };
@@ -597,23 +755,17 @@ export default function Orcamentos() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Data</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn('w-full justify-start text-left font-normal')}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(novoContatoData, 'dd/MM/yyyy', { locale: ptBR })}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarPicker
-                      mode="single"
-                      selected={novoContatoData}
-                      onSelect={(d) => d && setNovoContatoData(d)}
-                      initialFocus
-                      className={cn('p-3 pointer-events-auto')}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DateNumericInput
+                  dia={dataDia}
+                  mes={dataMes}
+                  ano={dataAno}
+                  onChange={(d, m, a, date) => {
+                    setDataDia(d);
+                    setDataMes(m);
+                    setDataAno(a);
+                    if (date) setNovoContatoData(date);
+                  }}
+                />
               </div>
             </div>
             <Textarea

@@ -1,64 +1,57 @@
 ## Objetivo
 
-1. **Remover** o botão "Enviado" da listagem de orçamentos — o dropdown de status já cumpre essa função e a duplicação confunde.
-2. Permitir registrar **múltiplos contatos** por orçamento (não apenas uma observação única) — cada contato com **data + texto/feedback**.
-3. Em **"Insights e Alertas"** (Dashboard), mostrar para cada orçamento enviado um **relatório consolidado**: data do 1º envio, data do 2º envio (se houve reenvio), data do último contato e feedback dessa última conversa. Permite cobrar o time comercial com base em dados reais.
+No diálogo "Histórico de contatos" da tela de Orçamentos:
 
-## Mudanças
+1. Trocar o calendário por **três campos numéricos** (Dia, Mês, Ano) que se autocorrigem enquanto o usuário digita.
+2. Garantir que ao **adicionar ou remover** um contato a timeline atualize **imediatamente** sem precisar fechar e reabrir.
 
-### 1. Banco de dados (migration)
-Adicionar coluna `historico_contatos jsonb default '[]'` em `orcamentos`.
+## 1. Inputs numéricos de data
 
-Estrutura de cada item:
+Substituir o `Popover + CalendarPicker` (linhas 599‑617 de `src/pages/Orcamentos.tsx`) por três `<Input type="text" inputMode="numeric">` lado a lado:
+
 ```
-{ id: uuid, data: ISO timestamp, tipo: 'envio' | 'contato', observacao: string }
-```
-
-Manter `data_envio` e `observacoes_internas` para compatibilidade (não removemos), mas a UI passa a usar `historico_contatos` como fonte da verdade. Migração popula um item inicial em `historico_contatos` para orçamentos que já tenham `data_envio` (tipo `envio`) e/ou `observacoes_internas` (tipo `contato`).
-
-### 2. `src/types/orcamento.ts`
-Adicionar tipo `ContatoOrcamento` e o campo `historico_contatos?: ContatoOrcamento[]` em `Orcamento`.
-
-### 3. `src/hooks/useOrcamentos.ts`
-- Parser inclui `historico_contatos`.
-- Nova mutation `addContato({ id, contato })` — faz append no array (lê o atual, dá push, salva).
-- Nova mutation `removeContato({ id, contatoId })`.
-- `updateStatus`: ao mudar para `enviado`, além de setar `data_envio`, faz append de um item `{ tipo: 'envio', data: agora }` em `historico_contatos` (se não existir envio na mesma data).
-- Mantém `updateObservacoesInternas` por compatibilidade, mas a UI nova prioriza `addContato`.
-
-### 4. `src/pages/Orcamentos.tsx`
-- **Remover** o botão "Enviado" e seu dialog (`abrirDialogEnviado`, `confirmarEnvio`, `enviandoOrcamento`).
-- Substituir o botão "Observação" por **"Histórico de Contatos"**, que abre um diálogo com:
-  - Timeline (lista cronológica) dos contatos: ícone (✉️ envio / 💬 contato), data formatada, texto.
-  - Formulário para adicionar novo: seletor de data (default hoje), tipo (envio/contato), textarea de feedback.
-  - Botão remover por item.
-- Continuar mostrando o badge "Enviado: dd/MM/yyyy" no card (lendo do primeiro item `tipo: 'envio'` do histórico).
-
-### 5. `src/types/dashboard.ts`
-Estender `InsightDashboard` com:
-```
-historico?: { primeiro_envio?: string; segundo_envio?: string; ultimo_contato?: string; ultimo_feedback?: string; total_envios: number; total_contatos: number }
+[ DD ] / [ MM ] / [ AAAA ]
 ```
 
-### 6. `src/hooks/useDashboardComercial.ts`
-Refatorar a geração de insights para orçamentos enviados:
-- Substituir os blocos atuais (URGENTE / Follow-up / Valor alto / Observação separada) por **um único insight consolidado por orçamento** com:
-  - Mensagem: `"<cliente> (<consultor>) — R$ X. 1º envio: dd/MM. 2º envio: dd/MM (ou '—'). Último contato: dd/MM (há N dias)."`
-  - `historico` preenchido do array `historico_contatos`.
-  - `tipo`: `alerta` se último contato/envio > 14 dias, `atencao` se >= 5, `oportunidade` caso contrário.
-- Recusados continuam excluídos.
-- Buscar `historico_contatos` no select do hook.
+Comportamento:
 
-### 7. `src/components/dashboard/DashboardInsights.tsx`
-Renderizar bloco extra quando `insight.historico` existir:
-- Linha 1: 📤 1º envio — data
-- Linha 2: 📤 2º envio — data (ou "Nenhum reenvio")
-- Linha 3: 📞 Último contato — data + dias atrás
-- Linha 4: 💬 Feedback — texto do `ultimo_feedback`
-- Botão "Ver Orçamento" mantido (vai filtrar o card na lista).
+- Cada campo aceita só dígitos; outros caracteres são descartados ao digitar.
+- **Dia (DD)**: 1–31. Se o usuário digitar `4`, fica `4`; ao sair do campo (`onBlur`) vira `04`. Valores >31 são travados em `31`; >3 no primeiro dígito pula automaticamente para o campo Mês.
+- **Mês (MM)**: 1–12. Mesma lógica de zero‑padding no blur; >12 trava em `12`; primeiro dígito >1 pula para o campo Ano.
+- **Ano (AAAA)**: 4 dígitos. Quando completar 4 dígitos, valida; se < 2000 ajusta para 2000, se > 2100 ajusta para 2100.
+- Após cada alteração válida em qualquer campo, recalcula o `Date` e atualiza `novoContatoData`.
+- Se a data resultante for inválida (ex.: 31/02/2026), o dia é ajustado automaticamente para o último dia válido do mês selecionado.
+- Estado interno separado para os 3 strings (`dia`, `mes`, `ano`) para preservar o que o usuário está digitando; o `Date` é derivado.
+- Inicializa com a data atual no formato correto ao abrir o diálogo (já chamado em `abrirHistorico`).
 
-## Resultado
+Estilo: usar o componente `Input` existente (`src/components/ui/input.tsx`), com `className="text-center"` e larguras `w-12 / w-12 / w-20`. Separadores `/` em texto entre eles. Manter o `Label` "Data".
 
-- UI de orçamentos mais limpa: apenas o dropdown de status + botão único "Histórico de Contatos".
-- Cada orçamento mantém um log cronológico de envios e conversas com feedback.
-- Em "Insights e Alertas" cada notificação resume todo o relacionamento com o cliente, permitindo cobrança objetiva do time comercial: "este orçamento foi enviado em X, reenviado em Y, último contato Z dias atrás, feedback foi W".
+## 2. Atualização imediata da timeline
+
+A timeline lê de `historicoOrcamento.historico_contatos`. Hoje:
+
+- **Adicionar** (linhas 148‑167): já tenta atualizar via `allOrcamentos.find(...)`, mas o `find` roda **antes** do React Query terminar de revalidar (`invalidateAll()` é chamado depois), então frequentemente devolve a versão antiga e a UI parece não atualizar.
+- **Remover** (linhas 169‑173): nem tenta atualizar o `historicoOrcamento` local — só invalida queries; por isso o item sumido só aparece após reabrir.
+
+Correção: aplicar uma **atualização otimista local** no próprio `historicoOrcamento` antes/depois da mutação:
+
+- **Adicionar**: após `await addContato.mutateAsync(...)`, montar o novo `ContatoOrcamento` (com o `id` retornado pela mutação ou `crypto.randomUUID()` se a mutação não devolver) e chamar `setHistoricoOrcamento(prev => prev ? { ...prev, historico_contatos: [...(prev.historico_contatos || []), novo] } : prev)`. Manter o `invalidateAll()` para sincronizar com o servidor.
+- **Remover**: antes/depois de `removeContato.mutateAsync(...)`, chamar `setHistoricoOrcamento(prev => prev ? { ...prev, historico_contatos: (prev.historico_contatos || []).filter(c => c.id !== contatoId) } : prev)`.
+
+Adicionalmente, sincronizar o `historicoOrcamento` quando a lista de orçamentos for revalidada: um `useEffect` que observa `[orcamentos, kanbanOrcamentos, historicoOrcamento?.id]` e, se encontrar uma versão mais nova (compare `updated_at`), atualiza o estado local. Isso garante consistência mesmo se outro evento mudar o orçamento.
+
+## 3. Detalhes técnicos
+
+Arquivos alterados:
+
+- `src/pages/Orcamentos.tsx`
+  - Novo subcomponente local `DateNumericInput` (ou inline) com os 3 inputs e as regras de validação descritas.
+  - Remover imports não usados (`Popover`, `PopoverContent`, `PopoverTrigger`, `CalendarPicker`, `CalendarIcon`) se nenhum outro trecho deste arquivo os usar — verificar antes de remover.
+  - Adicionar o `useEffect` de sincronização e ajustar `adicionarContato` / `removerContato` para atualização otimista.
+
+Sem mudanças em banco de dados, hooks ou outros componentes.
+
+## Fora do escopo
+
+- Edição de contatos já registrados (apenas adicionar/remover, como hoje).
+- Mudanças nos Insights do Dashboard.
