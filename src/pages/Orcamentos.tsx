@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
@@ -72,8 +72,8 @@ interface DateNumericInputProps {
 }
 
 function DateNumericInput({ dia, mes, ano, onChange }: DateNumericInputProps) {
-  const mesRef = React.useRef<HTMLInputElement>(null);
-  const anoRef = React.useRef<HTMLInputElement>(null);
+  const mesRef = useRef<HTMLInputElement>(null);
+  const anoRef = useRef<HTMLInputElement>(null);
 
   const update = (d: string, m: string, a: string) => {
     onChange(d, m, a, buildDate(d, m, a));
