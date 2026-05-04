@@ -15,8 +15,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -25,6 +23,7 @@ import { cn } from '@/lib/utils';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
+import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -189,10 +188,14 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
-  // Data de pagamento
-  const [dataPagamento, setDataPagamento] = useState<Date | undefined>(
-    orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : undefined
-  );
+  // Data de pagamento (inputs numéricos DD/MM/AAAA)
+  const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
+  const [diaPg, setDiaPg] = useState<string>(dataInicial ? String(dataInicial.getDate()).padStart(2, '0') : '');
+  const [mesPg, setMesPg] = useState<string>(dataInicial ? String(dataInicial.getMonth() + 1).padStart(2, '0') : '');
+  const [anoPg, setAnoPg] = useState<string>(dataInicial ? String(dataInicial.getFullYear()) : '');
+  const dataPagamento: Date | null = buildDate(diaPg, mesPg, anoPg);
+  const dataPagamentoFutura = !!dataPagamento && dataPagamento > new Date();
+  const dataPagamentoValida = !!dataPagamento && !dataPagamentoFutura;
 
   // Tipo pessoa
   const [tipoPessoa, setTipoPessoa] = useState<'pj' | 'pf'>('pj');
@@ -419,7 +422,9 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       }
     });
 
-    if (!dataPagamento) camposFaltando.push('Data de Pagamento');
+    if (!dataPagamentoValida) {
+      camposFaltando.push(dataPagamentoFutura ? 'Data de Pagamento (não pode ser futura)' : 'Data de Pagamento');
+    }
 
     const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
     if (erros.length > 0) {
@@ -1007,7 +1012,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
           </Card>
 
           {/* 6. Data de Pagamento */}
-          <Card className={!dataPagamento ? 'border-destructive' : 'border-green-500'}>
+          <Card className={!dataPagamentoValida ? 'border-destructive' : 'border-green-500'}>
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4" />
@@ -1016,27 +1021,25 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !dataPagamento && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dataPagamento ? format(dataPagamento, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={dataPagamento}
-                    onSelect={setDataPagamento}
-                    disabled={(date) => date > new Date()}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="space-y-2">
+                <DateNumericInput
+                  dia={diaPg}
+                  mes={mesPg}
+                  ano={anoPg}
+                  onChange={(d, m, a) => { setDiaPg(d); setMesPg(m); setAnoPg(a); }}
+                />
+                {dataPagamento && (
+                  <p className="text-xs text-muted-foreground">
+                    {format(dataPagamento, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </p>
+                )}
+                {dataPagamentoFutura && (
+                  <p className="text-xs text-destructive">A data de pagamento não pode ser futura.</p>
+                )}
+                {!dataPagamento && (diaPg || mesPg || anoPg) && (
+                  <p className="text-xs text-destructive">Data inválida — preencha dia, mês e ano (4 dígitos).</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1045,7 +1048,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
             onClick={handleConfirmAprovacao}
-            disabled={!dataPagamento || isSubmitting}
+            disabled={!dataPagamentoValida || isSubmitting}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isSubmitting ? (

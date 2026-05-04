@@ -1,57 +1,54 @@
 ## Objetivo
 
-No diálogo "Histórico de contatos" da tela de Orçamentos:
+Trocar o seletor de calendário da **Data do Pagamento** por inputs numéricos editáveis (dia, mês, ano), iguais ao que já existe em "Histórico de Contatos". Hoje a data só pode ser escolhida clicando no calendário — você precisa poder digitar diretamente DD, MM e AAAA.
 
-1. Trocar o calendário por **três campos numéricos** (Dia, Mês, Ano) que se autocorrigem enquanto o usuário digita.
-2. Garantir que ao **adicionar ou remover** um contato a timeline atualize **imediatamente** sem precisar fechar e reabrir.
+## Onde a data de pagamento aparece hoje
 
-## 1. Inputs numéricos de data
+Após mapear o código, a data de pagamento é **editada em um único lugar**:
 
-Substituir o `Popover + CalendarPicker` (linhas 599‑617 de `src/pages/Orcamentos.tsx`) por três `<Input type="text" inputMode="numeric">` lado a lado:
+- **Popup de Aprovação** (`AprovacaoOrcamentoDialog`) — abre quando você muda o status do orçamento para "Pago". É o mesmo dialog usado pela tela de Orçamentos e pela Proposta. Hoje usa um `Popover + Calendar` (linhas 1019-1039).
 
+Nos outros lugares (lista de orçamentos, pedidos, detalhes) a data só é exibida (read-only), não editada — então não precisa mexer.
+
+## Mudanças
+
+### 1. `src/components/AprovacaoOrcamentoDialog.tsx`
+
+**Substituir** o bloco do `Popover + CalendarComponent` (linhas 1019-1039) por três inputs numéricos no formato **DD / MM / AAAA**, seguindo exatamente o mesmo padrão do `DateNumericInput` já usado em `Orcamentos.tsx`:
+
+- **Dia**: aceita até 2 dígitos (01-31), com validação por mês
+- **Mês**: aceita até 2 dígitos (01-12)
+- **Ano**: aceita no mínimo 4 dígitos (ex.: 2026)
+- Digitação livre, sem auto-pular entre campos
+- Ao sair do campo (blur), aplica zero-padding (ex.: "5" → "05") se o valor for válido
+- Bloqueia datas futuras (mantém a regra atual `date > new Date()` → exibe erro inline em vermelho)
+
+**Estado:** trocar `dataPagamento: Date | undefined` por três strings (`diaPg`, `mesPg`, `anoPg`) + um `Date` derivado via `buildDate()`. Inicializar a partir de `orcamento.data_pagamento` (se já existir) ou vazio.
+
+**Validação no botão Confirmar:** continuar exigindo data válida e não-futura antes de salvar (`data_pagamento: date.toISOString()` nas linhas 534 e 543).
+
+### 2. Componente compartilhado (refactor leve)
+
+Para não duplicar o `DateNumericInput`, **extrair** o componente de `src/pages/Orcamentos.tsx` para um arquivo novo:
+
+- `src/components/ui/date-numeric-input.tsx` — exporta `DateNumericInput`, `buildDate`, `lastDayOfMonth`
+
+Atualizar os imports em:
+- `src/pages/Orcamentos.tsx` (remover definição local, importar do novo arquivo)
+- `src/components/AprovacaoOrcamentoDialog.tsx` (importar e usar)
+
+## Resumo visual
+
+```text
+ANTES:                          DEPOIS:
+[ 📅 04/05/2026 ▾ ]            [ DD ] / [ MM ] / [ AAAA ]
+   (abre calendário)              (digita direto, ex: 04 / 05 / 2026)
 ```
-[ DD ] / [ MM ] / [ AAAA ]
-```
 
-Comportamento:
+## Arquivos afetados
 
-- Cada campo aceita só dígitos; outros caracteres são descartados ao digitar.
-- **Dia (DD)**: 1–31. Se o usuário digitar `4`, fica `4`; ao sair do campo (`onBlur`) vira `04`. Valores >31 são travados em `31`; >3 no primeiro dígito pula automaticamente para o campo Mês.
-- **Mês (MM)**: 1–12. Mesma lógica de zero‑padding no blur; >12 trava em `12`; primeiro dígito >1 pula para o campo Ano.
-- **Ano (AAAA)**: 4 dígitos. Quando completar 4 dígitos, valida; se < 2000 ajusta para 2000, se > 2100 ajusta para 2100.
-- Após cada alteração válida em qualquer campo, recalcula o `Date` e atualiza `novoContatoData`.
-- Se a data resultante for inválida (ex.: 31/02/2026), o dia é ajustado automaticamente para o último dia válido do mês selecionado.
-- Estado interno separado para os 3 strings (`dia`, `mes`, `ano`) para preservar o que o usuário está digitando; o `Date` é derivado.
-- Inicializa com a data atual no formato correto ao abrir o diálogo (já chamado em `abrirHistorico`).
+- `src/components/ui/date-numeric-input.tsx` (novo)
+- `src/components/AprovacaoOrcamentoDialog.tsx` (substituir Popover+Calendar)
+- `src/pages/Orcamentos.tsx` (importar do novo arquivo em vez de definir localmente)
 
-Estilo: usar o componente `Input` existente (`src/components/ui/input.tsx`), com `className="text-center"` e larguras `w-12 / w-12 / w-20`. Separadores `/` em texto entre eles. Manter o `Label` "Data".
-
-## 2. Atualização imediata da timeline
-
-A timeline lê de `historicoOrcamento.historico_contatos`. Hoje:
-
-- **Adicionar** (linhas 148‑167): já tenta atualizar via `allOrcamentos.find(...)`, mas o `find` roda **antes** do React Query terminar de revalidar (`invalidateAll()` é chamado depois), então frequentemente devolve a versão antiga e a UI parece não atualizar.
-- **Remover** (linhas 169‑173): nem tenta atualizar o `historicoOrcamento` local — só invalida queries; por isso o item sumido só aparece após reabrir.
-
-Correção: aplicar uma **atualização otimista local** no próprio `historicoOrcamento` antes/depois da mutação:
-
-- **Adicionar**: após `await addContato.mutateAsync(...)`, montar o novo `ContatoOrcamento` (com o `id` retornado pela mutação ou `crypto.randomUUID()` se a mutação não devolver) e chamar `setHistoricoOrcamento(prev => prev ? { ...prev, historico_contatos: [...(prev.historico_contatos || []), novo] } : prev)`. Manter o `invalidateAll()` para sincronizar com o servidor.
-- **Remover**: antes/depois de `removeContato.mutateAsync(...)`, chamar `setHistoricoOrcamento(prev => prev ? { ...prev, historico_contatos: (prev.historico_contatos || []).filter(c => c.id !== contatoId) } : prev)`.
-
-Adicionalmente, sincronizar o `historicoOrcamento` quando a lista de orçamentos for revalidada: um `useEffect` que observa `[orcamentos, kanbanOrcamentos, historicoOrcamento?.id]` e, se encontrar uma versão mais nova (compare `updated_at`), atualiza o estado local. Isso garante consistência mesmo se outro evento mudar o orçamento.
-
-## 3. Detalhes técnicos
-
-Arquivos alterados:
-
-- `src/pages/Orcamentos.tsx`
-  - Novo subcomponente local `DateNumericInput` (ou inline) com os 3 inputs e as regras de validação descritas.
-  - Remover imports não usados (`Popover`, `PopoverContent`, `PopoverTrigger`, `CalendarPicker`, `CalendarIcon`) se nenhum outro trecho deste arquivo os usar — verificar antes de remover.
-  - Adicionar o `useEffect` de sincronização e ajustar `adicionarContato` / `removerContato` para atualização otimista.
-
-Sem mudanças em banco de dados, hooks ou outros componentes.
-
-## Fora do escopo
-
-- Edição de contatos já registrados (apenas adicionar/remover, como hoje).
-- Mudanças nos Insights do Dashboard.
+Sem mudanças no banco de dados, sem mudanças de outros fluxos.
