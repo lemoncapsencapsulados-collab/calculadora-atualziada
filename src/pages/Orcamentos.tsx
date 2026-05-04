@@ -26,8 +26,6 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -74,6 +72,9 @@ export default function Orcamentos() {
   const [novoContatoData, setNovoContatoData] = useState<Date>(new Date());
   const [novoContatoTipo, setNovoContatoTipo] = useState<TipoContato>('contato');
   const [novoContatoTexto, setNovoContatoTexto] = useState('');
+  const [dataDia, setDataDia] = useState('');
+  const [dataMes, setDataMes] = useState('');
+  const [dataAno, setDataAno] = useState('');
 
   const consultores = useConsultoresDisponiveis();
 
