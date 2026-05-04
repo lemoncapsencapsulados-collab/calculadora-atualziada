@@ -53,7 +53,7 @@ function lastDayOfMonth(year: number, month1to12: number): number {
 }
 
 function buildDate(d: string, m: string, a: string): Date | null {
-  if (d.length === 0 || m.length === 0 || a.length !== 4) return null;
+  if (d.length === 0 || m.length === 0 || a.length < 4) return null;
   const dia = parseInt(d, 10);
   const mes = parseInt(m, 10);
   const ano = parseInt(a, 10);
@@ -81,57 +81,43 @@ function DateNumericInput({ dia, mes, ano, onChange }: DateNumericInputProps) {
 
   const handleDia = (raw: string) => {
     const v = raw.replace(/\D/g, '').slice(0, 2);
-    let next = v;
-    if (v.length === 1 && parseInt(v, 10) > 3) {
-      next = '0' + v;
-      update(next, mes, ano);
-      mesRef.current?.focus();
-      return;
-    }
-    if (v.length === 2) {
-      const n = parseInt(v, 10);
-      if (n > 31) next = '31';
-      else if (n < 1) next = '01';
-      update(next, mes, ano);
-      mesRef.current?.focus();
-      return;
-    }
-    update(next, mes, ano);
+    update(v, mes, ano);
   };
 
   const handleMes = (raw: string) => {
     const v = raw.replace(/\D/g, '').slice(0, 2);
-    let next = v;
-    if (v.length === 1 && parseInt(v, 10) > 1) {
-      next = '0' + v;
-      update(dia, next, ano);
-      anoRef.current?.focus();
-      return;
-    }
-    if (v.length === 2) {
-      const n = parseInt(v, 10);
-      if (n > 12) next = '12';
-      else if (n < 1) next = '01';
-      update(dia, next, ano);
-      anoRef.current?.focus();
-      return;
-    }
-    update(dia, next, ano);
+    update(dia, v, ano);
   };
 
   const handleAno = (raw: string) => {
     const v = raw.replace(/\D/g, '').slice(0, 4);
-    let next = v;
-    if (v.length === 4) {
-      const n = parseInt(v, 10);
-      if (n < 2000) next = '2000';
-      else if (n > 2100) next = '2100';
-    }
-    update(dia, mes, next);
+    update(dia, mes, v);
   };
 
-  const padBlur = (val: string, setter: (v: string) => void) => {
-    if (val.length === 1) setter('0' + val);
+  const blurDia = () => {
+    if (!dia) return;
+    let n = parseInt(dia, 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (n > 31) n = 31;
+    const padded = String(n).padStart(2, '0');
+    update(padded, mes, ano);
+  };
+
+  const blurMes = () => {
+    if (!mes) return;
+    let n = parseInt(mes, 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (n > 12) n = 12;
+    const padded = String(n).padStart(2, '0');
+    update(dia, padded, ano);
+  };
+
+  const blurAno = () => {
+    if (!ano) return;
+    if (ano.length < 4) {
+      // mantém o que o usuário digitou; não força ajuste
+      return;
+    }
   };
 
   return (
@@ -141,7 +127,7 @@ function DateNumericInput({ dia, mes, ano, onChange }: DateNumericInputProps) {
         inputMode="numeric"
         value={dia}
         onChange={(e) => handleDia(e.target.value)}
-        onBlur={() => padBlur(dia, (v) => update(v, mes, ano))}
+        onBlur={blurDia}
         placeholder="DD"
         maxLength={2}
         className="w-12 text-center px-1"
@@ -153,7 +139,7 @@ function DateNumericInput({ dia, mes, ano, onChange }: DateNumericInputProps) {
         inputMode="numeric"
         value={mes}
         onChange={(e) => handleMes(e.target.value)}
-        onBlur={() => padBlur(mes, (v) => update(dia, v, ano))}
+        onBlur={blurMes}
         placeholder="MM"
         maxLength={2}
         className="w-12 text-center px-1"
@@ -165,6 +151,7 @@ function DateNumericInput({ dia, mes, ano, onChange }: DateNumericInputProps) {
         inputMode="numeric"
         value={ano}
         onChange={(e) => handleAno(e.target.value)}
+        onBlur={blurAno}
         placeholder="AAAA"
         maxLength={4}
         className="w-20 text-center px-1"
