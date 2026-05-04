@@ -141,7 +141,11 @@ export default function Orcamentos() {
 
   const abrirHistorico = (orc: Orcamento) => {
     setHistoricoOrcamento(orc);
-    setNovoContatoData(new Date());
+    const hoje = new Date();
+    setNovoContatoData(hoje);
+    setDataDia(String(hoje.getDate()).padStart(2, '0'));
+    setDataMes(String(hoje.getMonth() + 1).padStart(2, '0'));
+    setDataAno(String(hoje.getFullYear()));
     setNovoContatoTipo('contato');
     setNovoContatoTexto('');
   };
@@ -149,19 +153,32 @@ export default function Orcamentos() {
   const adicionarContato = async () => {
     if (!historicoOrcamento) return;
     if (novoContatoTipo === 'contato' && !novoContatoTexto.trim()) return;
+    const novoItem: ContatoOrcamento = {
+      id: (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+      data: novoContatoData.toISOString(),
+      tipo: novoContatoTipo,
+      observacao: novoContatoTexto.trim(),
+    };
+    // Atualização otimista da timeline
+    setHistoricoOrcamento(prev => prev ? {
+      ...prev,
+      historico_contatos: [...(prev.historico_contatos || []), novoItem],
+    } : prev);
     await addContato.mutateAsync({
       id: historicoOrcamento.id,
       contato: {
-        data: novoContatoData.toISOString(),
-        tipo: novoContatoTipo,
-        observacao: novoContatoTexto.trim(),
+        data: novoItem.data,
+        tipo: novoItem.tipo,
+        observacao: novoItem.observacao,
       },
     });
-    // Recarrega o orçamento atualizado para refletir o novo item na timeline
-    const allOrcamentos = viewMode === 'list' ? orcamentos : kanbanOrcamentos;
-    const atualizado = allOrcamentos.find(o => o.id === historicoOrcamento.id);
-    if (atualizado) setHistoricoOrcamento(atualizado);
-    setNovoContatoData(new Date());
+    const hoje = new Date();
+    setNovoContatoData(hoje);
+    setDataDia(String(hoje.getDate()).padStart(2, '0'));
+    setDataMes(String(hoje.getMonth() + 1).padStart(2, '0'));
+    setDataAno(String(hoje.getFullYear()));
     setNovoContatoTipo('contato');
     setNovoContatoTexto('');
     invalidateAll();
@@ -169,6 +186,10 @@ export default function Orcamentos() {
 
   const removerContato = async (contatoId: string) => {
     if (!historicoOrcamento) return;
+    setHistoricoOrcamento(prev => prev ? {
+      ...prev,
+      historico_contatos: (prev.historico_contatos || []).filter(c => c.id !== contatoId),
+    } : prev);
     await removeContato.mutateAsync({ id: historicoOrcamento.id, contatoId });
     invalidateAll();
   };
