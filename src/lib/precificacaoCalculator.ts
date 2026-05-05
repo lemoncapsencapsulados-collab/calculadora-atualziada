@@ -37,8 +37,10 @@ export function calcularPrecificacaoPorPreco(
   // 3. Total Custos de Produção Base
   const totalCustosProducaoBase = subtotalCustosDiretos + subtotalCustosIndiretos;
   
-  // 4. Margem de Segurança (20% sobre custos base)
-  const margemSeguranca = totalCustosProducaoBase * 0.20;
+  // 4. Taxa de Perca (configurável no Painel Administrador, fallback 20%)
+  const taxaPercaPct = Number((config as any)?.taxa_perca);
+  const taxaPerca = Number.isFinite(taxaPercaPct) ? taxaPercaPct : 20;
+  const margemSeguranca = totalCustosProducaoBase * (taxaPerca / 100);
   
   // 5. Total Custos de Produção COM Margem de Segurança
   const totalCustosProducao = totalCustosProducaoBase + margemSeguranca;
