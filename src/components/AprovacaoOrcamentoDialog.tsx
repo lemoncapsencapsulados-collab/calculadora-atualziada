@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2 } from 'lucide-react';
+import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,8 @@ import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPa
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
+import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
+import { toast as sonnerToast } from 'sonner';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
