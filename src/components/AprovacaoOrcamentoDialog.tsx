@@ -190,6 +190,11 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
+  // Modal pós-confirmação de pagamento (oferece cadastro no VhSys)
+  const [showVhsysModal, setShowVhsysModal] = useState(false);
+  const [vhsysLoading, setVhsysLoading] = useState(false);
+  const [vhsysCadastrado, setVhsysCadastrado] = useState(false);
+
   // Data de pagamento (inputs numéricos DD/MM/AAAA)
   const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
   const [diaPg, setDiaPg] = useState<string>(dataInicial ? String(dataInicial.getDate()).padStart(2, '0') : '');
