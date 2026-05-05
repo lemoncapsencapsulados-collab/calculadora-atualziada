@@ -9,6 +9,7 @@ import { Pencil, Trash2, FileText, FileCheck, Calendar, DollarSign, FileSignatur
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/unitConversion';
+import { PrazoPrecoBadge } from '@/components/PrazoPrecoBadge';
 
 const COLUMNS = [
   { status: 'rascunho', label: 'Rascunho', headerClass: 'bg-muted text-muted-foreground', badgeVariant: 'secondary' as const },

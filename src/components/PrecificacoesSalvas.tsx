@@ -18,6 +18,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
+import { PrazoPrecoBadge } from '@/components/PrazoPrecoBadge';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 
 import { Formula } from '@/types/formula';
