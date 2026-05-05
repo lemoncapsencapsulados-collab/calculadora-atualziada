@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { History, Eye, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { History, Eye, ArrowUp, ArrowDown, Minus, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -107,9 +107,35 @@ function buildConfigSimulada(snapshot: any) {
   } as any;
 }
 
-export function HistoricoAlteracoes() {
+interface Props {
+  /** Filtra por intervalo de criação (created_at) — usado pelo link "Ver snapshot" do prazo. */
+  filtroDataInicio?: string | null;
+  filtroDataFim?: string | null;
+  onLimparFiltro?: () => void;
+}
+
+export function HistoricoAlteracoes({ filtroDataInicio, filtroDataFim, onLimparFiltro }: Props = {}) {
   const { historico, isLoading } = useHistoricoConfiguracao();
   const [detalhe, setDetalhe] = useState<HistoricoConfiguracao | null>(null);
+
+  const historicoFiltrado = useMemo(() => {
+    if (!historico) return [];
+    if (!filtroDataInicio && !filtroDataFim) return historico;
+    const ini = filtroDataInicio ? new Date(filtroDataInicio).getTime() : -Infinity;
+    const fim = filtroDataFim ? new Date(filtroDataFim).getTime() : Infinity;
+    return historico.filter((h) => {
+      const t = new Date(h.created_at).getTime();
+      return t >= ini && t <= fim;
+    });
+  }, [historico, filtroDataInicio, filtroDataFim]);
+
+  // Abre automaticamente o snapshot principal do intervalo (mais recente)
+  useEffect(() => {
+    if ((filtroDataInicio || filtroDataFim) && historicoFiltrado.length > 0 && !detalhe) {
+      setDetalhe(historicoFiltrado[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroDataInicio, filtroDataFim, historicoFiltrado.length]);
 
   const detalheCalc = useMemo(() => {
     if (!detalhe) return null;
@@ -161,11 +187,25 @@ export function HistoricoAlteracoes() {
           <History className="w-5 h-5 text-primary" />
           Histórico de Alterações
         </CardTitle>
+        {(filtroDataInicio || filtroDataFim) && (
+          <div className="flex items-center gap-2 text-xs">
+            <Badge variant="secondary">
+              Filtro: {filtroDataInicio ? new Date(filtroDataInicio).toLocaleDateString('pt-BR') : '—'}
+              {' → '}
+              {filtroDataFim ? new Date(filtroDataFim).toLocaleDateString('pt-BR') : '—'}
+            </Badge>
+            {onLimparFiltro && (
+              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={onLimparFiltro}>
+                <X className="w-3 h-3 mr-1" /> Limpar
+              </Button>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando...</p>
-        ) : !historico || historico.length === 0 ? (
+        ) : !historicoFiltrado || historicoFiltrado.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma alteração registrada ainda.</p>
         ) : (
           <ScrollArea className="h-[500px]">
@@ -180,7 +220,7 @@ export function HistoricoAlteracoes() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {historico.map((h) => {
+                {historicoFiltrado.map((h) => {
                   const diff = calcularDiff(h.snapshot, h.snapshot_anterior);
                   const mudados = diff.filter((d) => d.mudou);
                     const impacto = calcImpactoMedio(h.snapshot, h.snapshot_anterior);
