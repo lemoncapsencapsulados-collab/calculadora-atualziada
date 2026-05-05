@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2 } from 'lucide-react';
+import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,8 @@ import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPa
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
+import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
+import { toast as sonnerToast } from 'sonner';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -187,6 +189,11 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
+
+  // Modal pós-confirmação de pagamento (oferece cadastro no VhSys)
+  const [showVhsysModal, setShowVhsysModal] = useState(false);
+  const [vhsysLoading, setVhsysLoading] = useState(false);
+  const [vhsysCadastrado, setVhsysCadastrado] = useState(false);
 
   // Data de pagamento (inputs numéricos DD/MM/AAAA)
   const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
@@ -550,14 +557,89 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
       await createPedidoFromOrcamento(orcamentoCompleto);
 
-      onSuccess();
-      onClose();
+      // Em vez de fechar imediatamente, abre modal oferecendo cadastro no VhSys.
+      setShowVhsysModal(true);
     } catch (error) {
       console.error('Erro ao aprovar orçamento:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleCadastrarVhSysPosPagamento = async () => {
+    setVhsysLoading(true);
+    try {
+      const result = await cadastrarClienteVhSys({
+        orcamento,
+        tipoPessoa,
+        dadosCliente,
+        pessoasFisicas,
+        responsavelPJ,
+      });
+      if (result.success) {
+        sonnerToast.success('Cliente cadastrado com sucesso no VhSys!');
+        setVhsysCadastrado(true);
+      } else {
+        sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys.');
+      }
+    } finally {
+      setVhsysLoading(false);
+    }
+  };
+
+  const handleFecharPosPagamento = () => {
+    setShowVhsysModal(false);
+    onSuccess();
+    onClose();
+  };
+
+  if (showVhsysModal) {
+    return (
+      <Dialog open onOpenChange={(open) => { if (!open) handleFecharPosPagamento(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              Pagamento confirmado
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              O pedido foi criado com sucesso. Deseja cadastrar este cliente no VhSys agora?
+            </p>
+
+            {vhsysCadastrado && (
+              <Alert>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription>
+                  Cliente cadastrado no VhSys com sucesso.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={handleFecharPosPagamento} disabled={vhsysLoading}>
+              {vhsysCadastrado ? 'Fechar' : 'Pular'}
+            </Button>
+            {!vhsysCadastrado && (
+              <Button
+                onClick={handleCadastrarVhSysPosPagamento}
+                disabled={vhsysLoading}
+              >
+                {vhsysLoading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Cadastrando...</>
+                ) : (
+                  <><UserPlus className="w-4 h-4 mr-2" />Cadastrar Cliente no VhSys</>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
