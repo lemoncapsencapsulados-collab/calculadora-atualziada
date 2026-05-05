@@ -6,14 +6,27 @@ import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { VariaveisEstruturaisForm } from '@/components/admin/VariaveisEstruturaisForm';
 import { HistoricoAlteracoes } from '@/components/admin/HistoricoAlteracoes';
 import { PrazoPrecoCountdown } from '@/components/admin/PrazoPrecoCountdown';
+import { PrazosAtivosLista } from '@/components/admin/PrazosAtivosLista';
+import { PrazoItensVinculados } from '@/components/admin/PrazoItensVinculados';
+import { usePrazoNotificacoes } from '@/hooks/usePrazoNotificacoes';
 import { isAdminUnlocked, lockAdmin } from '@/lib/adminConfig';
 
 export default function PainelAdministrador() {
   const [unlocked, setUnlocked] = useState(isAdminUnlocked());
+  const [aba, setAba] = useState<string>('variaveis');
+  const [filtroHistorico, setFiltroHistorico] = useState<{ inicio: string; fim: string } | null>(null);
+
+  // Toasts de aviso (3 dias / expirado)
+  usePrazoNotificacoes();
 
   if (!unlocked) {
     return <AdminPasswordGate onUnlock={() => setUnlocked(true)} />;
   }
+
+  const abrirHistoricoSnapshot = (prazo: { data_inicio: string; data_fim: string }) => {
+    setFiltroHistorico({ inicio: prazo.data_inicio, fim: prazo.data_fim });
+    setAba('historico');
+  };
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -40,9 +53,13 @@ export default function PainelAdministrador() {
         </Button>
       </div>
 
-      <PrazoPrecoCountdown />
+      <PrazoPrecoCountdown onVerHistorico={abrirHistoricoSnapshot} />
+      <PrazoItensVinculados />
+      <div className="mb-6">
+        <PrazosAtivosLista onAbrirHistorico={(p) => abrirHistoricoSnapshot(p)} />
+      </div>
 
-      <Tabs defaultValue="variaveis" className="space-y-4">
+      <Tabs value={aba} onValueChange={setAba} className="space-y-4">
         <TabsList>
           <TabsTrigger value="variaveis">Variáveis Estruturais</TabsTrigger>
           <TabsTrigger value="historico">Histórico de Alterações</TabsTrigger>
@@ -51,7 +68,11 @@ export default function PainelAdministrador() {
           <VariaveisEstruturaisForm />
         </TabsContent>
         <TabsContent value="historico">
-          <HistoricoAlteracoes />
+          <HistoricoAlteracoes
+            filtroDataInicio={filtroHistorico?.inicio ?? null}
+            filtroDataFim={filtroHistorico?.fim ?? null}
+            onLimparFiltro={() => setFiltroHistorico(null)}
+          />
         </TabsContent>
       </Tabs>
     </div>
