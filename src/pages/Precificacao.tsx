@@ -98,14 +98,15 @@ export default function Precificacao() {
   // Carregar custos da configuração ativa
   useEffect(() => {
     if (configuracaoAtiva) {
+      const custos = getCustosParaTipo(configuracaoAtiva, formulaSelecionada?.tipo_produto);
       setCustosIndiretos({
-        maoObraDireta: Number(configuracaoAtiva.mao_obra_direta),
+        maoObraDireta: custos.mod,
         energia: Number(configuracaoAtiva.energia_eletrica),
         depreciacao: Number(configuracaoAtiva.depreciacao_maquinas),
-        administrativo: Number(configuracaoAtiva.despesas_administrativas),
+        administrativo: custos.admin,
       });
     }
-  }, [configuracaoAtiva]);
+  }, [configuracaoAtiva, formulaSelecionada?.tipo_produto]);
 
   // Recalcular quando mudar inputs
   useEffect(() => {
@@ -176,11 +177,12 @@ export default function Precificacao() {
       }
     } else {
       if (configuracaoAtiva) {
+        const custos = getCustosParaTipo(configuracaoAtiva, formulaSelecionada?.tipo_produto);
         setCustosIndiretos({
-          maoObraDireta: Number(configuracaoAtiva.mao_obra_direta),
+          maoObraDireta: custos.mod,
           energia: Number(configuracaoAtiva.energia_eletrica),
           depreciacao: Number(configuracaoAtiva.depreciacao_maquinas),
-          administrativo: Number(configuracaoAtiva.despesas_administrativas),
+          administrativo: custos.admin,
         });
       }
       toast.info('Alterações descartadas');
