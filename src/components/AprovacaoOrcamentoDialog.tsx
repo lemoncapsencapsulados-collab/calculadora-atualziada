@@ -557,13 +557,40 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
       await createPedidoFromOrcamento(orcamentoCompleto);
 
-      onSuccess();
-      onClose();
+      // Em vez de fechar imediatamente, abre modal oferecendo cadastro no VhSys.
+      setShowVhsysModal(true);
     } catch (error) {
       console.error('Erro ao aprovar orçamento:', error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCadastrarVhSysPosPagamento = async () => {
+    setVhsysLoading(true);
+    try {
+      const result = await cadastrarClienteVhSys({
+        orcamento,
+        tipoPessoa,
+        dadosCliente,
+        pessoasFisicas,
+        responsavelPJ,
+      });
+      if (result.success) {
+        sonnerToast.success('Cliente cadastrado com sucesso no VhSys!');
+        setVhsysCadastrado(true);
+      } else {
+        sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys.');
+      }
+    } finally {
+      setVhsysLoading(false);
+    }
+  };
+
+  const handleFecharPosPagamento = () => {
+    setShowVhsysModal(false);
+    onSuccess();
+    onClose();
   };
 
   return (
