@@ -265,6 +265,7 @@ export default function PrecificacoesSalvas({
                         {precificacao.formulas?.tipo_produto}
                       </Badge>
                     </div>
+                    <PrazoPrecoBadge prazoPrecoId={(precificacao as any).prazo_preco_id} />
 
                     {/* Data */}
                     {precificacao.created_at && (

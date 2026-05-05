@@ -105,6 +105,7 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                         <p className="text-xs text-muted-foreground">{o.numero_orcamento}</p>
                       </div>
                     </div>
+                    <PrazoPrecoBadge prazoPrecoId={(o as any).prazo_preco_id} compact />
                     <Badge variant="outline" className={
                       (o as any).tipo_orcamento === 'recompra'
                         ? 'border-orange-500 text-orange-700 dark:text-orange-300 text-[10px]'
