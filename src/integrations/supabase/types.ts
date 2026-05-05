@@ -110,11 +110,18 @@ export type Database = {
       configuracao_custos: {
         Row: {
           ativa: boolean | null
+          capacidade_encapsulados: number
+          capacidade_gummy: number
+          capacidade_liquido: number
+          capacidade_soluvel: number
           created_at: string | null
           credito_prodeic: number | null
           depreciacao_maquinas: number | null
+          despesas_admin_por_tipo: Json
           despesas_administrativas: number | null
           energia_eletrica: number | null
+          folha_administrativa: number
+          folha_producao: number
           fundeb_fundes: number | null
           icms_credito_nf: number | null
           icms_saida: number | null
@@ -122,19 +129,28 @@ export type Database = {
           ipi_saida: number | null
           irpj_csll: number | null
           mao_obra_direta: number | null
+          mao_obra_direta_por_tipo: Json
           nome: string
           pis_cofins_credito: number | null
           pis_cofins_saida: number | null
           senha_protecao: string
+          taxa_perca: number
           updated_at: string | null
         }
         Insert: {
           ativa?: boolean | null
+          capacidade_encapsulados?: number
+          capacidade_gummy?: number
+          capacidade_liquido?: number
+          capacidade_soluvel?: number
           created_at?: string | null
           credito_prodeic?: number | null
           depreciacao_maquinas?: number | null
+          despesas_admin_por_tipo?: Json
           despesas_administrativas?: number | null
           energia_eletrica?: number | null
+          folha_administrativa?: number
+          folha_producao?: number
           fundeb_fundes?: number | null
           icms_credito_nf?: number | null
           icms_saida?: number | null
@@ -142,19 +158,28 @@ export type Database = {
           ipi_saida?: number | null
           irpj_csll?: number | null
           mao_obra_direta?: number | null
+          mao_obra_direta_por_tipo?: Json
           nome: string
           pis_cofins_credito?: number | null
           pis_cofins_saida?: number | null
           senha_protecao?: string
+          taxa_perca?: number
           updated_at?: string | null
         }
         Update: {
           ativa?: boolean | null
+          capacidade_encapsulados?: number
+          capacidade_gummy?: number
+          capacidade_liquido?: number
+          capacidade_soluvel?: number
           created_at?: string | null
           credito_prodeic?: number | null
           depreciacao_maquinas?: number | null
+          despesas_admin_por_tipo?: Json
           despesas_administrativas?: number | null
           energia_eletrica?: number | null
+          folha_administrativa?: number
+          folha_producao?: number
           fundeb_fundes?: number | null
           icms_credito_nf?: number | null
           icms_saida?: number | null
@@ -162,10 +187,12 @@ export type Database = {
           ipi_saida?: number | null
           irpj_csll?: number | null
           mao_obra_direta?: number | null
+          mao_obra_direta_por_tipo?: Json
           nome?: string
           pis_cofins_credito?: number | null
           pis_cofins_saida?: number | null
           senha_protecao?: string
+          taxa_perca?: number
           updated_at?: string | null
         }
         Relationships: []
@@ -267,6 +294,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      historico_configuracao_custos: {
+        Row: {
+          configuracao_id: string | null
+          created_at: string
+          id: string
+          snapshot: Json
+          snapshot_anterior: Json
+          usuario_email: string | null
+        }
+        Insert: {
+          configuracao_id?: string | null
+          created_at?: string
+          id?: string
+          snapshot?: Json
+          snapshot_anterior?: Json
+          usuario_email?: string | null
+        }
+        Update: {
+          configuracao_id?: string | null
+          created_at?: string
+          id?: string
+          snapshot?: Json
+          snapshot_anterior?: Json
+          usuario_email?: string | null
+        }
+        Relationships: []
       }
       lotes: {
         Row: {
