@@ -243,6 +243,7 @@ export type Database = {
           id: string
           itens: Json
           nome_formula: string
+          prazo_preco_id: string | null
           quantidade_por_pote: number
           tipo_produto: string
           total_embalagem: number
@@ -260,6 +261,7 @@ export type Database = {
           id?: string
           itens: Json
           nome_formula: string
+          prazo_preco_id?: string | null
           quantidade_por_pote: number
           tipo_produto: string
           total_embalagem: number
@@ -277,6 +279,7 @@ export type Database = {
           id?: string
           itens?: Json
           nome_formula?: string
+          prazo_preco_id?: string | null
           quantidade_por_pote?: number
           tipo_produto?: string
           total_embalagem?: number
@@ -448,6 +451,9 @@ export type Database = {
           numero_orcamento: string
           observacoes: string | null
           observacoes_internas: string | null
+          prazo_preco_id: string | null
+          preco_anterior_recalculo: number | null
+          preco_recalculado_em: string | null
           servicos_marca: Json
           status: string
           subtotal_producao: number
@@ -474,6 +480,9 @@ export type Database = {
           numero_orcamento: string
           observacoes?: string | null
           observacoes_internas?: string | null
+          prazo_preco_id?: string | null
+          preco_anterior_recalculo?: number | null
+          preco_recalculado_em?: string | null
           servicos_marca?: Json
           status?: string
           subtotal_producao?: number
@@ -500,6 +509,9 @@ export type Database = {
           numero_orcamento?: string
           observacoes?: string | null
           observacoes_internas?: string | null
+          prazo_preco_id?: string | null
+          preco_anterior_recalculo?: number | null
+          preco_recalculado_em?: string | null
           servicos_marca?: Json
           status?: string
           subtotal_producao?: number
@@ -608,6 +620,48 @@ export type Database = {
           },
         ]
       }
+      prazo_precos: {
+        Row: {
+          aplicado: boolean
+          aplicado_em: string | null
+          configuracao_id: string | null
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          historico_id: string | null
+          id: string
+          orcamentos_recalculados: number
+          precificacoes_recalculadas: number
+          snapshot: Json
+        }
+        Insert: {
+          aplicado?: boolean
+          aplicado_em?: string | null
+          configuracao_id?: string | null
+          created_at?: string
+          data_fim: string
+          data_inicio?: string
+          historico_id?: string | null
+          id?: string
+          orcamentos_recalculados?: number
+          precificacoes_recalculadas?: number
+          snapshot?: Json
+        }
+        Update: {
+          aplicado?: boolean
+          aplicado_em?: string | null
+          configuracao_id?: string | null
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          historico_id?: string | null
+          id?: string
+          orcamentos_recalculados?: number
+          precificacoes_recalculadas?: number
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       precificacoes: {
         Row: {
           base_calculo_irpj_csll: number
@@ -636,6 +690,9 @@ export type Database = {
           pis_cofins_credito: number
           pis_cofins_recolher: number
           pis_cofins_saida: number
+          prazo_preco_id: string | null
+          preco_anterior_recalculo: number | null
+          preco_recalculado_em: string | null
           preco_venda: number
           subtotal_custos_diretos: number
           subtotal_custos_indiretos: number
@@ -670,6 +727,9 @@ export type Database = {
           pis_cofins_credito: number
           pis_cofins_recolher: number
           pis_cofins_saida: number
+          prazo_preco_id?: string | null
+          preco_anterior_recalculo?: number | null
+          preco_recalculado_em?: string | null
           preco_venda: number
           subtotal_custos_diretos: number
           subtotal_custos_indiretos: number
@@ -704,6 +764,9 @@ export type Database = {
           pis_cofins_credito?: number
           pis_cofins_recolher?: number
           pis_cofins_saida?: number
+          prazo_preco_id?: string | null
+          preco_anterior_recalculo?: number | null
+          preco_recalculado_em?: string | null
           preco_venda?: number
           subtotal_custos_diretos?: number
           subtotal_custos_indiretos?: number

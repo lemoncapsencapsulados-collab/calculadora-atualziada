@@ -1,110 +1,129 @@
-# Painel Administrador
 
-Nova aba **sigilosa** acessível por senha (`Lemon1235@`), que centraliza todas as variáveis estruturais que formam o preço na Calculadora/Precificação. Edições salvas atualizam **automaticamente** os custos dos novos orçamentos gerados após a alteração, e cada salvamento gera um **snapshot completo** no histórico.
+## Objetivo
 
-## O que o usuário verá
+1. **Histórico do Painel Administrador**: visualização tipo "diff" com destaque dos campos alterados e impacto estimado nos custos.
+2. **Prazo de Preços (20 dias)**: ao salvar uma alteração no Painel Administrador, todos os orçamentos, fórmulas e precificações ficam com uma "janela de correção" de 20 dias. Durante esse período, aparece uma notificação em cada item. Vencido o prazo, o sistema recalcula automaticamente o preço dos orçamentos (somente os que ainda não foram aprovados/pagos) com base na nova configuração.
 
-**1. Acesso protegido**
-- Novo item no menu: **"Painel Administrador"** (ícone de cadeado, exibido apenas após desbloqueio na sessão).
-- Ao entrar pela primeira vez na sessão: tela com campo de senha. Senha correta (`Lemon1235@`) → libera o painel até logout/refresh.
+---
 
-**2. Aba "Variáveis Estruturais"** — formulário editável dividido em blocos:
+## Parte 1 — Diff visual no Histórico
 
-- **Folhas de pagamento mensais (R$)**
-  - Folha da Produção (alimenta "Mão de Obra Direta")
-  - Folha Administrativa / restante (alimenta "Despesas Administrativas")
+**Arquivo:** `src/components/admin/HistoricoAlteracoes.tsx` (refactor)
 
-- **Capacidade mensal de produção** (unidades/mês), 4 campos editáveis:
-  - Cápsula / Encapsulados
-  - Solúvel
-  - Gummy
-  - Líquido
+Já temos a base (lista + dialog). Vamos enriquecer:
 
-- **Custos diretos editáveis** (valor por unidade, R$):
-  - Energia Elétrica
-  - Depreciação de Máquinas
+- **Linha da tabela**: além dos chips de campos alterados, mostrar uma coluna "Impacto estimado" com a variação percentual média do custo unitário (média ponderada pelas capacidades dos 4 tipos), com ícone ▲ verde (aumento) ou ▼ vermelho (queda).
+- **Dialog de detalhes**:
+  - Cabeçalho com data/hora, usuário e badge "Prazo de preços vence em X dias" (se aplicável).
+  - Bloco "Variáveis estruturais": tabela lado a lado (Antes | Depois | Δ R$ | Δ %) com linhas alteradas destacadas em amarelo, inalteradas com opacidade reduzida.
+  - Bloco "Custo unitário derivado por tipo" (Encapsulados / Solúvel / Gummy / Líquido): comparação de MOD e Admin antes/depois, recalculados via `calcularCustosPorTipo()`, mostrando Δ R$/un e Δ %.
+  - Bloco "Simulação de impacto no preço": para cada tipo, simular um produto-referência (custo MP+Embalagem fictícios = R$ 10,00) usando `calcularPrecificacaoPorPreco` com config antiga vs nova → mostrar Δ no `totalCustosProducao` e na `margemLucroPercentual`. Útil para o usuário entender o efeito real.
+  - Botão "Restaurar este snapshot" (já preenche o form com os valores antigos — sem auto-salvar).
 
-- **Taxa de Perca (%)** — substitui a margem de segurança fixa de 20% e é aplicada sobre o custo total de produção.
+---
 
-**3. Cálculo automático visível em tempo real**
+## Parte 2 — Prazo de Preços de 20 dias
 
-Para cada tipo de produto, mostra um cartão com:
-```
-Mão de Obra Direta  = Folha Produção  ÷ Capacidade do tipo
-Despesas Admin.     = Folha Admin.    ÷ Capacidade do tipo
-```
-Ex.: Folha Produção R$ 50.000 ÷ 20.000 cápsulas/mês = **R$ 2,50/un**.
+### 2.1 Banco de dados (migration)
 
-**4. Botão "Salvar e aplicar"**
-- Valida campos, grava na configuração ativa e cria um registro de histórico (snapshot completo).
-- Toast confirma: "Custos atualizados — novos orçamentos usarão estes valores".
+Tabela nova **`prazo_precos`** (uma linha por evento de alteração da config):
+- `id uuid pk`
+- `historico_id uuid` → FK lógica para `historico_configuracao_custos.id`
+- `configuracao_id uuid`
+- `snapshot jsonb` (config nova já normalizada)
+- `data_inicio timestamptz` (now)
+- `data_fim timestamptz` (now + 20 dias)
+- `aplicado boolean default false` (se já recalculou orçamentos)
+- `aplicado_em timestamptz`
+- `created_at`
 
-**5. Aba "Histórico de Alterações"**
-- Tabela ordenada por data (mais recente primeiro): data/hora, usuário, e para cada variável os valores **anterior → novo** com a variação (R$ e %).
-- Botão "Ver detalhes" abre snapshot completo daquela versão.
-- Botão "Comparar com atual" mostra diff lado a lado.
+Adicionar colunas em **`orcamentos`**:
+- `prazo_preco_id uuid` (último prazo notificado/aplicado a este orçamento)
+- `preco_recalculado_em timestamptz`
+- `preco_anterior_recalculo numeric` (para histórico/auditoria)
 
-## Como funciona na precificação
+Adicionar coluna em **`precificacoes`**:
+- `prazo_preco_id uuid`
+- `preco_anterior_recalculo numeric`
+- `preco_recalculado_em timestamptz`
 
-Hoje, ao abrir a Precificação de um produto, o sistema lê `configuracao_custos` (ativa) e usa `mao_obra_direta`, `energia_eletrica`, `depreciacao_maquinas`, `despesas_administrativas` como custos por unidade.
+Adicionar coluna em **`formulas`**:
+- `prazo_preco_id uuid` (apenas para badge de notificação na UI)
 
-Mudanças:
-- Ao salvar no Painel Admin, esses 4 campos da `configuracao_custos` ativa são **recalculados** com base em folhas + capacidade do tipo de produto correspondente. Como agora variam por tipo, novos orçamentos passam a buscar o valor pelo `tipo_produto` da fórmula.
-- A "margem de segurança fixa de 20%" no `precificacaoCalculator.ts` passa a usar o campo **taxa_perca** vindo da configuração.
-- Orçamentos já existentes **não mudam** (continuam com seus valores salvos). Apenas novos cálculos refletem a edição.
+RLS: `authenticated` para tudo (segue padrão do projeto).
+
+### 2.2 Disparo do prazo
+
+Em `VariaveisEstruturaisForm.handleSalvar`, após `registrarHistorico`:
+- Inserir linha em `prazo_precos` com `data_fim = now + 20 dias`.
+- Marcar `prazo_preco_id` em **todos** os orçamentos com status diferente de `aprovado`, `pago` e `cancelado`, em **todas** as `precificacoes` ainda vinculadas a fórmulas ativas, e em **todas** as `formulas`.
+- Toast: "Prazo de preços iniciado — vence em 20 dias".
+
+### 2.3 Notificação visual ("janela de correção")
+
+Componente novo `src/components/PrazoPrecoBadge.tsx`:
+- Recebe `prazoPrecoId` ou `dataFim`.
+- Renderiza badge amarelo "Prazo de preços: X dias restantes" (verde se >10d, amarelo 4-10d, vermelho ≤3d).
+- Tooltip explicando: "Os custos foram alterados em DD/MM. Após DD/MM, este orçamento será recalculado automaticamente."
+
+Inserir o badge em:
+- **Cards de fórmula** em `Calculator.tsx` / `PrecificacoesSalvas.tsx` / `VerFormulaDialog.tsx`.
+- **Cards de orçamento** em `Orcamentos.tsx` e `OrcamentoKanbanView.tsx`.
+- **Linha de precificação** em `PrecificacoesSalvas.tsx`.
+
+Hook novo `src/hooks/usePrazoPrecoAtivo.ts`:
+- `usePrazoPrecoAtivo(prazoId)` → retorna `{ prazo, diasRestantes, vencido }`.
+- `usePrazosAtivos()` → retorna lista dos prazos não aplicados (para banner global).
+
+Banner global em `Navigation.tsx` (ou topo das páginas): "⚠ Prazo de preços ativo — vence em X dias. Y orçamentos serão recalculados."
+
+### 2.4 Recálculo automático ao vencer
+
+Estratégia **client-side lazy** (sem cron/edge function):
+
+`src/lib/aplicarPrazoPreco.ts`:
+- `aplicarPrazoPrecoVencido(prazoId)`:
+  1. Busca `prazo_precos` onde `data_fim <= now()` e `aplicado = false`.
+  2. Para cada um:
+     - Carrega config atual.
+     - Lista todos os `orcamentos` com `prazo_preco_id = X` e status em (`rascunho`, `enviado`, `em_negociacao`).
+     - Para cada orçamento:
+       - Itera `itens_producao[]`. Cada item tem `formula_id` (ou snapshot de custos). Recalcula `preco_venda` chamando `calcularPrecificacaoPorPreco` com novos custos derivados (MOD, Admin, Energia, Depreciação, Taxa de Perca via tipo do produto).
+       - Atualiza `subtotal_producao`, `valor_total`, salva `preco_anterior_recalculo`, `preco_recalculado_em`.
+     - Faz o mesmo nas `precificacoes` (substitui `preco_venda` mantendo o `markup_bruto` original).
+     - Marca `prazo.aplicado = true`, `aplicado_em = now()`.
+
+Disparo:
+- Hook `useAplicarPrazoVencido` montado uma vez no `App.tsx` (nível global, pós-auth). Roda na montagem e a cada 5 min via `setInterval`. Idempotente.
+- Toast de sumário: "X orçamentos recalculados pelo Prazo de Preços de DD/MM".
+
+### 2.5 Comportamento e edge cases
+
+- Orçamentos `aprovado`, `pago` e `cancelado` **nunca** são recalculados (preço travado no momento da aprovação).
+- Se uma nova alteração for salva enquanto outro prazo está ativo: o prazo antigo é encerrado (`aplicado = true`, sem recálculo) e o novo `prazo_preco_id` substitui o anterior em todos os itens — mantém apenas a alteração mais recente como "fonte da verdade".
+- Fórmulas e precificações: badge informativo apenas; o recálculo automático afeta apenas `orcamentos` e `precificacoes`. Fórmulas em si não têm preço, então não há recálculo de preço — apenas a notificação some quando o prazo vence.
+- Auditoria: a tabela `prazo_precos` mantém o histórico de aplicações; cada orçamento guarda `preco_anterior_recalculo`.
+
+---
 
 ## Detalhes técnicos
 
-**Banco de dados (migrações):**
+**Arquivos a criar:**
+- `src/components/PrazoPrecoBadge.tsx`
+- `src/components/PrazoPrecoBanner.tsx` (banner global)
+- `src/hooks/usePrazoPrecoAtivo.ts`
+- `src/hooks/useAplicarPrazoVencido.ts`
+- `src/lib/aplicarPrazoPreco.ts`
+- Migration: criar tabela `prazo_precos` e colunas adicionais em `orcamentos` / `precificacoes` / `formulas`.
 
-1. `configuracao_custos` — adicionar colunas:
-   - `taxa_perca numeric default 20` (substitui o 20% hardcoded)
-   - `folha_producao numeric default 0`
-   - `folha_administrativa numeric default 0`
-   - `capacidade_encapsulados numeric default 0`
-   - `capacidade_soluvel numeric default 0`
-   - `capacidade_gummy numeric default 0`
-   - `capacidade_liquido numeric default 0`
-   - `mao_obra_direta_por_tipo jsonb default '{}'` (cache calculado: `{encapsulados, soluvel, gummy, liquido}`)
-   - `despesas_admin_por_tipo jsonb default '{}'`
+**Arquivos a editar:**
+- `src/components/admin/HistoricoAlteracoes.tsx` (diff visual rico)
+- `src/components/admin/VariaveisEstruturaisForm.tsx` (dispara prazo após salvar)
+- `src/App.tsx` (montar `useAplicarPrazoVencido` + banner)
+- `src/pages/Orcamentos.tsx`, `src/components/OrcamentoKanbanView.tsx` (badge no card)
+- `src/pages/Calculator.tsx`, `src/components/PrecificacoesSalvas.tsx`, `src/components/VerFormulaDialog.tsx` (badge)
+- `src/types/precificacao.ts` (adicionar campos `prazo_preco_id` etc.)
 
-2. Nova tabela `historico_configuracao_custos`:
-   - `id uuid pk`
-   - `configuracao_id uuid` (referência lógica)
-   - `usuario_email text`
-   - `snapshot jsonb` (toda a configuração no momento)
-   - `snapshot_anterior jsonb` (para diff rápido)
-   - `created_at timestamptz default now()`
-   - RLS: select/insert para `authenticated`.
+**Reuso de cálculo**: o recálculo automático usa as mesmas funções `calcularPrecificacaoPorPreco` / `calcularCustosPorTipo` já em produção, garantindo paridade com o que o usuário vê na Calculadora.
 
-**Frontend:**
-
-- `src/pages/PainelAdministrador.tsx` (nova rota `/painel-administrador`).
-- `src/components/admin/AdminPasswordGate.tsx` — gate de senha (estado em `sessionStorage`, chave `admin_panel_unlocked`).
-- `src/components/admin/VariaveisEstruturaisForm.tsx` — formulário com todos os blocos e cartões de cálculo derivado em tempo real (`useMemo`).
-- `src/components/admin/HistoricoAlteracoes.tsx` — tabela + dialog de detalhes/diff.
-- `src/hooks/useHistoricoConfiguracao.ts` — query/insert do histórico.
-- `src/components/Navigation.tsx` — adicionar link "Painel Administrador" (ícone `Lock`/`Shield`), exibido apenas se `sessionStorage.admin_panel_unlocked === 'true'` **OU** sempre visível mas levando à tela de senha (preferência: sempre visível, ícone discreto).
-- `src/App.tsx` — registrar rota.
-
-**Lógica de cálculo:**
-
-- `src/lib/adminCustos.ts` (novo): função `calcularCustosPorTipo(folhaProducao, folhaAdmin, capacidades)` retorna `{ encapsulados:{mod,admin}, soluvel:{...}, gummy:{...}, liquido:{...} }`.
-- `src/hooks/usePrecificacao.ts` / `precificacaoCalculator.ts`: ao montar `CustosIndiretos`, ler `mao_obra_direta_por_tipo[tipo]` e `despesas_admin_por_tipo[tipo]` da config ativa (com fallback para os campos legados); substituir `* 0.20` por `* (taxa_perca/100)`.
-
-**Segurança:**
-- Senha do painel é checada client-side (gate de UX). RLS já restringe escrita à role `authenticated`. Para reforço futuro, a senha pode ser movida para uma edge function que valida server-side, mas mantém escopo deste plano simples.
-- Senha não fica em código fonte público: armazenada constante em `src/lib/adminConfig.ts` (mesmo padrão da senha operacional já existente no projeto).
-
-**Compatibilidade com orçamentos antigos:**
-- Não altera `orcamento_snapshot` nem nenhuma linha existente.
-- Migração popula `folha_producao`/`folha_administrativa`/capacidades com `0`, e `taxa_perca = 20` (mantém comportamento atual até o admin editar).
-- Os campos legados (`mao_obra_direta`, `despesas_administrativas`) continuam existindo e sendo atualizados automaticamente no salvamento (média ponderada das capacidades) para retrocompatibilidade com qualquer leitura legada.
-
-## Arquivos a criar/editar
-
-- **Migração SQL** (novas colunas + nova tabela `historico_configuracao_custos` + RLS)
-- Criar: `src/pages/PainelAdministrador.tsx`, `src/components/admin/AdminPasswordGate.tsx`, `src/components/admin/VariaveisEstruturaisForm.tsx`, `src/components/admin/HistoricoAlteracoes.tsx`, `src/hooks/useHistoricoConfiguracao.ts`, `src/lib/adminCustos.ts`, `src/lib/adminConfig.ts`
-- Editar: `src/App.tsx` (rota), `src/components/Navigation.tsx` (menu), `src/lib/precificacaoCalculator.ts` (taxa de perca), `src/hooks/usePrecificacao.ts` (custos por tipo), `src/types/precificacao.ts` (novos campos)
-
-Pronto para implementar mediante aprovação.
+**Compatibilidade**: arredondamento sempre via `arredondarReais` (regra do projeto). Datas em ISO. Upserts com `.limit(1)` quando aplicável.
