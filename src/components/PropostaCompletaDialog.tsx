@@ -176,104 +176,20 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [vhsysLoading, setVhsysLoading] = useState(false);
 
   const handleCadastrarVhSys = async () => {
-    const pf = pessoasFisicas[0];
-    const contato = tipoPessoa === 'pj'
-      ? (responsavelPJ.nome || pf?.nome || '').trim()
-      : (pf?.nome || '').trim();
-    const nomeFinal = (
-      tipoPessoa === 'pj'
-        ? (dadosCliente.razao_social || orcamento.nome_cliente)
-        : (pf?.nome || orcamento.nome_cliente)
-    )?.trim();
-
-    const cnpjCpf = (
-      tipoPessoa === 'pj' ? dadosCliente.cnpj : pf?.cpf
-    )?.trim();
-
-    if (!nomeFinal) {
-      toast.error('Informe o nome (ou razão social) do cliente.');
-      return;
-    }
-    if (!cnpjCpf) {
-      toast.error(tipoPessoa === 'pj' ? 'Informe o CNPJ do cliente.' : 'Informe o CPF do cliente.');
-      return;
-    }
-
-    const email =
-      tipoPessoa === 'pj' ? (dadosCliente.email || pf?.email) : (pf?.email || dadosCliente.email);
-    const telefone =
-      tipoPessoa === 'pj' ? (dadosCliente.telefone || pf?.telefone) : (pf?.telefone || dadosCliente.telefone);
-    const cep = tipoPessoa === 'pj' ? (dadosCliente.cep_cnpj || pf?.cep) : (pf?.cep || dadosCliente.cep_cnpj);
-    const logradouro =
-      tipoPessoa === 'pj' ? (dadosCliente.endereco_cnpj || pf?.endereco) : (pf?.endereco || dadosCliente.endereco_cnpj);
-    const cidade = tipoPessoa === 'pj' ? (dadosCliente.cidade || pf?.cidade) : (pf?.cidade || dadosCliente.cidade);
-    const uf = tipoPessoa === 'pj' ? (dadosCliente.estado || pf?.estado) : (pf?.estado || dadosCliente.estado);
-    const enderecoBruto = (logradouro || '').trim();
-    const enderecoPartes = enderecoBruto.split(',').map((parte) => parte.trim()).filter(Boolean);
-    const numeroDetectado = enderecoPartes.length > 1 ? enderecoPartes[1] : undefined;
-    const logradouroDetectado = enderecoPartes[0] || undefined;
-    const bairroDetectado = enderecoBruto.includes(' - ')
-      ? enderecoBruto.split(' - ').pop()?.trim()
-      : undefined;
-
-    // Monta observação com produtos do orçamento
-    const linhasProdutos = (orcamento.itens_producao || [])
-      .map((item) => {
-        const nome = (item.nome_produto || '').trim();
-        if (!nome) return null;
-        const qtd = item.quantidade ?? 0;
-        const seg = item.segmento ? ` [${item.segmento}]` : '';
-        return `• ${nome}${seg} - Qtd: ${qtd}`;
-      })
-      .filter(Boolean) as string[];
-    const observacaoProdutos = linhasProdutos.length
-      ? `Produtos do orçamento ${orcamento.numero_orcamento || ''}:\n${linhasProdutos.join('\n')}`.trim()
-      : undefined;
-
     setVhsysLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
-        body: {
-          nome: nomeFinal,
-          nome_fantasia: tipoPessoa === 'pj'
-            ? (dadosCliente.razao_social || nomeFinal)
-            : nomeFinal,
-          tipo_pessoa: tipoPessoa === 'pj' ? 'J' : 'F',
-          cnpj_cpf: cnpjCpf,
-          email: email || undefined,
-          telefone: telefone || undefined,
-          cep: cep || undefined,
-          logradouro: logradouroDetectado || logradouro || undefined,
-          numero: numeroDetectado || undefined,
-          bairro: bairroDetectado || undefined,
-          cidade: cidade || undefined,
-          uf: uf || undefined,
-          contato: contato || undefined,
-          inscricao_estadual: tipoPessoa === 'pj' ? (dadosCliente.inscricao_estadual || undefined) : undefined,
-          inscricao_municipal: tipoPessoa === 'pj' ? (dadosCliente.inscricao_municipal || undefined) : undefined,
-          observacao: observacaoProdutos,
-        },
+      const result = await cadastrarClienteVhSys({
+        orcamento,
+        tipoPessoa,
+        dadosCliente,
+        pessoasFisicas,
+        responsavelPJ,
       });
-
-      if (error) {
-        const ctx: any = (error as any).context;
-        let serverMsg: string | undefined;
-        try {
-          const parsed = ctx?.body ? JSON.parse(ctx.body) : null;
-          serverMsg = parsed?.error || parsed?.message;
-        } catch { /* ignore */ }
-        toast.error(serverMsg || error.message || 'Falha ao cadastrar cliente no VhSys.');
-        return;
+      if (result.success) {
+        toast.success('Cliente cadastrado com sucesso no VhSys!');
+      } else {
+        toast.error(result.error || 'Falha ao cadastrar cliente no VhSys.');
       }
-
-      if ((data as any)?.error) {
-        toast.error((data as any).error);
-        return;
-      }
-
-      toast.success('Cliente cadastrado com sucesso no VhSys!');
-    } catch (err) {
-      toast.error((err as Error).message || 'Erro inesperado ao cadastrar no VhSys.');
     } finally {
       setVhsysLoading(false);
     }
