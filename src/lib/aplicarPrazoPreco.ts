@@ -102,7 +102,7 @@ export async function aplicarPrazoPreco(prazoId: string): Promise<{ orcamentos: 
         continue;
       }
 
-      const itens = Array.isArray(orc.itens_producao) ? [...orc.itens_producao] : [];
+      const itens: any[] = Array.isArray(orc.itens_producao) ? [...(orc.itens_producao as any[])] : [];
       let novoSubtotalProd = 0;
 
       for (const item of itens) {
