@@ -47,7 +47,7 @@ export function useHistoricoConfiguracao() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as unknown as HistoricoConfiguracao;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['historico-configuracao-custos'] });

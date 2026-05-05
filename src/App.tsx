@@ -18,12 +18,15 @@ import PainelAdministrador from "./pages/PainelAdministrador";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useAplicarPrazoVencido } from './hooks/useAplicarPrazoVencido';
+import { PrazoPrecoBanner } from './components/PrazoPrecoBanner';
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { isAuthenticated, loading, logout } = useAuth();
   const [migrated, setMigrated] = useState(false);
+  useAplicarPrazoVencido(isAuthenticated && migrated);
 
   useEffect(() => {
     const runMigration = async () => {
@@ -70,6 +73,7 @@ const AppContent = () => {
     <BrowserRouter>
       <div className="min-h-screen bg-background">
         <Navigation onLogout={logout} />
+        <PrazoPrecoBanner />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/precificacao" element={<Precificacao />} />

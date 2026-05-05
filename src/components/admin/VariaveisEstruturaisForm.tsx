@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
 import { useHistoricoConfiguracao } from '@/hooks/useHistoricoConfiguracao';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   calcularCustosPorTipo,
   TIPOS_PRODUTO_KEYS,
@@ -63,6 +65,7 @@ const num = (v: string) => {
 export function VariaveisEstruturaisForm() {
   const { configuracaoAtiva, updateConfiguracao } = useConfiguracaoCustos();
   const { registrarHistorico } = useHistoricoConfiguracao();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(blankForm);
   const [saving, setSaving] = useState(false);
 
@@ -159,13 +162,52 @@ export function VariaveisEstruturaisForm() {
         ...novoSnapshot,
       } as any);
 
-      await registrarHistorico.mutateAsync({
+      const histRow = await registrarHistorico.mutateAsync({
         configuracao_id: configuracaoAtiva.id,
         snapshot: novoSnapshot,
         snapshot_anterior: snapshotAnterior,
       });
 
-      toast.success('Custos atualizados — novos orçamentos usarão estes valores');
+      // Cria janela de "Prazo de Preços" de 20 dias
+      const dataInicio = new Date();
+      const dataFim = new Date(dataInicio.getTime() + 20 * 24 * 60 * 60 * 1000);
+
+      // Encerra prazos ativos anteriores (mantém só o mais recente)
+      await supabase
+        .from('prazo_precos' as any)
+        .update({ aplicado: true, aplicado_em: dataInicio.toISOString() })
+        .eq('aplicado', false);
+
+      const { data: novoPrazo, error: prazoErr } = await supabase
+        .from('prazo_precos' as any)
+        .insert({
+          historico_id: (histRow as any)?.id ?? null,
+          configuracao_id: configuracaoAtiva.id,
+          snapshot: novoSnapshot,
+          data_inicio: dataInicio.toISOString(),
+          data_fim: dataFim.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (prazoErr) throw prazoErr;
+      const prazoId = (novoPrazo as any).id;
+
+      // Marca todos os orçamentos não travados, precificações e fórmulas
+      const STATUS_TRAVADOS = ['aprovado', 'pago', 'cancelado'];
+      await supabase
+        .from('orcamentos')
+        .update({ prazo_preco_id: prazoId })
+        .not('status', 'in', `(${STATUS_TRAVADOS.map((s) => `"${s}"`).join(',')})`);
+      await supabase.from('precificacoes').update({ prazo_preco_id: prazoId }).not('id', 'is', null);
+      await supabase.from('formulas').update({ prazo_preco_id: prazoId }).not('id', 'is', null);
+
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['formulas'] });
+      queryClient.invalidateQueries({ queryKey: ['prazos-precos-ativos'] });
+
+      toast.success('Custos atualizados — Prazo de Preços de 20 dias iniciado');
     } catch (err: any) {
       toast.error('Erro ao salvar: ' + (err?.message ?? 'desconhecido'));
     } finally {
