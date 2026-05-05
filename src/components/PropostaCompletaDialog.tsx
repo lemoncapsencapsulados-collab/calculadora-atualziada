@@ -22,6 +22,7 @@ import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, Aler
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
+import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
