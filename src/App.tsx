@@ -26,7 +26,7 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const { isAuthenticated, loading, logout } = useAuth();
   const [migrated, setMigrated] = useState(false);
-  useAplicarPrazoVencido();
+  useAplicarPrazoVencido(isAuthenticated && migrated);
 
   useEffect(() => {
     const runMigration = async () => {

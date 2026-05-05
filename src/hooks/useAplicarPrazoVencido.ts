@@ -6,11 +6,12 @@ import { aplicarPrazosVencidos } from '@/lib/aplicarPrazoPreco';
 /**
  * Roda 1x na montagem e a cada 5 min. Aplica recálculo de orçamentos quando o prazo de 20 dias vence.
  */
-export function useAplicarPrazoVencido() {
+export function useAplicarPrazoVencido(enabled: boolean = true) {
   const queryClient = useQueryClient();
   const rodando = useRef(false);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelado = false;
 
     const executar = async () => {
@@ -40,5 +41,5 @@ export function useAplicarPrazoVencido() {
       cancelado = true;
       clearInterval(intervalo);
     };
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 }
