@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut, Menu, Users, Shield } from 'lucide-react';
+import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -19,6 +19,7 @@ export function Navigation({ onLogout }: NavigationProps) {
     { to: '/orcamentos', label: 'Orçamentos', icon: Receipt },
     { to: '/leads-orcamento', label: 'Leads Orçamento', icon: Users },
     { to: '/pedidos', label: 'Pedidos', icon: ClipboardList },
+    { to: '/sucesso-cliente', label: 'Sucesso do Cliente', icon: HeartHandshake },
     { to: '/inventario', label: 'Inventário', icon: Package },
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/painel-administrador', label: 'Painel Administrador', icon: Shield },

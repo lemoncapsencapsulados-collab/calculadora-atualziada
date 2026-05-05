@@ -89,6 +89,21 @@ export interface AcompanhamentoProcessos {
   registro_inpi?: StatusProcessoLogistica;
   impressao_rotulos?: StatusProcessoLogistica;
   codigo_barras?: StatusProcessoLogistica;
+  // Sucesso do Cliente — campos opcionais, persistidos no mesmo jsonb
+  prazos_por_etapa?: Record<string, { previsto?: string; concluido?: string }>;
+  observacoes_por_etapa?: Record<string, string>;
+  rotulagem_status?: 'aguardando_rotulo' | 'rotulo_na_lemon' | 'produto_rotulado';
+  producao_status_detalhado?: 'sem_pedido_vhsys' | 'aguardando_producao' | 'produzido';
+  producao_prazo_vhsys?: string;
+  impressao_rotulo_pago_em?: string;
+  briefing_preenchido_em?: string;
+  // Versão estendida das opções dos serviços de marca:
+  rotulos_arte_status?: 'faca_voce_mesmo' | 'pendente' | 'concluido';
+  pagina_vendas_status?: 'nao_necessario' | 'pendente' | 'concluido';
+  registro_inpi_status?: 'nao_necessario' | 'pendente' | 'concluido';
+  codigo_barras_status?: 'nao_necessario' | 'pendente' | 'concluido';
+  impressao_rotulo_status?: 'pendente_pagamento' | 'em_producao' | 'concluido';
+  logistica_status?: 'aguardando_envio' | 'enviado';
 }
 
 export type StatusPedido = 
