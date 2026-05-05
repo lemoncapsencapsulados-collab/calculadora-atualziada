@@ -1,54 +1,57 @@
 ## Objetivo
 
-Trocar o seletor de calendário da **Data do Pagamento** por inputs numéricos editáveis (dia, mês, ano), iguais ao que já existe em "Histórico de Contatos". Hoje a data só pode ser escolhida clicando no calendário — você precisa poder digitar diretamente DD, MM e AAAA.
+Após clicar em **"Confirmar Pagamento"** no dialog `AprovacaoOrcamentoDialog`, exibir um **modal intermediário** oferecendo a opção de **Cadastrar o cliente no VhSys** antes de fechar o fluxo.
 
-## Onde a data de pagamento aparece hoje
+## Comportamento atual
 
-Após mapear o código, a data de pagamento é **editada em um único lugar**:
+- Hoje, o botão **"Cadastrar Cliente no VhSys"** só existe dentro do `PropostaCompletaDialog`, na tela de preview do PDF do resumo de contrato (linhas 639-650).
+- No `AprovacaoOrcamentoDialog`, ao clicar em "Confirmar Pagamento": cria o pedido, chama `onSuccess()` e fecha o dialog imediatamente — sem oferecer cadastro no VhSys.
 
-- **Popup de Aprovação** (`AprovacaoOrcamentoDialog`) — abre quando você muda o status do orçamento para "Pago". É o mesmo dialog usado pela tela de Orçamentos e pela Proposta. Hoje usa um `Popover + Calendar` (linhas 1019-1039).
+## Comportamento desejado
 
-Nos outros lugares (lista de orçamentos, pedidos, detalhes) a data só é exibida (read-only), não editada — então não precisa mexer.
+1. Usuário clica em **"Confirmar Pagamento"** no popup atual.
+2. Pedido é criado normalmente (mesma lógica de hoje).
+3. Em vez de fechar imediatamente, abre um **novo modal de sucesso** com:
+   - Mensagem: "Pagamento confirmado e pedido criado com sucesso!"
+   - Botão **"Cadastrar Cliente no VhSys"** (com loading/spinner)
+   - Botão **"Fechar"** (pular cadastro e finalizar)
+4. Ao clicar em "Cadastrar Cliente no VhSys": chama a edge function `vhsys-create-cliente` usando os dados do cliente já preenchidos no fluxo (mesma lógica do `handleCadastrarVhSys` existente). Mostra toast de sucesso/erro.
+5. Após sucesso (ou clicar em "Fechar"), fecha tudo e dispara `onSuccess()`.
 
-## Mudanças
+## Mudanças técnicas
 
-### 1. `src/components/AprovacaoOrcamentoDialog.tsx`
+### `src/components/AprovacaoOrcamentoDialog.tsx`
 
-**Substituir** o bloco do `Popover + CalendarComponent` (linhas 1019-1039) por três inputs numéricos no formato **DD / MM / AAAA**, seguindo exatamente o mesmo padrão do `DateNumericInput` já usado em `Orcamentos.tsx`:
+1. **Extrair a função `handleCadastrarVhSys`** já existente em `PropostaCompletaDialog.tsx` (linhas 177-279) para um helper compartilhado em `src/lib/vhsysCliente.ts` que receba `{ orcamento, dadosCliente, tipoPessoa, pessoasFisicas, responsavelPJ }` e retorne `{ success, error? }`. Refatorar `PropostaCompletaDialog.tsx` para usar esse helper (sem mudança de comportamento lá).
 
-- **Dia**: aceita até 2 dígitos (01-31), com validação por mês
-- **Mês**: aceita até 2 dígitos (01-12)
-- **Ano**: aceita no mínimo 4 dígitos (ex.: 2026)
-- Digitação livre, sem auto-pular entre campos
-- Ao sair do campo (blur), aplica zero-padding (ex.: "5" → "05") se o valor for válido
-- Bloqueia datas futuras (mantém a regra atual `date > new Date()` → exibe erro inline em vermelho)
+2. **Adicionar novo estado** no `AprovacaoOrcamentoDialog`:
+   - `showVhsysModal: boolean` — controla o modal pós-confirmação
+   - `vhsysLoading: boolean` — loading do botão de cadastro
 
-**Estado:** trocar `dataPagamento: Date | undefined` por três strings (`diaPg`, `mesPg`, `anoPg`) + um `Date` derivado via `buildDate()`. Inicializar a partir de `orcamento.data_pagamento` (se já existir) ou vazio.
+3. **Modificar `handleConfirmAprovacao`** (linha 369):
+   - Após `createPedidoFromOrcamento(orcamentoCompleto)` com sucesso, em vez de chamar `onSuccess()` + `onClose()`, setar `showVhsysModal = true` e manter o dialog principal "por trás" oculto (ou substituir o conteúdo).
 
-**Validação no botão Confirmar:** continuar exigindo data válida e não-futura antes de salvar (`data_pagamento: date.toISOString()` nas linhas 534 e 543).
+4. **Renderizar o novo modal** (condicional `showVhsysModal`):
+   - Substitui o conteúdo do `DialogContent` atual por uma tela de sucesso com os dois botões.
+   - Botão "Cadastrar Cliente no VhSys" → chama o helper compartilhado, mostra toast, mantém o modal aberto até usuário fechar.
+   - Botão "Fechar" → chama `onSuccess()` + `onClose()`.
 
-### 2. Componente compartilhado (refactor leve)
+### `src/lib/vhsysCliente.ts` (novo arquivo)
 
-Para não duplicar o `DateNumericInput`, **extrair** o componente de `src/pages/Orcamentos.tsx` para um arquivo novo:
+- Exporta `cadastrarClienteVhSys(params)` com toda a lógica de montagem do payload (nome, CNPJ/CPF, endereço, observação com produtos do orçamento) e a chamada `supabase.functions.invoke('vhsys-create-cliente', ...)` exatamente como hoje.
 
-- `src/components/ui/date-numeric-input.tsx` — exporta `DateNumericInput`, `buildDate`, `lastDayOfMonth`
+### `src/components/PropostaCompletaDialog.tsx`
 
-Atualizar os imports em:
-- `src/pages/Orcamentos.tsx` (remover definição local, importar do novo arquivo)
-- `src/components/AprovacaoOrcamentoDialog.tsx` (importar e usar)
-
-## Resumo visual
-
-```text
-ANTES:                          DEPOIS:
-[ 📅 04/05/2026 ▾ ]            [ DD ] / [ MM ] / [ AAAA ]
-   (abre calendário)              (digita direto, ex: 04 / 05 / 2026)
-```
+- Substituir as linhas 177-279 por uma chamada ao novo helper `cadastrarClienteVhSys(...)`. Comportamento visual do botão existente permanece igual.
 
 ## Arquivos afetados
 
-- `src/components/ui/date-numeric-input.tsx` (novo)
-- `src/components/AprovacaoOrcamentoDialog.tsx` (substituir Popover+Calendar)
-- `src/pages/Orcamentos.tsx` (importar do novo arquivo em vez de definir localmente)
+- **Novo**: `src/lib/vhsysCliente.ts`
+- **Editado**: `src/components/AprovacaoOrcamentoDialog.tsx` (modal pós-confirmação + integração com helper)
+- **Editado**: `src/components/PropostaCompletaDialog.tsx` (refatoração para usar helper, sem mudança visual)
 
-Sem mudanças no banco de dados, sem mudanças de outros fluxos.
+## Não muda
+
+- Edge function `vhsys-create-cliente` permanece inalterada.
+- Validação da data de pagamento, criação de pedido, fluxos de proposta/orçamento permanecem iguais.
+- Botão de VhSys no `PropostaCompletaDialog` continua existindo (não é removido).
