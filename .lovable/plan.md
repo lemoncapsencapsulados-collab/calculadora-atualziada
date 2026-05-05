@@ -1,57 +1,110 @@
-## Objetivo
+# Painel Administrador
 
-Após clicar em **"Confirmar Pagamento"** no dialog `AprovacaoOrcamentoDialog`, exibir um **modal intermediário** oferecendo a opção de **Cadastrar o cliente no VhSys** antes de fechar o fluxo.
+Nova aba **sigilosa** acessível por senha (`Lemon1235@`), que centraliza todas as variáveis estruturais que formam o preço na Calculadora/Precificação. Edições salvas atualizam **automaticamente** os custos dos novos orçamentos gerados após a alteração, e cada salvamento gera um **snapshot completo** no histórico.
 
-## Comportamento atual
+## O que o usuário verá
 
-- Hoje, o botão **"Cadastrar Cliente no VhSys"** só existe dentro do `PropostaCompletaDialog`, na tela de preview do PDF do resumo de contrato (linhas 639-650).
-- No `AprovacaoOrcamentoDialog`, ao clicar em "Confirmar Pagamento": cria o pedido, chama `onSuccess()` e fecha o dialog imediatamente — sem oferecer cadastro no VhSys.
+**1. Acesso protegido**
+- Novo item no menu: **"Painel Administrador"** (ícone de cadeado, exibido apenas após desbloqueio na sessão).
+- Ao entrar pela primeira vez na sessão: tela com campo de senha. Senha correta (`Lemon1235@`) → libera o painel até logout/refresh.
 
-## Comportamento desejado
+**2. Aba "Variáveis Estruturais"** — formulário editável dividido em blocos:
 
-1. Usuário clica em **"Confirmar Pagamento"** no popup atual.
-2. Pedido é criado normalmente (mesma lógica de hoje).
-3. Em vez de fechar imediatamente, abre um **novo modal de sucesso** com:
-   - Mensagem: "Pagamento confirmado e pedido criado com sucesso!"
-   - Botão **"Cadastrar Cliente no VhSys"** (com loading/spinner)
-   - Botão **"Fechar"** (pular cadastro e finalizar)
-4. Ao clicar em "Cadastrar Cliente no VhSys": chama a edge function `vhsys-create-cliente` usando os dados do cliente já preenchidos no fluxo (mesma lógica do `handleCadastrarVhSys` existente). Mostra toast de sucesso/erro.
-5. Após sucesso (ou clicar em "Fechar"), fecha tudo e dispara `onSuccess()`.
+- **Folhas de pagamento mensais (R$)**
+  - Folha da Produção (alimenta "Mão de Obra Direta")
+  - Folha Administrativa / restante (alimenta "Despesas Administrativas")
 
-## Mudanças técnicas
+- **Capacidade mensal de produção** (unidades/mês), 4 campos editáveis:
+  - Cápsula / Encapsulados
+  - Solúvel
+  - Gummy
+  - Líquido
 
-### `src/components/AprovacaoOrcamentoDialog.tsx`
+- **Custos diretos editáveis** (valor por unidade, R$):
+  - Energia Elétrica
+  - Depreciação de Máquinas
 
-1. **Extrair a função `handleCadastrarVhSys`** já existente em `PropostaCompletaDialog.tsx` (linhas 177-279) para um helper compartilhado em `src/lib/vhsysCliente.ts` que receba `{ orcamento, dadosCliente, tipoPessoa, pessoasFisicas, responsavelPJ }` e retorne `{ success, error? }`. Refatorar `PropostaCompletaDialog.tsx` para usar esse helper (sem mudança de comportamento lá).
+- **Taxa de Perca (%)** — substitui a margem de segurança fixa de 20% e é aplicada sobre o custo total de produção.
 
-2. **Adicionar novo estado** no `AprovacaoOrcamentoDialog`:
-   - `showVhsysModal: boolean` — controla o modal pós-confirmação
-   - `vhsysLoading: boolean` — loading do botão de cadastro
+**3. Cálculo automático visível em tempo real**
 
-3. **Modificar `handleConfirmAprovacao`** (linha 369):
-   - Após `createPedidoFromOrcamento(orcamentoCompleto)` com sucesso, em vez de chamar `onSuccess()` + `onClose()`, setar `showVhsysModal = true` e manter o dialog principal "por trás" oculto (ou substituir o conteúdo).
+Para cada tipo de produto, mostra um cartão com:
+```
+Mão de Obra Direta  = Folha Produção  ÷ Capacidade do tipo
+Despesas Admin.     = Folha Admin.    ÷ Capacidade do tipo
+```
+Ex.: Folha Produção R$ 50.000 ÷ 20.000 cápsulas/mês = **R$ 2,50/un**.
 
-4. **Renderizar o novo modal** (condicional `showVhsysModal`):
-   - Substitui o conteúdo do `DialogContent` atual por uma tela de sucesso com os dois botões.
-   - Botão "Cadastrar Cliente no VhSys" → chama o helper compartilhado, mostra toast, mantém o modal aberto até usuário fechar.
-   - Botão "Fechar" → chama `onSuccess()` + `onClose()`.
+**4. Botão "Salvar e aplicar"**
+- Valida campos, grava na configuração ativa e cria um registro de histórico (snapshot completo).
+- Toast confirma: "Custos atualizados — novos orçamentos usarão estes valores".
 
-### `src/lib/vhsysCliente.ts` (novo arquivo)
+**5. Aba "Histórico de Alterações"**
+- Tabela ordenada por data (mais recente primeiro): data/hora, usuário, e para cada variável os valores **anterior → novo** com a variação (R$ e %).
+- Botão "Ver detalhes" abre snapshot completo daquela versão.
+- Botão "Comparar com atual" mostra diff lado a lado.
 
-- Exporta `cadastrarClienteVhSys(params)` com toda a lógica de montagem do payload (nome, CNPJ/CPF, endereço, observação com produtos do orçamento) e a chamada `supabase.functions.invoke('vhsys-create-cliente', ...)` exatamente como hoje.
+## Como funciona na precificação
 
-### `src/components/PropostaCompletaDialog.tsx`
+Hoje, ao abrir a Precificação de um produto, o sistema lê `configuracao_custos` (ativa) e usa `mao_obra_direta`, `energia_eletrica`, `depreciacao_maquinas`, `despesas_administrativas` como custos por unidade.
 
-- Substituir as linhas 177-279 por uma chamada ao novo helper `cadastrarClienteVhSys(...)`. Comportamento visual do botão existente permanece igual.
+Mudanças:
+- Ao salvar no Painel Admin, esses 4 campos da `configuracao_custos` ativa são **recalculados** com base em folhas + capacidade do tipo de produto correspondente. Como agora variam por tipo, novos orçamentos passam a buscar o valor pelo `tipo_produto` da fórmula.
+- A "margem de segurança fixa de 20%" no `precificacaoCalculator.ts` passa a usar o campo **taxa_perca** vindo da configuração.
+- Orçamentos já existentes **não mudam** (continuam com seus valores salvos). Apenas novos cálculos refletem a edição.
 
-## Arquivos afetados
+## Detalhes técnicos
 
-- **Novo**: `src/lib/vhsysCliente.ts`
-- **Editado**: `src/components/AprovacaoOrcamentoDialog.tsx` (modal pós-confirmação + integração com helper)
-- **Editado**: `src/components/PropostaCompletaDialog.tsx` (refatoração para usar helper, sem mudança visual)
+**Banco de dados (migrações):**
 
-## Não muda
+1. `configuracao_custos` — adicionar colunas:
+   - `taxa_perca numeric default 20` (substitui o 20% hardcoded)
+   - `folha_producao numeric default 0`
+   - `folha_administrativa numeric default 0`
+   - `capacidade_encapsulados numeric default 0`
+   - `capacidade_soluvel numeric default 0`
+   - `capacidade_gummy numeric default 0`
+   - `capacidade_liquido numeric default 0`
+   - `mao_obra_direta_por_tipo jsonb default '{}'` (cache calculado: `{encapsulados, soluvel, gummy, liquido}`)
+   - `despesas_admin_por_tipo jsonb default '{}'`
 
-- Edge function `vhsys-create-cliente` permanece inalterada.
-- Validação da data de pagamento, criação de pedido, fluxos de proposta/orçamento permanecem iguais.
-- Botão de VhSys no `PropostaCompletaDialog` continua existindo (não é removido).
+2. Nova tabela `historico_configuracao_custos`:
+   - `id uuid pk`
+   - `configuracao_id uuid` (referência lógica)
+   - `usuario_email text`
+   - `snapshot jsonb` (toda a configuração no momento)
+   - `snapshot_anterior jsonb` (para diff rápido)
+   - `created_at timestamptz default now()`
+   - RLS: select/insert para `authenticated`.
+
+**Frontend:**
+
+- `src/pages/PainelAdministrador.tsx` (nova rota `/painel-administrador`).
+- `src/components/admin/AdminPasswordGate.tsx` — gate de senha (estado em `sessionStorage`, chave `admin_panel_unlocked`).
+- `src/components/admin/VariaveisEstruturaisForm.tsx` — formulário com todos os blocos e cartões de cálculo derivado em tempo real (`useMemo`).
+- `src/components/admin/HistoricoAlteracoes.tsx` — tabela + dialog de detalhes/diff.
+- `src/hooks/useHistoricoConfiguracao.ts` — query/insert do histórico.
+- `src/components/Navigation.tsx` — adicionar link "Painel Administrador" (ícone `Lock`/`Shield`), exibido apenas se `sessionStorage.admin_panel_unlocked === 'true'` **OU** sempre visível mas levando à tela de senha (preferência: sempre visível, ícone discreto).
+- `src/App.tsx` — registrar rota.
+
+**Lógica de cálculo:**
+
+- `src/lib/adminCustos.ts` (novo): função `calcularCustosPorTipo(folhaProducao, folhaAdmin, capacidades)` retorna `{ encapsulados:{mod,admin}, soluvel:{...}, gummy:{...}, liquido:{...} }`.
+- `src/hooks/usePrecificacao.ts` / `precificacaoCalculator.ts`: ao montar `CustosIndiretos`, ler `mao_obra_direta_por_tipo[tipo]` e `despesas_admin_por_tipo[tipo]` da config ativa (com fallback para os campos legados); substituir `* 0.20` por `* (taxa_perca/100)`.
+
+**Segurança:**
+- Senha do painel é checada client-side (gate de UX). RLS já restringe escrita à role `authenticated`. Para reforço futuro, a senha pode ser movida para uma edge function que valida server-side, mas mantém escopo deste plano simples.
+- Senha não fica em código fonte público: armazenada constante em `src/lib/adminConfig.ts` (mesmo padrão da senha operacional já existente no projeto).
+
+**Compatibilidade com orçamentos antigos:**
+- Não altera `orcamento_snapshot` nem nenhuma linha existente.
+- Migração popula `folha_producao`/`folha_administrativa`/capacidades com `0`, e `taxa_perca = 20` (mantém comportamento atual até o admin editar).
+- Os campos legados (`mao_obra_direta`, `despesas_administrativas`) continuam existindo e sendo atualizados automaticamente no salvamento (média ponderada das capacidades) para retrocompatibilidade com qualquer leitura legada.
+
+## Arquivos a criar/editar
+
+- **Migração SQL** (novas colunas + nova tabela `historico_configuracao_custos` + RLS)
+- Criar: `src/pages/PainelAdministrador.tsx`, `src/components/admin/AdminPasswordGate.tsx`, `src/components/admin/VariaveisEstruturaisForm.tsx`, `src/components/admin/HistoricoAlteracoes.tsx`, `src/hooks/useHistoricoConfiguracao.ts`, `src/lib/adminCustos.ts`, `src/lib/adminConfig.ts`
+- Editar: `src/App.tsx` (rota), `src/components/Navigation.tsx` (menu), `src/lib/precificacaoCalculator.ts` (taxa de perca), `src/hooks/usePrecificacao.ts` (custos por tipo), `src/types/precificacao.ts` (novos campos)
+
+Pronto para implementar mediante aprovação.

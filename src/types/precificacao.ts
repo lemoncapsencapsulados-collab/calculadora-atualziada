@@ -20,6 +20,17 @@ export interface ConfiguracaoCustos {
   ipi_saida: number;
   irpj_csll: number;
   
+  // Painel Administrador — variáveis estruturais
+  taxa_perca: number;
+  folha_producao: number;
+  folha_administrativa: number;
+  capacidade_encapsulados: number;
+  capacidade_soluvel: number;
+  capacidade_gummy: number;
+  capacidade_liquido: number;
+  mao_obra_direta_por_tipo: Record<string, number>;
+  despesas_admin_por_tipo: Record<string, number>;
+
   created_at: string;
   updated_at: string;
 }
