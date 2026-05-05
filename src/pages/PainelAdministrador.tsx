@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { VariaveisEstruturaisForm } from '@/components/admin/VariaveisEstruturaisForm';
 import { HistoricoAlteracoes } from '@/components/admin/HistoricoAlteracoes';
+import { PrazoPrecoCountdown } from '@/components/admin/PrazoPrecoCountdown';
 import { isAdminUnlocked, lockAdmin } from '@/lib/adminConfig';
 
 export default function PainelAdministrador() {
@@ -38,6 +39,8 @@ export default function PainelAdministrador() {
           Bloquear painel
         </Button>
       </div>
+
+      <PrazoPrecoCountdown />
 
       <Tabs defaultValue="variaveis" className="space-y-4">
         <TabsList>
