@@ -14,6 +14,7 @@ import LeadsOrcamento from "./pages/LeadsOrcamento";
 import DashboardComercial from "./pages/DashboardComercial";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import PainelAdministrador from "./pages/PainelAdministrador";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -77,6 +78,7 @@ const AppContent = () => {
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/inventario" element={<Inventario />} />
           <Route path="/dashboard" element={<DashboardComercial />} />
+          <Route path="/painel-administrador" element={<PainelAdministrador />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
