@@ -1,11 +1,16 @@
-import { Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { usePrazosAtivos, calcDiasRestantes } from '@/hooks/usePrazoPrecoAtivo';
 
 const JANELA_DIAS = 20;
 
-export function PrazoPrecoCountdown() {
+interface Props {
+  onVerHistorico?: (prazo: { id: string; data_inicio: string; data_fim: string; historico_id: string | null }) => void;
+}
+
+export function PrazoPrecoCountdown({ onVerHistorico }: Props = {}) {
   const { data: prazos, isLoading } = usePrazosAtivos();
   const ativos = (prazos || []).filter((p) => calcDiasRestantes(p.data_fim) > 0);
 
@@ -95,6 +100,17 @@ export function PrazoPrecoCountdown() {
                 <span className="ml-2 opacity-80">(+{extras} outro{extras === 1 ? '' : 's'} prazo{extras === 1 ? '' : 's'} ativo{extras === 1 ? '' : 's'})</span>
               )}
             </p>
+            {onVerHistorico && (
+              <Button
+                size="sm"
+                variant="link"
+                className={`h-auto p-0 mt-1 ${tema.texto}`}
+                onClick={() => onVerHistorico(principal as any)}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Ver snapshot que gerou esta janela
+              </Button>
+            )}
           </div>
         </div>
 
