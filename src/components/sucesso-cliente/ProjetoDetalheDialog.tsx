@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import { Star, Save, Copy, MessageCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Star, Save, Copy, MessageCircle, Plus, Trash2, Package, StickyNote } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
 import {
   ETAPAS, EtapaId, calcularEtapaInfo, getEtapasContratadas,
   aplicarStatusEtapa, aplicarPrazoEtapa, aplicarObservacaoEtapa,
+  aplicarProdutosCS, aplicarObservacaoGeralCS,
   getStatusGeral, STATUS_GERAL_LABEL, STATUS_GERAL_COLOR,
 } from '@/lib/sucessoCliente';
 import EtapaRow from './EtapaRow';
@@ -28,6 +30,20 @@ interface Props {
 export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }: Props) {
   const [nota, setNota] = useState<number>(pedido?.acompanhamento_processos?.satisfacao_nota ?? 8);
   const [obsSat, setObsSat] = useState<string>(pedido?.acompanhamento_processos?.satisfacao_observacoes ?? '');
+  const [produtos, setProdutos] = useState<{ id: string; nome: string }[]>(
+    pedido?.acompanhamento_processos?.produtos_cs ?? []
+  );
+  const [obsGeral, setObsGeral] = useState<string>(
+    pedido?.acompanhamento_processos?.observacao_geral_cs ?? ''
+  );
+
+  // Sync local state when switching pedido
+  useEffect(() => {
+    setProdutos(pedido?.acompanhamento_processos?.produtos_cs ?? []);
+    setObsGeral(pedido?.acompanhamento_processos?.observacao_geral_cs ?? '');
+    setNota(pedido?.acompanhamento_processos?.satisfacao_nota ?? 8);
+    setObsSat(pedido?.acompanhamento_processos?.satisfacao_observacoes ?? '');
+  }, [pedido?.id]);
 
   const etapasInfo = useMemo(() => {
     if (!pedido) return [];
@@ -64,6 +80,24 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
     toast.success('Avaliação salva');
   };
 
+  const adicionarProduto = () => {
+    setProdutos((prev) => [...prev, { id: crypto.randomUUID(), nome: '' }]);
+  };
+  const atualizarProduto = (id: string, nome: string) => {
+    setProdutos((prev) => prev.map((p) => (p.id === id ? { ...p, nome } : p)));
+  };
+  const removerProduto = (id: string) => {
+    setProdutos((prev) => prev.filter((p) => p.id !== id));
+  };
+  const salvarProdutosObs = () => {
+    const limpos = produtos.map((p) => ({ ...p, nome: p.nome.trim() })).filter((p) => p.nome.length > 0);
+    let novo = aplicarProdutosCS(pedido.acompanhamento_processos, limpos);
+    novo = aplicarObservacaoGeralCS(novo, obsGeral.trim());
+    onUpdate(pedido.id, novo);
+    setProdutos(limpos);
+    toast.success('Produtos e observação salvos');
+  };
+
   const copiarResumoCS = () => {
     const linhas = [
       `📋 Sucesso do Cliente — ${pedido.numero_pedido}`,
@@ -72,6 +106,10 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
       `Status geral: ${STATUS_GERAL_LABEL[statusGeral]}`,
       snap.data_pagamento ? `Pagamento: ${format(new Date(snap.data_pagamento), 'dd/MM/yyyy')}` : '',
       `Valor: ${formatCurrency(valor)}`,
+      produtos.filter((p) => p.nome.trim()).length
+        ? `Produtos: ${produtos.filter((p) => p.nome.trim()).map((p) => p.nome).join(', ')}`
+        : '',
+      obsGeral.trim() ? `Observação CS: ${obsGeral.trim()}` : '',
       '',
       ...etapasInfo.filter((e) => e.contratada).map((e) => {
         const prazo = e.concluida && e.dataConclusao
@@ -125,6 +163,65 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
             <span className="ml-auto text-xs text-muted-foreground">
               {concluidas}/{ativas.length} etapas concluídas
             </span>
+          </div>
+
+          {/* Produtos e Observação geral do CS */}
+          <div className="p-3 rounded-lg border bg-card space-y-3">
+            <div className="flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Produtos e Observações do CS</span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Produtos do pedido
+              </label>
+              {produtos.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  Nenhum produto cadastrado. Adicione o nome comercial do(s) produto(s).
+                </p>
+              )}
+              {produtos.map((p) => (
+                <div key={p.id} className="flex items-center gap-2">
+                  <Input
+                    value={p.nome}
+                    onChange={(e) => atualizarProduto(p.id, e.target.value)}
+                    placeholder="Ex: Whey Lemon"
+                    className="h-9 text-sm"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 flex-shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removerProduto(p.id)}
+                    aria-label="Remover produto"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button size="sm" variant="outline" onClick={adicionarProduto}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar produto
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <StickyNote className="w-3.5 h-3.5" /> Observação geral do CS
+              </label>
+              <Textarea
+                value={obsGeral}
+                onChange={(e) => setObsGeral(e.target.value)}
+                placeholder="Anotações livres da equipe de Sucesso do Cliente sobre este pedido..."
+                className="min-h-[80px] text-sm"
+              />
+            </div>
+
+            <div className="flex justify-end">
+              <Button size="sm" onClick={salvarProdutosObs}>
+                <Save className="w-4 h-4 mr-1" /> Salvar
+              </Button>
+            </div>
           </div>
 
           {/* Etapas */}

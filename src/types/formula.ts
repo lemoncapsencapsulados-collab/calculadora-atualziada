@@ -104,6 +104,9 @@ export interface AcompanhamentoProcessos {
   codigo_barras_status?: 'nao_necessario' | 'pendente' | 'concluido';
   impressao_rotulo_status?: 'pendente_pagamento' | 'em_producao' | 'concluido';
   logistica_status?: 'aguardando_envio' | 'enviado';
+  // Sucesso do Cliente — produtos do pedido e observação geral do CS
+  produtos_cs?: { id: string; nome: string }[];
+  observacao_geral_cs?: string;
 }
 
 export type StatusPedido = 
