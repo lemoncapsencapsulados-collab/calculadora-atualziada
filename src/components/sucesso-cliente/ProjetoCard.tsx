@@ -1,7 +1,8 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Star, Eye, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Star, Eye, AlertTriangle, Package, StickyNote } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Pedido } from '@/types/formula';
@@ -29,6 +30,8 @@ export default function ProjetoCard({ pedido, onAbrir }: Props) {
   const concluidas = ativas.filter((e) => e.concluida).length;
   const atrasadas = ativas.filter((e) => e.atrasada);
   const nps = pedido.acompanhamento_processos?.satisfacao_nota;
+  const produtosCS = (pedido.acompanhamento_processos?.produtos_cs ?? []).filter((p) => p.nome?.trim());
+  const obsGeralCS = pedido.acompanhamento_processos?.observacao_geral_cs?.trim();
 
   return (
     <Card className={cn(
@@ -48,6 +51,29 @@ export default function ProjetoCard({ pedido, onAbrir }: Props) {
               Consultor: {consultor}
               {dataPgto && ` · Pagto: ${format(dataPgto, 'dd/MM/yyyy', { locale: ptBR })}`}
             </div>
+            {(produtosCS.length > 0 || obsGeralCS) && (
+              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                {produtosCS.map((p) => (
+                  <Badge key={p.id} variant="secondary" className="text-[10px] gap-1">
+                    <Package className="w-3 h-3" />{p.nome}
+                  </Badge>
+                ))}
+                {obsGeralCS && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-[10px] gap-1 cursor-help">
+                          <StickyNote className="w-3 h-3" />Obs. CS
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs whitespace-pre-wrap">
+                        {obsGeralCS}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Badge className={STATUS_GERAL_COLOR[statusGeral]}>
