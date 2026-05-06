@@ -67,6 +67,10 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
   const concluidas = ativas.filter((e) => e.concluida).length;
   const todasConcluidas = ativas.length > 0 && concluidas === ativas.length;
 
+  const itensPedido = extrairItensPedido(pedido);
+  const prazoEntrega = pedido.data_entrega ? new Date(pedido.data_entrega) : null;
+  const dataPgto = snap.data_pagamento ? new Date(snap.data_pagamento) : null;
+
   const handleStatus = (etapa: EtapaId, status: string) => {
     const novo = aplicarStatusEtapa(pedido.acompanhamento_processos, etapa, status);
     onUpdate(pedido.id, novo);
@@ -105,15 +109,22 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
   };
 
   const copiarResumoCS = () => {
+    const itensTxt = itensPedido.map((it) => {
+      const espec = formatarEspecificacaoItem(it);
+      return `  - ${it.nome_produto} (qtd: ${it.quantidade})${espec ? ' — ' + espec : ''}`;
+    });
     const linhas = [
       `📋 Sucesso do Cliente — ${pedido.numero_pedido}`,
       `Cliente: ${cliente}`,
+      nomeMarca.trim() ? `Marca: ${nomeMarca.trim()}` : '',
       `Consultor: ${consultor}`,
       `Status geral: ${STATUS_GERAL_LABEL[statusGeral]}`,
-      snap.data_pagamento ? `Pagamento: ${format(new Date(snap.data_pagamento), 'dd/MM/yyyy')}` : '',
+      dataPgto ? `Pagamento: ${format(dataPgto, 'dd/MM/yyyy')}` : '',
+      prazoEntrega ? `Prazo de entrega: ${format(prazoEntrega, 'dd/MM/yyyy')}` : '',
       `Valor: ${formatCurrency(valor)}`,
+      itensTxt.length ? `Produtos contratados:\n${itensTxt.join('\n')}` : '',
       produtos.filter((p) => p.nome.trim()).length
-        ? `Produtos: ${produtos.filter((p) => p.nome.trim()).map((p) => p.nome).join(', ')}`
+        ? `Apelidos: ${produtos.filter((p) => p.nome.trim()).map((p) => p.nome).join(', ')}`
         : '',
       obsGeral.trim() ? `Observação CS: ${obsGeral.trim()}` : '',
       '',
@@ -171,16 +182,82 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
             </span>
           </div>
 
+          {/* Resumo destacado para o CS */}
+          <div className="p-4 rounded-lg border-2 border-primary/30 bg-primary/5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm font-bold uppercase tracking-wide text-primary">Resumo para o Sucesso do Cliente</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground font-medium">Cliente</div>
+                <div className="font-semibold">{cliente}</div>
+                {dadosCliente.razao_social && (
+                  <div className="text-xs text-muted-foreground">{dadosCliente.razao_social}</div>
+                )}
+              </div>
+              <div>
+                <label className="text-[11px] uppercase text-muted-foreground font-medium block mb-1">Nome da marca</label>
+                <Input
+                  value={nomeMarca}
+                  onChange={(e) => setNomeMarca(e.target.value)}
+                  placeholder="Ex: Lemon Caps"
+                  className="h-8 text-sm font-semibold"
+                />
+              </div>
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground font-medium flex items-center gap-1"><User className="w-3 h-3" /> Consultor</div>
+                <div className="font-medium">{consultor}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground font-medium flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> Data de pagamento</div>
+                <div className="font-medium">{dataPgto ? format(dataPgto, 'dd/MM/yyyy', { locale: ptBR }) : '—'}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground font-medium flex items-center gap-1"><Truck className="w-3 h-3" /> Prazo de entrega</div>
+                <div className="font-medium">{prazoEntrega ? format(prazoEntrega, 'dd/MM/yyyy', { locale: ptBR }) : '—'}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase text-muted-foreground font-medium">Valor total</div>
+                <div className="font-medium">{formatCurrency(valor)}</div>
+              </div>
+            </div>
+
+            {/* Itens reais do pedido */}
+            {itensPedido.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] uppercase text-muted-foreground font-medium flex items-center gap-1">
+                  <Package className="w-3 h-3" /> Produtos contratados ({itensPedido.length})
+                </div>
+                <div className="space-y-1.5">
+                  {itensPedido.map((it, idx) => {
+                    const espec = formatarEspecificacaoItem(it);
+                    return (
+                      <div key={idx} className="p-2 rounded bg-background border text-xs">
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div className="font-semibold">{it.nome_produto}</div>
+                          <Badge variant="secondary" className="text-[10px]">Qtd: {it.quantidade}</Badge>
+                        </div>
+                        {espec && <div className="text-muted-foreground mt-0.5">{espec}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Produtos e Observação geral do CS */}
           <div className="p-3 rounded-lg border bg-card space-y-3">
             <div className="flex items-center gap-2">
               <Package className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">Produtos e Observações do CS</span>
+              <span className="text-sm font-semibold">Apelidos comerciais e Observações do CS</span>
             </div>
 
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground">
-                Produtos do pedido
+                Apelidos / nomes comerciais (opcional)
               </label>
               {produtos.length === 0 && (
                 <p className="text-xs text-muted-foreground italic">
