@@ -435,3 +435,19 @@ export const aplicarObservacaoEtapa = (
   obs[etapa] = texto;
   return { ...base, observacoes_por_etapa: obs } as AcompanhamentoProcessos;
 };
+
+export const aplicarProdutosCS = (
+  acomp: AcompanhamentoProcessos | undefined,
+  produtos: { id: string; nome: string }[],
+): AcompanhamentoProcessos => {
+  const base: AcompanhamentoProcessos = acomp ?? ({} as any);
+  return { ...base, produtos_cs: produtos } as AcompanhamentoProcessos;
+};
+
+export const aplicarObservacaoGeralCS = (
+  acomp: AcompanhamentoProcessos | undefined,
+  texto: string,
+): AcompanhamentoProcessos => {
+  const base: AcompanhamentoProcessos = acomp ?? ({} as any);
+  return { ...base, observacao_geral_cs: texto } as AcompanhamentoProcessos;
+};
