@@ -1,14 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Star, Eye, AlertTriangle, Package, StickyNote } from 'lucide-react';
+import { CheckCircle2, Star, Eye, AlertTriangle, Package, StickyNote, Truck, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Pedido } from '@/types/formula';
 import {
   ETAPAS, calcularEtapaInfo, getEtapasContratadas, getStatusGeral,
-  STATUS_GERAL_LABEL, STATUS_GERAL_COLOR,
+  STATUS_GERAL_LABEL, STATUS_GERAL_COLOR, extrairItensPedido,
 } from '@/lib/sucessoCliente';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +32,9 @@ export default function ProjetoCard({ pedido, onAbrir }: Props) {
   const nps = pedido.acompanhamento_processos?.satisfacao_nota;
   const produtosCS = (pedido.acompanhamento_processos?.produtos_cs ?? []).filter((p) => p.nome?.trim());
   const obsGeralCS = pedido.acompanhamento_processos?.observacao_geral_cs?.trim();
+  const nomeMarca = pedido.acompanhamento_processos?.nome_marca_cs?.trim();
+  const itensPedido = extrairItensPedido(pedido);
+  const prazoEntrega = pedido.data_entrega ? new Date(pedido.data_entrega) : null;
 
   return (
     <Card className={cn(
@@ -50,7 +53,22 @@ export default function ProjetoCard({ pedido, onAbrir }: Props) {
             <div className="text-xs text-muted-foreground mt-0.5">
               Consultor: {consultor}
               {dataPgto && ` · Pagto: ${format(dataPgto, 'dd/MM/yyyy', { locale: ptBR })}`}
+              {prazoEntrega && ` · Entrega: ${format(prazoEntrega, 'dd/MM/yyyy', { locale: ptBR })}`}
             </div>
+            {nomeMarca && (
+              <div className="text-xs mt-0.5 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-primary" />
+                <span className="font-semibold">Marca: {nomeMarca}</span>
+              </div>
+            )}
+            {itensPedido.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-0.5 flex items-start gap-1">
+                <Package className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                <span className="truncate">
+                  {itensPedido.map((it) => `${it.nome_produto} (${it.quantidade})`).join(' · ')}
+                </span>
+              </div>
+            )}
             {(produtosCS.length > 0 || obsGeralCS) && (
               <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                 {produtosCS.map((p) => (

@@ -451,3 +451,60 @@ export const aplicarObservacaoGeralCS = (
   const base: AcompanhamentoProcessos = acomp ?? ({} as any);
   return { ...base, observacao_geral_cs: texto } as AcompanhamentoProcessos;
 };
+export const aplicarNomeMarcaCS = (
+  acomp: AcompanhamentoProcessos | undefined,
+  nome: string,
+): AcompanhamentoProcessos => {
+  const base: AcompanhamentoProcessos = acomp ?? ({} as any);
+  return { ...base, nome_marca_cs: nome } as AcompanhamentoProcessos;
+};
+
+export interface ItemPedidoResumo {
+  nome_produto: string;
+  tipo_produto?: string;
+  quantidade: number;
+  quantidade_por_pote?: number;
+  unidade_por_pote?: string;
+  quantidade_por_dose?: number;
+  unidade_por_dose?: string;
+  quantidade_doses?: number;
+  detalhes_producao?: Record<string, any>;
+  preco_unitario?: number;
+  subtotal?: number;
+}
+
+export const extrairItensPedido = (pedido: Pedido): ItemPedidoResumo[] => {
+  const snap = (pedido.orcamento_snapshot as any) || {};
+  const itens = Array.isArray(snap.itens_producao) ? snap.itens_producao : [];
+  return itens.map((it: any) => ({
+    nome_produto: it.nome_produto || '-',
+    tipo_produto: it.tipo_produto,
+    quantidade: Number(it.quantidade) || 0,
+    quantidade_por_pote: it.quantidade_por_pote,
+    unidade_por_pote: it.unidade_por_pote,
+    quantidade_por_dose: it.quantidade_por_dose,
+    unidade_por_dose: it.unidade_por_dose,
+    quantidade_doses: it.quantidade_doses,
+    detalhes_producao: it.detalhes_producao,
+    preco_unitario: it.preco_unitario,
+    subtotal: it.subtotal,
+  }));
+};
+
+export const formatarEspecificacaoItem = (it: ItemPedidoResumo): string => {
+  const partes: string[] = [];
+  if (it.tipo_produto) partes.push(it.tipo_produto);
+  if (it.quantidade_por_pote && it.unidade_por_pote) {
+    partes.push(`${it.quantidade_por_pote}${it.unidade_por_pote}/pote`);
+  }
+  if (it.quantidade_doses) partes.push(`${it.quantidade_doses} doses`);
+  if (it.quantidade_por_dose && it.unidade_por_dose) {
+    partes.push(`${it.quantidade_por_dose}${it.unidade_por_dose}/dose`);
+  }
+  const det = it.detalhes_producao || {};
+  const sabores = [det.sabor_gummy, det.sabor_soluvel, det.sabor_liquido].filter(Boolean);
+  if (sabores.length) partes.push(`Sabor: ${sabores.join(', ')}`);
+  const cores = [det.cor_pote, det.cor_tampa, det.cor_gummy, det.cor_soluvel, det.cor_liquido].filter(Boolean);
+  if (cores.length) partes.push(`Cor: ${cores.join('/')}`);
+  return partes.join(' · ');
+};
