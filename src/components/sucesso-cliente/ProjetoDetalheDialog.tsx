@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Star, Save, Copy, MessageCircle, Plus, Trash2, Package, StickyNote } from 'lucide-react';
+import { Star, Save, Copy, MessageCircle, Plus, Trash2, Package, StickyNote, Sparkles, Truck, Calendar as CalendarIcon, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -13,7 +13,8 @@ import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
 import {
   ETAPAS, EtapaId, calcularEtapaInfo, getEtapasContratadas,
   aplicarStatusEtapa, aplicarPrazoEtapa, aplicarObservacaoEtapa,
-  aplicarProdutosCS, aplicarObservacaoGeralCS,
+  aplicarProdutosCS, aplicarObservacaoGeralCS, aplicarNomeMarcaCS,
+  extrairItensPedido, formatarEspecificacaoItem,
   getStatusGeral, STATUS_GERAL_LABEL, STATUS_GERAL_COLOR,
 } from '@/lib/sucessoCliente';
 import EtapaRow from './EtapaRow';
@@ -36,6 +37,9 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
   const [obsGeral, setObsGeral] = useState<string>(
     pedido?.acompanhamento_processos?.observacao_geral_cs ?? ''
   );
+  const [nomeMarca, setNomeMarca] = useState<string>(
+    pedido?.acompanhamento_processos?.nome_marca_cs ?? ''
+  );
 
   // Sync local state when switching pedido
   useEffect(() => {
@@ -43,6 +47,7 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
     setObsGeral(pedido?.acompanhamento_processos?.observacao_geral_cs ?? '');
     setNota(pedido?.acompanhamento_processos?.satisfacao_nota ?? 8);
     setObsSat(pedido?.acompanhamento_processos?.satisfacao_observacoes ?? '');
+    setNomeMarca(pedido?.acompanhamento_processos?.nome_marca_cs ?? '');
   }, [pedido?.id]);
 
   const etapasInfo = useMemo(() => {
@@ -93,9 +98,10 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
     const limpos = produtos.map((p) => ({ ...p, nome: p.nome.trim() })).filter((p) => p.nome.length > 0);
     let novo = aplicarProdutosCS(pedido.acompanhamento_processos, limpos);
     novo = aplicarObservacaoGeralCS(novo, obsGeral.trim());
+    novo = aplicarNomeMarcaCS(novo, nomeMarca.trim());
     onUpdate(pedido.id, novo);
     setProdutos(limpos);
-    toast.success('Produtos e observação salvos');
+    toast.success('Informações do cliente salvas');
   };
 
   const copiarResumoCS = () => {
