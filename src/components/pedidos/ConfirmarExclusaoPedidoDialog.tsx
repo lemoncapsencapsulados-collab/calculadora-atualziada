@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -10,6 +9,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -30,15 +30,14 @@ export function ConfirmarExclusaoPedidoDialog({ numeroPedido, onConfirm, trigger
     if (!open) setSenha('');
   }, [open]);
 
-  const handleConfirm = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleConfirm = () => {
     if (senha !== SENHA_EXCLUSAO) {
       toast.error('Senha incorreta');
       setSenha('');
       return;
     }
-    onConfirm();
     setOpen(false);
+    onConfirm();
   };
 
   return (
@@ -58,19 +57,26 @@ export function ConfirmarExclusaoPedidoDialog({ numeroPedido, onConfirm, trigger
             type="password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleConfirm();
+              }
+            }}
             placeholder="Digite a senha"
             autoFocus
           />
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
+          <Button
+            type="button"
+            variant="destructive"
             onClick={handleConfirm}
             disabled={senha.length === 0}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             Excluir
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
