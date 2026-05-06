@@ -107,6 +107,7 @@ export interface AcompanhamentoProcessos {
   // Sucesso do Cliente — produtos do pedido e observação geral do CS
   produtos_cs?: { id: string; nome: string }[];
   observacao_geral_cs?: string;
+  nome_marca_cs?: string;
 }
 
 export type StatusPedido = 
