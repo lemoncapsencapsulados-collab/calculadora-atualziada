@@ -54,10 +54,14 @@ export default function SucessoCliente() {
       const snap = (pedido.orcamento_snapshot as any) || {};
       const cliente = (snap.dados_cliente?.nome_completo || snap.nome_cliente || '').toLowerCase();
       const consultor = (snap.consultor_responsavel || '').toLowerCase();
+      const produtosTxt = (pedido.acompanhamento_processos?.produtos_cs ?? [])
+        .map((p) => p.nome?.toLowerCase() || '')
+        .join(' ');
       const matchBusca = !q ||
         cliente.includes(q) ||
         pedido.numero_pedido.toLowerCase().includes(q) ||
-        consultor.includes(q);
+        consultor.includes(q) ||
+        produtosTxt.includes(q);
       const matchStatus = filtroStatus === 'todos' || statusGeral === filtroStatus;
       const matchConsultor = filtroConsultor === 'todos' || snap.consultor_responsavel === filtroConsultor;
       const matchResponsavel = filtroResponsavel === 'todos' ||
