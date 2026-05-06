@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,12 +38,11 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
   );
 
   // Sync local state when switching pedido
-  useMemo(() => {
+  useEffect(() => {
     setProdutos(pedido?.acompanhamento_processos?.produtos_cs ?? []);
     setObsGeral(pedido?.acompanhamento_processos?.observacao_geral_cs ?? '');
     setNota(pedido?.acompanhamento_processos?.satisfacao_nota ?? 8);
     setObsSat(pedido?.acompanhamento_processos?.satisfacao_observacoes ?? '');
-    return null;
   }, [pedido?.id]);
 
   const etapasInfo = useMemo(() => {
