@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { formatarCondicoesPagamento } from './formatarPagamento';
 
 interface PedidoReport {
+  id?: string;
   numero_pedido: string;
   orcamento_snapshot?: any;
   formula_snapshot?: any;
@@ -89,6 +90,7 @@ const extractData = (pedido: PedidoReport) => {
   });
 
   return {
+    id: pedido.id || '',
     numeroPedido: pedido.numero_pedido,
     numeroOrcamento: snap.numero_orcamento || '',
     dataPedido: pedido.data_pedido,
