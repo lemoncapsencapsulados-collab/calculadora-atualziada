@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { usePedidos } from '@/hooks/usePedidos';
 import { usePedidoAnexos, PedidoAnexo } from '@/hooks/usePedidoAnexos';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -170,6 +170,21 @@ const Pedidos = () => {
   const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
   const [tabAtiva, setTabAtiva] = useState<string>('overview');
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
+
+  // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const pedidoId = params.get('pedido');
+    if (!pedidoId || pedidos.length === 0) return;
+    const found = pedidos.find((p: any) => p.id === pedidoId);
+    if (found) {
+      setPedidoDetalhe(found);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('pedido');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [pedidos]);
 
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
   const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
