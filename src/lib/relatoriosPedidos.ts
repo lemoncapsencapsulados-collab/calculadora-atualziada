@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { formatarCondicoesPagamento } from './formatarPagamento';
 
 interface PedidoReport {
+  id?: string;
   numero_pedido: string;
   orcamento_snapshot?: any;
   formula_snapshot?: any;
@@ -89,6 +90,7 @@ const extractData = (pedido: PedidoReport) => {
   });
 
   return {
+    id: pedido.id || '',
     numeroPedido: pedido.numero_pedido,
     numeroOrcamento: snap.numero_orcamento || '',
     dataPedido: pedido.data_pedido,
@@ -349,43 +351,67 @@ const headers = [
   'Valor Total Produção',
   'Valor Total Setup',
   'Custo Total Pedido',
+  'Abrir Pedido',
 ];
 
-// Índices (0-based) das colunas monetárias
-const MONEY_COLS = [8, 9, 10, 11];
+const COL = {
+  numero: 0, cliente: 1, cnpj: 2, consultor: 3, tipo: 4,
+  modalidade: 5, produto: 6, qtd: 7, precoUnit: 8,
+  totalProducao: 9, totalSetup: 10, custoTotal: 11, link: 12,
+};
+const MONEY_COLS = [COL.precoUnit, COL.totalProducao, COL.totalSetup, COL.custoTotal];
 const BRL_FMT = 'R$ #,##0.00;[Red]-R$ #,##0.00';
 
+type BuiltRow = {
+  cells: any[];
+  level: 0 | 1; // 0 = resumo do pedido, 1 = produto (filho)
+  link?: string;
+};
+
+const getBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return '';
+};
+
 const buildRows = (pedidos: PedidoReport[]) => {
-  const rows: any[][] = [];
+  const rows: BuiltRow[] = [];
   let totProducao = 0;
   let totSetup = 0;
   let totGeral = 0;
+  const baseUrl = getBaseUrl();
 
   pedidos.forEach(pedido => {
     const data = extractData(pedido);
     if (!data) return;
-    const itens = data.itens.length > 0 ? data.itens : [null];
     const custoTotalPedido = (data.subtotalProducao || 0) + (data.subtotalSetup || 0);
     totProducao += data.subtotalProducao || 0;
     totSetup += data.subtotalSetup || 0;
     totGeral += custoTotalPedido;
 
-    itens.forEach((item, i) => {
-      const first = i === 0;
-      rows.push([
-        first ? data.numeroPedido : '',
-        first ? data.nomeCliente : '',
-        first ? data.cnpj : '',
-        first ? data.consultor : '',
-        first ? data.tipoOrcamento : '',
-        item?.modeloCompra || '',
-        item?.nomeProduto || '',
-        item ? item.quantidade : '',
-        item ? item.precoUnitario : '',
-        item ? item.subtotal : '',
-        first ? (data.subtotalSetup || 0) : '',
-        first ? custoTotalPedido : '',
-      ]);
+    const link = data.id ? `${baseUrl}/pedidos?pedido=${data.id}` : '';
+
+    // Linha-resumo do pedido (nível 0)
+    const resumo: any[] = new Array(headers.length).fill('');
+    resumo[COL.numero] = data.numeroPedido;
+    resumo[COL.cliente] = data.nomeCliente;
+    resumo[COL.cnpj] = data.cnpj;
+    resumo[COL.consultor] = data.consultor;
+    resumo[COL.tipo] = data.tipoOrcamento;
+    resumo[COL.totalProducao] = data.subtotalProducao || 0;
+    resumo[COL.totalSetup] = data.subtotalSetup || 0;
+    resumo[COL.custoTotal] = custoTotalPedido;
+    resumo[COL.link] = link ? 'Abrir' : '';
+    rows.push({ cells: resumo, level: 0, link });
+
+    // Linhas filhas com produtos (nível 1)
+    data.itens.forEach(item => {
+      const r: any[] = new Array(headers.length).fill('');
+      r[COL.produto] = `   ↳ ${item.nomeProduto}`;
+      r[COL.modalidade] = item.modeloCompra;
+      r[COL.qtd] = item.quantidade;
+      r[COL.precoUnit] = item.precoUnitario;
+      r[COL.totalProducao] = item.subtotal;
+      rows.push({ cells: r, level: 1 });
     });
   });
 
@@ -404,37 +430,47 @@ const buildSheetWithFiltros = (
   if (totalPedidos != null) aoa.push([`Total de pedidos: ${totalPedidos}`]);
   aoa.push([`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`]);
   aoa.push([]);
-  const headerRowIdx = aoa.length; // 0-based index of header row
+  const headerRowIdx = aoa.length; // 0-based
   aoa.push(headers);
-  built.rows.forEach(r => aoa.push(r));
-  // Linha de TOTAL GERAL
+  built.rows.forEach(r => aoa.push(r.cells));
+  // TOTAL GERAL
   const totalRow: any[] = new Array(headers.length).fill('');
-  totalRow[0] = 'TOTAL GERAL';
-  totalRow[9] = built.totals.totProducao;
-  totalRow[10] = built.totals.totSetup;
-  totalRow[11] = built.totals.totGeral;
+  totalRow[COL.numero] = 'TOTAL GERAL';
+  totalRow[COL.totalProducao] = built.totals.totProducao;
+  totalRow[COL.totalSetup] = built.totals.totSetup;
+  totalRow[COL.custoTotal] = built.totals.totGeral;
   aoa.push([]);
+  const totalRowIdx = aoa.length;
   aoa.push(totalRow);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
-  // Larguras de coluna
   ws['!cols'] = [
-    { wch: 14 }, // Nº Pedido
-    { wch: 30 }, // Cliente
-    { wch: 18 }, // CNPJ
-    { wch: 22 }, // Consultor
-    { wch: 14 }, // Tipo
-    { wch: 18 }, // Modalidade
-    { wch: 32 }, // Produto
-    { wch: 12 }, // Quantidade
-    { wch: 16 }, // Preço Unit.
-    { wch: 18 }, // Valor Produção
-    { wch: 18 }, // Valor Setup
-    { wch: 20 }, // Custo Total
+    { wch: 14 }, { wch: 30 }, { wch: 18 }, { wch: 22 }, { wch: 14 },
+    { wch: 18 }, { wch: 36 }, { wch: 12 }, { wch: 16 }, { wch: 18 },
+    { wch: 18 }, { wch: 20 }, { wch: 14 },
   ];
 
-  // Aplica formato BRL nas colunas monetárias
+  // Outline (agrupamento) — produtos colapsáveis sob a linha-resumo
+  const wsRows: any[] = [];
+  built.rows.forEach((r, i) => {
+    const sheetRowIdx = headerRowIdx + 1 + i;
+    if (r.level === 1) {
+      wsRows[sheetRowIdx] = { level: 1 };
+    }
+    // Hyperlink na coluna "Abrir Pedido" da linha-resumo
+    if (r.level === 0 && r.link) {
+      const addr = XLSX.utils.encode_cell({ r: sheetRowIdx, c: COL.link });
+      const cell = ws[addr];
+      if (cell) {
+        cell.l = { Target: r.link, Tooltip: 'Abrir pedido na aplicação' };
+      }
+    }
+  });
+  ws['!rows'] = wsRows;
+  ws['!outline'] = { above: false, left: false } as any;
+
+  // Formato BRL nas colunas monetárias
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
   for (let R = headerRowIdx + 1; R <= range.e.r; R++) {
     MONEY_COLS.forEach(C => {
@@ -446,6 +482,9 @@ const buildSheetWithFiltros = (
       }
     });
   }
+
+  // Freeze do cabeçalho
+  ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 } as any;
 
   return ws;
 };
