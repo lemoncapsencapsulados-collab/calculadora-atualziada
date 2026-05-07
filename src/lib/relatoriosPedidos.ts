@@ -337,89 +337,122 @@ export const gerarRelatorioPedidosGeralPDF = (pedidos: PedidoReport[], filtros?:
 // ===== EXCEL =====
 
 const headers = [
-  'Nº Pedido', 'Data Pedido', 'Data Pagamento', 'Consultor', 'Cliente', 'CNPJ',
-  'Email', 'Telefone', 'Cidade/Estado', 'Tipo Orçamento',
-  'Produto', 'Tipo Produto', 'Modelo Compra', 'Quantidade', 'Preço Unit.', 'Subtotal Produto',
-  'Serviço Marca', 'Valor Serviço',
-  'Orç. Setup', 'Orç. Produção', 'Orç. Total',
-  'Forma Pagamento', 'Frete', 'Observações',
-  'Status Criação Marca', 'Status Produção', 'Status Integração Logística',
-  'Status Página Venda', 'Status Envio Produto',
-  'Satisfação (Nota)', 'Satisfação (Obs.)',
+  'Nº Pedido',
+  'Cliente',
+  'CNPJ',
+  'Consultor Responsável',
+  'Tipo',
+  'Modalidade',
+  'Produto',
+  'Quantidade',
+  'Preço Unitário',
+  'Valor Total Produção',
+  'Valor Total Setup',
+  'Custo Total Pedido',
 ];
+
+// Índices (0-based) das colunas monetárias
+const MONEY_COLS = [8, 9, 10, 11];
+const BRL_FMT = 'R$ #,##0.00;[Red]-R$ #,##0.00';
 
 const buildRows = (pedidos: PedidoReport[]) => {
   const rows: any[][] = [];
+  let totProducao = 0;
+  let totSetup = 0;
+  let totGeral = 0;
+
   pedidos.forEach(pedido => {
     const data = extractData(pedido);
     if (!data) return;
-    const hasServicos = data.servicos.length > 0;
-    const maxRows = Math.max(data.itens.length, hasServicos ? data.servicos.length : 0, 1);
-    const pagamentoResumo = data.condicoesPagamento
-      ? formatarCondicoesPagamento(data.condicoesPagamento, data.valorTotal).join(' | ')
-      : '';
-    for (let i = 0; i < maxRows; i++) {
-      const item = data.itens[i];
-      const serv = data.servicos[i];
+    const itens = data.itens.length > 0 ? data.itens : [null];
+    const custoTotalPedido = (data.subtotalProducao || 0) + (data.subtotalSetup || 0);
+    totProducao += data.subtotalProducao || 0;
+    totSetup += data.subtotalSetup || 0;
+    totGeral += custoTotalPedido;
+
+    itens.forEach((item, i) => {
       const first = i === 0;
-      const a = data.acompanhamento;
       rows.push([
         first ? data.numeroPedido : '',
-        first ? fmtDate(data.dataPedido) : '',
-        first ? (data.dataPagamento ? fmtDate(data.dataPagamento) : '') : '',
-        first ? data.consultor : '',
         first ? data.nomeCliente : '',
         first ? data.cnpj : '',
-        first ? data.email : '',
-        first ? data.telefone : '',
-        first ? data.cidadeEstado : '',
+        first ? data.consultor : '',
         first ? data.tipoOrcamento : '',
-        item?.nomeProduto || '',
-        item?.tipoProduto || '',
         item?.modeloCompra || '',
+        item?.nomeProduto || '',
         item ? item.quantidade : '',
         item ? item.precoUnitario : '',
         item ? item.subtotal : '',
-        serv?.nome_plano || '',
-        serv?.valor ?? '',
-        first ? data.subtotalSetup : '',
-        first ? data.subtotalProducao : '',
-        first ? data.valorTotal : '',
-        first ? pagamentoResumo : '',
-        first ? data.frete : '',
-        first ? data.observacoes : '',
-        first && a ? acompStatusLabel(a.criacao_marca) : '',
-        first && a ? acompStatusLabel(a.producao) : '',
-        first && a ? acompStatusLabel(a.integracao_logistica) : '',
-        first && a ? acompStatusLabel(a.pagina_venda) : '',
-        first && a ? acompStatusLabel(a.envio_produto) : '',
-        first && a?.satisfacao_nota != null ? a.satisfacao_nota : '',
-        first && a?.satisfacao_observacoes ? a.satisfacao_observacoes : '',
+        first ? (data.subtotalSetup || 0) : '',
+        first ? custoTotalPedido : '',
       ]);
-    }
+    });
   });
-  return rows;
+
+  return { rows, totals: { totProducao, totSetup, totGeral } };
 };
 
-const buildSheetWithFiltros = (rows: any[][], filtros?: RelatorioFiltros) => {
+const buildSheetWithFiltros = (
+  built: ReturnType<typeof buildRows>,
+  filtros?: RelatorioFiltros,
+  totalPedidos?: number,
+) => {
   const filtroLinhas = buildFiltrosLinhas(filtros);
   const aoa: any[][] = [];
-  if (filtroLinhas.length > 0) {
-    filtroLinhas.forEach(l => aoa.push([l]));
-    aoa.push([]);
-  }
+  aoa.push(['Relatório de Pedidos']);
+  filtroLinhas.forEach(l => aoa.push([l]));
+  if (totalPedidos != null) aoa.push([`Total de pedidos: ${totalPedidos}`]);
+  aoa.push([`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`]);
+  aoa.push([]);
+  const headerRowIdx = aoa.length; // 0-based index of header row
   aoa.push(headers);
-  rows.forEach(r => aoa.push(r));
+  built.rows.forEach(r => aoa.push(r));
+  // Linha de TOTAL GERAL
+  const totalRow: any[] = new Array(headers.length).fill('');
+  totalRow[0] = 'TOTAL GERAL';
+  totalRow[9] = built.totals.totProducao;
+  totalRow[10] = built.totals.totSetup;
+  totalRow[11] = built.totals.totGeral;
+  aoa.push([]);
+  aoa.push(totalRow);
+
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = headers.map((_, i) => ({
-    wch: i <= 1 ? 14 : i === 4 || i === 10 ? 28 : 16,
-  }));
+
+  // Larguras de coluna
+  ws['!cols'] = [
+    { wch: 14 }, // Nº Pedido
+    { wch: 30 }, // Cliente
+    { wch: 18 }, // CNPJ
+    { wch: 22 }, // Consultor
+    { wch: 14 }, // Tipo
+    { wch: 18 }, // Modalidade
+    { wch: 32 }, // Produto
+    { wch: 12 }, // Quantidade
+    { wch: 16 }, // Preço Unit.
+    { wch: 18 }, // Valor Produção
+    { wch: 18 }, // Valor Setup
+    { wch: 20 }, // Custo Total
+  ];
+
+  // Aplica formato BRL nas colunas monetárias
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let R = headerRowIdx + 1; R <= range.e.r; R++) {
+    MONEY_COLS.forEach(C => {
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[addr];
+      if (cell && typeof cell.v === 'number') {
+        cell.t = 'n';
+        cell.z = BRL_FMT;
+      }
+    });
+  }
+
   return ws;
 };
 
 export const gerarRelatorioPedidoExcel = (pedido: PedidoReport) => {
-  const rows = buildRows([pedido]);
-  const ws = buildSheetWithFiltros(rows);
+  const built = buildRows([pedido]);
+  const ws = buildSheetWithFiltros(built, undefined, 1);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pedido');
   const data = extractData(pedido);
@@ -427,8 +460,8 @@ export const gerarRelatorioPedidoExcel = (pedido: PedidoReport) => {
 };
 
 export const gerarRelatorioPedidosGeralExcel = (pedidos: PedidoReport[], filtros?: RelatorioFiltros) => {
-  const rows = buildRows(pedidos);
-  const ws = buildSheetWithFiltros(rows, filtros);
+  const built = buildRows(pedidos);
+  const ws = buildSheetWithFiltros(built, filtros, pedidos.length);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
   XLSX.writeFile(wb, `Relatorio_Pedidos_Geral${buildFilenameSuffix(filtros)}.xlsx`);
