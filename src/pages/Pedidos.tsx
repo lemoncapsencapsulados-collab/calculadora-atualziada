@@ -40,6 +40,8 @@ import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/t
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoDialog';
 import { DocumentosPedidoDialog } from '@/components/pedidos/DocumentosPedidoDialog';
+import { AlterarPagamentoDialog } from '@/components/pedidos/AlterarPagamentoDialog';
+import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
@@ -156,7 +158,7 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido, alterarPagamento } = usePedidos();
   const { clientes } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
@@ -172,6 +174,7 @@ const Pedidos = () => {
   const [tabAtiva, setTabAtiva] = useState<string>('overview');
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
+  const [pedidoParaEditarPagto, setPedidoParaEditarPagto] = useState<any | null>(null);
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
   useEffect(() => {
@@ -984,6 +987,41 @@ const Pedidos = () => {
                     </Button>
                   </div>
 
+                  {isOrcamento && (
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPedidoParaEditarPagto(pedido);
+                        }}
+                        title="Alterar método/data de pagamento (requer senha)"
+                      >
+                        <Wallet className="h-4 w-4 mr-1" /> Alterar pagamento
+                      </Button>
+                      {(pedido.pagamento_alteracoes?.length ?? 0) > 0 && (
+                        <Badge variant="outline" className="border-amber-400 text-amber-700 text-xs">
+                          Pagamento alterado ({pedido.pagamento_alteracoes!.length})
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {isOrcamento && (pedido.pagamento_alteracoes?.length ?? 0) > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="w-full justify-start text-xs h-7 px-2">
+                          <Wallet className="w-3 h-3 mr-1" /> Histórico de alterações de pagamento ▸
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="p-2 mt-1">
+                        <HistoricoPagamentoLista alteracoes={pedido.pagamento_alteracoes} compact />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+
                   {/* Botões de Anexos */}
                   <div className="flex gap-2 flex-wrap">
                     {(() => {
@@ -1112,6 +1150,25 @@ const Pedidos = () => {
             deletePedido(pedidoParaExcluir.id);
             setPedidoParaExcluir(null);
           }
+        }}
+      />
+
+      {/* Alterar Pagamento (controlado) */}
+      <AlterarPagamentoDialog
+        open={!!pedidoParaEditarPagto}
+        onOpenChange={(o) => !o && setPedidoParaEditarPagto(null)}
+        numeroPedido={pedidoParaEditarPagto?.numero_pedido}
+        valorTotal={Number(pedidoParaEditarPagto?.orcamento_snapshot?.valor_total) || 0}
+        dataPagamentoAtual={pedidoParaEditarPagto?.orcamento_snapshot?.data_pagamento}
+        condicoesAtuais={pedidoParaEditarPagto?.orcamento_snapshot?.condicoes_pagamento}
+        onConfirm={async ({ data_pagamento, condicoes_pagamento }) => {
+          if (!pedidoParaEditarPagto) return;
+          await alterarPagamento({
+            id: pedidoParaEditarPagto.id,
+            data_pagamento,
+            condicoes_pagamento,
+          });
+          setPedidoParaEditarPagto(null);
         }}
       />
     </div>
