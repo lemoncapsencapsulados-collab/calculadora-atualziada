@@ -24,7 +24,7 @@ import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPa
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
-import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
+import { cadastrarClienteVhSys, type CadastrarVhSysResult } from '@/lib/vhsysCliente';
 import { toast as sonnerToast } from 'sonner';
 
 interface AprovacaoOrcamentoDialogProps {
@@ -193,7 +193,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   // Modal pós-confirmação de pagamento (oferece cadastro no VhSys)
   const [showVhsysModal, setShowVhsysModal] = useState(false);
   const [vhsysLoading, setVhsysLoading] = useState(false);
-  const [vhsysCadastrado, setVhsysCadastrado] = useState(false);
+  const [vhsysResultado, setVhsysResultado] = useState<CadastrarVhSysResult | null>(null);
 
   // Data de pagamento (inputs numéricos DD/MM/AAAA)
   const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
