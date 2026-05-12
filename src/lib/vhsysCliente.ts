@@ -12,6 +12,8 @@ export interface CadastrarVhSysParams {
 export interface CadastrarVhSysResult {
   success: boolean;
   error?: string;
+  payload?: Record<string, any>;
+  data?: any;
 }
 
 /**
@@ -79,28 +81,30 @@ export async function cadastrarClienteVhSys(
     ? `Produtos do orçamento ${orcamento.numero_orcamento || ''}:\n${linhasProdutos.join('\n')}`.trim()
     : undefined;
 
+  const payload: Record<string, any> = {
+    nome: nomeFinal,
+    nome_fantasia: tipoPessoa === 'pj'
+      ? (dadosCliente.razao_social || nomeFinal)
+      : nomeFinal,
+    tipo_pessoa: tipoPessoa === 'pj' ? 'J' : 'F',
+    cnpj_cpf: cnpjCpf,
+    email: email || undefined,
+    telefone: telefone || undefined,
+    cep: cep || undefined,
+    logradouro: logradouroDetectado || logradouro || undefined,
+    numero: numeroDetectado || undefined,
+    bairro: bairroDetectado || undefined,
+    cidade: cidade || undefined,
+    uf: uf || undefined,
+    contato: contato || undefined,
+    inscricao_estadual: tipoPessoa === 'pj' ? (dadosCliente.inscricao_estadual || undefined) : undefined,
+    inscricao_municipal: tipoPessoa === 'pj' ? (dadosCliente.inscricao_municipal || undefined) : undefined,
+    observacao: observacaoProdutos,
+  };
+
   try {
     const { data, error } = await supabase.functions.invoke('vhsys-create-cliente', {
-      body: {
-        nome: nomeFinal,
-        nome_fantasia: tipoPessoa === 'pj'
-          ? (dadosCliente.razao_social || nomeFinal)
-          : nomeFinal,
-        tipo_pessoa: tipoPessoa === 'pj' ? 'J' : 'F',
-        cnpj_cpf: cnpjCpf,
-        email: email || undefined,
-        telefone: telefone || undefined,
-        cep: cep || undefined,
-        logradouro: logradouroDetectado || logradouro || undefined,
-        numero: numeroDetectado || undefined,
-        bairro: bairroDetectado || undefined,
-        cidade: cidade || undefined,
-        uf: uf || undefined,
-        contato: contato || undefined,
-        inscricao_estadual: tipoPessoa === 'pj' ? (dadosCliente.inscricao_estadual || undefined) : undefined,
-        inscricao_municipal: tipoPessoa === 'pj' ? (dadosCliente.inscricao_municipal || undefined) : undefined,
-        observacao: observacaoProdutos,
-      },
+      body: payload,
     });
 
     if (error) {
@@ -113,18 +117,20 @@ export async function cadastrarClienteVhSys(
       return {
         success: false,
         error: serverMsg || error.message || 'Falha ao cadastrar cliente no VhSys.',
+        payload,
       };
     }
 
     if ((data as any)?.error) {
-      return { success: false, error: (data as any).error };
+      return { success: false, error: (data as any).error, payload, data };
     }
 
-    return { success: true };
+    return { success: true, payload, data };
   } catch (err) {
     return {
       success: false,
       error: (err as Error).message || 'Erro inesperado ao cadastrar no VhSys.',
+      payload,
     };
   }
 }

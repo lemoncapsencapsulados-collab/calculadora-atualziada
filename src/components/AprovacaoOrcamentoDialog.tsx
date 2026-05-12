@@ -24,7 +24,7 @@ import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPa
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
-import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
+import { cadastrarClienteVhSys, type CadastrarVhSysResult } from '@/lib/vhsysCliente';
 import { toast as sonnerToast } from 'sonner';
 
 interface AprovacaoOrcamentoDialogProps {
@@ -193,7 +193,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   // Modal pós-confirmação de pagamento (oferece cadastro no VhSys)
   const [showVhsysModal, setShowVhsysModal] = useState(false);
   const [vhsysLoading, setVhsysLoading] = useState(false);
-  const [vhsysCadastrado, setVhsysCadastrado] = useState(false);
+  const [vhsysResultado, setVhsysResultado] = useState<CadastrarVhSysResult | null>(null);
 
   // Data de pagamento (inputs numéricos DD/MM/AAAA)
   const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
@@ -557,8 +557,19 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
       await createPedidoFromOrcamento(orcamentoCompleto);
 
-      // Em vez de fechar imediatamente, abre modal oferecendo cadastro no VhSys.
+      // Cadastro automático no VhSys; popup informativo será exibido com o resultado.
       setShowVhsysModal(true);
+      setVhsysLoading(true);
+      try {
+        const result = await cadastrarClienteVhSys({
+          orcamento, tipoPessoa, dadosCliente, pessoasFisicas, responsavelPJ,
+        });
+        setVhsysResultado(result);
+        if (result.success) sonnerToast.success('Cliente cadastrado automaticamente no VhSys');
+        else sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys');
+      } finally {
+        setVhsysLoading(false);
+      }
     } catch (error) {
       console.error('Erro ao aprovar orçamento:', error);
     } finally {
@@ -566,22 +577,15 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     }
   };
 
-  const handleCadastrarVhSysPosPagamento = async () => {
+  const handleRetryVhSys = async () => {
     setVhsysLoading(true);
     try {
       const result = await cadastrarClienteVhSys({
-        orcamento,
-        tipoPessoa,
-        dadosCliente,
-        pessoasFisicas,
-        responsavelPJ,
+        orcamento, tipoPessoa, dadosCliente, pessoasFisicas, responsavelPJ,
       });
-      if (result.success) {
-        sonnerToast.success('Cliente cadastrado com sucesso no VhSys!');
-        setVhsysCadastrado(true);
-      } else {
-        sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys.');
-      }
+      setVhsysResultado(result);
+      if (result.success) sonnerToast.success('Cliente cadastrado no VhSys');
+      else sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys');
     } finally {
       setVhsysLoading(false);
     }
@@ -594,47 +598,85 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   };
 
   if (showVhsysModal) {
+    const success = vhsysResultado?.success === true;
+    const payload = vhsysResultado?.payload || {};
+    const nomeCliente = (payload.nome as string) || orcamento.nome_cliente;
+    const camposResumo: Array<[string, any]> = [
+      ['Nome / Razão social', payload.nome],
+      ['Nome fantasia', payload.nome_fantasia],
+      ['Tipo', payload.tipo_pessoa === 'J' ? 'Pessoa Jurídica' : payload.tipo_pessoa === 'F' ? 'Pessoa Física' : undefined],
+      ['CNPJ / CPF', payload.cnpj_cpf],
+      ['Inscrição estadual', payload.inscricao_estadual],
+      ['Inscrição municipal', payload.inscricao_municipal],
+      ['E-mail', payload.email],
+      ['Telefone', payload.telefone],
+      ['CEP', payload.cep],
+      ['Logradouro', payload.logradouro],
+      ['Número', payload.numero],
+      ['Bairro', payload.bairro],
+      ['Cidade', payload.cidade],
+      ['UF', payload.uf],
+      ['Contato', payload.contato],
+    ];
     return (
       <Dialog open onOpenChange={(open) => { if (!open) handleFecharPosPagamento(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
-              Pagamento confirmado
+              {vhsysLoading ? (
+                <><Loader2 className="w-5 h-5 animate-spin" />Cadastrando cliente no VhSys...</>
+              ) : success ? (
+                <><CheckCircle2 className="w-5 h-5 text-green-600" />Cliente cadastrado no VhSys</>
+              ) : (
+                <><AlertTriangle className="w-5 h-5 text-destructive" />Falha ao cadastrar no VhSys</>
+              )}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              O pedido foi criado com sucesso. Deseja cadastrar este cliente no VhSys agora?
+              {vhsysLoading
+                ? 'O pedido foi criado e estamos cadastrando o cliente no VhSys automaticamente...'
+                : success
+                  ? `O cliente "${nomeCliente}" foi gerado automaticamente no VhSys com os dados abaixo.`
+                  : 'O pedido foi criado, mas o cadastro automático do cliente no VhSys falhou.'}
             </p>
 
-            {vhsysCadastrado && (
-              <Alert>
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription>
-                  Cliente cadastrado no VhSys com sucesso.
-                </AlertDescription>
+            {!vhsysLoading && !success && vhsysResultado?.error && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{vhsysResultado.error}</AlertDescription>
               </Alert>
+            )}
+
+            {!vhsysLoading && (
+              <div className="rounded-md border bg-muted/30 p-3 space-y-1.5">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Resumo dos dados {success ? 'enviados ao VhSys' : 'que seriam enviados'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  {camposResumo
+                    .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+                    .map(([label, v]) => (
+                      <div key={label} className="flex flex-col">
+                        <span className="text-[11px] text-muted-foreground">{label}</span>
+                        <span className="text-foreground break-words">{String(v)}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
             )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={handleFecharPosPagamento} disabled={vhsysLoading}>
-              {vhsysCadastrado ? 'Fechar' : 'Pular'}
-            </Button>
-            {!vhsysCadastrado && (
-              <Button
-                onClick={handleCadastrarVhSysPosPagamento}
-                disabled={vhsysLoading}
-              >
-                {vhsysLoading ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Cadastrando...</>
-                ) : (
-                  <><UserPlus className="w-4 h-4 mr-2" />Cadastrar Cliente no VhSys</>
-                )}
+            {!vhsysLoading && !success && (
+              <Button variant="outline" onClick={handleRetryVhSys} disabled={vhsysLoading}>
+                <UserPlus className="w-4 h-4 mr-2" />Tentar novamente
               </Button>
             )}
+            <Button onClick={handleFecharPosPagamento} disabled={vhsysLoading}>
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

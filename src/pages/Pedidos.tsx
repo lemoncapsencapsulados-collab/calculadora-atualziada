@@ -158,7 +158,7 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido, alterarPagamento } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedidoAsync, deletandoPedido, alterarPagamento } = usePedidos();
   const { clientes } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
@@ -1143,11 +1143,16 @@ const Pedidos = () => {
       {/* Confirmação de exclusão de pedido (controlado) */}
       <ConfirmarExclusaoPedidoDialog
         open={!!pedidoParaExcluir}
-        onOpenChange={(o) => !o && setPedidoParaExcluir(null)}
+        onOpenChange={(o) => { if (!o && !deletandoPedido) setPedidoParaExcluir(null); }}
         numeroPedido={pedidoParaExcluir?.numero ?? ''}
-        onConfirm={() => {
-          if (pedidoParaExcluir) {
-            deletePedido(pedidoParaExcluir.id);
+        loading={deletandoPedido}
+        onConfirm={async () => {
+          if (!pedidoParaExcluir) return;
+          try {
+            await deletePedidoAsync(pedidoParaExcluir.id);
+          } catch {
+            return;
+          } finally {
             setPedidoParaExcluir(null);
           }
         }}
