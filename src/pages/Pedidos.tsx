@@ -1101,6 +1101,19 @@ const Pedidos = () => {
           />
         );
       })()}
+
+      {/* Confirmação de exclusão de pedido (controlado) */}
+      <ConfirmarExclusaoPedidoDialog
+        open={!!pedidoParaExcluir}
+        onOpenChange={(o) => !o && setPedidoParaExcluir(null)}
+        numeroPedido={pedidoParaExcluir?.numero ?? ''}
+        onConfirm={() => {
+          if (pedidoParaExcluir) {
+            deletePedido(pedidoParaExcluir.id);
+            setPedidoParaExcluir(null);
+          }
+        }}
+      />
     </div>
   );
 };
