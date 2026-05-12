@@ -22,6 +22,8 @@ import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPa
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
+import { supabase } from '@/integrations/supabase/client';
+import { usePedidos } from '@/hooks/usePedidos';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -173,6 +175,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   // VhSys: estado do botão de cadastro
   const [vhsysLoading, setVhsysLoading] = useState(false);
+  const { registrarVhsysAsync } = usePedidos();
 
   const handleCadastrarVhSys = async () => {
     setVhsysLoading(true);
@@ -189,6 +192,30 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       } else {
         toast.error(result.error || 'Falha ao cadastrar cliente no VhSys.');
       }
+      // Vincula no histórico do pedido (se existir um pedido para este orçamento)
+      try {
+        const { data: ped } = await supabase
+          .from('pedidos')
+          .select('id')
+          .eq('orcamento_id', orcamento.id)
+          .limit(1)
+          .maybeSingle();
+        if (ped?.id) {
+          await registrarVhsysAsync({
+            pedidoId: ped.id,
+            entry: {
+              data: new Date().toISOString(),
+              sucesso: !!result.success,
+              mensagem: result.success
+                ? `Cliente cadastrado no VhSys via Proposta Completa.`
+                : (result.error || 'Falha ao cadastrar cliente no VhSys.'),
+              origem: 'proposta_completa',
+              payload: result.payload,
+              resposta: (result as any).data ?? null,
+            },
+          });
+        }
+      } catch (e) { console.error('Falha ao registrar histórico VhSys', e); }
     } finally {
       setVhsysLoading(false);
     }
