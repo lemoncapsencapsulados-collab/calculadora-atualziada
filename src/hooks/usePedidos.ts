@@ -456,6 +456,7 @@ export const usePedidos = () => {
     updateObservacoes: updateObservacoes.mutateAsync,
     updateAcompanhamento: updateAcompanhamento.mutate,
     deletePedido: deletePedido.mutate,
+    deletandoPedido: deletePedido.isPending,
     alterarPagamento: alterarPagamento.mutateAsync,
   };
 };
