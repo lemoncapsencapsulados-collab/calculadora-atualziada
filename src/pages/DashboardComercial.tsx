@@ -11,6 +11,7 @@ import { DashboardRecorrencia } from '@/components/dashboard/DashboardRecorrenci
 import { DashboardInsights } from '@/components/dashboard/DashboardInsights';
 import { DashboardGraficos } from '@/components/dashboard/DashboardGraficos';
 import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/components/dashboard/DashboardOrcamentos';
+import { DashboardAlteracoesPagamento } from '@/components/dashboard/DashboardAlteracoesPagamento';
 import type { DashboardFiltros } from '@/types/dashboard';
 
 export default function DashboardComercial() {
@@ -37,6 +38,7 @@ export default function DashboardComercial() {
     vendasPorTipo,
     clientesPorModelo,
     orcamentosPorConsultorStatus,
+    alteracoesPagamento,
     isLoading
   } = useDashboardComercial(filtros);
 
@@ -93,6 +95,9 @@ export default function DashboardComercial() {
 
       {/* Pipeline */}
       <DashboardPipeline distribuicaoConsultorStatus={distribuicaoConsultorStatus} />
+
+      {/* Alterações de Pagamento */}
+      <DashboardAlteracoesPagamento dados={alteracoesPagamento} />
 
       {/* Gráficos */}
       <DashboardGraficos
