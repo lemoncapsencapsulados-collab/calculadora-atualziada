@@ -19,11 +19,19 @@ const SENHA_EXCLUSAO = '021200';
 interface Props {
   numeroPedido: string;
   onConfirm: () => void;
-  trigger: React.ReactNode;
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function ConfirmarExclusaoPedidoDialog({ numeroPedido, onConfirm, trigger }: Props) {
-  const [open, setOpen] = useState(false);
+export function ConfirmarExclusaoPedidoDialog({ numeroPedido, onConfirm, trigger, open: openProp, onOpenChange }: Props) {
+  const [openInternal, setOpenInternal] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : openInternal;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setOpenInternal(v);
+    onOpenChange?.(v);
+  };
   const [senha, setSenha] = useState('');
 
   useEffect(() => {
@@ -42,7 +50,7 @@ export function ConfirmarExclusaoPedidoDialog({ numeroPedido, onConfirm, trigger
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      {trigger ? <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger> : null}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>

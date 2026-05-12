@@ -171,6 +171,7 @@ const Pedidos = () => {
   const [documentosDialogPedidoId, setDocumentosDialogPedidoId] = useState<string | null>(null);
   const [tabAtiva, setTabAtiva] = useState<string>('overview');
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
+  const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
   useEffect(() => {
@@ -970,15 +971,17 @@ const Pedidos = () => {
                       );
                     })()}
 
-                    <ConfirmarExclusaoPedidoDialog
-                      numeroPedido={pedido.numero_pedido}
-                      onConfirm={() => deletePedido(pedido.id)}
-                      trigger={
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero_pedido });
+                      }}
+                      title="Excluir pedido"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   {/* Botões de Anexos */}
@@ -1098,6 +1101,19 @@ const Pedidos = () => {
           />
         );
       })()}
+
+      {/* Confirmação de exclusão de pedido (controlado) */}
+      <ConfirmarExclusaoPedidoDialog
+        open={!!pedidoParaExcluir}
+        onOpenChange={(o) => !o && setPedidoParaExcluir(null)}
+        numeroPedido={pedidoParaExcluir?.numero ?? ''}
+        onConfirm={() => {
+          if (pedidoParaExcluir) {
+            deletePedido(pedidoParaExcluir.id);
+            setPedidoParaExcluir(null);
+          }
+        }}
+      />
     </div>
   );
 };
