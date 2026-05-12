@@ -2,8 +2,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
-import { Orcamento, OrcamentoSnapshot } from '@/types/orcamento';
+import { Orcamento, OrcamentoSnapshot, CondicoesPagamento } from '@/types/orcamento';
 import { useEffect, useRef, useCallback } from 'react';
+import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
+
+export interface PagamentoAlteracao {
+  alterado_em: string;
+  alterado_por?: string | null;
+  data_pagamento_anterior?: string | null;
+  data_pagamento_nova?: string | null;
+  condicoes_anteriores?: CondicoesPagamento | null;
+  condicoes_novas?: CondicoesPagamento | null;
+  resumo_anterior?: string;
+  resumo_novo?: string;
+}
 
 const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   id: o.id,
@@ -83,6 +95,7 @@ export const usePedidos = () => {
         formula_snapshot: p.formula_snapshot as any || undefined,
         orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
         acompanhamento_processos: (p as any).acompanhamento_processos as AcompanhamentoProcessos | undefined,
+        pagamento_alteracoes: ((p as any).pagamento_alteracoes as PagamentoAlteracao[]) || [],
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];
@@ -351,6 +364,89 @@ export const usePedidos = () => {
     },
   });
 
+  const alterarPagamento = useMutation({
+    mutationFn: async ({
+      id,
+      data_pagamento,
+      condicoes_pagamento,
+    }: {
+      id: string;
+      data_pagamento: string | null;
+      condicoes_pagamento: CondicoesPagamento;
+    }) => {
+      const { data: pedidoAtual, error: errFetch } = await supabase
+        .from('pedidos')
+        .select('id, orcamento_id, orcamento_snapshot, pagamento_alteracoes')
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+      if (errFetch || !pedidoAtual) throw errFetch || new Error('Pedido não encontrado');
+
+      const snapAtual: any = pedidoAtual.orcamento_snapshot || {};
+      const valorTotal = Number(snapAtual.valor_total) || 0;
+
+      const dataAnterior = snapAtual.data_pagamento || null;
+      const condAnteriores: CondicoesPagamento | null = snapAtual.condicoes_pagamento || null;
+
+      const { data: userData } = await supabase.auth.getUser();
+      const email = userData?.user?.email || null;
+
+      const entrada: PagamentoAlteracao = {
+        alterado_em: new Date().toISOString(),
+        alterado_por: email,
+        data_pagamento_anterior: dataAnterior,
+        data_pagamento_nova: data_pagamento,
+        condicoes_anteriores: condAnteriores,
+        condicoes_novas: condicoes_pagamento,
+        resumo_anterior: condAnteriores ? formatarPagamentoResumo(condAnteriores, valorTotal) : '',
+        resumo_novo: formatarPagamentoResumo(condicoes_pagamento, valorTotal),
+      };
+
+      const novoSnapshot = {
+        ...snapAtual,
+        data_pagamento,
+        condicoes_pagamento,
+      };
+      const historico = [
+        ...(((pedidoAtual as any).pagamento_alteracoes as PagamentoAlteracao[]) || []),
+        entrada,
+      ];
+
+      const { error: errUpd } = await supabase
+        .from('pedidos')
+        .update({
+          orcamento_snapshot: novoSnapshot as any,
+          pagamento_alteracoes: historico as any,
+        })
+        .eq('id', id);
+      if (errUpd) throw errUpd;
+
+      // Mantém o orçamento original sincronizado para refletir no Dashboard/relatórios
+      if (pedidoAtual.orcamento_id) {
+        await supabase
+          .from('orcamentos')
+          .update({
+            data_pagamento,
+            condicoes_pagamento: condicoes_pagamento as any,
+          })
+          .eq('id', pedidoAtual.orcamento_id);
+      }
+
+      return { id, snapshot: novoSnapshot, alteracoes: historico };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      queryClient.invalidateQueries({ queryKey: ['pedidos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      toast.success('Pagamento atualizado e registrado no histórico');
+    },
+    onError: (e: any) => {
+      console.error('Erro ao alterar pagamento:', e);
+      toast.error('Erro ao alterar pagamento');
+    },
+  });
+
   return {
     pedidos,
     loading: isLoading,
@@ -360,5 +456,6 @@ export const usePedidos = () => {
     updateObservacoes: updateObservacoes.mutateAsync,
     updateAcompanhamento: updateAcompanhamento.mutate,
     deletePedido: deletePedido.mutate,
+    alterarPagamento: alterarPagamento.mutateAsync,
   };
 };
