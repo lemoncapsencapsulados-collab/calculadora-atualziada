@@ -158,7 +158,7 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedido, deletePedidoAsync, deletandoPedido, alterarPagamento } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedidoAsync, deletandoPedido, alterarPagamento } = usePedidos();
   const { clientes } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
