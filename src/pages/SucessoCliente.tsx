@@ -3,7 +3,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, HeartHandshake, AlertTriangle, CheckCircle2, Clock, Star } from 'lucide-react';
+import { Search, HeartHandshake, AlertTriangle, CheckCircle2, Clock, Star, Wallet } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import RecebimentosLista from '@/components/sucesso-cliente/RecebimentosLista';
 import { usePedidos } from '@/hooks/usePedidos';
 import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
 import {
@@ -17,6 +19,7 @@ type Ordenacao = 'maior_atraso' | 'prazo_proximo' | 'pagamento_recente' | 'clien
 
 export default function SucessoCliente() {
   const { pedidos, loading, updateAcompanhamento } = usePedidos();
+  const [abaPrincipal, setAbaPrincipal] = useState<'projetos' | 'recebimentos'>('projetos');
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>('todos');
@@ -124,6 +127,18 @@ export default function SucessoCliente() {
         </div>
       </div>
 
+      <Tabs value={abaPrincipal} onValueChange={(v) => setAbaPrincipal(v as 'projetos' | 'recebimentos')}>
+        <TabsList className="grid grid-cols-2 w-full md:w-auto">
+          <TabsTrigger value="projetos" className="gap-2">
+            <HeartHandshake className="h-4 w-4" /> Projetos
+          </TabsTrigger>
+          <TabsTrigger value="recebimentos" className="gap-2">
+            <Wallet className="h-4 w-4" /> Recebimentos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="projetos" className="mt-4 space-y-4">
+
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card><CardContent className="p-3">
@@ -226,6 +241,16 @@ export default function SucessoCliente() {
         onClose={() => setPedidoAberto(null)}
         onUpdate={handleUpdate}
       />
+        </TabsContent>
+
+        <TabsContent value="recebimentos" className="mt-4">
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Carregando recebimentos...</div>
+          ) : (
+            <RecebimentosLista pedidos={pedidos} />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
