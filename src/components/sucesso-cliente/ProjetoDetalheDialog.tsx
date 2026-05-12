@@ -21,6 +21,7 @@ import EtapaRow from './EtapaRow';
 import { formatCurrency } from '@/lib/unitConversion';
 import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
 import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
+import HistoricoVhsysLista from '@/components/pedidos/HistoricoVhsysLista';
 
 interface Props {
   pedido: Pedido | null;
@@ -333,6 +334,16 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
               <HistoricoPagamentoLista alteracoes={pedido.pagamento_alteracoes} />
             </div>
           )}
+
+          <div className="p-3 rounded-lg border bg-muted/30 space-y-2">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-semibold">
+                Cadastro no VhSys ({pedido.historico_vhsys?.length ?? 0})
+              </span>
+            </div>
+            <HistoricoVhsysLista entradas={pedido.historico_vhsys} />
+          </div>
 
           {/* Satisfação */}
           {todasConcluidas && (
