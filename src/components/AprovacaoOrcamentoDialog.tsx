@@ -1188,6 +1188,18 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
           </Card>
         </div>
 
+        {erroValidacao.length > 0 && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <p className="font-semibold mb-1">Corrija os campos abaixo antes de confirmar:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-xs">
+                {erroValidacao.map((e, i) => (<li key={i}>{e}</li>))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
