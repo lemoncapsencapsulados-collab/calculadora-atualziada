@@ -171,6 +171,7 @@ const Pedidos = () => {
   const [documentosDialogPedidoId, setDocumentosDialogPedidoId] = useState<string | null>(null);
   const [tabAtiva, setTabAtiva] = useState<string>('overview');
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
+  const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
   useEffect(() => {
