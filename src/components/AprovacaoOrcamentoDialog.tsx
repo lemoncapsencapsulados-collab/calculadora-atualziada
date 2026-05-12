@@ -600,7 +600,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                   : (result.error || 'Falha ao cadastrar cliente no VhSys.'),
                 origem: 'aprovacao_pagamento',
                 payload: result.payload,
-                resposta: (result as any).response ?? null,
+                resposta: (result as any).data ?? null,
               },
             });
           } catch (e) { console.error('Falha ao registrar histórico VhSys', e); }
@@ -637,7 +637,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 : (result.error || 'Reenvio: falha ao cadastrar cliente no VhSys.'),
               origem: 'manual',
               payload: result.payload,
-              resposta: (result as any).response ?? null,
+              resposta: (result as any).data ?? null,
             },
           });
         } catch (e) { console.error('Falha ao registrar histórico VhSys', e); }
