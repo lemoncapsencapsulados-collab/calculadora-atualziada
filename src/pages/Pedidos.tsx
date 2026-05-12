@@ -970,15 +970,17 @@ const Pedidos = () => {
                       );
                     })()}
 
-                    <ConfirmarExclusaoPedidoDialog
-                      numeroPedido={pedido.numero_pedido}
-                      onConfirm={() => deletePedido(pedido.id)}
-                      trigger={
-                        <Button variant="destructive" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      }
-                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero_pedido });
+                      }}
+                      title="Excluir pedido"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   {/* Botões de Anexos */}
