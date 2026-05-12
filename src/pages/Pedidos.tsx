@@ -188,7 +188,7 @@ const Pedidos = () => {
   }, [pedidos]);
 
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
-  const { getAnexosPorPedido, uploadAnexo, deleteAnexo } = usePedidoAnexos(pedidoIds);
+  const { getAnexosPorPedido, uploadAnexo, deleteAnexo, reordenarAnexos } = usePedidoAnexos(pedidoIds);
 
   const todasDemandas = useMemo(() => extrairTodasDemandas(pedidos as any), [pedidos]);
 
@@ -1089,10 +1089,12 @@ const Pedidos = () => {
             open={!!documentosDialogPedidoId}
             onOpenChange={(o) => !o && setDocumentosDialogPedidoId(null)}
             pedidoNumero={pedidoAtual?.numero_pedido}
+            pedidoId={documentosDialogPedidoId || undefined}
             contratos={documentosDialogPedidoId ? getAnexosPorPedido(documentosDialogPedidoId, 'contrato') : []}
             comprovantes={documentosDialogPedidoId ? getAnexosPorPedido(documentosDialogPedidoId, 'comprovante') : []}
             onAdicionar={(tipo) => documentosDialogPedidoId && triggerUpload(documentosDialogPedidoId, tipo)}
             onRemover={(anexo) => deleteAnexo(anexo)}
+            onReordenar={(pid, tipo, ids) => reordenarAnexos(pid, tipo, ids)}
           />
         );
       })()}

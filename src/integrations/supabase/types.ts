@@ -537,6 +537,7 @@ export type Database = {
           arquivo_url: string
           created_at: string | null
           id: string
+          ordem: number | null
           pedido_id: string
           tipo: string
         }
@@ -545,6 +546,7 @@ export type Database = {
           arquivo_url: string
           created_at?: string | null
           id?: string
+          ordem?: number | null
           pedido_id: string
           tipo: string
         }
@@ -553,6 +555,7 @@ export type Database = {
           arquivo_url?: string
           created_at?: string | null
           id?: string
+          ordem?: number | null
           pedido_id?: string
           tipo?: string
         }
