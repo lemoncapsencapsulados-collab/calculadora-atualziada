@@ -240,6 +240,23 @@ function CartaoSection({
                   Juros: +{formatCurrency(totalComJuros - valorBase)} — Total cartão: {formatCurrency(totalComJuros)}
                 </div>
               )}
+              <div className="flex items-center gap-2 mt-2">
+                <Label className="text-[11px] text-muted-foreground shrink-0">1ª parcela em</Label>
+                <Input
+                  type="date"
+                  value={cartao.data_primeira_parcela || ''}
+                  onChange={(e) => updateCartao(i, { data_primeira_parcela: e.target.value || undefined })}
+                  className="h-7 text-xs w-40"
+                />
+                <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer ml-auto">
+                  <input
+                    type="checkbox"
+                    checked={!!cartao.pago}
+                    onChange={(e) => updateCartao(i, { pago: e.target.checked || undefined })}
+                  />
+                  Recebido
+                </label>
+              </div>
             </div>
           </div>
         );
