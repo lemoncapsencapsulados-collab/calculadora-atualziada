@@ -466,6 +466,34 @@ export const usePedidos = () => {
     },
   });
 
+  const registrarVhsys = useMutation({
+    mutationFn: async ({ pedidoId, entry }: { pedidoId: string; entry: HistoricoVhsysEntry }) => {
+      const { data: atual, error: errFetch } = await supabase
+        .from('pedidos')
+        .select('historico_vhsys')
+        .eq('id', pedidoId)
+        .limit(1)
+        .maybeSingle();
+      if (errFetch) throw errFetch;
+      const historico = [
+        ...(((atual as any)?.historico_vhsys as HistoricoVhsysEntry[]) || []),
+        entry,
+      ];
+      const { error: errUpd } = await supabase
+        .from('pedidos')
+        .update({ historico_vhsys: historico as any })
+        .eq('id', pedidoId);
+      if (errUpd) throw errUpd;
+      return historico;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+    },
+    onError: (e: any) => {
+      console.error('Erro ao registrar histórico VhSys:', e);
+    },
+  });
+
   return {
     pedidos,
     loading: isLoading,
@@ -478,5 +506,6 @@ export const usePedidos = () => {
     deletePedidoAsync: deletePedido.mutateAsync,
     deletandoPedido: deletePedido.isPending,
     alterarPagamento: alterarPagamento.mutateAsync,
+    registrarVhsysAsync: registrarVhsys.mutateAsync,
   };
 };
