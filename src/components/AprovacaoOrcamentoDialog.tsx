@@ -194,6 +194,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [showVhsysModal, setShowVhsysModal] = useState(false);
   const [vhsysLoading, setVhsysLoading] = useState(false);
   const [vhsysResultado, setVhsysResultado] = useState<CadastrarVhSysResult | null>(null);
+  const [pedidoIdAprovacao, setPedidoIdAprovacao] = useState<string | null>(null);
 
   // Data de pagamento (inputs numéricos DD/MM/AAAA)
   const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
@@ -624,6 +625,23 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       setVhsysResultado(result);
       if (result.success) sonnerToast.success('Cliente cadastrado no VhSys');
       else sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys');
+      if (pedidoIdAprovacao) {
+        try {
+          await registrarVhsysAsync({
+            pedidoId: pedidoIdAprovacao,
+            entry: {
+              data: new Date().toISOString(),
+              sucesso: !!result.success,
+              mensagem: result.success
+                ? `Reenvio: cliente cadastrado no VhSys.`
+                : (result.error || 'Reenvio: falha ao cadastrar cliente no VhSys.'),
+              origem: 'manual',
+              payload: result.payload,
+              resposta: (result as any).response ?? null,
+            },
+          });
+        } catch (e) { console.error('Falha ao registrar histórico VhSys', e); }
+      }
     } finally {
       setVhsysLoading(false);
     }
