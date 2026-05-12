@@ -57,6 +57,7 @@ interface PedidoData {
   created_at: string | null;
   data_pedido: string;
   orcamento_snapshot: any;
+  pagamento_alteracoes?: any[] | null;
 }
 
 interface OrcamentoData {
@@ -96,7 +97,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pedidos')
-        .select('id, numero_pedido, status, created_at, data_pedido, orcamento_snapshot')
+        .select('id, numero_pedido, status, created_at, data_pedido, orcamento_snapshot, pagamento_alteracoes')
         .not('orcamento_snapshot', 'is', null)
         .order('created_at', { ascending: false });
       
