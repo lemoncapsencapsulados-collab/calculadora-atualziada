@@ -39,6 +39,7 @@ import { formatarCondicoesPagamento as formatarCondicoesPagamentoUtil } from '@/
 import { StatusPedido, AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoDialog';
+import { DocumentosPedidoDialog } from '@/components/pedidos/DocumentosPedidoDialog';
 import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
@@ -167,7 +168,7 @@ const Pedidos = () => {
   const [pedidoDetalhe, setPedidoDetalhe] = useState<any>(null);
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
-  const [comprovantesDialogPedidoId, setComprovantesDialogPedidoId] = useState<string | null>(null);
+  const [documentosDialogPedidoId, setDocumentosDialogPedidoId] = useState<string | null>(null);
   const [tabAtiva, setTabAtiva] = useState<string>('overview');
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
 
@@ -985,31 +986,22 @@ const Pedidos = () => {
                     {(() => {
                       const contratos = getAnexosPorPedido(pedido.id, 'contrato');
                       const comprovantes = getAnexosPorPedido(pedido.id, 'comprovante');
+                      const total = contratos.length + comprovantes.length;
                       return (
-                        <>
-                          {contratos.length > 0 ? (
-                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => window.open(contratos[0].arquivo_url, '_blank')}>
-                              <Eye className="h-3.5 w-3.5 mr-1" />
-                              Ver Contrato
-                            </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => triggerUpload(pedido.id, 'contrato')}>
-                              <Upload className="h-3.5 w-3.5 mr-1" />
-                              Anexar Contrato
-                            </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => setDocumentosDialogPedidoId(pedido.id)}
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-1" />
+                          Documentos
+                          {total > 0 && (
+                            <span className="ml-1 text-muted-foreground">
+                              ({contratos.length} contrato{contratos.length !== 1 ? 's' : ''} · {comprovantes.length} comprovante{comprovantes.length !== 1 ? 's' : ''})
+                            </span>
                           )}
-                          {comprovantes.length > 0 ? (
-                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => setComprovantesDialogPedidoId(pedido.id)}>
-                              <Receipt className="h-3.5 w-3.5 mr-1" />
-                              Ver Comprovante(s)
-                            </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => triggerUpload(pedido.id, 'comprovante')}>
-                              <Upload className="h-3.5 w-3.5 mr-1" />
-                              Anexar Comprovante
-                            </Button>
-                          )}
-                        </>
+                        </Button>
                       );
                     })()}
                   </div>
