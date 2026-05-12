@@ -130,6 +130,16 @@ export interface Pedido {
   formula_snapshot?: Formula;
   orcamento_snapshot?: OrcamentoSnapshot;
   acompanhamento_processos?: AcompanhamentoProcessos;
+  pagamento_alteracoes?: Array<{
+    alterado_em: string;
+    alterado_por?: string | null;
+    data_pagamento_anterior?: string | null;
+    data_pagamento_nova?: string | null;
+    condicoes_anteriores?: any;
+    condicoes_novas?: any;
+    resumo_anterior?: string;
+    resumo_novo?: string;
+  }>;
   created_at: Date;
   updated_at: Date;
 }
