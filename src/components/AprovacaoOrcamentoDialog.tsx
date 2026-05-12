@@ -1055,6 +1055,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
               <CardTitle className="text-base flex items-center gap-2">
                 <Truck className="w-4 h-4" />
                 4. Detalhamento de Frete
+                <span className="text-xs text-destructive font-normal">(obrigatório)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1088,7 +1089,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
                 {detalhamentoEnvio.tipo === 'parcial' && (
                   <div className="ml-6 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Descreva a divisão:</Label>
+                    <Label className="text-xs text-muted-foreground">Descreva a divisão: <span className="text-destructive">*</span></Label>
                     <Textarea
                       value={detalhamentoEnvio.descricao_parcial || ''}
                       onChange={(e) => setDetalhamentoEnvio(prev => ({ ...prev, descricao_parcial: e.target.value }))}
