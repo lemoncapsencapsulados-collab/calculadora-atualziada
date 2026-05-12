@@ -5,9 +5,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Search, CheckCircle2, Clock, CalendarClock, AlertCircle, Wallet, TrendingUp } from 'lucide-react';
+import { Search, CheckCircle2, Clock, CalendarClock, AlertCircle, Wallet, TrendingUp, Bell, Settings2, ChevronRight } from 'lucide-react';
 import { Pedido } from '@/types/formula';
 import { derivarRecebimentos, Recebimento, StatusRecebimento } from '@/lib/recebimentos';
+import ClienteRecebimentosDialog from './ClienteRecebimentosDialog';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  loadNotifSettings, saveNotifSettings, RecebimentoNotifSettings,
+} from '@/hooks/useRecebimentoNotificacoes';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -37,6 +45,13 @@ type SubTab = 'pago' | 'pendente' | 'futuro' | 'todos';
 export default function RecebimentosLista({ pedidos }: Props) {
   const [aba, setAba] = useState<SubTab>('todos');
   const [busca, setBusca] = useState('');
+  const [clienteAberto, setClienteAberto] = useState<{ nome: string; pedidos: Pedido[] } | null>(null);
+  const [notif, setNotif] = useState<RecebimentoNotifSettings>(() => loadNotifSettings());
+  const updateNotif = (patch: Partial<RecebimentoNotifSettings>) => {
+    const next = { ...notif, ...patch };
+    setNotif(next);
+    saveNotifSettings(next);
+  };
 
   const todos = useMemo(
     () => pedidos.flatMap((p) => derivarRecebimentos(p)),
@@ -153,14 +168,61 @@ export default function RecebimentosLista({ pedidos }: Props) {
       </div>
 
       {/* Busca */}
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por cliente, CNPJ/CPF, nº pedido ou consultor..."
-          className="pl-9"
-        />
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por cliente, CNPJ/CPF, nº pedido ou consultor..."
+            className="pl-9"
+          />
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Bell className="h-4 w-4" /> Alertas
+              <Settings2 className="h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="notif-ativo" className="text-sm">Ativar notificações</Label>
+              <Switch
+                id="notif-ativo"
+                checked={notif.ativo}
+                onCheckedChange={(v) => updateNotif({ ativo: v })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="notif-prox" className="text-xs">
+                Avisar quando faltarem ≤ N dias para o vencimento
+              </Label>
+              <Input
+                id="notif-prox"
+                type="number"
+                min={0}
+                value={notif.diasAntesVencimento}
+                onChange={(e) => updateNotif({ diasAntesVencimento: Math.max(0, Number(e.target.value) || 0) })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="notif-atraso" className="text-xs">
+                Alertar pendentes há mais de N dias
+              </Label>
+              <Input
+                id="notif-atraso"
+                type="number"
+                min={0}
+                value={notif.diasPendenteAlerta}
+                onChange={(e) => updateNotif({ diasPendenteAlerta: Math.max(0, Number(e.target.value) || 0) })}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Cada alerta é emitido apenas uma vez por parcela neste navegador.
+            </p>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Sub-abas */}
@@ -193,7 +255,17 @@ export default function RecebimentosLista({ pedidos }: Props) {
               <div className="divide-y">
                 {grupos.map((g) => (
                   <div key={g.key} className="bg-background">
-                    <div className="px-4 py-2 bg-muted/30 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ids = new Set(g.items.map((i) => i.pedidoId));
+                        setClienteAberto({
+                          nome: g.cliente,
+                          pedidos: pedidos.filter((p) => ids.has(p.id)),
+                        });
+                      }}
+                      className="w-full px-4 py-2 bg-muted/30 hover:bg-muted/50 flex items-center justify-between transition-colors text-left"
+                    >
                       <div className="flex items-center gap-2">
                         <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-sm font-semibold">{g.cliente}</span>
@@ -206,10 +278,11 @@ export default function RecebimentosLista({ pedidos }: Props) {
                           </Badge>
                         )}
                       </div>
-                      <div className="text-xs">
-                        Subtotal: <strong>{fmtBRL(g.subtotal)}</strong>
+                      <div className="text-xs flex items-center gap-2">
+                        <span>Subtotal: <strong>{fmtBRL(g.subtotal)}</strong></span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                    </div>
+                    </button>
                     {g.items.map((r, i) => {
                       const meta = statusMeta[r.status];
                       return (
@@ -251,6 +324,13 @@ export default function RecebimentosLista({ pedidos }: Props) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ClienteRecebimentosDialog
+        open={!!clienteAberto}
+        onClose={() => setClienteAberto(null)}
+        cliente={clienteAberto?.nome || ''}
+        pedidos={clienteAberto?.pedidos || []}
+      />
     </div>
   );
 }
