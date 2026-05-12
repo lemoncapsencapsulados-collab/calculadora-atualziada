@@ -1079,51 +1079,23 @@ const Pedidos = () => {
       <input type="file" ref={contratoInputRef} className="hidden" onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
       <input type="file" ref={comprovanteInputRef} className="hidden" onChange={handleFileUpload} accept=".pdf,.jpg,.jpeg,.png" />
 
-      {/* Dialog de Comprovantes */}
-      <Dialog open={!!comprovantesDialogPedidoId} onOpenChange={(open) => !open && setComprovantesDialogPedidoId(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
-              Comprovantes de Pagamento
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {comprovantesDialogPedidoId && getAnexosPorPedido(comprovantesDialogPedidoId, 'comprovante').map((comp) => (
-              <div key={comp.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{comp.arquivo_nome}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(comp.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => window.open(comp.arquivo_url, '_blank')}>
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => deleteAnexo(comp)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-            {comprovantesDialogPedidoId && getAnexosPorPedido(comprovantesDialogPedidoId, 'comprovante').length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum comprovante anexado.</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              if (comprovantesDialogPedidoId) triggerUpload(comprovantesDialogPedidoId, 'comprovante');
-            }}>
-              <Upload className="h-4 w-4 mr-1" />
-              Adicionar Comprovante
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog central de Documentos do Pedido */}
+      {(() => {
+        const pedidoAtual = documentosDialogPedidoId
+          ? pedidos.find((p: any) => p.id === documentosDialogPedidoId)
+          : null;
+        return (
+          <DocumentosPedidoDialog
+            open={!!documentosDialogPedidoId}
+            onOpenChange={(o) => !o && setDocumentosDialogPedidoId(null)}
+            pedidoNumero={pedidoAtual?.numero_pedido}
+            contratos={documentosDialogPedidoId ? getAnexosPorPedido(documentosDialogPedidoId, 'contrato') : []}
+            comprovantes={documentosDialogPedidoId ? getAnexosPorPedido(documentosDialogPedidoId, 'comprovante') : []}
+            onAdicionar={(tipo) => documentosDialogPedidoId && triggerUpload(documentosDialogPedidoId, tipo)}
+            onRemover={(anexo) => deleteAnexo(anexo)}
+          />
+        );
+      })()}
     </div>
   );
 };
