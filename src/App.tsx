@@ -21,6 +21,8 @@ import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useAplicarPrazoVencido } from './hooks/useAplicarPrazoVencido';
 import { PrazoPrecoBanner } from './components/PrazoPrecoBanner';
+import { useRecebimentoNotificacoes } from './hooks/useRecebimentoNotificacoes';
+import { usePedidos } from './hooks/usePedidos';
 
 const queryClient = new QueryClient();
 
@@ -28,6 +30,8 @@ const AppContent = () => {
   const { isAuthenticated, loading, logout } = useAuth();
   const [migrated, setMigrated] = useState(false);
   useAplicarPrazoVencido(isAuthenticated && migrated);
+  const { pedidos } = usePedidos();
+  useRecebimentoNotificacoes(isAuthenticated && migrated ? pedidos : undefined);
 
   useEffect(() => {
     const runMigration = async () => {
