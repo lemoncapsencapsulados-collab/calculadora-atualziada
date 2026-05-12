@@ -569,6 +569,7 @@ export type Database = {
           data_pedido: string
           formula_id: string | null
           formula_snapshot: Json | null
+          historico_vhsys: Json
           id: string
           numero_pedido: string
           observacoes: string | null
@@ -587,6 +588,7 @@ export type Database = {
           data_pedido: string
           formula_id?: string | null
           formula_snapshot?: Json | null
+          historico_vhsys?: Json
           id?: string
           numero_pedido: string
           observacoes?: string | null
@@ -605,6 +607,7 @@ export type Database = {
           data_pedido?: string
           formula_id?: string | null
           formula_snapshot?: Json | null
+          historico_vhsys?: Json
           id?: string
           numero_pedido?: string
           observacoes?: string | null
