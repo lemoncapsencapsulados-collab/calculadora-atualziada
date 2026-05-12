@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePedidos } from '@/hooks/usePedidos';
@@ -245,6 +245,8 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     orcamento.condicoes_pagamento || {}
   );
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
+  const [erroValidacao, setErroValidacao] = useState<string[]>([]);
+  const cnpjBuscadoRef = useRef<string>('');
 
   useEffect(() => {
     if (orcamento.dados_cliente && !clienteSelecionado) {
@@ -347,6 +349,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const handleBuscarCnpj = async () => {
     const cnpj = dadosCliente.cnpj?.replace(/\D/g, '');
     if (!cnpj || cnpj.length !== 14) return;
+    cnpjBuscadoRef.current = cnpj;
     setIsSearchingCnpj(true);
     try {
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
@@ -372,6 +375,14 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       setIsSearchingCnpj(false);
     }
   };
+
+  // Busca automática de CNPJ ao completar 14 dígitos
+  useEffect(() => {
+    const cnpj = (dadosCliente.cnpj || '').replace(/\D/g, '');
+    if (cnpj.length === 14 && cnpj !== cnpjBuscadoRef.current && !isSearchingCnpj) {
+      handleBuscarCnpj();
+    }
+  }, [dadosCliente.cnpj]);
 
   const handleConfirmAprovacao = async () => {
     const camposFaltando: string[] = [];
@@ -433,15 +444,23 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       camposFaltando.push(dataPagamentoFutura ? 'Data de Pagamento (não pode ser futura)' : 'Data de Pagamento');
     }
 
+    // Detalhamento do frete obrigatório
+    if (!detalhamentoEnvio.tipo) {
+      camposFaltando.push('Detalhamento de Frete (tipo de logística)');
+    } else if (detalhamentoEnvio.tipo === 'parcial' && !detalhamentoEnvio.descricao_parcial?.trim()) {
+      camposFaltando.push('Descrição do envio parcial');
+    }
+
     const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
     if (erros.length > 0) {
       setErrosPagamento(erros);
-      if (camposFaltando.length === 0) return;
+      camposFaltando.push(...erros.map((e) => `Condições de Pagamento: ${e}`));
     } else {
       setErrosPagamento([]);
     }
 
     if (camposFaltando.length > 0) {
+      setErroValidacao(camposFaltando);
       const { toast } = await import('@/hooks/use-toast');
       toast({
         title: 'Campos obrigatórios não preenchidos',
@@ -451,7 +470,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       return;
     }
 
-    if (erros.length > 0) return;
+    setErroValidacao([]);
 
     setIsSubmitting(true);
 
@@ -1036,6 +1055,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
               <CardTitle className="text-base flex items-center gap-2">
                 <Truck className="w-4 h-4" />
                 4. Detalhamento de Frete
+                <span className="text-xs text-destructive font-normal">(obrigatório)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1069,7 +1089,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
                 {detalhamentoEnvio.tipo === 'parcial' && (
                   <div className="ml-6 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Descreva a divisão:</Label>
+                    <Label className="text-xs text-muted-foreground">Descreva a divisão: <span className="text-destructive">*</span></Label>
                     <Textarea
                       value={detalhamentoEnvio.descricao_parcial || ''}
                       onChange={(e) => setDetalhamentoEnvio(prev => ({ ...prev, descricao_parcial: e.target.value }))}
@@ -1167,6 +1187,18 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             </CardContent>
           </Card>
         </div>
+
+        {erroValidacao.length > 0 && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <p className="font-semibold mb-1">Corrija os campos abaixo antes de confirmar:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-xs">
+                {erroValidacao.map((e, i) => (<li key={i}>{e}</li>))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
