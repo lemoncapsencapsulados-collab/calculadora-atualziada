@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
+import { Pedido, AcompanhamentoProcessos, HistoricoVhsysEntry } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot, CondicoesPagamento } from '@/types/orcamento';
 import { useEffect, useRef, useCallback } from 'react';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
@@ -96,11 +96,30 @@ export const usePedidos = () => {
         orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
         acompanhamento_processos: (p as any).acompanhamento_processos as AcompanhamentoProcessos | undefined,
         pagamento_alteracoes: ((p as any).pagamento_alteracoes as PagamentoAlteracao[]) || [],
+        historico_vhsys: (((p as any).historico_vhsys as HistoricoVhsysEntry[]) || []),
         created_at: new Date(p.created_at),
         updated_at: new Date(p.updated_at),
       })) as Pedido[];
     },
   });
+
+  // Realtime: sincroniza qualquer mudança em pedidos entre abas (Pedidos, Sucesso do Cliente, Dashboard)
+  useEffect(() => {
+    const channel = supabase
+      .channel('pedidos-rt')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pedidos' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+          queryClient.invalidateQueries({ queryKey: ['pedidos-dashboard'] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Sync: ensure all paid orcamentos have corresponding pedidos with full snapshots
   useEffect(() => {
