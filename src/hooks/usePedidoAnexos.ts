@@ -37,15 +37,6 @@ export function usePedidoAnexos(pedidoIds: string[]) {
   }, [anexos]);
 
   const uploadAnexo = async (pedidoId: string, tipo: 'contrato' | 'comprovante', file: File) => {
-    // For contrato, check if one already exists
-    if (tipo === 'contrato') {
-      const existing = anexos.find(a => a.pedido_id === pedidoId && a.tipo === 'contrato');
-      if (existing) {
-        toast.error('Este pedido já possui um contrato anexado.');
-        return;
-      }
-    }
-
     const filePath = `${pedidoId}/${tipo}/${Date.now()}_${file.name}`;
     const { error: uploadError } = await supabase.storage
       .from('pedidos-anexos')
@@ -91,4 +82,21 @@ export function usePedidoAnexos(pedidoIds: string[]) {
   };
 
   return { anexos, loading, getAnexosPorPedido, uploadAnexo, deleteAnexo, refetch: fetchAnexos };
+}
+
+export async function downloadAnexo(anexo: PedidoAnexo) {
+  try {
+    const res = await fetch(anexo.arquivo_url);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = anexo.arquivo_nome;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e: any) {
+    toast.error('Erro ao baixar arquivo: ' + (e?.message || ''));
+  }
 }
