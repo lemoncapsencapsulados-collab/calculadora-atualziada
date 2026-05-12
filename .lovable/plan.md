@@ -1,44 +1,27 @@
-## Objetivo
+## Problema
 
-Permitir múltiplos contratos por pedido (igual aos comprovantes) e criar uma central de "Documentos do Pedido" onde seja possível visualizar em popup e baixar tanto contratos quanto comprovantes.
+Ao clicar no botão da lixeira em `Pedidos`, o popup de confirmação com senha não aparece (e em alguns casos o card "some" da tela sem confirmar a exclusão). O componente `ConfirmarExclusaoPedidoDialog` já existe e usa a senha `021200`, mas o trigger via `AlertDialogTrigger asChild` aninhado dentro de uma `<div>` flex de ações está falhando em abrir o diálogo de forma confiável.
 
-## Mudanças
+## Solução
 
-### 1. Hook `usePedidoAnexos.ts`
-- Remover a regra que bloqueia upload de mais de 1 contrato por pedido (atualmente em `uploadAnexo`).
-- Manter `tipo: 'contrato' | 'comprovante'`.
+Refatorar o fluxo de exclusão para um diálogo **controlado no nível da página** `src/pages/Pedidos.tsx`, garantindo que o clique na lixeira sempre abra o popup de senha antes de qualquer chamada a `deletePedido`.
 
-### 2. Novo componente `DocumentosPedidoDialog.tsx`
-Dialog único que substitui os botões separados de contrato/comprovante por uma visão centralizada:
-- Duas seções: **Contratos** e **Comprovantes de Pagamento**.
-- Cada item lista: nome do arquivo, data de upload e três ações:
-  - **Visualizar** (popup): abre PDF/imagem em `<iframe>`/`<img>` dentro de um sub-dialog (sem sair da aba).
-  - **Baixar**: força download (`<a download>` com `fetch` + `blob`).
-  - **Remover**: chama `deleteAnexo`.
-- Botões **"Adicionar Contrato"** e **"Adicionar Comprovante"** abaixo de cada seção, disparando o input de arquivo.
+### Alterações
 
-### 3. `src/pages/Pedidos.tsx`
-- Substituir o bloco atual de botões (`Anexar/Ver Contrato` + `Anexar/Ver Comprovante`) por **um único botão "Documentos"** em cada card, com badges de contagem (ex.: `📎 Documentos (2 contratos · 3 comprovantes)`).
-- Esse botão abre o novo `DocumentosPedidoDialog`.
-- Remover o `comprovantesDialogPedidoId` antigo e seu Dialog inline (substituídos pelo novo).
-- Manter `contratoInputRef` / `comprovanteInputRef` e `handleFileUpload` (reutilizados pelo novo dialog via callbacks).
+1. **`src/pages/Pedidos.tsx`**
+   - Adicionar estado `pedidoParaExcluir: { id: string; numero: string } | null`.
+   - Substituir o `<ConfirmarExclusaoPedidoDialog trigger={...}>` por um `<Button>` simples com `onClick={(e) => { e.stopPropagation(); setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero_pedido }); }}`.
+   - Renderizar **uma única instância** de `ConfirmarExclusaoPedidoDialog` (modo controlado) fora do `.map()` dos pedidos, ligada a `pedidoParaExcluir`.
 
-### 4. Visualização em popup
-- PDFs: `<iframe src={url} className="w-full h-[80vh]" />`.
-- Imagens (jpg/png): `<img src={url} className="max-h-[80vh] mx-auto" />`.
-- Outros formatos (doc/docx): mostrar mensagem "Visualização indisponível — clique em Baixar".
-- Detecção por extensão do `arquivo_nome`.
+2. **`src/components/pedidos/ConfirmarExclusaoPedidoDialog.tsx`**
+   - Suportar modo controlado: aceitar props opcionais `open`, `onOpenChange` e tornar `trigger` opcional.
+   - Manter senha `021200` e o comportamento atual (Enter envia, mostra erro em senha incorreta, limpa campo ao fechar).
+   - Ao confirmar, chamar `onConfirm()` e fechar via `onOpenChange(false)`.
 
-### 5. Download
-- Função utilitária `downloadAnexo(anexo)` que faz `fetch(url) → blob → URL.createObjectURL → <a download>`.
-- Garante nome original do arquivo no download (em vez do path do storage).
+3. **Sem mudanças** em `usePedidos.deletePedido`, RLS, schema ou outros componentes.
 
-## Não muda
-- Bucket `pedidos-anexos` (já público) e tabela `pedido_anexos` (estrutura atual já suporta múltiplos registros).
-- RLS já permite `SELECT/INSERT/DELETE` para autenticados.
-- Comportamento da regra de senha, snapshots de pedido, exportação Excel.
+### Resultado esperado
 
-## Arquivos
-- `src/hooks/usePedidoAnexos.ts` — remover trava de 1 contrato; adicionar helper `downloadAnexo`.
-- `src/components/pedidos/DocumentosPedidoDialog.tsx` — **novo**.
-- `src/pages/Pedidos.tsx` — trocar bloco de botões por botão único "Documentos" e abrir o novo dialog; remover dialog antigo de comprovantes.
+- Clicar na lixeira sempre abre o popup centralizado pedindo a senha `021200`.
+- A exclusão só ocorre após senha correta digitada e botão "Excluir" clicado.
+- Senha errada mostra toast "Senha incorreta" e mantém o popup aberto.
