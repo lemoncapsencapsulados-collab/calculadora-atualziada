@@ -1,19 +1,25 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature } from 'lucide-react';
+import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { PedidoAnexo, downloadAnexo } from '@/hooks/usePedidoAnexos';
+import { PedidoAnexo, downloadAnexo, ANEXO_LIMITES } from '@/hooks/usePedidoAnexos';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   pedidoNumero?: string;
+  pedidoId?: string;
   contratos: PedidoAnexo[];
   comprovantes: PedidoAnexo[];
   onAdicionar: (tipo: 'contrato' | 'comprovante') => void;
   onRemover: (anexo: PedidoAnexo) => void;
+  onReordenar?: (pedidoId: string, tipo: 'contrato' | 'comprovante', novaOrdemIds: string[]) => void;
 }
 
 function getExt(nome: string) {
@@ -22,18 +28,46 @@ function getExt(nome: string) {
 }
 
 export function DocumentosPedidoDialog({
-  open, onOpenChange, pedidoNumero, contratos, comprovantes, onAdicionar, onRemover,
+  open, onOpenChange, pedidoNumero, pedidoId, contratos, comprovantes, onAdicionar, onRemover, onReordenar,
 }: Props) {
   const [preview, setPreview] = useState<PedidoAnexo | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<PedidoAnexo | null>(null);
 
-  const renderLista = (lista: PedidoAnexo[], vazio: string) => (
+  const mover = (tipo: 'contrato' | 'comprovante', lista: PedidoAnexo[], idx: number, dir: -1 | 1) => {
+    if (!onReordenar || !pedidoId) return;
+    const novo = idx + dir;
+    if (novo < 0 || novo >= lista.length) return;
+    const ids = lista.map(a => a.id);
+    [ids[idx], ids[novo]] = [ids[novo], ids[idx]];
+    onReordenar(pedidoId, tipo, ids);
+  };
+
+  const renderLista = (tipo: 'contrato' | 'comprovante', lista: PedidoAnexo[], vazio: string) => (
     <div className="space-y-2">
       {lista.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-3">{vazio}</p>
       )}
-      {lista.map((a) => (
+      {lista.map((a, idx) => (
         <div key={a.id} className="flex items-center justify-between gap-2 p-3 border rounded-lg">
           <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex flex-col">
+              <Button
+                variant="ghost" size="sm" className="h-5 w-5 p-0"
+                disabled={idx === 0}
+                title="Mover para cima"
+                onClick={() => mover(tipo, lista, idx, -1)}
+              >
+                <ArrowUp className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost" size="sm" className="h-5 w-5 p-0"
+                disabled={idx === lista.length - 1}
+                title="Mover para baixo"
+                onClick={() => mover(tipo, lista, idx, 1)}
+              >
+                <ArrowDown className="h-3 w-3" />
+              </Button>
+            </div>
             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{a.arquivo_nome}</p>
@@ -49,7 +83,7 @@ export function DocumentosPedidoDialog({
             <Button variant="ghost" size="sm" title="Baixar" onClick={() => downloadAnexo(a)}>
               <Download className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="text-destructive" title="Remover" onClick={() => onRemover(a)}>
+            <Button variant="ghost" size="sm" className="text-destructive" title="Remover" onClick={() => setConfirmDelete(a)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -85,7 +119,10 @@ export function DocumentosPedidoDialog({
                   Adicionar
                 </Button>
               </div>
-              {renderLista(contratos, 'Nenhum contrato anexado.')}
+              {renderLista('contrato', contratos, 'Nenhum contrato anexado.')}
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Aceitos: {ANEXO_LIMITES.contrato.extensoes.join(', ').toUpperCase()} · até {Math.round(ANEXO_LIMITES.contrato.maxBytes / (1024*1024))}MB
+              </p>
             </section>
 
             <section>
@@ -99,7 +136,10 @@ export function DocumentosPedidoDialog({
                   Adicionar
                 </Button>
               </div>
-              {renderLista(comprovantes, 'Nenhum comprovante anexado.')}
+              {renderLista('comprovante', comprovantes, 'Nenhum comprovante anexado.')}
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Aceitos: {ANEXO_LIMITES.comprovante.extensoes.join(', ').toUpperCase()} · até {Math.round(ANEXO_LIMITES.comprovante.maxBytes / (1024*1024))}MB
+              </p>
             </section>
           </div>
         </DialogContent>
@@ -135,6 +175,29 @@ export function DocumentosPedidoDialog({
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O arquivo <strong>{confirmDelete?.arquivo_nome}</strong> será removido permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDelete) onRemover(confirmDelete);
+                setConfirmDelete(null);
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
