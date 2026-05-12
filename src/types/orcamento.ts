@@ -110,12 +110,16 @@ export type FormaPagamentoAvista = 'pix' | 'transferencia' | 'debito' | 'boleto'
 export interface ParcelaPixBoleto {
   tipo_valor: 'percentual' | 'fixo';
   valor: number;
+  data_vencimento?: string; // YYYY-MM-DD
+  pago?: boolean;
 }
 
 export interface CartaoPagamento {
   tipo_valor: 'percentual' | 'fixo';
   valor: number;
   parcelas: number;
+  data_primeira_parcela?: string; // YYYY-MM-DD
+  pago?: boolean;
 }
 
 export interface CondicoesPagamento {

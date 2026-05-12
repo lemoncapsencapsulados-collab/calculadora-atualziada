@@ -140,6 +140,16 @@ export interface Pedido {
     resumo_anterior?: string;
     resumo_novo?: string;
   }>;
+  historico_vhsys?: HistoricoVhsysEntry[];
   created_at: Date;
   updated_at: Date;
+}
+
+export interface HistoricoVhsysEntry {
+  data: string; // ISO datetime
+  sucesso: boolean;
+  mensagem: string;
+  origem: 'aprovacao_pagamento' | 'proposta_completa' | 'manual';
+  payload?: Record<string, any>;
+  resposta?: any;
 }

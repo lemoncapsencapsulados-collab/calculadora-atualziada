@@ -183,7 +183,7 @@ function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: 
 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus } = useOrcamentos();
-  const { createPedidoFromOrcamento } = usePedidos();
+  const { createPedidoFromOrcamento, registrarVhsysAsync } = usePedidos();
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -194,6 +194,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   const [showVhsysModal, setShowVhsysModal] = useState(false);
   const [vhsysLoading, setVhsysLoading] = useState(false);
   const [vhsysResultado, setVhsysResultado] = useState<CadastrarVhSysResult | null>(null);
+  const [pedidoIdAprovacao, setPedidoIdAprovacao] = useState<string | null>(null);
 
   // Data de pagamento (inputs numéricos DD/MM/AAAA)
   const dataInicial = orcamento.data_pagamento ? new Date(orcamento.data_pagamento) : null;
@@ -574,7 +575,8 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         data_pagamento: dataPagamento!.toISOString(),
       };
 
-      await createPedidoFromOrcamento(orcamentoCompleto);
+      const pedidoCriado = await createPedidoFromOrcamento(orcamentoCompleto);
+      const pedidoIdCriado: string | undefined = (pedidoCriado as any)?.id;
 
       // Cadastro automático no VhSys; popup informativo será exibido com o resultado.
       setShowVhsysModal(true);
@@ -586,6 +588,24 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         setVhsysResultado(result);
         if (result.success) sonnerToast.success('Cliente cadastrado automaticamente no VhSys');
         else sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys');
+        if (pedidoIdCriado) {
+          try {
+            await registrarVhsysAsync({
+              pedidoId: pedidoIdCriado,
+              entry: {
+                data: new Date().toISOString(),
+                sucesso: !!result.success,
+                mensagem: result.success
+                  ? `Cliente "${dadosCliente.nome_completo || dadosCliente.razao_social || orcamento.nome_cliente}" cadastrado no VhSys.`
+                  : (result.error || 'Falha ao cadastrar cliente no VhSys.'),
+                origem: 'aprovacao_pagamento',
+                payload: result.payload,
+                resposta: (result as any).data ?? null,
+              },
+            });
+          } catch (e) { console.error('Falha ao registrar histórico VhSys', e); }
+          setPedidoIdAprovacao(pedidoIdCriado);
+        }
       } finally {
         setVhsysLoading(false);
       }
@@ -605,6 +625,23 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       setVhsysResultado(result);
       if (result.success) sonnerToast.success('Cliente cadastrado no VhSys');
       else sonnerToast.error(result.error || 'Falha ao cadastrar cliente no VhSys');
+      if (pedidoIdAprovacao) {
+        try {
+          await registrarVhsysAsync({
+            pedidoId: pedidoIdAprovacao,
+            entry: {
+              data: new Date().toISOString(),
+              sucesso: !!result.success,
+              mensagem: result.success
+                ? `Reenvio: cliente cadastrado no VhSys.`
+                : (result.error || 'Reenvio: falha ao cadastrar cliente no VhSys.'),
+              origem: 'manual',
+              payload: result.payload,
+              resposta: (result as any).data ?? null,
+            },
+          });
+        } catch (e) { console.error('Falha ao registrar histórico VhSys', e); }
+      }
     } finally {
       setVhsysLoading(false);
     }

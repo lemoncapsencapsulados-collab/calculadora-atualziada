@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { formatarCondicoesPagamento } from '@/lib/formatarPagamento';
 import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
+import HistoricoVhsysLista from '@/components/pedidos/HistoricoVhsysLista';
 
 interface DetalhesPedidoDialogProps {
   pedido: any;
@@ -281,6 +282,12 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
               </Section>
             </>
           )}
+
+          {/* Histórico de cadastro no VhSys */}
+          <Separator />
+          <Section icon={History} title={`Histórico de cadastro no VhSys (${pedido.historico_vhsys?.length ?? 0})`}>
+            <HistoricoVhsysLista entradas={pedido.historico_vhsys} />
+          </Section>
 
           {/* Logística / Frete */}
           {isOrcamento && frete.detalhamento_envio && (

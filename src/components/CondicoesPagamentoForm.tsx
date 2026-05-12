@@ -77,7 +77,8 @@ function PixBoletoSection({
         </div>
       </div>
       {parcelas.map((parcela, i) => (
-        <div key={i} className="flex items-center gap-2 p-2 rounded border bg-background">
+        <div key={i} className="space-y-1.5 p-2 rounded border bg-background">
+          <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground w-16">Parcela {i + 1}</span>
           <Button
             type="button"
@@ -115,6 +116,24 @@ function PixBoletoSection({
               = {formatCurrency(valorTotal * parcela.valor / 100)}
             </span>
           )}
+          </div>
+          <div className="flex items-center gap-2 pl-16">
+            <Label className="text-[11px] text-muted-foreground shrink-0">Vencimento</Label>
+            <Input
+              type="date"
+              value={parcela.data_vencimento || ''}
+              onChange={(e) => updateParcela(i, { data_vencimento: e.target.value || undefined })}
+              className="h-7 text-xs w-40"
+            />
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer ml-auto">
+              <input
+                type="checkbox"
+                checked={!!parcela.pago}
+                onChange={(e) => updateParcela(i, { pago: e.target.checked || undefined })}
+              />
+              Recebido
+            </label>
+          </div>
         </div>
       ))}
     </div>
@@ -221,6 +240,23 @@ function CartaoSection({
                   Juros: +{formatCurrency(totalComJuros - valorBase)} — Total cartão: {formatCurrency(totalComJuros)}
                 </div>
               )}
+              <div className="flex items-center gap-2 mt-2">
+                <Label className="text-[11px] text-muted-foreground shrink-0">1ª parcela em</Label>
+                <Input
+                  type="date"
+                  value={cartao.data_primeira_parcela || ''}
+                  onChange={(e) => updateCartao(i, { data_primeira_parcela: e.target.value || undefined })}
+                  className="h-7 text-xs w-40"
+                />
+                <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer ml-auto">
+                  <input
+                    type="checkbox"
+                    checked={!!cartao.pago}
+                    onChange={(e) => updateCartao(i, { pago: e.target.checked || undefined })}
+                  />
+                  Recebido
+                </label>
+              </div>
             </div>
           </div>
         );
