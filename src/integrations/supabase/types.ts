@@ -574,6 +574,7 @@ export type Database = {
           observacoes: string | null
           orcamento_id: string | null
           orcamento_snapshot: Json | null
+          pagamento_alteracoes: Json
           quantidade_produto: number
           status: string
           unidade_produto: string
@@ -591,6 +592,7 @@ export type Database = {
           observacoes?: string | null
           orcamento_id?: string | null
           orcamento_snapshot?: Json | null
+          pagamento_alteracoes?: Json
           quantidade_produto: number
           status?: string
           unidade_produto: string
@@ -608,6 +610,7 @@ export type Database = {
           observacoes?: string | null
           orcamento_id?: string | null
           orcamento_snapshot?: Json | null
+          pagamento_alteracoes?: Json
           quantidade_produto?: number
           status?: string
           unidade_produto?: string

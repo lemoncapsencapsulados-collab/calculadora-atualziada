@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info,
+  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History,
 } from 'lucide-react';
 import { formatarCondicoesPagamento } from '@/lib/formatarPagamento';
+import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
 
 interface DetalhesPedidoDialogProps {
   pedido: any;
@@ -267,6 +268,16 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
                     <InfoRow label="Data Pagamento" value={format(new Date(snap.data_pagamento), "dd/MM/yyyy", { locale: ptBR })} />
                   )}
                 </div>
+              </Section>
+            </>
+          )}
+
+          {/* Histórico de alterações de pagamento */}
+          {(pedido.pagamento_alteracoes?.length ?? 0) > 0 && (
+            <>
+              <Separator />
+              <Section icon={History} title={`Histórico de alterações de pagamento (${pedido.pagamento_alteracoes.length})`}>
+                <HistoricoPagamentoLista alteracoes={pedido.pagamento_alteracoes} />
               </Section>
             </>
           )}

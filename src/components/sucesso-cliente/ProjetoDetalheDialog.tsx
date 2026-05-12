@@ -20,6 +20,7 @@ import {
 import EtapaRow from './EtapaRow';
 import { formatCurrency } from '@/lib/unitConversion';
 import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
+import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
 
 interface Props {
   pedido: Pedido | null;
@@ -320,6 +321,18 @@ export default function ProjetoDetalheDialog({ pedido, open, onClose, onUpdate }
               />
             ))}
           </div>
+
+          {(pedido.pagamento_alteracoes?.length ?? 0) > 0 && (
+            <div className="p-3 rounded-lg border bg-amber-50/50 border-amber-200 space-y-2">
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-amber-700" />
+                <span className="text-sm font-semibold text-amber-800">
+                  Alterações de pagamento ({pedido.pagamento_alteracoes!.length})
+                </span>
+              </div>
+              <HistoricoPagamentoLista alteracoes={pedido.pagamento_alteracoes} />
+            </div>
+          )}
 
           {/* Satisfação */}
           {todasConcluidas && (
