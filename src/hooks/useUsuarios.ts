@@ -39,6 +39,24 @@ export function useUsuarios(filtroAtivo: boolean = true) {
   const criar = useMutation({
     mutationFn: async (usuario: UsuarioInsert) => {
       const payload = { ...usuario, cargo: usuario.cargo?.trim() || 'Consultor' };
+      // Verifica duplicidade por nome (case-insensitive) ou telefone
+      const nomeNorm = payload.nome.trim().toLowerCase();
+      const telNorm = (payload.telefone || '').replace(/\D/g, '');
+      const { data: existentes } = await supabase
+        .from('usuarios' as any)
+        .select('id, nome, telefone');
+      const dup = (existentes as any[] | null)?.find((u) => {
+        const mesmoNome = u.nome?.trim().toLowerCase() === nomeNorm;
+        const mesmoTel = telNorm && (u.telefone || '').replace(/\D/g, '') === telNorm;
+        return mesmoNome || mesmoTel;
+      });
+      if (dup) {
+        throw new Error(
+          dup.nome?.trim().toLowerCase() === nomeNorm
+            ? `Já existe um consultor com o nome "${dup.nome}"`
+            : `Já existe um consultor com o telefone "${dup.telefone}" (${dup.nome})`
+        );
+      }
       const { data, error } = await supabase
         .from('usuarios' as any)
         .insert(payload as any)
@@ -51,11 +69,31 @@ export function useUsuarios(filtroAtivo: boolean = true) {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       toast.success('Usuário criado com sucesso');
     },
-    onError: () => toast.error('Erro ao criar usuário'),
+    onError: (err: any) => toast.error(err?.message || 'Erro ao criar usuário'),
   });
 
   const atualizar = useMutation({
     mutationFn: async ({ id, ...dados }: Partial<Usuario> & { id: string }) => {
+      if (dados.nome || dados.telefone) {
+        const nomeNorm = dados.nome?.trim().toLowerCase();
+        const telNorm = (dados.telefone || '').replace(/\D/g, '');
+        const { data: existentes } = await supabase
+          .from('usuarios' as any)
+          .select('id, nome, telefone')
+          .neq('id', id);
+        const dup = (existentes as any[] | null)?.find((u) => {
+          const mesmoNome = nomeNorm && u.nome?.trim().toLowerCase() === nomeNorm;
+          const mesmoTel = telNorm && (u.telefone || '').replace(/\D/g, '') === telNorm;
+          return mesmoNome || mesmoTel;
+        });
+        if (dup) {
+          throw new Error(
+            nomeNorm && dup.nome?.trim().toLowerCase() === nomeNorm
+              ? `Já existe um consultor com o nome "${dup.nome}"`
+              : `Já existe um consultor com o telefone "${dup.telefone}" (${dup.nome})`
+          );
+        }
+      }
       const { error } = await supabase
         .from('usuarios' as any)
         .update(dados as any)
@@ -66,7 +104,7 @@ export function useUsuarios(filtroAtivo: boolean = true) {
       queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       toast.success('Usuário atualizado com sucesso');
     },
-    onError: () => toast.error('Erro ao atualizar usuário'),
+    onError: (err: any) => toast.error(err?.message || 'Erro ao atualizar usuário'),
   });
 
   const toggleAtivo = useMutation({
@@ -85,4 +123,40 @@ export function useUsuarios(filtroAtivo: boolean = true) {
   });
 
   return { ...query, criar, atualizar, toggleAtivo };
+}
+
+export interface ConsultorUso {
+  orcamentos: number;
+  pedidos: number;
+  recompras: number;
+  total: number;
+}
+
+export function useConsultoresUso() {
+  return useQuery({
+    queryKey: ['consultores-uso'],
+    queryFn: async () => {
+      const [orc, ped, rec] = await Promise.all([
+        supabase.from('orcamentos').select('consultor_responsavel'),
+        supabase.from('pedidos').select('orcamento_snapshot'),
+        supabase.from('recompras').select('consultor_responsavel'),
+      ]);
+      const map = new Map<string, ConsultorUso>();
+      const bump = (nome: string | null | undefined, key: keyof ConsultorUso) => {
+        if (!nome) return;
+        const k = nome.trim().toLowerCase();
+        if (!k) return;
+        const cur = map.get(k) || { orcamentos: 0, pedidos: 0, recompras: 0, total: 0 };
+        (cur as any)[key]++;
+        cur.total++;
+        map.set(k, cur);
+      };
+      (orc.data || []).forEach((r: any) => bump(r.consultor_responsavel, 'orcamentos'));
+      (ped.data || []).forEach((r: any) =>
+        bump(r.orcamento_snapshot?.consultor_responsavel, 'pedidos')
+      );
+      (rec.data || []).forEach((r: any) => bump(r.consultor_responsavel, 'recompras'));
+      return map;
+    },
+  });
 }
