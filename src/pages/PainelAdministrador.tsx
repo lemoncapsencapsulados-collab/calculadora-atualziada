@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { VariaveisEstruturaisForm } from '@/components/admin/VariaveisEstruturaisForm';
 import { HistoricoAlteracoes } from '@/components/admin/HistoricoAlteracoes';
+import { ConsultoresAdmin } from '@/components/admin/ConsultoresAdmin';
 import { PrazoPrecoCountdown } from '@/components/admin/PrazoPrecoCountdown';
 import { PrazosAtivosLista } from '@/components/admin/PrazosAtivosLista';
 import { PrazoItensVinculados } from '@/components/admin/PrazoItensVinculados';
@@ -62,10 +63,14 @@ export default function PainelAdministrador() {
       <Tabs value={aba} onValueChange={setAba} className="space-y-4">
         <TabsList>
           <TabsTrigger value="variaveis">Variáveis Estruturais</TabsTrigger>
+          <TabsTrigger value="consultores">Consultores</TabsTrigger>
           <TabsTrigger value="historico">Histórico de Alterações</TabsTrigger>
         </TabsList>
         <TabsContent value="variaveis">
           <VariaveisEstruturaisForm />
+        </TabsContent>
+        <TabsContent value="consultores">
+          <ConsultoresAdmin />
         </TabsContent>
         <TabsContent value="historico">
           <HistoricoAlteracoes
