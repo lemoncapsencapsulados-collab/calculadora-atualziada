@@ -15,7 +15,7 @@ export interface Usuario {
 
 export interface UsuarioInsert {
   nome: string;
-  cargo: string;
+  cargo?: string;
   email?: string;
   telefone?: string;
 }
@@ -38,9 +38,10 @@ export function useUsuarios(filtroAtivo: boolean = true) {
 
   const criar = useMutation({
     mutationFn: async (usuario: UsuarioInsert) => {
+      const payload = { ...usuario, cargo: usuario.cargo?.trim() || 'Consultor' };
       const { data, error } = await supabase
         .from('usuarios' as any)
-        .insert(usuario as any)
+        .insert(payload as any)
         .select()
         .single();
       if (error) throw error;
