@@ -965,8 +965,16 @@ export default function GerarOrcamentoDialog({
                             <p className="text-xs text-muted-foreground">{item.segmento}</p>
                           </div>
                           
-                          <div className="text-right text-sm">
-                            <p className="text-muted-foreground">{formatCurrency(item.preco_unitario)}/un</p>
+                          <div className="flex flex-col items-end gap-1">
+                            <Label className="text-[10px] text-muted-foreground">Preço unit.</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              className="w-28 h-8 text-right"
+                              value={item.preco_unitario}
+                              onChange={(e) => handleUpdateItemPreco(index, parseFloat(e.target.value))}
+                            />
                           </div>
 
                           <div className="flex rounded-lg border overflow-hidden">
@@ -1024,6 +1032,46 @@ export default function GerarOrcamentoDialog({
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
+
+                        {(() => {
+                          const info = getItemMargemInfo(index);
+                          if (!info) return null;
+                          const liberada = precoLiberadoIdxs.includes(index);
+                          const precoAlterado = arredondarReais(item.preco_unitario) !== arredondarReais(info.precoOriginal);
+                          return (
+                            <div className={cn(
+                              'flex flex-wrap items-center gap-2 px-2 py-1.5 rounded border text-xs',
+                              info.validacao.bgColor,
+                              info.validacao.borderColor
+                            )}>
+                              <Badge variant="outline" className={cn('text-[11px]', info.validacao.color)}>
+                                Margem: {info.margem.toFixed(1)}%
+                              </Badge>
+                              <span className={cn('text-[11px]', info.validacao.color)}>
+                                {info.validacao.mensagem}
+                              </span>
+                              {info.validacao.status === 'baixa' && liberada && (
+                                <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">
+                                  Liberado por senha
+                                </Badge>
+                              )}
+                              <span className="text-[11px] text-muted-foreground ml-auto">
+                                Preço padrão: {formatCurrency(info.precoOriginal)}
+                              </span>
+                              {precoAlterado && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-[11px]"
+                                  onClick={() => handleRestaurarPreco(index)}
+                                >
+                                  Restaurar
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {item.modelo_negocio !== 'print_on_demand' && (
                           <div className="grid grid-cols-4 gap-2 pt-2 border-t">
