@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   calcularCustosPorTipo,
+  calcularEnergiaPorTipo,
   TIPOS_PRODUTO_KEYS,
   TIPO_PRODUTO_LABELS,
   type TipoProdutoKey,
@@ -19,11 +20,16 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { arredondarReais } from '@/lib/utils';
 import { toast } from 'sonner';
 
+interface DespesaAdmin {
+  id: string;
+  nome: string;
+  custo_mensal: string;
+}
+
 interface FormState {
   taxa_perca: string;
   folha_producao: string;
-  folha_administrativa: string;
-  energia_eletrica: string;
+  energia_eletrica_mensal: string;
   depreciacao_maquinas: string;
   capacidade_encapsulados: string;
   capacidade_soluvel: string;
@@ -34,8 +40,7 @@ interface FormState {
 const blankForm: FormState = {
   taxa_perca: '20',
   folha_producao: '0',
-  folha_administrativa: '0',
-  energia_eletrica: '0',
+  energia_eletrica_mensal: '0',
   depreciacao_maquinas: '0',
   capacidade_encapsulados: '0',
   capacidade_soluvel: '0',
@@ -47,8 +52,7 @@ function toForm(c: any): FormState {
   return {
     taxa_perca: String(c?.taxa_perca ?? 20),
     folha_producao: String(c?.folha_producao ?? 0),
-    folha_administrativa: String(c?.folha_administrativa ?? 0),
-    energia_eletrica: String(c?.energia_eletrica ?? 0),
+    energia_eletrica_mensal: String(c?.energia_eletrica_mensal ?? c?.energia_eletrica_total_mensal ?? ''),
     depreciacao_maquinas: String(c?.depreciacao_maquinas ?? 0),
     capacidade_encapsulados: String(c?.capacidade_encapsulados ?? 0),
     capacidade_soluvel: String(c?.capacidade_soluvel ?? 0),
@@ -62,15 +66,53 @@ const num = (v: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+function novaDespesa(nome = '', custo = 0): DespesaAdmin {
+  return {
+    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()),
+    nome,
+    custo_mensal: String(custo),
+  };
+}
+
 export function VariaveisEstruturaisForm() {
   const { configuracaoAtiva, updateConfiguracao } = useConfiguracaoCustos();
   const { registrarHistorico } = useHistoricoConfiguracao();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(blankForm);
+  const [despesas, setDespesas] = useState<DespesaAdmin[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (configuracaoAtiva) setForm(toForm(configuracaoAtiva));
+    if (!configuracaoAtiva) return;
+    const c: any = configuracaoAtiva;
+    // Energia mensal: prefere derivar de energia_por_tipo × capacidade (se houver), senão usa legado × capacidade total
+    const ept = (c.energia_por_tipo || {}) as Record<string, number>;
+    const capEnc = Number(c.capacidade_encapsulados ?? 0);
+    const capSol = Number(c.capacidade_soluvel ?? 0);
+    const capGum = Number(c.capacidade_gummy ?? 0);
+    const capLiq = Number(c.capacidade_liquido ?? 0);
+    let energiaMensal = 0;
+    if (ept.encapsulados && capEnc) energiaMensal = ept.encapsulados * capEnc;
+    else if (ept.soluvel && capSol) energiaMensal = ept.soluvel * capSol;
+    else if (ept.gummy && capGum) energiaMensal = ept.gummy * capGum;
+    else if (ept.liquido && capLiq) energiaMensal = ept.liquido * capLiq;
+    else energiaMensal = Number(c.energia_eletrica ?? 0) * (capEnc + capSol + capGum + capLiq);
+    setForm({ ...toForm(c), energia_eletrica_mensal: String(arredondarReais(energiaMensal)) });
+
+    const lista = Array.isArray(c.despesas_admin_lista) ? c.despesas_admin_lista : [];
+    if (lista.length) {
+      setDespesas(
+        lista.map((d: any) => ({
+          id: d.id || (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())),
+          nome: String(d.nome ?? ''),
+          custo_mensal: String(d.custo_mensal ?? 0),
+        }))
+      );
+    } else if (Number(c.folha_administrativa ?? 0) > 0) {
+      setDespesas([novaDespesa('Folha Administrativa', Number(c.folha_administrativa))]);
+    } else {
+      setDespesas([]);
+    }
   }, [configuracaoAtiva]);
 
   const capacidades = useMemo(
@@ -83,17 +125,51 @@ export function VariaveisEstruturaisForm() {
     [form.capacidade_encapsulados, form.capacidade_soluvel, form.capacidade_gummy, form.capacidade_liquido]
   );
 
-  const custosPorTipo = useMemo(
-    () => calcularCustosPorTipo(num(form.folha_producao), num(form.folha_administrativa), capacidades),
-    [form.folha_producao, form.folha_administrativa, capacidades]
+  const totalDespesasMensal = useMemo(
+    () => despesas.reduce((acc, d) => acc + num(d.custo_mensal), 0),
+    [despesas]
   );
+
+  const custosPorTipo = useMemo(
+    () => calcularCustosPorTipo(num(form.folha_producao), totalDespesasMensal, capacidades),
+    [form.folha_producao, totalDespesasMensal, capacidades]
+  );
+
+  const energiaPorTipo = useMemo(
+    () => calcularEnergiaPorTipo(num(form.energia_eletrica_mensal), capacidades),
+    [form.energia_eletrica_mensal, capacidades]
+  );
+
+  const diluirPorTipo = (custoMensal: number) =>
+    TIPOS_PRODUTO_KEYS.reduce((acc, k) => {
+      acc[k] = capacidades[k] > 0 ? arredondarReais(custoMensal / capacidades[k]) : 0;
+      return acc;
+    }, {} as Record<TipoProdutoKey, number>);
 
   const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const updateDespesa = (id: string, campo: 'nome' | 'custo_mensal', valor: string) =>
+    setDespesas((arr) => arr.map((d) => (d.id === id ? { ...d, [campo]: valor } : d)));
+
+  const removerDespesa = (id: string) =>
+    setDespesas((arr) => arr.filter((d) => d.id !== id));
+
+  const adicionarDespesa = () =>
+    setDespesas((arr) => [...arr, novaDespesa()]);
+
   const handleResetar = () => {
     if (configuracaoAtiva) {
       setForm(toForm(configuracaoAtiva));
+      const c: any = configuracaoAtiva;
+      const lista = Array.isArray(c.despesas_admin_lista) ? c.despesas_admin_lista : [];
+      setDespesas(
+        lista.map((d: any) => ({
+          id: d.id || (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())),
+          nome: String(d.nome ?? ''),
+          custo_mensal: String(d.custo_mensal ?? 0),
+        }))
+      );
       toast.info('Alterações descartadas');
     }
   };
@@ -103,33 +179,48 @@ export function VariaveisEstruturaisForm() {
     setSaving(true);
     try {
       const folhaProducao = num(form.folha_producao);
-      const folhaAdmin = num(form.folha_administrativa);
+      const folhaAdmin = totalDespesasMensal;
+      const energiaMensal = num(form.energia_eletrica_mensal);
       const taxaPerca = num(form.taxa_perca);
 
       const custos = calcularCustosPorTipo(folhaProducao, folhaAdmin, capacidades);
+      const energias = calcularEnergiaPorTipo(energiaMensal, capacidades);
 
       // Cache jsonb por tipo
       const modPorTipo: Record<string, number> = {};
       const adminPorTipo: Record<string, number> = {};
+      const energiaPorTipoMap: Record<string, number> = {};
       TIPOS_PRODUTO_KEYS.forEach((k) => {
         modPorTipo[k] = custos[k].mod;
         adminPorTipo[k] = custos[k].admin;
+        energiaPorTipoMap[k] = energias[k];
       });
 
       // Compatibilidade: campos legados recebem média ponderada por capacidade
       const totalCap = Object.values(capacidades).reduce((a, b) => a + b, 0);
       const modLegado = totalCap > 0
         ? arredondarReais(folhaProducao / totalCap)
-        : num(form.energia_eletrica) ? Number(configuracaoAtiva.mao_obra_direta) : 0;
+        : Number(configuracaoAtiva.mao_obra_direta) || 0;
       const adminLegado = totalCap > 0
         ? arredondarReais(folhaAdmin / totalCap)
         : Number(configuracaoAtiva.despesas_administrativas);
+      const energiaLegada = totalCap > 0
+        ? arredondarReais(energiaMensal / totalCap)
+        : Number(configuracaoAtiva.energia_eletrica) || 0;
+
+      const despesasParaSalvar = despesas
+        .filter((d) => d.nome.trim() || num(d.custo_mensal) > 0)
+        .map((d) => ({
+          id: d.id,
+          nome: d.nome.trim() || 'Despesa',
+          custo_mensal: arredondarReais(num(d.custo_mensal)),
+        }));
 
       const novoSnapshot = {
         taxa_perca: taxaPerca,
         folha_producao: folhaProducao,
         folha_administrativa: folhaAdmin,
-        energia_eletrica: num(form.energia_eletrica),
+        energia_eletrica: energiaLegada,
         depreciacao_maquinas: num(form.depreciacao_maquinas),
         capacidade_encapsulados: capacidades.encapsulados,
         capacidade_soluvel: capacidades.soluvel,
@@ -137,6 +228,8 @@ export function VariaveisEstruturaisForm() {
         capacidade_liquido: capacidades.liquido,
         mao_obra_direta_por_tipo: modPorTipo,
         despesas_admin_por_tipo: adminPorTipo,
+        energia_por_tipo: energiaPorTipoMap,
+        despesas_admin_lista: despesasParaSalvar,
         mao_obra_direta: modLegado,
         despesas_administrativas: adminLegado,
       };
@@ -153,6 +246,8 @@ export function VariaveisEstruturaisForm() {
         capacidade_liquido: Number((configuracaoAtiva as any).capacidade_liquido ?? 0),
         mao_obra_direta_por_tipo: (configuracaoAtiva as any).mao_obra_direta_por_tipo ?? {},
         despesas_admin_por_tipo: (configuracaoAtiva as any).despesas_admin_por_tipo ?? {},
+        energia_por_tipo: (configuracaoAtiva as any).energia_por_tipo ?? {},
+        despesas_admin_lista: (configuracaoAtiva as any).despesas_admin_lista ?? [],
         mao_obra_direta: Number(configuracaoAtiva.mao_obra_direta),
         despesas_administrativas: Number(configuracaoAtiva.despesas_administrativas),
       };
