@@ -5,6 +5,7 @@ import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
+import { arredondarReais } from '@/lib/utils';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -145,6 +146,92 @@ export default function GerarOrcamentoDialog({
   const [senhaMargemOrcInput, setSenhaMargemOrcInput] = useState('');
   const [margemOrcLiberadaIds, setMargemOrcLiberadaIds] = useState<string[]>([]);
   const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
+
+  // ── Edição de preço por item (negociação) ──
+  // Dados auxiliares por precificacao_id (custo unitário e preço original do catálogo)
+  const [itemPrecoAux, setItemPrecoAux] = useState<Record<string, { custoUnit: number; precoOriginal: number }>>({});
+  // Índices de itens cuja margem abaixo do mínimo foi liberada por senha
+  const [precoLiberadoIdxs, setPrecoLiberadoIdxs] = useState<number[]>([]);
+  // Dialog de senha para liberar preço abaixo do mínimo
+  const [senhaPrecoDialog, setSenhaPrecoDialog] = useState(false);
+  const [senhaPrecoInput, setSenhaPrecoInput] = useState('');
+  const [pendingPreco, setPendingPreco] = useState<{ index: number; novoPreco: number } | null>(null);
+
+  // Calcula margem efetiva (líquida) de um item dado preço e custo unitário
+  // Mesma fórmula do setup: margem = (1 - custo/preco - impostos) * 100, impostos = 16%
+  const calcMargemItem = (preco: number, custoUnit: number) => {
+    if (preco <= 0) return 0;
+    return (1 - custoUnit / preco - 0.16) * 100;
+  };
+
+  // Retorna info de margem do item (ou null se não há custo conhecido)
+  const getItemMargemInfo = (index: number) => {
+    const item = itensProducao[index];
+    if (!item || !item.precificacao_id) return null;
+    const aux = itemPrecoAux[item.precificacao_id];
+    if (!aux || aux.custoUnit <= 0) return null;
+    const margem = calcMargemItem(item.preco_unitario, aux.custoUnit);
+    const validacao = validarMargemPorTipo(margem, item.segmento || 'Encapsulados');
+    return { margem, validacao, custoUnit: aux.custoUnit, precoOriginal: aux.precoOriginal };
+  };
+
+  const aplicarPrecoNoItem = (index: number, novoPreco: number) => {
+    setItensProducao(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const qtd = item.modelo_negocio === 'print_on_demand' ? 0 : (item.quantidade || 1);
+      return {
+        ...item,
+        preco_unitario: arredondarReais(novoPreco),
+        subtotal: arredondarReais(novoPreco * qtd),
+      };
+    }));
+  };
+
+  const handleUpdateItemPreco = (index: number, novoPrecoRaw: number) => {
+    const novoPreco = isNaN(novoPrecoRaw) ? 0 : novoPrecoRaw;
+    const item = itensProducao[index];
+    if (!item) return;
+    const aux = item.precificacao_id ? itemPrecoAux[item.precificacao_id] : null;
+    // Sem custo conhecido (avulso) — aplica livremente
+    if (!aux || aux.custoUnit <= 0) {
+      aplicarPrecoNoItem(index, novoPreco);
+      return;
+    }
+    const margem = calcMargemItem(novoPreco, aux.custoUnit);
+    const validacao = validarMargemPorTipo(margem, item.segmento || 'Encapsulados');
+    if (validacao.status === 'baixa' && !precoLiberadoIdxs.includes(index)) {
+      // pede senha
+      setPendingPreco({ index, novoPreco });
+      setSenhaPrecoDialog(true);
+      return;
+    }
+    aplicarPrecoNoItem(index, novoPreco);
+  };
+
+  const handleRestaurarPreco = (index: number) => {
+    const item = itensProducao[index];
+    if (!item?.precificacao_id) return;
+    const aux = itemPrecoAux[item.precificacao_id];
+    if (!aux) return;
+    aplicarPrecoNoItem(index, aux.precoOriginal);
+    setPrecoLiberadoIdxs(prev => prev.filter(i => i !== index));
+  };
+
+  const confirmarSenhaPreco = () => {
+    if (senhaPrecoInput !== SENHA_LIBERACAO_MARGEM) {
+      toast.error('Senha incorreta!');
+      setSenhaPrecoInput('');
+      return;
+    }
+    if (pendingPreco) {
+      setPrecoLiberadoIdxs(prev => [...prev, pendingPreco.index]);
+      aplicarPrecoNoItem(pendingPreco.index, pendingPreco.novoPreco);
+    }
+    setSenhaPrecoDialog(false);
+    setSenhaPrecoInput('');
+    setPendingPreco(null);
+    toast.success('Preço liberado!');
+  };
 
   // ── Derive setup quantities from products ──
   const numProdutos = itensProducao.length;
@@ -352,6 +439,20 @@ export default function GerarOrcamentoDialog({
     );
     
     setItensProducao(prev => [...prev, ...novasItems]);
+    // popular auxiliar (custo unitário e preço original) por precificacao_id
+    setItemPrecoAux(prev => {
+      const next = { ...prev };
+      selectedPrecificacoes.forEach(precId => {
+        const prec = (precificacoes as any[])?.find(p => p.id === precId);
+        if (prec) {
+          next[precId] = {
+            custoUnit: Number(prec.total_custos_producao) || 0,
+            precoOriginal: Number(prec.preco_venda) || 0,
+          };
+        }
+      });
+      return next;
+    });
     setSelectedPrecificacoes([]);
     setShowPrecificacaoSelector(false);
   };
@@ -395,6 +496,10 @@ export default function GerarOrcamentoDialog({
 
   const handleRemoveItem = (index: number) => {
     setItensProducao(prev => prev.filter((_, i) => i !== index));
+    setPrecoLiberadoIdxs(prev => prev
+      .filter(i => i !== index)
+      .map(i => (i > index ? i - 1 : i))
+    );
   };
 
   const handleSubmit = async () => {
@@ -468,7 +573,17 @@ export default function GerarOrcamentoDialog({
       const temTelefone = tel.length >= 10;
       return temNome && temConsultor && temTelefone;
     }
-    if (step === 2) return itensProducao.length > 0;
+    if (step === 2) {
+      if (itensProducao.length === 0) return false;
+      // Bloqueia se algum item tiver margem abaixo do mínimo e não estiver liberado
+      for (let i = 0; i < itensProducao.length; i++) {
+        const info = getItemMargemInfo(i);
+        if (info && info.validacao.status === 'baixa' && !precoLiberadoIdxs.includes(i)) {
+          return false;
+        }
+      }
+      return true;
+    }
     if (step === 3) {
       // Block if margin is below minimum and not unlocked
       if (custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) return false;
@@ -850,8 +965,16 @@ export default function GerarOrcamentoDialog({
                             <p className="text-xs text-muted-foreground">{item.segmento}</p>
                           </div>
                           
-                          <div className="text-right text-sm">
-                            <p className="text-muted-foreground">{formatCurrency(item.preco_unitario)}/un</p>
+                          <div className="flex flex-col items-end gap-1">
+                            <Label className="text-[10px] text-muted-foreground">Preço unit.</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min={0}
+                              className="w-28 h-8 text-right"
+                              value={item.preco_unitario}
+                              onChange={(e) => handleUpdateItemPreco(index, parseFloat(e.target.value))}
+                            />
                           </div>
 
                           <div className="flex rounded-lg border overflow-hidden">
@@ -909,6 +1032,46 @@ export default function GerarOrcamentoDialog({
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
+
+                        {(() => {
+                          const info = getItemMargemInfo(index);
+                          if (!info) return null;
+                          const liberada = precoLiberadoIdxs.includes(index);
+                          const precoAlterado = arredondarReais(item.preco_unitario) !== arredondarReais(info.precoOriginal);
+                          return (
+                            <div className={cn(
+                              'flex flex-wrap items-center gap-2 px-2 py-1.5 rounded border text-xs',
+                              info.validacao.bgColor,
+                              info.validacao.borderColor
+                            )}>
+                              <Badge variant="outline" className={cn('text-[11px]', info.validacao.color)}>
+                                Margem: {info.margem.toFixed(1)}%
+                              </Badge>
+                              <span className={cn('text-[11px]', info.validacao.color)}>
+                                {info.validacao.mensagem}
+                              </span>
+                              {info.validacao.status === 'baixa' && liberada && (
+                                <Badge variant="outline" className="text-[10px] border-yellow-500 text-yellow-600">
+                                  Liberado por senha
+                                </Badge>
+                              )}
+                              <span className="text-[11px] text-muted-foreground ml-auto">
+                                Preço padrão: {formatCurrency(info.precoOriginal)}
+                              </span>
+                              {precoAlterado && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-2 text-[11px]"
+                                  onClick={() => handleRestaurarPreco(index)}
+                                >
+                                  Restaurar
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {item.modelo_negocio !== 'print_on_demand' && (
                           <div className="grid grid-cols-4 gap-2 pt-2 border-t">
@@ -1708,6 +1871,39 @@ export default function GerarOrcamentoDialog({
           }}>
             Confirmar
           </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Dialog de senha para liberar preço com margem abaixo do mínimo (negociação) */}
+    <Dialog open={senhaPrecoDialog} onOpenChange={(open) => {
+      setSenhaPrecoDialog(open);
+      if (!open) { setSenhaPrecoInput(''); setPendingPreco(null); }
+    }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Preço abaixo da margem mínima</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          O preço informado deixa este produto com margem abaixo do mínimo permitido para o tipo. Digite a senha para liberar.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaPrecoInput}
+          onChange={(e) => setSenhaPrecoInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') confirmarSenhaPreco(); }}
+          autoFocus
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => {
+            setSenhaPrecoDialog(false);
+            setSenhaPrecoInput('');
+            setPendingPreco(null);
+          }}>
+            Cancelar
+          </Button>
+          <Button onClick={confirmarSenhaPreco}>Confirmar</Button>
         </div>
       </DialogContent>
     </Dialog>
