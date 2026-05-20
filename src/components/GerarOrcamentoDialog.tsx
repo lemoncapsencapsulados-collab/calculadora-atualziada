@@ -439,6 +439,20 @@ export default function GerarOrcamentoDialog({
     );
     
     setItensProducao(prev => [...prev, ...novasItems]);
+    // popular auxiliar (custo unitário e preço original) por precificacao_id
+    setItemPrecoAux(prev => {
+      const next = { ...prev };
+      selectedPrecificacoes.forEach(precId => {
+        const prec = (precificacoes as any[])?.find(p => p.id === precId);
+        if (prec) {
+          next[precId] = {
+            custoUnit: Number(prec.total_custos_producao) || 0,
+            precoOriginal: Number(prec.preco_venda) || 0,
+          };
+        }
+      });
+      return next;
+    });
     setSelectedPrecificacoes([]);
     setShowPrecificacaoSelector(false);
   };
@@ -482,6 +496,10 @@ export default function GerarOrcamentoDialog({
 
   const handleRemoveItem = (index: number) => {
     setItensProducao(prev => prev.filter((_, i) => i !== index));
+    setPrecoLiberadoIdxs(prev => prev
+      .filter(i => i !== index)
+      .map(i => (i > index ? i - 1 : i))
+    );
   };
 
   const handleSubmit = async () => {
