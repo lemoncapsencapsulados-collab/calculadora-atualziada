@@ -321,7 +321,7 @@ export function VariaveisEstruturaisForm() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Folhas de pagamento mensais</CardTitle>
+          <CardTitle className="text-lg">Folha da Produção</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -330,9 +330,11 @@ export function VariaveisEstruturaisForm() {
             <p className="text-xs text-muted-foreground mt-1">Alimenta o cálculo de Mão de Obra Direta.</p>
           </div>
           <div>
-            <Label>Folha Administrativa (R$/mês)</Label>
-            <Input {...numericProps} value={form.folha_administrativa} onChange={set('folha_administrativa')} />
-            <p className="text-xs text-muted-foreground mt-1">Alimenta o cálculo de Despesas Administrativas.</p>
+            <Label>Energia Elétrica (R$/mês)</Label>
+            <Input {...numericProps} value={form.energia_eletrica_mensal} onChange={set('energia_eletrica_mensal')} />
+            <p className="text-xs text-muted-foreground mt-1">
+              Diluída por tipo de produto conforme a capacidade mensal.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -363,7 +365,7 @@ export function VariaveisEstruturaisForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Custo unitário derivado (Folha ÷ Capacidade)</CardTitle>
+          <CardTitle className="text-lg">Custo unitário derivado (Mensal ÷ Capacidade)</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           {TIPOS_PRODUTO_KEYS.map((k: TipoProdutoKey) => (
@@ -371,6 +373,8 @@ export function VariaveisEstruturaisForm() {
               <div className="text-sm font-semibold text-foreground mb-2">{TIPO_PRODUTO_LABELS[k]}</div>
               <div className="text-xs text-muted-foreground">Mão de Obra Direta</div>
               <div className="text-base font-bold text-primary mb-2">{formatCurrency(custosPorTipo[k].mod)}</div>
+              <div className="text-xs text-muted-foreground">Energia Elétrica</div>
+              <div className="text-base font-bold text-primary mb-2">{formatCurrency(energiaPorTipo[k])}</div>
               <div className="text-xs text-muted-foreground">Despesas Administrativas</div>
               <div className="text-base font-bold text-primary">{formatCurrency(custosPorTipo[k].admin)}</div>
               <Separator className="my-2" />
@@ -378,7 +382,10 @@ export function VariaveisEstruturaisForm() {
                 MOD = {formatCurrency(num(form.folha_producao))} ÷ {capacidades[k] || 0}
               </div>
               <div className="text-xs text-muted-foreground">
-                Admin = {formatCurrency(num(form.folha_administrativa))} ÷ {capacidades[k] || 0}
+                Energia = {formatCurrency(num(form.energia_eletrica_mensal))} ÷ {capacidades[k] || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Admin = {formatCurrency(totalDespesasMensal)} ÷ {capacidades[k] || 0}
               </div>
             </div>
           ))}
@@ -387,13 +394,101 @@ export function VariaveisEstruturaisForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Outros custos diretos e Taxa de Perca</CardTitle>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Despesas Administrativas</span>
+            <Button size="sm" variant="outline" onClick={adicionarDespesa}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar despesa
+            </Button>
+          </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <Label>Energia Elétrica (R$/un)</Label>
-            <Input {...numericProps} value={form.energia_eletrica} onChange={set('energia_eletrica')} />
+        <CardContent className="space-y-3">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-2 font-medium">Nome da despesa</th>
+                  <th className="py-2 pr-2 font-medium w-40">Custo mensal</th>
+                  <th className="py-2 px-2 font-medium text-center" colSpan={TIPOS_PRODUTO_KEYS.length}>
+                    Diluído por pote
+                  </th>
+                  <th className="py-2 pl-2 font-medium w-10"></th>
+                </tr>
+                <tr className="border-b text-left text-[11px] text-muted-foreground">
+                  <th></th>
+                  <th></th>
+                  {TIPOS_PRODUTO_KEYS.map((k) => (
+                    <th key={k} className="py-1 px-2 text-center font-medium">{TIPO_PRODUTO_LABELS[k]}</th>
+                  ))}
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {despesas.length === 0 && (
+                  <tr>
+                    <td colSpan={3 + TIPOS_PRODUTO_KEYS.length} className="py-4 text-center text-muted-foreground text-xs">
+                      Nenhuma despesa cadastrada. Clique em "Adicionar despesa".
+                    </td>
+                  </tr>
+                )}
+                {despesas.map((d) => {
+                  const diluido = diluirPorTipo(num(d.custo_mensal));
+                  return (
+                    <tr key={d.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-2">
+                        <Input
+                          placeholder="Ex.: Aluguel, Contabilidade…"
+                          value={d.nome}
+                          onChange={(e) => updateDespesa(d.id, 'nome', e.target.value)}
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <Input
+                          {...numericProps}
+                          value={d.custo_mensal}
+                          onChange={(e) => updateDespesa(d.id, 'custo_mensal', e.target.value)}
+                        />
+                      </td>
+                      {TIPOS_PRODUTO_KEYS.map((k) => (
+                        <td key={k} className="py-2 px-2 text-center text-xs text-muted-foreground">
+                          {formatCurrency(diluido[k])}
+                        </td>
+                      ))}
+                      <td className="py-2 pl-2 text-right">
+                        <Button size="icon" variant="ghost" onClick={() => removerDespesa(d.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 font-semibold bg-muted/30">
+                  <td className="py-2 pr-2">TOTAL</td>
+                  <td className="py-2 pr-2 text-primary">{formatCurrency(totalDespesasMensal)}</td>
+                  {TIPOS_PRODUTO_KEYS.map((k) => (
+                    <td key={k} className="py-2 px-2 text-center text-primary">
+                      {formatCurrency(
+                        capacidades[k] > 0 ? arredondarReais(totalDespesasMensal / capacidades[k]) : 0
+                      )}
+                    </td>
+                  ))}
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
+          <p className="text-xs text-muted-foreground">
+            A soma das despesas substitui o antigo campo "Folha Administrativa" e é diluída por tipo de produto conforme a capacidade mensal.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Depreciação e Taxa de Perca</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Depreciação de Máquinas (R$/un)</Label>
             <Input {...numericProps} value={form.depreciacao_maquinas} onChange={set('depreciacao_maquinas')} />
