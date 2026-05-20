@@ -1875,6 +1875,39 @@ export default function GerarOrcamentoDialog({
       </DialogContent>
     </Dialog>
 
+    {/* Dialog de senha para liberar preço com margem abaixo do mínimo (negociação) */}
+    <Dialog open={senhaPrecoDialog} onOpenChange={(open) => {
+      setSenhaPrecoDialog(open);
+      if (!open) { setSenhaPrecoInput(''); setPendingPreco(null); }
+    }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Preço abaixo da margem mínima</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          O preço informado deixa este produto com margem abaixo do mínimo permitido para o tipo. Digite a senha para liberar.
+        </p>
+        <Input
+          type="password"
+          placeholder="Digite a senha..."
+          value={senhaPrecoInput}
+          onChange={(e) => setSenhaPrecoInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') confirmarSenhaPreco(); }}
+          autoFocus
+        />
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={() => {
+            setSenhaPrecoDialog(false);
+            setSenhaPrecoInput('');
+            setPendingPreco(null);
+          }}>
+            Cancelar
+          </Button>
+          <Button onClick={confirmarSenhaPreco}>Confirmar</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     {/* Dialog de senha para liberação de margem do setup */}
     <Dialog open={senhaSetupDialog} onOpenChange={setSenhaSetupDialog}>
       <DialogContent className="max-w-sm">
