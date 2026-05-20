@@ -573,7 +573,17 @@ export default function GerarOrcamentoDialog({
       const temTelefone = tel.length >= 10;
       return temNome && temConsultor && temTelefone;
     }
-    if (step === 2) return itensProducao.length > 0;
+    if (step === 2) {
+      if (itensProducao.length === 0) return false;
+      // Bloqueia se algum item tiver margem abaixo do mínimo e não estiver liberado
+      for (let i = 0; i < itensProducao.length; i++) {
+        const info = getItemMargemInfo(i);
+        if (info && info.validacao.status === 'baixa' && !precoLiberadoIdxs.includes(i)) {
+          return false;
+        }
+      }
+      return true;
+    }
     if (step === 3) {
       // Block if margin is below minimum and not unlocked
       if (custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) return false;
