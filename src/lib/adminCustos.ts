@@ -67,21 +67,41 @@ export function calcularCustosPorTipo(
 }
 
 /**
+ * Custo de energia por unidade para cada tipo = Energia mensal ÷ capacidade do tipo
+ */
+export function calcularEnergiaPorTipo(
+  energiaMensal: number,
+  capacidades: CapacidadesPorTipo
+): Record<TipoProdutoKey, number> {
+  const calcUm = (cap: number) =>
+    cap > 0 ? arredondarReais(energiaMensal / cap) : 0;
+  return {
+    encapsulados: calcUm(capacidades.encapsulados),
+    soluvel: calcUm(capacidades.soluvel),
+    gummy: calcUm(capacidades.gummy),
+    liquido: calcUm(capacidades.liquido),
+  };
+}
+
+/**
  * Pega o custo de MOD/Admin para um tipo específico, com fallback no valor legado da config.
  */
 export function getCustosParaTipo(
   config: any,
   tipoProduto?: string | null
-): { mod: number; admin: number } {
+): { mod: number; admin: number; energia: number } {
   const key = tipoProdutoToKey(tipoProduto);
   const modPorTipo = config?.mao_obra_direta_por_tipo as Record<string, number> | undefined;
   const adminPorTipo = config?.despesas_admin_por_tipo as Record<string, number> | undefined;
+  const energiaPorTipo = config?.energia_por_tipo as Record<string, number> | undefined;
 
   const mod = Number(modPorTipo?.[key]);
   const admin = Number(adminPorTipo?.[key]);
+  const energia = Number(energiaPorTipo?.[key]);
 
   return {
     mod: Number.isFinite(mod) && mod > 0 ? mod : Number(config?.mao_obra_direta) || 0,
     admin: Number.isFinite(admin) && admin > 0 ? admin : Number(config?.despesas_administrativas) || 0,
+    energia: Number.isFinite(energia) && energia >= 0 ? energia : Number(config?.energia_eletrica) || 0,
   };
 }
