@@ -216,6 +216,12 @@ export default function PrecificacoesSalvas({
 
   const typedPrecificacoes = precificacoes as PrecificacaoComFormula[];
 
+  const ehCatalogo = (p: PrecificacaoComFormula) => {
+    if (catalogoOnly) return true;
+    const cliente = (p.formulas?.cliente || '').toLowerCase();
+    return cliente.includes('catálogo') || cliente.includes('catalogo');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header com Busca e Botão Gerar Orçamento */}
