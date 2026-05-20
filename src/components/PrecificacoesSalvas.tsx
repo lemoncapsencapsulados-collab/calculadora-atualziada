@@ -334,26 +334,35 @@ export default function PrecificacoesSalvas({
                       <Eye className="w-4 h-4 mr-2" />
                       Ver Fórmula
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setEditandoPrecificacao(precificacao)}
-                    >
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setDuplicarPrecificacao(precificacao);
-                        setDuplicarCliente(precificacao.formulas?.cliente || '');
-                        setDuplicarFormula(precificacao.formulas?.nome_formula || '');
-                      }}
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Duplicar
-                    </Button>
+                    {!ehCatalogo(precificacao) && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setEditandoPrecificacao(precificacao)}
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDuplicarPrecificacao(precificacao);
+                            setDuplicarCliente(precificacao.formulas?.cliente || '');
+                            setDuplicarFormula(precificacao.formulas?.nome_formula || '');
+                          }}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicar
+                        </Button>
+                      </>
+                    )}
+                    {ehCatalogo(precificacao) && (
+                      <Badge variant="outline" className="text-[10px] justify-center whitespace-normal text-center leading-tight">
+                        Preço padrão — ajuste no orçamento
+                      </Badge>
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm"
