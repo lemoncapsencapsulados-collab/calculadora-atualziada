@@ -43,14 +43,14 @@ export async function aplicarPrazoPreco(prazoId: string): Promise<{ orcamentos: 
         .maybeSingle();
 
       const tipo = (formula as any)?.tipo_produto;
-      const { mod, admin } = getCustosParaTipo(config, tipo);
+      const { mod, admin, energia } = getCustosParaTipo(config, tipo);
       const custosBase = {
         custoMateriaPrima: Number((formula as any)?.total_mp ?? p.custo_materia_prima),
         custoEmbalagem: Number((formula as any)?.total_embalagem ?? p.custo_embalagem),
       };
       const custosIndiretos = {
         maoObraDireta: mod,
-        energia: Number(config.energia_eletrica) || 0,
+        energia,
         depreciacao: Number(config.depreciacao_maquinas) || 0,
         administrativo: admin,
       };
