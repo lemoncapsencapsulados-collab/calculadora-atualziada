@@ -365,35 +365,6 @@ export function VariaveisEstruturaisForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Custo unitário derivado (Mensal ÷ Capacidade)</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          {TIPOS_PRODUTO_KEYS.map((k: TipoProdutoKey) => (
-            <div key={k} className="rounded-lg border bg-muted/30 p-3">
-              <div className="text-sm font-semibold text-foreground mb-2">{TIPO_PRODUTO_LABELS[k]}</div>
-              <div className="text-xs text-muted-foreground">Mão de Obra Direta</div>
-              <div className="text-base font-bold text-primary mb-2">{formatCurrency(custosPorTipo[k].mod)}</div>
-              <div className="text-xs text-muted-foreground">Energia Elétrica</div>
-              <div className="text-base font-bold text-primary mb-2">{formatCurrency(energiaPorTipo[k])}</div>
-              <div className="text-xs text-muted-foreground">Despesas Administrativas</div>
-              <div className="text-base font-bold text-primary">{formatCurrency(custosPorTipo[k].admin)}</div>
-              <Separator className="my-2" />
-              <div className="text-xs text-muted-foreground">
-                MOD = {formatCurrency(num(form.folha_producao))} ÷ {capacidades[k] || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Energia = {formatCurrency(num(form.energia_eletrica_mensal))} ÷ {capacidades[k] || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Admin = {formatCurrency(totalDespesasMensal)} ÷ {capacidades[k] || 0}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
             <span>Despesas Administrativas</span>
             <Button size="sm" variant="outline" onClick={adicionarDespesa}>
@@ -481,6 +452,37 @@ export function VariaveisEstruturaisForm() {
           <p className="text-xs text-muted-foreground">
             A soma das despesas substitui o antigo campo "Folha Administrativa" e é diluída por tipo de produto conforme a capacidade mensal.
           </p>
+        </CardContent>
+      </Card>
+
+      <Separator className="my-6" />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Custo unitário derivado (Mensal ÷ Capacidade)</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {TIPOS_PRODUTO_KEYS.map((k: TipoProdutoKey) => (
+            <div key={k} className="rounded-lg border bg-muted/30 p-3">
+              <div className="text-sm font-semibold text-foreground mb-2">{TIPO_PRODUTO_LABELS[k]}</div>
+              <div className="text-xs text-muted-foreground">Mão de Obra Direta</div>
+              <div className="text-base font-bold text-primary mb-2">{formatCurrency(custosPorTipo[k].mod)}</div>
+              <div className="text-xs text-muted-foreground">Energia Elétrica</div>
+              <div className="text-base font-bold text-primary mb-2">{formatCurrency(energiaPorTipo[k])}</div>
+              <div className="text-xs text-muted-foreground">Despesas Administrativas</div>
+              <div className="text-base font-bold text-primary">{formatCurrency(custosPorTipo[k].admin)}</div>
+              <Separator className="my-2" />
+              <div className="text-xs text-muted-foreground">
+                MOD = {formatCurrency(num(form.folha_producao))} ÷ {capacidades[k] || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Energia = {formatCurrency(num(form.energia_eletrica_mensal))} ÷ {capacidades[k] || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Admin = {formatCurrency(totalDespesasMensal)} ÷ {capacidades[k] || 0}
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
