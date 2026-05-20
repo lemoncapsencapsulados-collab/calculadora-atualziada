@@ -15,8 +15,8 @@ import { calcularPrecificacaoPorPreco } from '@/lib/precificacaoCalculator';
 const LABELS: Record<string, string> = {
   taxa_perca: 'Taxa de Perca (%)',
   folha_producao: 'Folha da Produção',
-  folha_administrativa: 'Folha Administrativa',
-  energia_eletrica: 'Energia Elétrica (R$/un)',
+  folha_administrativa: 'Despesas Administrativas (R$/mês)',
+  energia_eletrica: 'Energia Elétrica média (R$/un)',
   depreciacao_maquinas: 'Depreciação de Máquinas (R$/un)',
   capacidade_encapsulados: 'Capacidade Encapsulados (un/mês)',
   capacidade_soluvel: 'Capacidade Solúvel (un/mês)',
@@ -48,6 +48,12 @@ function calcularDiff(snapshot: any, anterior: any) {
   });
 }
 
+function energiaUnitaria(snap: any, k: TipoProdutoKey): number {
+  const ept = (snap?.energia_por_tipo || {}) as Record<string, number>;
+  if (Number.isFinite(Number(ept?.[k]))) return Number(ept[k]);
+  return Number(snap?.energia_eletrica ?? 0);
+}
+
 function calcImpactoMedio(snapshot: any, anterior: any): number {
   // Variação média ponderada do custo total unitário simulado entre os 4 tipos
   const capsNovo = {
@@ -70,8 +76,8 @@ function calcImpactoMedio(snapshot: any, anterior: any): number {
   let pesoTotal = 0;
   TIPOS_PRODUTO_KEYS.forEach((k) => {
     const peso = capsNovo[k] || capsAntigo[k] || 1;
-    const novo = cNovo[k].mod + cNovo[k].admin + Number(snapshot?.energia_eletrica ?? 0) + Number(snapshot?.depreciacao_maquinas ?? 0);
-    const ant = cAnt[k].mod + cAnt[k].admin + Number(anterior?.energia_eletrica ?? 0) + Number(anterior?.depreciacao_maquinas ?? 0);
+    const novo = cNovo[k].mod + cNovo[k].admin + energiaUnitaria(snapshot, k) + Number(snapshot?.depreciacao_maquinas ?? 0);
+    const ant = cAnt[k].mod + cAnt[k].admin + energiaUnitaria(anterior, k) + Number(anterior?.depreciacao_maquinas ?? 0);
     totalCustoNovo += novo * peso;
     totalCustoAnt += ant * peso;
     pesoTotal += peso;
@@ -161,13 +167,13 @@ export function HistoricoAlteracoes({ filtroDataInicio, filtroDataFim, onLimparF
     const simuladas = TIPOS_PRODUTO_KEYS.map((k) => {
       const ind = (custos: any) => ({
         maoObraDireta: custos[k].mod,
-        energia: Number(snap.energia_eletrica ?? 0),
+        energia: energiaUnitaria(snap, k),
         depreciacao: Number(snap.depreciacao_maquinas ?? 0),
         administrativo: custos[k].admin,
       });
       const indAnt = {
         maoObraDireta: custosAnt[k].mod,
-        energia: Number(ant.energia_eletrica ?? 0),
+        energia: energiaUnitaria(ant, k),
         depreciacao: Number(ant.depreciacao_maquinas ?? 0),
         administrativo: custosAnt[k].admin,
       };

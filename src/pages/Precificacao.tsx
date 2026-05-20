@@ -102,7 +102,7 @@ export default function Precificacao() {
       const custos = getCustosParaTipo(configuracaoAtiva, formulaSelecionada?.tipo_produto);
       setCustosIndiretos({
         maoObraDireta: custos.mod,
-        energia: Number(configuracaoAtiva.energia_eletrica),
+        energia: custos.energia,
         depreciacao: Number(configuracaoAtiva.depreciacao_maquinas),
         administrativo: custos.admin,
       });
@@ -181,7 +181,7 @@ export default function Precificacao() {
         const custos = getCustosParaTipo(configuracaoAtiva, formulaSelecionada?.tipo_produto);
         setCustosIndiretos({
           maoObraDireta: custos.mod,
-          energia: Number(configuracaoAtiva.energia_eletrica),
+          energia: custos.energia,
           depreciacao: Number(configuracaoAtiva.depreciacao_maquinas),
           administrativo: custos.admin,
         });

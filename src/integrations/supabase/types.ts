@@ -117,9 +117,11 @@ export type Database = {
           created_at: string | null
           credito_prodeic: number | null
           depreciacao_maquinas: number | null
+          despesas_admin_lista: Json
           despesas_admin_por_tipo: Json
           despesas_administrativas: number | null
           energia_eletrica: number | null
+          energia_por_tipo: Json
           folha_administrativa: number
           folha_producao: number
           fundeb_fundes: number | null
@@ -146,9 +148,11 @@ export type Database = {
           created_at?: string | null
           credito_prodeic?: number | null
           depreciacao_maquinas?: number | null
+          despesas_admin_lista?: Json
           despesas_admin_por_tipo?: Json
           despesas_administrativas?: number | null
           energia_eletrica?: number | null
+          energia_por_tipo?: Json
           folha_administrativa?: number
           folha_producao?: number
           fundeb_fundes?: number | null
@@ -175,9 +179,11 @@ export type Database = {
           created_at?: string | null
           credito_prodeic?: number | null
           depreciacao_maquinas?: number | null
+          despesas_admin_lista?: Json
           despesas_admin_por_tipo?: Json
           despesas_administrativas?: number | null
           energia_eletrica?: number | null
+          energia_por_tipo?: Json
           folha_administrativa?: number
           folha_producao?: number
           fundeb_fundes?: number | null
