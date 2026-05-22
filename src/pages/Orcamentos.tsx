@@ -234,7 +234,7 @@ export default function Orcamentos() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
         <div className="flex items-center justify-center py-12">
           <p className="text-muted-foreground">Carregando orçamentos...</p>
         </div>
@@ -243,20 +243,20 @@ export default function Orcamentos() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
       <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <FileText className="w-6 h-6 text-primary" />
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="min-w-0">
+              <CardTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
                 Orçamentos Gerados
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 Gerencie todos os orçamentos comerciais
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center border rounded-md">
                 <Button
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
@@ -277,14 +277,14 @@ export default function Orcamentos() {
                   <Columns3 className="w-4 h-4" />
                 </Button>
               </div>
-              <Button onClick={() => setCriandoNovo(true)}>
+              <Button onClick={() => setCriandoNovo(true)} className="flex-1 sm:flex-initial">
                 <Plus className="w-4 h-4 mr-2" />
-                Novo Orçamento
+                <span className="whitespace-nowrap">Novo Orçamento</span>
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 p-3 sm:p-6">
           {/* Filtros */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
