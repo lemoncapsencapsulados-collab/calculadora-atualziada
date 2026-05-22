@@ -491,15 +491,15 @@ export default function Orcamentos() {
                   })}
 
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {totalCount} resultado{totalCount !== 1 ? 's' : ''}
                       </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                         <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>
                           <ChevronLeft className="w-4 h-4 mr-1" />Anterior
                         </Button>
-                        <span className="text-sm text-muted-foreground px-2">Página {currentPage} de {totalPages}</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground px-2 whitespace-nowrap">Página {currentPage} de {totalPages}</span>
                         <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage >= totalPages}>
                           Próxima<ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
