@@ -648,7 +648,7 @@ export default function Calculator() {
       clearCalculatorState();
     }
   };
-  return <div className="container mx-auto p-6 space-y-6">
+  return <div className="container mx-auto p-3 sm:p-4 lg:p-6 space-y-6">
       {loadingInsumos || loadingEmbalagens ? <Card className="p-12 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground mt-4">Carregando inventário...</p>

@@ -596,14 +596,14 @@ const Pedidos = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-3 sm:p-4 lg:p-6">
         <div className="text-center">Carregando pedidos...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-4 lg:p-6 space-y-6">
       <Tabs value={tabAtiva} onValueChange={setTabAtiva} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto w-full justify-start">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>

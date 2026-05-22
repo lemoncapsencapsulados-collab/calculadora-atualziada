@@ -210,7 +210,7 @@ export default function Inventario() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-4 lg:p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Inventário</h1>
         <p className="text-muted-foreground mt-1">Gerencie suas matérias-primas e embalagens</p>
