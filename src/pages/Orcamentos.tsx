@@ -566,8 +566,8 @@ export default function Orcamentos() {
       <Dialog open={!!historicoOrcamento} onOpenChange={(open) => !open && setHistoricoOrcamento(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Histórico de contatos {historicoOrcamento ? `— ${historicoOrcamento.nome_cliente}` : ''}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg break-words">Histórico de contatos {historicoOrcamento ? `— ${historicoOrcamento.nome_cliente}` : ''}</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Registre cada envio de orçamento e cada conversa com o cliente. Esses dados alimentam os Insights do Dashboard.
             </DialogDescription>
           </DialogHeader>
@@ -621,7 +621,7 @@ export default function Orcamentos() {
           {/* Novo contato */}
           <div className="space-y-3 pt-3 border-t">
             <p className="text-sm font-semibold">Registrar novo</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Tipo</Label>
                 <Select value={novoContatoTipo} onValueChange={(v) => setNovoContatoTipo(v as TipoContato)}>
