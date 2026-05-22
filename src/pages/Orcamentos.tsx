@@ -352,12 +352,12 @@ export default function Orcamentos() {
                         }`}
                       >
                         <CardContent className="p-0">
-                          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 p-4">
-                            <div className="space-y-3">
-                              <div className="flex items-start justify-between gap-2 flex-wrap">
-                                <div>
+                          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 p-3 sm:p-4">
+                            <div className="space-y-3 min-w-0">
+                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-lg">{orcamento.nome_cliente}</span>
+                                    <span className="font-semibold text-base sm:text-lg break-words">{orcamento.nome_cliente}</span>
                                     <Badge variant={STATUS_CONFIG[orcamento.status]?.variant || 'secondary'}>
                                       {STATUS_CONFIG[orcamento.status]?.label || orcamento.status}
                                     </Badge>
@@ -380,7 +380,7 @@ export default function Orcamentos() {
                                   value={orcamento.status}
                                   onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
                                 >
-                                  <SelectTrigger className="w-full sm:w-[140px]">
+                                  <SelectTrigger className="w-full sm:w-[140px] shrink-0">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -429,7 +429,7 @@ export default function Orcamentos() {
                                   <span className="whitespace-pre-wrap break-words line-clamp-3">{orcamento.observacoes_internas}</span>
                                 </div>
                               )}
-                              <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                 <div>
                                   <p className="text-muted-foreground text-xs">Produção</p>
                                   <p className="font-medium">{formatCurrency(orcamento.subtotal_producao)}</p>
@@ -440,16 +440,17 @@ export default function Orcamentos() {
                                 </div>
                                 <div>
                                   <p className="text-muted-foreground text-xs">Total</p>
-                                  <p className={`font-bold text-lg ${isPago ? 'text-green-600' : 'text-primary'}`}>
+                                  <p className={`font-bold text-base sm:text-lg ${isPago ? 'text-green-600' : 'text-primary'}`}>
                                     {formatCurrency(orcamento.valor_total)}
                                   </p>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap md:flex-col lg:flex-col gap-2 justify-end">
+                            <div className="flex flex-wrap lg:flex-col gap-2 lg:justify-start lg:w-[200px]">
                               <Button
                                 variant="outline"
                                 size="sm"
+                                className="flex-1 lg:flex-initial"
                                 onClick={() => abrirHistorico(orcamento)}
                               >
                                 <History className="w-4 h-4 mr-2" />
@@ -459,27 +460,27 @@ export default function Orcamentos() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="border-green-500 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/20"
+                                  className="border-green-500 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/20 flex-1 lg:flex-initial"
                                   onClick={() => window.open('https://www.asaas.com/c/e8z81rc6owbwhpde', '_blank')}
                                 >
                                   <DollarSign className="w-4 h-4 mr-2" />Gerar PIX
                                 </Button>
                               )}
-                              <Button variant="outline" size="sm" onClick={() => setEditandoOrcamento(orcamento)}>
+                              <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setEditandoOrcamento(orcamento)}>
                                 <Pencil className="w-4 h-4 mr-2" />Editar
                               </Button>
-                              <Button variant="outline" size="sm" onClick={() => setPreviewOrcamento(orcamento)}>
+                              <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setPreviewOrcamento(orcamento)}>
                                 <FileText className="w-4 h-4 mr-2" />Gerar PDF
                               </Button>
-                              <Button variant="default" size="sm" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
+                              <Button variant="default" size="sm" className="flex-1 lg:flex-initial" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
                                 <FileCheck className="w-4 h-4 mr-2" />Resumo para Contrato
                               </Button>
                               {resumosExistentes?.has(orcamento.id) && (
-                                <Button variant="outline" size="sm" onClick={() => setVerResumoContrato(orcamento)}>
+                                <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setVerResumoContrato(orcamento)}>
                                   <FileSignature className="w-4 h-4 mr-2" />Ver Resumo do Contrato
                                 </Button>
                               )}
-                              <Button variant="destructive" size="sm" onClick={() => setDeletandoId(orcamento.id)}>
+                              <Button variant="destructive" size="sm" className="flex-1 lg:flex-initial" onClick={() => setDeletandoId(orcamento.id)}>
                                 <Trash2 className="w-4 h-4 mr-2" />Excluir
                               </Button>
                             </div>
