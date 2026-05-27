@@ -1112,6 +1112,36 @@ export default function GerarOrcamentoDialog({
                           );
                         })()}
 
+                        {(() => {
+                          const raw = precoDraft[index];
+                          if (raw === undefined) return null;
+                          const item2 = itensProducao[index];
+                          if (!item2?.precificacao_id) return null;
+                          const aux = itemPrecoAux[item2.precificacao_id];
+                          if (!aux || aux.custoUnit <= 0) return null;
+                          const parsed = parseFloat(raw.replace(',', '.'));
+                          if (isNaN(parsed) || parsed <= 0) return null;
+                          const novaMargem = calcMargemItem(parsed, aux.custoUnit);
+                          const validacao = validarMargemPorTipo(novaMargem, item2.segmento || 'Encapsulados');
+                          return (
+                            <div className={cn(
+                              'flex flex-wrap items-center gap-2 px-2 py-1.5 rounded border border-dashed text-xs',
+                              validacao.bgColor,
+                              validacao.borderColor
+                            )}>
+                              <Badge variant="outline" className={cn('text-[11px]', validacao.color)}>
+                                Prévia nova margem: {novaMargem.toFixed(1)}%
+                              </Badge>
+                              <span className={cn('text-[11px]', validacao.color)}>
+                                {validacao.mensagem}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground ml-auto">
+                                Clique em Confirmar para aplicar
+                              </span>
+                            </div>
+                          );
+                        })()}
+
                         {item.modelo_negocio !== 'print_on_demand' && (
                           <div className="grid grid-cols-4 gap-2 pt-2 border-t">
                             <div className="space-y-1">
