@@ -155,6 +155,8 @@ export default function GerarOrcamentoDialog({
   // Dialog de senha para liberar preço abaixo do mínimo
   const [senhaPrecoDialog, setSenhaPrecoDialog] = useState(false);
   const [senhaPrecoInput, setSenhaPrecoInput] = useState('');
+  // Rascunho local do preço unitário (por índice) — só aplica ao confirmar
+  const [precoDraft, setPrecoDraft] = useState<Record<number, string>>({});
   const [pendingPreco, setPendingPreco] = useState<{ index: number; novoPreco: number } | null>(null);
 
   // Calcula margem efetiva (líquida) de um item dado preço e custo unitário
