@@ -990,14 +990,30 @@ export default function GerarOrcamentoDialog({
                           
                           <div className="flex flex-col items-end gap-1">
                             <Label className="text-[10px] text-muted-foreground">Preço unit.</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min={0}
-                              className="w-28 h-8 text-right"
-                              value={item.preco_unitario}
-                              onChange={(e) => handleUpdateItemPreco(index, parseFloat(e.target.value))}
-                            />
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                className="w-28 h-8 text-right"
+                                value={precoDraft[index] ?? String(item.preco_unitario)}
+                                onChange={(e) => setPrecoDraft(prev => ({ ...prev, [index]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.preventDefault(); confirmarPrecoDraft(index); }
+                                }}
+                              />
+                              {precoDraft[index] !== undefined && (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="default"
+                                  className="h-8 w-8 shrink-0"
+                                  title="Confirmar novo preço"
+                                  onClick={() => confirmarPrecoDraft(index)}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex rounded-lg border overflow-hidden">
