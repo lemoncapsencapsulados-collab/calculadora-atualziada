@@ -217,6 +217,24 @@ export default function GerarOrcamentoDialog({
     if (!aux) return;
     aplicarPrecoNoItem(index, aux.precoOriginal);
     setPrecoLiberadoIdxs(prev => prev.filter(i => i !== index));
+    setPrecoDraft(prev => {
+      const n = { ...prev }; delete n[index]; return n;
+    });
+  };
+
+  const confirmarPrecoDraft = (index: number) => {
+    const raw = precoDraft[index];
+    if (raw === undefined) return;
+    const normalized = raw.replace(',', '.').trim();
+    const parsed = parseFloat(normalized);
+    if (isNaN(parsed) || parsed < 0) {
+      toast.error('Informe um preço válido');
+      return;
+    }
+    handleUpdateItemPreco(index, parsed);
+    setPrecoDraft(prev => {
+      const n = { ...prev }; delete n[index]; return n;
+    });
   };
 
   const confirmarSenhaPreco = () => {
@@ -228,6 +246,9 @@ export default function GerarOrcamentoDialog({
     if (pendingPreco) {
       setPrecoLiberadoIdxs(prev => [...prev, pendingPreco.index]);
       aplicarPrecoNoItem(pendingPreco.index, pendingPreco.novoPreco);
+      setPrecoDraft(prev => {
+        const n = { ...prev }; delete n[pendingPreco.index]; return n;
+      });
     }
     setSenhaPrecoDialog(false);
     setSenhaPrecoInput('');
