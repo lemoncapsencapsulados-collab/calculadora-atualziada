@@ -1,72 +1,44 @@
+## Problema
 
-# Plano: Responsividade Completa do Sistema
+No `GerarOrcamentoDialog` (Passo 2 — Custos de Produção), o campo "Preço unit." valida e dispara a senha de margem baixa a cada tecla digitada (`onChange` chama `handleUpdateItemPreco` imediatamente). Resultado: ao tentar digitar um valor novo (ex.: apagar `14,5` para digitar `18`), o primeiro dígito já cai abaixo da margem mínima, o sistema abre o diálogo de senha / bloqueia, e o usuário nunca consegue terminar de digitar o novo preço.
 
-## Objetivo
-Garantir que todo o sistema funcione bem em três faixas:
-- **Mobile** (≤640px) — iPhone/Android
-- **Tablet** (641–1024px) — iPad e similares
-- **Desktop** (≥1025px) — Macbook/PC
+## Mudança proposta (somente UI / front-end, sem alterar regras de negócio)
 
-Prioridade máxima no módulo de **Orçamentos**, que está desalinhado.
+Arquivo único: `src/components/GerarOrcamentoDialog.tsx`.
 
----
+### 1. Input controlado por rascunho local
+- Adicionar estado `precoDraft: Record<number, string>` (chave = índice do item).
+- O `<Input>` de "Preço unit." passa a ler de `precoDraft[index] ?? String(item.preco_unitario)` e apenas atualiza o rascunho no `onChange`. Nenhuma validação, nenhum cálculo de margem nessa digitação.
+- Permite apagar tudo, digitar livremente, inclusive valores temporariamente abaixo do mínimo.
 
-## Escopo por Página
+### 2. Confirmação explícita
+- Adicionar um botão "Confirmar" ao lado do input (ícone Check, `size="icon"`, `variant="default"`), visível apenas quando o rascunho difere do `item.preco_unitario` atual.
+- Confirmar também ao pressionar **Enter** no input ou ao perder o foco (`onBlur`) — todos chamam o mesmo `confirmarPrecoDraft(index)`.
+- `confirmarPrecoDraft` faz o parse do número e chama o já existente `handleUpdateItemPreco(index, novoPreco)`, que mantém intacta a lógica de:
+  - aplicar livremente se não há custo conhecido;
+  - validar margem mínima via `validarMargemPorTipo`;
+  - abrir `senhaPrecoDialog` quando abaixo do mínimo;
+  - aplicar o preço após senha correta.
+- Após confirmação bem-sucedida, limpar `precoDraft[index]`.
 
-### 1. Orçamentos (prioridade alta)
-Arquivos: `src/pages/Orcamentos.tsx`, `src/components/OrcamentoKanbanView.tsx`, `src/components/GerarOrcamentoDialog.tsx`, `src/components/AprovacaoOrcamentoDialog.tsx`, `src/components/CondicoesPagamentoForm.tsx`, `src/components/PropostaCompletaDialog.tsx`, `src/components/DetalhamentoFreteDialog.tsx`
+### 3. Pré-visualização da nova margem enquanto digita
+- Logo abaixo do badge atual de margem, quando `precoDraft[index]` difere do preço aplicado e há custo conhecido, exibir uma linha discreta:
+  - "Nova margem: X.X% — {mensagem da validacao}" calculada com `calcMargemItem(draftNumber, custoUnit)` + `validarMargemPorTipo`.
+  - Cor segundo o status (verde/amarelo/vermelho), sem bloquear nada.
+- Assim o usuário vê em tempo real qual será a nova margem antes de clicar em Confirmar.
 
-Ajustes:
-- Cabeçalho da página: empilhar título + filtros + botões em mobile (`flex-col md:flex-row`), botões `w-full sm:w-auto`.
-- Filtros (busca, status, consultor): grid responsivo `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`.
-- Alternância Tabela/Kanban: tornar tabela rolável horizontalmente (`overflow-x-auto`) e Kanban com `grid-cols-1 sm:grid-cols-2 xl:grid-cols-4` (já está, validar gap/spacing em tablet).
-- Cards do Kanban: reduzir padding em mobile, quebrar linha de botões de ação, manter ícones acessíveis.
-- Diálogos (Gerar/Aprovar/Proposta): `max-w-[95vw] md:max-w-3xl`, `max-h-[90vh] overflow-y-auto`, formulários em `grid-cols-1 md:grid-cols-2`.
-- Tabelas internas dos diálogos: wrapper `overflow-x-auto` + larguras mínimas das colunas.
+### 4. Bloqueio para avançar continua igual
+- A regra existente em `canProceed` (passo 2) que bloqueia avanço quando há margem baixa não liberada permanece intocada. Adicionalmente, bloquear avanço também enquanto houver `precoDraft` pendente (não confirmado) para evitar perda do valor digitado — exibir toast: "Confirme os preços editados antes de avançar."
 
-### 2. Navegação Global
-Arquivo: `src/components/Navigation.tsx`
-- Verificar/ativar menu hambúrguer em mobile (Sheet lateral), itens em coluna.
-- Logo e ações compactas em mobile.
-
-### 3. Demais páginas (varredura)
-- `Precificacao.tsx`, `Calculator.tsx`, `Pedidos.tsx`, `Inventario.tsx`, `DashboardComercial.tsx`, `SucessoCliente.tsx`, `LeadsOrcamento.tsx`, `PainelAdministrador.tsx`, `Index.tsx`, `Login.tsx`.
-- Padrão aplicado a todas:
-  - Containers `px-3 sm:px-4 md:px-6 lg:px-8`.
-  - Grids KPI: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`.
-  - Tabelas grandes: wrapper `overflow-x-auto` com `min-w-[720px]` (ou similar).
-  - Diálogos: `max-w-[95vw]` + `max-h-[90vh] overflow-y-auto`.
-  - Tipografia: `text-sm md:text-base`, títulos `text-xl md:text-2xl lg:text-3xl`.
-  - Botões em barras de ação: `flex-wrap gap-2`, ícones com label oculto em mobile (`hidden sm:inline`).
-
-### 4. Componentes compartilhados sensíveis
-- `EmbalagensHierarchy.tsx`, `LotesPanel.tsx`, `InventarioDashboard.tsx`, `AcompanhamentoProcessos.tsx`, `DetalhesPedidoDialog.tsx`, `HistoricoAlteracoes.tsx`, `VariaveisEstruturaisForm.tsx`, `dashboard/*`, `pedidos/*`, `sucesso-cliente/*`.
-- Tabelas → scroll horizontal; grids fixos → responsivos; dialogs → mobile-safe.
-
----
-
-## Detalhes Técnicos
-
-Breakpoints Tailwind usados: `sm 640`, `md 768`, `lg 1024`, `xl 1280`.
-
-Padrões aplicados consistentemente:
-```text
-Container:   px-3 sm:px-4 lg:px-6   max-w-7xl mx-auto
-Header row:  flex flex-col md:flex-row md:items-center md:justify-between gap-3
-Filtros:     grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3
-KPIs:        grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4
-Tabelas:     <div class="overflow-x-auto"><table class="min-w-[720px]">
-Dialog:      DialogContent className="max-w-[95vw] md:max-w-3xl max-h-[90vh] overflow-y-auto"
-Botões:      w-full sm:w-auto + flex-wrap em barras
-```
-
-Sem mudanças em lógica de negócio, hooks, schemas ou cálculos — apenas classes Tailwind, estrutura de wrappers e ajustes de Dialog/Sheet.
-
----
-
-## Verificação
-Após cada bloco de mudanças, conferir com `preview_ui--set_preview_device_viewport` em mobile, tablet e desktop, focando primeiro no fluxo de Orçamentos (listagem, kanban, gerar, aprovar, proposta).
+### 5. Diálogo de senha (já existente)
+- Nenhuma mudança na UI do `senhaPrecoDialog`. Continua exigindo `SENHA_LIBERACAO_MARGEM` para liberar o preço abaixo do mínimo, e o badge "Liberado por senha" + nova margem já são mostrados após confirmação.
 
 ## Fora de escopo
-- Alterações funcionais, de banco, cálculos, PDFs ou regras de negócio.
-- Redesign visual (cores/tipografia da marca permanecem).
+- Não alterar `handleUpdateItemPreco`, `calcMargemItem`, `validarMargemPorTipo`, nem a lógica de senha/margem.
+- Não mexer em precificações salvas/catálogo da listagem superior.
+- Não alterar cálculos de impostos, subtotais, setup, PDFs ou banco.
+
+## Verificação
+- Editar o preço do item de catálogo "Foco e Concentração" para um valor maior (ex.: 20,00) digitando livremente; confirmar; ver nova margem positiva.
+- Editar para valor abaixo do mínimo (ex.: 10,00); confirmar; ver diálogo de senha; com senha correta, aplicar e mostrar badge "Liberado por senha" + nova margem.
+- Confirmar que o avanço para Passo 3 funciona após confirmação e fica bloqueado se houver rascunho pendente.

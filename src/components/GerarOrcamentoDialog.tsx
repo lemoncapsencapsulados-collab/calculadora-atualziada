@@ -155,6 +155,8 @@ export default function GerarOrcamentoDialog({
   // Dialog de senha para liberar preço abaixo do mínimo
   const [senhaPrecoDialog, setSenhaPrecoDialog] = useState(false);
   const [senhaPrecoInput, setSenhaPrecoInput] = useState('');
+  // Rascunho local do preço unitário (por índice) — só aplica ao confirmar
+  const [precoDraft, setPrecoDraft] = useState<Record<number, string>>({});
   const [pendingPreco, setPendingPreco] = useState<{ index: number; novoPreco: number } | null>(null);
 
   // Calcula margem efetiva (líquida) de um item dado preço e custo unitário
@@ -215,6 +217,24 @@ export default function GerarOrcamentoDialog({
     if (!aux) return;
     aplicarPrecoNoItem(index, aux.precoOriginal);
     setPrecoLiberadoIdxs(prev => prev.filter(i => i !== index));
+    setPrecoDraft(prev => {
+      const n = { ...prev }; delete n[index]; return n;
+    });
+  };
+
+  const confirmarPrecoDraft = (index: number) => {
+    const raw = precoDraft[index];
+    if (raw === undefined) return;
+    const normalized = raw.replace(',', '.').trim();
+    const parsed = parseFloat(normalized);
+    if (isNaN(parsed) || parsed < 0) {
+      toast.error('Informe um preço válido');
+      return;
+    }
+    handleUpdateItemPreco(index, parsed);
+    setPrecoDraft(prev => {
+      const n = { ...prev }; delete n[index]; return n;
+    });
   };
 
   const confirmarSenhaPreco = () => {
@@ -226,6 +246,9 @@ export default function GerarOrcamentoDialog({
     if (pendingPreco) {
       setPrecoLiberadoIdxs(prev => [...prev, pendingPreco.index]);
       aplicarPrecoNoItem(pendingPreco.index, pendingPreco.novoPreco);
+      setPrecoDraft(prev => {
+        const n = { ...prev }; delete n[pendingPreco.index]; return n;
+      });
     }
     setSenhaPrecoDialog(false);
     setSenhaPrecoInput('');
@@ -967,14 +990,30 @@ export default function GerarOrcamentoDialog({
                           
                           <div className="flex flex-col items-end gap-1">
                             <Label className="text-[10px] text-muted-foreground">Preço unit.</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min={0}
-                              className="w-28 h-8 text-right"
-                              value={item.preco_unitario}
-                              onChange={(e) => handleUpdateItemPreco(index, parseFloat(e.target.value))}
-                            />
+                            <div className="flex items-center gap-1">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                className="w-28 h-8 text-right"
+                                value={precoDraft[index] ?? String(item.preco_unitario)}
+                                onChange={(e) => setPrecoDraft(prev => ({ ...prev, [index]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') { e.preventDefault(); confirmarPrecoDraft(index); }
+                                }}
+                              />
+                              {precoDraft[index] !== undefined && (
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="default"
+                                  className="h-8 w-8 shrink-0"
+                                  title="Confirmar novo preço"
+                                  onClick={() => confirmarPrecoDraft(index)}
+                                >
+                                  <Check className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex rounded-lg border overflow-hidden">
@@ -1069,6 +1108,36 @@ export default function GerarOrcamentoDialog({
                                   Restaurar
                                 </Button>
                               )}
+                            </div>
+                          );
+                        })()}
+
+                        {(() => {
+                          const raw = precoDraft[index];
+                          if (raw === undefined) return null;
+                          const item2 = itensProducao[index];
+                          if (!item2?.precificacao_id) return null;
+                          const aux = itemPrecoAux[item2.precificacao_id];
+                          if (!aux || aux.custoUnit <= 0) return null;
+                          const parsed = parseFloat(raw.replace(',', '.'));
+                          if (isNaN(parsed) || parsed <= 0) return null;
+                          const novaMargem = calcMargemItem(parsed, aux.custoUnit);
+                          const validacao = validarMargemPorTipo(novaMargem, item2.segmento || 'Encapsulados');
+                          return (
+                            <div className={cn(
+                              'flex flex-wrap items-center gap-2 px-2 py-1.5 rounded border border-dashed text-xs',
+                              validacao.bgColor,
+                              validacao.borderColor
+                            )}>
+                              <Badge variant="outline" className={cn('text-[11px]', validacao.color)}>
+                                Prévia nova margem: {novaMargem.toFixed(1)}%
+                              </Badge>
+                              <span className={cn('text-[11px]', validacao.color)}>
+                                {validacao.mensagem}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground ml-auto">
+                                Clique em Confirmar para aplicar
+                              </span>
                             </div>
                           );
                         })()}
@@ -1780,6 +1849,10 @@ export default function GerarOrcamentoDialog({
                 onClick={() => {
                   if (step === 2 && itensProducao.length === 0) {
                     toast.error('Adicione pelo menos um produto para continuar.');
+                    return;
+                  }
+                  if (step === 2 && Object.keys(precoDraft).length > 0) {
+                    toast.error('Confirme os preços editados antes de avançar.');
                     return;
                   }
                   if (step === 3 && custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) {
