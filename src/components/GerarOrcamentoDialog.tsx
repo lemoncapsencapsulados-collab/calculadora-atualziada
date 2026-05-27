@@ -1851,6 +1851,10 @@ export default function GerarOrcamentoDialog({
                     toast.error('Adicione pelo menos um produto para continuar.');
                     return;
                   }
+                  if (step === 2 && Object.keys(precoDraft).length > 0) {
+                    toast.error('Confirme os preços editados antes de avançar.');
+                    return;
+                  }
                   if (step === 3 && custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) {
                     toast.error('Margem de setup abaixo do mínimo. Libere com senha para continuar.');
                     return;
