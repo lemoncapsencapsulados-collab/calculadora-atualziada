@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import CondicoesPagamentoForm from '@/components/CondicoesPagamentoForm';
 import { CondicoesPagamento } from '@/types/orcamento';
 
-const SENHA_ALTERACAO = '021200';
+const SENHA_ALTERACAO = '0212';
 
 interface Props {
   open: boolean;
