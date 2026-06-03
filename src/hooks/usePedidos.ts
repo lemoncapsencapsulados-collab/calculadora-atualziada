@@ -388,10 +388,12 @@ export const usePedidos = () => {
       id,
       data_pagamento,
       condicoes_pagamento,
+      valor_total,
     }: {
       id: string;
       data_pagamento: string | null;
       condicoes_pagamento: CondicoesPagamento;
+      valor_total?: number;
     }) => {
       const { data: pedidoAtual, error: errFetch } = await supabase
         .from('pedidos')
@@ -402,7 +404,10 @@ export const usePedidos = () => {
       if (errFetch || !pedidoAtual) throw errFetch || new Error('Pedido não encontrado');
 
       const snapAtual: any = pedidoAtual.orcamento_snapshot || {};
-      const valorTotal = Number(snapAtual.valor_total) || 0;
+      const valorTotalAnterior = Number(snapAtual.valor_total) || 0;
+      const valorTotalNovo = typeof valor_total === 'number' && valor_total > 0
+        ? valor_total
+        : valorTotalAnterior;
 
       const dataAnterior = snapAtual.data_pagamento || null;
       const condAnteriores: CondicoesPagamento | null = snapAtual.condicoes_pagamento || null;
@@ -417,14 +422,15 @@ export const usePedidos = () => {
         data_pagamento_nova: data_pagamento,
         condicoes_anteriores: condAnteriores,
         condicoes_novas: condicoes_pagamento,
-        resumo_anterior: condAnteriores ? formatarPagamentoResumo(condAnteriores, valorTotal) : '',
-        resumo_novo: formatarPagamentoResumo(condicoes_pagamento, valorTotal),
+        resumo_anterior: condAnteriores ? formatarPagamentoResumo(condAnteriores, valorTotalAnterior) : '',
+        resumo_novo: formatarPagamentoResumo(condicoes_pagamento, valorTotalNovo),
       };
 
       const novoSnapshot = {
         ...snapAtual,
         data_pagamento,
         condicoes_pagamento,
+        valor_total: valorTotalNovo,
       };
       const historico = [
         ...(((pedidoAtual as any).pagamento_alteracoes as PagamentoAlteracao[]) || []),
@@ -447,6 +453,7 @@ export const usePedidos = () => {
           .update({
             data_pagamento,
             condicoes_pagamento: condicoes_pagamento as any,
+            valor_total: valorTotalNovo,
           })
           .eq('id', pedidoAtual.orcamento_id);
       }
@@ -463,6 +470,47 @@ export const usePedidos = () => {
     onError: (e: any) => {
       console.error('Erro ao alterar pagamento:', e);
       toast.error('Erro ao alterar pagamento');
+    },
+  });
+
+  const toggleParcelaPaga = useMutation({
+    mutationFn: async ({
+      id,
+      novasCondicoes,
+    }: {
+      id: string;
+      novasCondicoes: CondicoesPagamento;
+    }) => {
+      const { data: atual, error: errFetch } = await supabase
+        .from('pedidos')
+        .select('id, orcamento_id, orcamento_snapshot')
+        .eq('id', id)
+        .limit(1)
+        .maybeSingle();
+      if (errFetch || !atual) throw errFetch || new Error('Pedido não encontrado');
+      const snap: any = atual.orcamento_snapshot || {};
+      const novo = { ...snap, condicoes_pagamento: novasCondicoes };
+      const { error: errUpd } = await supabase
+        .from('pedidos')
+        .update({ orcamento_snapshot: novo as any })
+        .eq('id', id);
+      if (errUpd) throw errUpd;
+      if (atual.orcamento_id) {
+        await supabase
+          .from('orcamentos')
+          .update({ condicoes_pagamento: novasCondicoes as any })
+          .eq('id', atual.orcamento_id);
+      }
+      return novo;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      toast.success('Status da parcela atualizado');
+    },
+    onError: (e: any) => {
+      console.error('Erro ao atualizar parcela:', e);
+      toast.error('Erro ao atualizar parcela');
     },
   });
 
@@ -506,6 +554,7 @@ export const usePedidos = () => {
     deletePedidoAsync: deletePedido.mutateAsync,
     deletandoPedido: deletePedido.isPending,
     alterarPagamento: alterarPagamento.mutateAsync,
+    toggleParcelaPagaAsync: toggleParcelaPaga.mutateAsync,
     registrarVhsysAsync: registrarVhsys.mutateAsync,
   };
 };
