@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
-const SENHA_EXCLUSAO = '021200';
+const SENHA_EXCLUSAO = '0212';
 
 interface Props {
   numeroPedido: string;
