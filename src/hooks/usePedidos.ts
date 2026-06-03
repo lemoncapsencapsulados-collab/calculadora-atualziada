@@ -367,6 +367,28 @@ export const usePedidos = () => {
 
   const deletePedido = useMutation({
     mutationFn: async (id: string) => {
+      // Limpa anexos dependentes (sem FK cascade) antes de excluir o pedido.
+      try {
+        const { data: anexos } = await supabase
+          .from('pedido_anexos')
+          .select('id, arquivo_url')
+          .eq('pedido_id', id);
+
+        const paths: string[] = [];
+        (anexos || []).forEach((a: any) => {
+          const url: string = a.arquivo_url || '';
+          const marker = '/pedidos-anexos/';
+          const idx = url.indexOf(marker);
+          if (idx >= 0) paths.push(url.substring(idx + marker.length));
+        });
+        if (paths.length > 0) {
+          await supabase.storage.from('pedidos-anexos').remove(paths);
+        }
+        await supabase.from('pedido_anexos').delete().eq('pedido_id', id);
+      } catch (e) {
+        console.warn('Falha ao limpar anexos do pedido (seguindo com exclusão):', e);
+      }
+
       const { error } = await supabase
         .from('pedidos')
         .delete()
@@ -378,8 +400,10 @@ export const usePedidos = () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Pedido excluído com sucesso');
     },
-    onError: () => {
-      toast.error('Erro ao excluir pedido');
+    onError: (error: any) => {
+      console.error('Erro ao excluir pedido:', error);
+      const msg = error?.message || error?.details || 'erro desconhecido';
+      toast.error(`Erro ao excluir pedido: ${msg}`);
     },
   });
 

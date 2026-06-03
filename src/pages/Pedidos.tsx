@@ -1150,10 +1150,10 @@ const Pedidos = () => {
           if (!pedidoParaExcluir) return;
           try {
             await deletePedidoAsync(pedidoParaExcluir.id);
-          } catch {
-            return;
-          } finally {
             setPedidoParaExcluir(null);
+          } catch {
+            // Mantém o dialog aberto para o usuário ver o erro e tentar de novo
+            return;
           }
         }}
       />
