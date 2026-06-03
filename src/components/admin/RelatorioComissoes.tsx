@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePedidos } from '@/hooks/usePedidos';
-import { useUsuarios } from '@/hooks/useUsuarios';
 import { derivarComissoes, aplicarStatusPago, ItemComissao, StatusParcelaComissao } from '@/lib/comissoes';
 import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog';
 import { Pedido } from '@/types/formula';
@@ -44,7 +43,6 @@ type FiltroTipo = 'todos' | 'nova_venda' | 'recompra';
 
 export function RelatorioComissoes() {
   const { pedidos, alterarPagamento, toggleParcelaPagaAsync } = usePedidos();
-  const { data: usuarios = [] } = useUsuarios(true);
 
   const [mes, setMes] = useState<string>(mesAtualYYYYMM());
   const [consultorFiltro, setConsultorFiltro] = useState<string>('todos');
