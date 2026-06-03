@@ -23,16 +23,23 @@ interface Props {
   valorTotal?: number;
   dataPagamentoAtual?: string | null;
   condicoesAtuais?: CondicoesPagamento;
-  onConfirm: (payload: { data_pagamento: string | null; condicoes_pagamento: CondicoesPagamento }) => Promise<void> | void;
+  permitirEditarValor?: boolean;
+  onConfirm: (payload: {
+    data_pagamento: string | null;
+    condicoes_pagamento: CondicoesPagamento;
+    valor_total?: number;
+  }) => Promise<void> | void;
 }
 
 export function AlterarPagamentoDialog({
-  open, onOpenChange, numeroPedido, valorTotal = 0, dataPagamentoAtual, condicoesAtuais, onConfirm,
+  open, onOpenChange, numeroPedido, valorTotal = 0, dataPagamentoAtual, condicoesAtuais,
+  permitirEditarValor = false, onConfirm,
 }: Props) {
   const [senha, setSenha] = useState('');
   const [autenticado, setAutenticado] = useState(false);
   const [data, setData] = useState<Date | undefined>(undefined);
   const [condicoes, setCondicoes] = useState<CondicoesPagamento>({});
+  const [valorEditavel, setValorEditavel] = useState<string>('');
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -42,8 +49,9 @@ export function AlterarPagamentoDialog({
       setSalvando(false);
       setData(dataPagamentoAtual ? new Date(dataPagamentoAtual) : undefined);
       setCondicoes(condicoesAtuais ? { ...condicoesAtuais } : {});
+      setValorEditavel(String(valorTotal ?? 0));
     }
-  }, [open, dataPagamentoAtual, condicoesAtuais]);
+  }, [open, dataPagamentoAtual, condicoesAtuais, valorTotal]);
 
   const validarSenha = () => {
     if (senha !== SENHA_ALTERACAO) {
@@ -63,11 +71,21 @@ export function AlterarPagamentoDialog({
       toast.error('Selecione o método de pagamento');
       return;
     }
+    let novoValor: number | undefined;
+    if (permitirEditarValor) {
+      const parsed = Number(String(valorEditavel).replace(',', '.'));
+      if (!isFinite(parsed) || parsed <= 0) {
+        toast.error('Informe um valor total válido');
+        return;
+      }
+      novoValor = parsed;
+    }
     try {
       setSalvando(true);
       await onConfirm({
         data_pagamento: data.toISOString(),
         condicoes_pagamento: condicoes,
+        valor_total: novoValor,
       });
       onOpenChange(false);
     } catch (e) {
@@ -110,6 +128,22 @@ export function AlterarPagamentoDialog({
           </div>
         ) : (
           <div className="space-y-4">
+            {permitirEditarValor && (
+              <div className="space-y-2">
+                <Label htmlFor="valor-total-edit">Valor total do pedido (R$)</Label>
+                <Input
+                  id="valor-total-edit"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={valorEditavel}
+                  onChange={(e) => setValorEditavel(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Parcelas em % são recalculadas sobre o novo valor. Parcelas com valor fixo permanecem como estão.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Data de pagamento</Label>
               <Popover>
@@ -137,7 +171,7 @@ export function AlterarPagamentoDialog({
             <CondicoesPagamentoForm
               value={condicoes}
               onChange={setCondicoes}
-              valorTotal={valorTotal}
+              valorTotal={permitirEditarValor ? Number(String(valorEditavel).replace(',', '.')) || valorTotal : valorTotal}
             />
 
             <DialogFooter>

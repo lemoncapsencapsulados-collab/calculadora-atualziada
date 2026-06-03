@@ -6,6 +6,7 @@ import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { VariaveisEstruturaisForm } from '@/components/admin/VariaveisEstruturaisForm';
 import { HistoricoAlteracoes } from '@/components/admin/HistoricoAlteracoes';
 import { ConsultoresAdmin } from '@/components/admin/ConsultoresAdmin';
+import { RelatorioComissoes } from '@/components/admin/RelatorioComissoes';
 import { PrazoPrecoCountdown } from '@/components/admin/PrazoPrecoCountdown';
 import { PrazosAtivosLista } from '@/components/admin/PrazosAtivosLista';
 import { PrazoItensVinculados } from '@/components/admin/PrazoItensVinculados';
@@ -64,6 +65,7 @@ export default function PainelAdministrador() {
         <TabsList>
           <TabsTrigger value="variaveis">Variáveis Estruturais</TabsTrigger>
           <TabsTrigger value="consultores">Consultores</TabsTrigger>
+          <TabsTrigger value="comissoes">Comissionamento</TabsTrigger>
           <TabsTrigger value="historico">Histórico de Alterações</TabsTrigger>
         </TabsList>
         <TabsContent value="variaveis">
@@ -71,6 +73,9 @@ export default function PainelAdministrador() {
         </TabsContent>
         <TabsContent value="consultores">
           <ConsultoresAdmin />
+        </TabsContent>
+        <TabsContent value="comissoes">
+          <RelatorioComissoes />
         </TabsContent>
         <TabsContent value="historico">
           <HistoricoAlteracoes
