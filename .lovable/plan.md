@@ -1,54 +1,36 @@
 ## Objetivo
 
-Refinar a aba **Comissionamento** do Painel Administrativo para que:
-1. O **status de pagamento do pedido** mostre 3 estados reais: **Pago**, **Parcialmente Pago**, **Atrasado** (além de "Em dia" para pedidos ainda sem parcelas vencidas).
-2. Todos os filtros (Mês, Consultor, Status da parcela, Tipo de venda) funcionem corretamente também no bloco **"Pedidos no período"**, incluindo o filtro de **data de pagamento**.
-3. As parcelas e datas dos pedidos sejam puxadas corretamente para refletir a comissão devida em cada mês (mês de fechamento vs. parcelas de meses anteriores que caem no mês selecionado).
+Alinhar o bloco "Pedidos no período" do Painel Administrativo → Comissionamento para puxar exatamente os mesmos pedidos exibidos na página **Pedidos** quando os mesmos filtros (consultor + mês) são aplicados. Hoje a página Pedidos filtra por `orcamento_snapshot.data_pagamento` (data de fechamento do pedido) com 1 linha por pedido, enquanto Comissionamento expande cada parcela e inclui o pedido se qualquer parcela cair no mês — por isso aparece mais pedidos para o Everton em maio.
 
 ## Mudanças
 
-### 1) `src/components/admin/RelatorioComissoes.tsx` — Status do pedido
+### 1) `src/components/admin/RelatorioComissoes.tsx` — critério de inclusão do pedido
 
-Substituir o badge único "Em dia / Inadimplente" por uma função `statusPedido(parcelasDoPedido)` que devolve:
-- **Pago** — todas as parcelas do pedido estão pagas.
-- **Atrasado** — existe pelo menos uma parcela `vencido` (data passada e não paga).
-- **Parcialmente Pago** — há pelo menos uma parcela paga e ao menos uma ainda pendente (sem atraso).
-- **Em dia** — nenhuma paga ainda, nenhuma vencida (pedido novo, parcelas futuras).
+- Adicionar derivação `pedidoEntraNoMes(pedido, mes)` que olha **apenas** `pedido.orcamento_snapshot.data_pagamento` (substring 0..7 === mes). Mesma regra da página Pedidos.
+- Construir `linhasPedido` a partir de `pedidos` (não de `parcelasFiltradas`):
+  - Percorrer `pedidos`, manter os que passam em `pedidoEntraNoMes` + filtros de consultor (`snap.consultor_responsavel`) e tipo de venda.
+  - Para cada pedido incluído, derivar as parcelas via `derivarComissoes(pedido)` para calcular:
+    - `comissaoTotalPedido` = soma de todas as parcelas do pedido.
+    - `comissaoNoMes` = soma das parcelas cuja data efetiva (pago→`dataPagamento`, senão `dataVencimento`) caia no mês. Pode ser 0 se nenhuma parcela vence/foi paga no mês — ainda assim o pedido aparece (porque o fechamento foi no mês).
+    - `statusPedido` continua calculado sobre todas as parcelas (Pago / Parcialmente Pago / Atrasado / Em dia).
+  - Aplicar o filtro de "Status da parcela" como filtro adicional sobre o pedido: o pedido passa se tiver pelo menos uma parcela com aquele status (mantém compatibilidade com o seletor existente).
+- Resultado: a lista de pedidos no mês fica 1:1 com `/pedidos` filtrado por consultor + intervalo de datas do mês.
 
-Status é calculado sobre **todas as parcelas do pedido** (não apenas as do mês filtrado), para refletir a realidade global do contrato.
+### 2) Resumo por consultor e cards do topo
 
-Badges com cores semânticas:
-- Pago → verde (`bg-emerald-600`)
-- Parcialmente Pago → âmbar/secundário
-- Atrasado → `destructive`
-- Em dia → outline
+- Manter a lógica atual baseada em **parcelas que caem no mês** (pagamento efetivo ou vencimento). Esses números refletem caixa/comissão a pagar do mês e **não devem** ser amarrados à data de fechamento, sob pena de quebrar parcelados.
+- Adicionar uma legenda curta abaixo do título "Pedidos no período" deixando explícito: *"Lista de pedidos fechados no mês (mesmo critério da página Pedidos). A coluna 'Comissão no mês' considera apenas parcelas com vencimento/pagamento no mês selecionado."*
 
-### 2) Filtros no bloco "Pedidos no período"
+### 3) Filtro "Status da parcela"
 
-Hoje os filtros já são aplicados em `parcelasFiltradas` e os pedidos são derivados delas, mas há 3 problemas:
+- Continuar funcionando; apenas passa a operar sobre o conjunto de parcelas do pedido já incluído pelo critério de fechamento.
 
-a) **Filtro de mês com data de pagamento**: parcelas pagas com `data_pagamento` real (quando existir no snapshot) não são consideradas — só o `data_vencimento`. Ajustar `parcelasFiltradas` para casar o mês contra **`data_pagamento` se a parcela estiver paga**, senão `data_vencimento`. Isso permite ver a comissão "do mês em que foi efetivamente recebida".
+## Fora do escopo
 
-b) **Filtro de Consultor / Tipo / Status no bloco de pedidos**: garantir que a derivação `linhasPedido` use apenas parcelas que passaram pelos filtros (já é o caso) e que o pedido só apareça se tiver ao menos uma parcela compatível. Corrigir o caso atual em que parcelas `sem_data` aparecem por engano quando `statusFiltro === 'todos'`.
+- Não muda cálculo de comissão (regras 5%/1%, base líquida) nem o resumo por consultor.
+- Não muda a página `/pedidos`.
+- Não muda nenhuma RLS, schema ou edge function.
 
-c) **Adicionar coluna/seletor "Data de pagamento"** no filtro: já coberto por (a) — o filtro de Mês passa a representar "mês de pagamento/vencimento". Manter rotulagem clara no `<Label>`.
+## Arquivos afetados
 
-### 3) Lib `src/lib/comissoes.ts` — propagar data efetiva de pagamento
-
-Estender `ItemComissao` com `dataPagamento: string | null`. Em `expandirPixBoleto` e `expandirCartoes`, ler `p.data_pagamento` / `c.data_pagamento` quando existirem no snapshot (já são gravados pelo `AlterarPagamentoDialog`). Usar essa data como referência de mês quando `pago === true`.
-
-### 4) Resumo por consultor
-
-Recalcular `recebidoMes` e `comissaoPaga` usando a data efetiva de pagamento (não a de vencimento) — assim o resumo mostra o que **realmente entrou no caixa naquele mês**, separado de "Deste mês de fechamento" (primeira parcela) vs. "Parcelas antigas" (parcelas de pedidos antigos pagas neste mês).
-
-## Detalhes técnicos
-
-- Nenhuma migração de banco; tudo é derivado do `orcamento_snapshot` já existente.
-- `aplicarStatusPago` continua o mesmo; só leitura é alterada.
-- Tipos TS atualizados em `ItemComissao`.
-- Nenhuma alteração nos hooks (`usePedidos`), apenas no componente e na lib.
-
-## Fora de escopo
-
-- Não mexer em exclusão de pedidos, RLS, ou outras abas do Painel.
-- Não alterar regras de cálculo de comissão (5% nova venda / 1% recompra) nem base líquida.
+- `src/components/admin/RelatorioComissoes.tsx` (único arquivo).
