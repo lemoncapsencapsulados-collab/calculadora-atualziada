@@ -609,3 +609,49 @@ function DetalhesPedidoComissaoDialog({
 }
 
 export default RelatorioComissoes;
+
+function ConfirmarParcelasPopover({
+  pedido,
+  onToggleParcela,
+}: {
+  pedido: Pedido;
+  onToggleParcela: (pedido: Pedido, indice: number, marcarPago: boolean) => Promise<void>;
+}) {
+  const parcelas = useMemo(() => derivarComissoes(pedido), [pedido]);
+  const totalPagas = parcelas.filter((p) => p.pago).length;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" title="Confirmar pagamentos">
+          <CheckSquare className="h-3 w-3 mr-1" />
+          {totalPagas}/{parcelas.length}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[420px] max-h-[60vh] overflow-y-auto" align="end">
+        <div className="space-y-2">
+          <div className="text-sm font-semibold">Confirmar pagamentos — {pedido.numero_pedido}</div>
+          <p className="text-xs text-muted-foreground">
+            Marque cada parcela conforme o pagamento for confirmado. O status do pedido só vira "Pago" quando todas estiverem marcadas.
+          </p>
+          <div className="divide-y">
+            {parcelas.map((p) => (
+              <div key={p.parcelaIndice} className="flex items-center gap-3 py-2">
+                <Checkbox
+                  checked={p.pago}
+                  onCheckedChange={(v) => onToggleParcela(pedido, p.parcelaIndice, !!v)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate">{p.descricaoParcela}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Venc: {fmtDate(p.dataVencimento)} · {fmtBRL(p.valorBruto)}
+                  </div>
+                </div>
+                <div className="shrink-0">{statusBadge(p.status)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
