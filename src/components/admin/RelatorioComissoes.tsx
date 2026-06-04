@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle } from 'lucide-react';
+import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle, CheckSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePedidos } from '@/hooks/usePedidos';
 import { derivarComissoes, aplicarStatusPago, ItemComissao, StatusParcelaComissao } from '@/lib/comissoes';
 import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog';
@@ -66,6 +67,7 @@ export function RelatorioComissoes() {
   const { pedidos, alterarPagamento, toggleParcelaPagaAsync, deletePedidoAsync, deletandoPedido } = usePedidos();
 
   const [mes, setMes] = useState<string>(mesAtualYYYYMM());
+  const [mesResumoConsultor, setMesResumoConsultor] = useState<string>(mesAtualYYYYMM());
   const [consultorFiltro, setConsultorFiltro] = useState<string>('todos');
   const [statusFiltro, setStatusFiltro] = useState<FiltroStatus>('todos');
   const [tipoFiltro, setTipoFiltro] = useState<FiltroTipo>('todos');
@@ -102,7 +104,17 @@ export function RelatorioComissoes() {
     });
   }, [todasParcelas, consultorFiltro, tipoFiltro, statusFiltro, mes]);
 
-  // Agrupa por consultor para o resumo
+  // Resumo por consultor — usa filtro de mês PRÓPRIO (independente do filtro global)
+  const parcelasResumoConsultor = useMemo(() => {
+    return todasParcelas.filter((p) => {
+      if (consultorFiltro !== 'todos' && p.consultor !== consultorFiltro) return false;
+      if (tipoFiltro !== 'todos' && p.tipoVenda !== tipoFiltro) return false;
+      const dt = p.pago && p.dataPagamento ? p.dataPagamento : p.dataVencimento;
+      if (!dt) return false;
+      return dt.slice(0, 7) === mesResumoConsultor;
+    });
+  }, [todasParcelas, consultorFiltro, tipoFiltro, mesResumoConsultor]);
+
   const resumoPorConsultor = useMemo(() => {
     type R = {
       consultor: string;
@@ -114,7 +126,7 @@ export function RelatorioComissoes() {
       comissaoMesParcelasAntigas: number;  // pedidos fechados em meses anteriores
     };
     const m = new Map<string, R>();
-    parcelasFiltradas.forEach((p) => {
+    parcelasResumoConsultor.forEach((p) => {
       let r = m.get(p.consultor);
       if (!r) {
         r = {
@@ -137,7 +149,7 @@ export function RelatorioComissoes() {
       else r.comissaoMesParcelasAntigas += p.comissao;
     });
     return Array.from(m.values()).sort((a, b) => b.comissaoPaga - a.comissaoPaga);
-  }, [parcelasFiltradas]);
+  }, [parcelasResumoConsultor]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
@@ -322,7 +334,26 @@ export function RelatorioComissoes() {
 
       {/* Resumo por consultor */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Comissão por consultor — {mes}</CardTitle></CardHeader>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base">Comissão por consultor — {mesResumoConsultor}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Mês</Label>
+            <Input
+              type="month"
+              value={mesResumoConsultor}
+              onChange={(e) => setMesResumoConsultor(e.target.value || mesAtualYYYYMM())}
+              className="h-8 w-[160px]"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setMesResumoConsultor(mesAtualYYYYMM())}
+              className="h-8"
+            >
+              Mês atual
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -404,6 +435,15 @@ export function RelatorioComissoes() {
                       <Button size="sm" variant="outline" onClick={() => setDetalhePedido(l.pedido)}>
                         <Eye className="h-3 w-3 mr-1" />Detalhes
                       </Button>
+                      <ConfirmarParcelasPopover
+                        pedido={l.pedido}
+                        onToggleParcela={async (pedido, indice, marcarPago) => {
+                          const snap: any = pedido.orcamento_snapshot || {};
+                          const cond = snap.condicoes_pagamento;
+                          const novas = aplicarStatusPago(cond, indice, marcarPago);
+                          await toggleParcelaPagaAsync({ id: pedido.id, novasCondicoes: novas });
+                        }}
+                      />
                       <Button size="sm" variant="outline" onClick={() => setEditarPedido(l.pedido)}>
                         <Pencil className="h-3 w-3 mr-1" />Editar
                       </Button>
@@ -426,7 +466,6 @@ export function RelatorioComissoes() {
         onToggleParcela={async (pedido, indice, marcarPago) => {
           const snap: any = pedido.orcamento_snapshot || {};
           const cond = snap.condicoes_pagamento;
-          if (!cond) return;
           const novas = aplicarStatusPago(cond, indice, marcarPago);
           await toggleParcelaPagaAsync({ id: pedido.id, novasCondicoes: novas });
         }}
@@ -570,3 +609,49 @@ function DetalhesPedidoComissaoDialog({
 }
 
 export default RelatorioComissoes;
+
+function ConfirmarParcelasPopover({
+  pedido,
+  onToggleParcela,
+}: {
+  pedido: Pedido;
+  onToggleParcela: (pedido: Pedido, indice: number, marcarPago: boolean) => Promise<void>;
+}) {
+  const parcelas = useMemo(() => derivarComissoes(pedido), [pedido]);
+  const totalPagas = parcelas.filter((p) => p.pago).length;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" title="Confirmar pagamentos">
+          <CheckSquare className="h-3 w-3 mr-1" />
+          {totalPagas}/{parcelas.length}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[420px] max-h-[60vh] overflow-y-auto" align="end">
+        <div className="space-y-2">
+          <div className="text-sm font-semibold">Confirmar pagamentos — {pedido.numero_pedido}</div>
+          <p className="text-xs text-muted-foreground">
+            Marque cada parcela conforme o pagamento for confirmado. O status do pedido só vira "Pago" quando todas estiverem marcadas.
+          </p>
+          <div className="divide-y">
+            {parcelas.map((p) => (
+              <div key={p.parcelaIndice} className="flex items-center gap-3 py-2">
+                <Checkbox
+                  checked={p.pago}
+                  onCheckedChange={(v) => onToggleParcela(pedido, p.parcelaIndice, !!v)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate">{p.descricaoParcela}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Venc: {fmtDate(p.dataVencimento)} · {fmtBRL(p.valorBruto)}
+                  </div>
+                </div>
+                <div className="shrink-0">{statusBadge(p.status)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}

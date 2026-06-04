@@ -168,10 +168,10 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
       indice: 0,
       desc: 'Pagamento integral',
       data: baseData,
-      dataPagamento: baseData,
+      dataPagamento: cond?.pagamento_unico_data_pagamento || (cond?.pagamento_unico_pago ? baseData : null),
       valorBruto: arredondarReais(valorTotal),
       valorLiquido: arredondarReais(valorTotal),
-      pago: !!baseData,
+      pago: !!cond?.pagamento_unico_pago,
     }];
   }
 
@@ -206,7 +206,7 @@ export function percentualComissao(pedido: Pedido): number {
 
 /** Localiza parcela em condições e marca pago=true/false, retornando novas condições. */
 export function aplicarStatusPago(
-  cond: CondicoesPagamento,
+  cond: CondicoesPagamento | undefined,
   parcelaIndice: number,
   pago: boolean,
 ): CondicoesPagamento {
@@ -237,6 +237,16 @@ export function aplicarStatusPago(
   } else if (clone.metodo_principal === 'misto') {
     aplicarEmPixBoleto(clone.misto_parcelas_pix_boleto);
     aplicarEmCartoes(clone.misto_cartoes);
+  } else {
+    // Pagamento único — parcela 0 representa o pagamento integral
+    if (parcelaIndice === 0) {
+      clone.pagamento_unico_pago = pago;
+      if (pago) {
+        clone.pagamento_unico_data_pagamento = new Date().toISOString().slice(0, 10);
+      } else {
+        delete clone.pagamento_unico_data_pagamento;
+      }
+    }
   }
   return clone;
 }
