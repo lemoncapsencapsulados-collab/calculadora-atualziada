@@ -407,6 +407,9 @@ export function RelatorioComissoes() {
                       <Button size="sm" variant="outline" onClick={() => setEditarPedido(l.pedido)}>
                         <Pencil className="h-3 w-3 mr-1" />Editar
                       </Button>
+                      <Button size="sm" variant="destructive" onClick={() => setPedidoParaExcluir({ id: l.pedido.id, numero: l.pedido.numero_pedido })}>
+                        <Trash2 className="h-3 w-3 mr-1" />Excluir
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -453,6 +456,24 @@ export function RelatorioComissoes() {
           />
         );
       })()}
+
+      <ConfirmarExclusaoPedidoDialog
+        open={!!pedidoParaExcluir}
+        onOpenChange={(o) => { if (!o && !deletandoPedido) setPedidoParaExcluir(null); }}
+        numeroPedido={pedidoParaExcluir?.numero ?? ''}
+        loading={deletandoPedido}
+        onConfirm={async () => {
+          if (!pedidoParaExcluir) return;
+          try {
+            await deletePedidoAsync(pedidoParaExcluir.id);
+            if (detalhePedido?.id === pedidoParaExcluir.id) setDetalhePedido(null);
+            if (editarPedido?.id === pedidoParaExcluir.id) setEditarPedido(null);
+            setPedidoParaExcluir(null);
+          } catch {
+            return;
+          }
+        }}
+      />
     </div>
   );
 }
