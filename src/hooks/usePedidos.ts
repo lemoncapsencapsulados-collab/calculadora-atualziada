@@ -143,44 +143,16 @@ export const usePedidos = () => {
         (allPedidos || []).forEach(p => {
           if (p.orcamento_id) pedidosByOrcId.set(p.orcamento_id, p);
         });
-
-        // Get next pedido number (robust: scans all PED-* numbers)
-        const nextPedStr = await getNextPedNumber();
-        let nextNum = parseInt(nextPedStr.match(/PED-(\d+)/)![1], 10);
-
-        const toInsert: any[] = [];
         const toUpdate: { id: string; snapshot: any }[] = [];
 
         for (const orc of orcamentosPagos) {
-          const snapshot = buildSnapshotFromOrcamento(orc);
           const existing = pedidosByOrcId.get(orc.id);
+          if (!existing) continue;
 
-          if (existing) {
-            // Update snapshot with full data
-            toUpdate.push({ id: existing.id, snapshot });
-          } else {
-            // Create new pedido
-            const totalQtd = (orc.itens_producao as any[] || []).reduce(
-              (sum: number, item: any) => sum + (item.quantidade || 1), 0
-            );
-            toInsert.push({
-              orcamento_id: orc.id,
-              orcamento_snapshot: snapshot as any,
-              numero_pedido: `PED-${nextNum.toString().padStart(3, '0')}`,
-              data_pedido: new Date().toISOString(),
-              data_entrega: orc.data_pagamento || new Date().toISOString(),
-              quantidade_produto: totalQtd,
-              unidade_produto: 'potes',
-              status: 'aguardando_producao',
-              formula_id: null,
-              formula_snapshot: null,
-              observacoes: orc.observacoes || null,
-            });
-            nextNum++;
-          }
+          const snapshot = buildSnapshotFromOrcamento(orc);
+          toUpdate.push({ id: existing.id, snapshot });
         }
 
-        // Batch updates
         for (const u of toUpdate) {
           await supabase
             .from('pedidos')
@@ -188,14 +160,10 @@ export const usePedidos = () => {
             .eq('id', u.id);
         }
 
-        // Batch inserts
-        if (toInsert.length > 0) {
-          await supabase.from('pedidos').insert(toInsert);
-        }
-
-        if (toInsert.length > 0 || toUpdate.length > 0) {
+        if (toUpdate.length > 0) {
           queryClient.invalidateQueries({ queryKey: ['pedidos'] });
-          console.log(`Sync: ${toInsert.length} pedidos criados, ${toUpdate.length} atualizados`);
+          queryClient.invalidateQueries({ queryKey: ['pedidos-dashboard'] });
+          console.log(`Sync: ${toUpdate.length} pedidos atualizados`);
         }
       } catch (err) {
         console.error('Erro no sync de pedidos:', err);
@@ -366,6 +334,14 @@ export const usePedidos = () => {
   });
 
   const deletePedido = useMutation({
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['pedidos'] });
+      const previousPedidos = queryClient.getQueryData<Pedido[]>(['pedidos']);
+      queryClient.setQueryData<Pedido[]>(['pedidos'], (current = []) =>
+        current.filter((pedido) => pedido.id !== id)
+      );
+      return { previousPedidos };
+    },
     mutationFn: async (id: string) => {
       // Limpa anexos dependentes (sem FK cascade) antes de excluir o pedido.
       try {
@@ -398,9 +374,14 @@ export const usePedidos = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      queryClient.invalidateQueries({ queryKey: ['pedidos-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-dashboard'] });
       toast.success('Pedido excluído com sucesso');
     },
-    onError: (error: any) => {
+    onError: (error: any, _id, context) => {
+      if (context?.previousPedidos) {
+        queryClient.setQueryData(['pedidos'], context.previousPedidos);
+      }
       console.error('Erro ao excluir pedido:', error);
       const msg = error?.message || error?.details || 'erro desconhecido';
       toast.error(`Erro ao excluir pedido: ${msg}`);
