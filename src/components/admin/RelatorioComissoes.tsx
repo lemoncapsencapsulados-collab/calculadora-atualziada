@@ -235,7 +235,7 @@ export function RelatorioComissoes() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="space-y-1">
-            <Label>Mês de referência</Label>
+            <Label>Mês (pagamento/vencimento)</Label>
             <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
           </div>
           <div className="space-y-1">
