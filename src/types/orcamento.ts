@@ -133,6 +133,9 @@ export interface CondicoesPagamento {
   // Misto
   misto_parcelas_pix_boleto?: ParcelaPixBoleto[];
   misto_cartoes?: CartaoPagamento[];
+  // Pagamento único (sem estrutura de parcelas) — confirmação manual
+  pagamento_unico_pago?: boolean;
+  pagamento_unico_data_pagamento?: string; // YYYY-MM-DD
   // Campos legados (manter compatibilidade)
   forma_avista?: FormaPagamentoAvista;
   parcelas_cartao?: number;
