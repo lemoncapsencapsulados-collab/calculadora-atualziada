@@ -1,36 +1,35 @@
 ## Objetivo
+Fazer a aba **Comissionamento** funcionar como um espelho real de **Pedidos**: se um pedido for alterado ou excluído em qualquer um dos dois lugares, o outro deve refletir imediatamente os mesmos dados e a mesma lista.
 
-Alinhar o bloco "Pedidos no período" do Painel Administrativo → Comissionamento para puxar exatamente os mesmos pedidos exibidos na página **Pedidos** quando os mesmos filtros (consultor + mês) são aplicados. Hoje a página Pedidos filtra por `orcamento_snapshot.data_pagamento` (data de fechamento do pedido) com 1 linha por pedido, enquanto Comissionamento expande cada parcela e inclui o pedido se qualquer parcela cair no mês — por isso aparece mais pedidos para o Everton em maio.
+## O que vou implementar
+1. **Unificar a origem da listagem de “Pedidos no período”**
+   - Garantir que a tabela de Comissionamento derive exclusivamente da coleção `pedidos` já usada na página Pedidos.
+   - Remover qualquer comportamento residual que mantenha linhas órfãs ou derivadas apenas de parcelas quando o pedido já não existe mais.
 
-## Mudanças
+2. **Sincronizar exclusão de forma imediata**
+   - Revisar a atualização de cache/realtime para que, ao excluir um pedido em Pedidos, a aba Comissionamento remova esse item na mesma fonte de dados, sem divergência visual.
+   - Fazer o mesmo no fluxo inverso, adicionando exclusão também dentro de Comissionamento, já que você quer comportamento bidirecional.
 
-### 1) `src/components/admin/RelatorioComissoes.tsx` — critério de inclusão do pedido
+3. **Sincronizar edição de forma bidirecional**
+   - Reutilizar na aba Comissionamento o mesmo fluxo de edição do pedido real já usado em Pedidos.
+   - Garantir que alterações de pagamento, datas e condições atualizem a mesma entidade base e invalidem todos os caches necessários para refletir na página Pedidos e no relatório.
 
-- Adicionar derivação `pedidoEntraNoMes(pedido, mes)` que olha **apenas** `pedido.orcamento_snapshot.data_pagamento` (substring 0..7 === mes). Mesma regra da página Pedidos.
-- Construir `linhasPedido` a partir de `pedidos` (não de `parcelasFiltradas`):
-  - Percorrer `pedidos`, manter os que passam em `pedidoEntraNoMes` + filtros de consultor (`snap.consultor_responsavel`) e tipo de venda.
-  - Para cada pedido incluído, derivar as parcelas via `derivarComissoes(pedido)` para calcular:
-    - `comissaoTotalPedido` = soma de todas as parcelas do pedido.
-    - `comissaoNoMes` = soma das parcelas cuja data efetiva (pago→`dataPagamento`, senão `dataVencimento`) caia no mês. Pode ser 0 se nenhuma parcela vence/foi paga no mês — ainda assim o pedido aparece (porque o fechamento foi no mês).
-    - `statusPedido` continua calculado sobre todas as parcelas (Pago / Parcialmente Pago / Atrasado / Em dia).
-  - Aplicar o filtro de "Status da parcela" como filtro adicional sobre o pedido: o pedido passa se tiver pelo menos uma parcela com aquele status (mantém compatibilidade com o seletor existente).
-- Resultado: a lista de pedidos no mês fica 1:1 com `/pedidos` filtrado por consultor + intervalo de datas do mês.
+4. **Ajustar ações na UI de Comissionamento**
+   - Manter “Editar” ligado ao pedido real.
+   - Adicionar a ação de **Excluir** na tabela/fluxo de Comissionamento com confirmação, usando a mesma mutação já existente em Pedidos.
 
-### 2) Resumo por consultor e cards do topo
+5. **Validar o espelhamento completo**
+   - Confirmar que um pedido excluído não continua aparecendo em Comissionamento.
+   - Confirmar que alterações feitas em qualquer lado atualizam a listagem e os detalhes de comissão corretamente.
 
-- Manter a lógica atual baseada em **parcelas que caem no mês** (pagamento efetivo ou vencimento). Esses números refletem caixa/comissão a pagar do mês e **não devem** ser amarrados à data de fechamento, sob pena de quebrar parcelados.
-- Adicionar uma legenda curta abaixo do título "Pedidos no período" deixando explícito: *"Lista de pedidos fechados no mês (mesmo critério da página Pedidos). A coluna 'Comissão no mês' considera apenas parcelas com vencimento/pagamento no mês selecionado."*
+## Resultado esperado
+- **Pedidos** e **Comissionamento** passam a mostrar exatamente o mesmo conjunto de pedidos para o mesmo critério.
+- **Excluir em um lado exclui no outro**.
+- **Editar em um lado atualiza no outro**.
+- A comissão continua sendo calculada a partir do pedido real atualizado, sem manter dados antigos visíveis.
 
-### 3) Filtro "Status da parcela"
-
-- Continuar funcionando; apenas passa a operar sobre o conjunto de parcelas do pedido já incluído pelo critério de fechamento.
-
-## Fora do escopo
-
-- Não muda cálculo de comissão (regras 5%/1%, base líquida) nem o resumo por consultor.
-- Não muda a página `/pedidos`.
-- Não muda nenhuma RLS, schema ou edge function.
-
-## Arquivos afetados
-
-- `src/components/admin/RelatorioComissoes.tsx` (único arquivo).
+## Detalhes técnicos
+- Reaproveitar `usePedidos()` como fonte única de verdade.
+- Expandir as invalidações de query para cobrir explicitamente o relatório de comissões, se necessário.
+- Usar as mesmas mutações já existentes (`alterarPagamento`, `deletePedidoAsync`, `toggleParcelaPagaAsync`) para evitar duplicidade de regra.
+- Ajustar `RelatorioComissoes.tsx` para que toda ação opere sobre `pedido.id` e nunca sobre estruturas derivadas independentes.
