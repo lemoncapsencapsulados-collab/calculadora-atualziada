@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { usePedidos } from '@/hooks/usePedidos';
 import { derivarComissoes, aplicarStatusPago, ItemComissao, StatusParcelaComissao } from '@/lib/comissoes';
 import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog';
+import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoDialog';
 import { Pedido } from '@/types/formula';
 import { arredondarReais } from '@/lib/utils';
 
@@ -62,7 +63,7 @@ const badgeStatusPedido = (s: StatusPedido) => {
 };
 
 export function RelatorioComissoes() {
-  const { pedidos, alterarPagamento, toggleParcelaPagaAsync } = usePedidos();
+  const { pedidos, alterarPagamento, toggleParcelaPagaAsync, deletePedidoAsync, deletandoPedido } = usePedidos();
 
   const [mes, setMes] = useState<string>(mesAtualYYYYMM());
   const [consultorFiltro, setConsultorFiltro] = useState<string>('todos');
@@ -70,6 +71,7 @@ export function RelatorioComissoes() {
   const [tipoFiltro, setTipoFiltro] = useState<FiltroTipo>('todos');
   const [detalhePedido, setDetalhePedido] = useState<Pedido | null>(null);
   const [editarPedido, setEditarPedido] = useState<Pedido | null>(null);
+  const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
 
   // Deriva todas as parcelas-comissão
   const todasParcelas = useMemo(() => {
