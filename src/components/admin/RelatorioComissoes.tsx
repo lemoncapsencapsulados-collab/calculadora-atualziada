@@ -525,6 +525,20 @@ export function RelatorioComissoes() {
           }
         }}
       />
+
+      <DetalheConsultorDialog
+        consultor={consultorDetalhe}
+        mes={mesResumoConsultor}
+        parcelas={consultorDetalhe ? parcelasResumoConsultor.filter((p) => p.consultor === consultorDetalhe) : []}
+        onClose={() => setConsultorDetalhe(null)}
+        onAbrirPedido={(pedidoId) => {
+          const ped = pedidos.find((x) => x.id === pedidoId);
+          if (ped) {
+            setConsultorDetalhe(null);
+            setDetalhePedido(ped);
+          }
+        }}
+      />
     </div>
   );
 }
