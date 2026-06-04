@@ -151,41 +151,62 @@ export function RelatorioComissoes() {
       comissaoNoMes: number;
       temInadimplencia: boolean;
     };
-    const map = new Map<string, L & { statusPedido: StatusPedido }>();
-    // agrupa parcelas globais (todas, não filtradas) por pedido para status real
-    const parcelasGlobaisPorPedido = new Map<string, ItemComissao[]>();
-    const totaisPorPedido = new Map<string, number>();
+    const linhas: (L & { statusPedido: StatusPedido })[] = [];
+    // Indexa parcelas por pedido (a partir de todasParcelas, sem filtro)
+    const parcelasPorPedido = new Map<string, ItemComissao[]>();
     todasParcelas.forEach((p) => {
-      totaisPorPedido.set(p.pedidoId, (totaisPorPedido.get(p.pedidoId) || 0) + p.comissao);
-      const arr = parcelasGlobaisPorPedido.get(p.pedidoId) || [];
+      const arr = parcelasPorPedido.get(p.pedidoId) || [];
       arr.push(p);
-      parcelasGlobaisPorPedido.set(p.pedidoId, arr);
+      parcelasPorPedido.set(p.pedidoId, arr);
     });
-    parcelasFiltradas.forEach((p) => {
-      let l = map.get(p.pedidoId);
-      if (!l) {
-        const pedido = pedidos.find((x) => x.id === p.pedidoId);
-        if (!pedido) return;
-        const snap: any = pedido.orcamento_snapshot || {};
-        l = {
-          pedido,
-          consultor: p.consultor,
-          clienteNome: p.clienteNome,
-          clienteDoc: p.clienteDoc,
-          tipoVenda: p.tipoVenda,
-          metodo: p.metodoPagamento,
-          valorTotalPedido: Number(snap.valor_total) || 0,
-          comissaoTotalPedido: arredondarReais(totaisPorPedido.get(p.pedidoId) || 0),
-          comissaoNoMes: 0,
-          temInadimplencia: (parcelasGlobaisPorPedido.get(p.pedidoId) || []).some((x) => x.status === 'vencido'),
-          statusPedido: calcularStatusPedido(parcelasGlobaisPorPedido.get(p.pedidoId) || []),
-        };
-        map.set(p.pedidoId, l);
-      }
-      l.comissaoNoMes = arredondarReais(l.comissaoNoMes + p.comissao);
+    // Itera pedidos e aplica o MESMO critério da página Pedidos:
+    // - inclui pedido cujo snap.data_pagamento (fechamento) cai no mês selecionado
+    // - filtros de consultor e tipo de venda aplicados ao pedido
+    pedidos.forEach((pedido) => {
+      const snap: any = pedido.orcamento_snapshot || {};
+      const dataFechamento: string | undefined = snap.data_pagamento;
+      if (!dataFechamento) return;
+      if (dataFechamento.slice(0, 7) !== mes) return;
+
+      const consultor = snap.consultor_responsavel || '—';
+      if (consultorFiltro !== 'todos' && consultor !== consultorFiltro) return;
+
+      const parcelas = parcelasPorPedido.get(pedido.id) || [];
+      const tipoVenda: 'nova_venda' | 'recompra' =
+        parcelas[0]?.tipoVenda
+        || (String(snap.tipo_orcamento || '').includes('recompra') ? 'recompra' : 'nova_venda');
+      if (tipoFiltro !== 'todos' && tipoVenda !== tipoFiltro) return;
+
+      // Filtro de status da parcela: pedido entra se tiver pelo menos uma parcela no status
+      if (statusFiltro !== 'todos' && !parcelas.some((p) => p.status === statusFiltro)) return;
+
+      const comissaoTotalPedido = arredondarReais(
+        parcelas.reduce((s, p) => s + p.comissao, 0),
+      );
+      const comissaoNoMes = arredondarReais(
+        parcelas.reduce((s, p) => {
+          const dt = p.pago && p.dataPagamento ? p.dataPagamento : p.dataVencimento;
+          if (!dt || dt.slice(0, 7) !== mes) return s;
+          return s + p.comissao;
+        }, 0),
+      );
+
+      linhas.push({
+        pedido,
+        consultor,
+        clienteNome: parcelas[0]?.clienteNome || snap.cliente?.nome || snap.cliente_nome || '—',
+        clienteDoc: parcelas[0]?.clienteDoc || snap.cliente?.cpf_cnpj || snap.cliente?.documento || '',
+        tipoVenda,
+        metodo: parcelas[0]?.metodoPagamento || snap.metodo_pagamento || '—',
+        valorTotalPedido: Number(snap.valor_total) || 0,
+        comissaoTotalPedido,
+        comissaoNoMes,
+        temInadimplencia: parcelas.some((p) => p.status === 'vencido'),
+        statusPedido: calcularStatusPedido(parcelas),
+      });
     });
-    return Array.from(map.values()).sort((a, b) => b.comissaoNoMes - a.comissaoNoMes);
-  }, [parcelasFiltradas, todasParcelas, pedidos]);
+    return linhas.sort((a, b) => b.comissaoNoMes - a.comissaoNoMes);
+  }, [pedidos, todasParcelas, mes, consultorFiltro, tipoFiltro, statusFiltro]);
 
   const totalGeralMes = useMemo(() => {
     return parcelasFiltradas.reduce(
