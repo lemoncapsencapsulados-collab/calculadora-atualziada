@@ -355,7 +355,12 @@ export function RelatorioComissoes() {
 
       {/* Pedidos */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Pedidos no período</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Pedidos no período</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Lista de pedidos fechados no mês (mesmo critério da página Pedidos). A coluna "Comissão no mês" considera apenas parcelas com vencimento/pagamento no mês selecionado.
+          </p>
+        </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
