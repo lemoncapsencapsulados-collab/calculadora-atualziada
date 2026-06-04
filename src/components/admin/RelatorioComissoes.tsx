@@ -435,6 +435,15 @@ export function RelatorioComissoes() {
                       <Button size="sm" variant="outline" onClick={() => setDetalhePedido(l.pedido)}>
                         <Eye className="h-3 w-3 mr-1" />Detalhes
                       </Button>
+                      <ConfirmarParcelasPopover
+                        pedido={l.pedido}
+                        onToggleParcela={async (pedido, indice, marcarPago) => {
+                          const snap: any = pedido.orcamento_snapshot || {};
+                          const cond = snap.condicoes_pagamento;
+                          const novas = aplicarStatusPago(cond, indice, marcarPago);
+                          await toggleParcelaPagaAsync({ id: pedido.id, novasCondicoes: novas });
+                        }}
+                      />
                       <Button size="sm" variant="outline" onClick={() => setEditarPedido(l.pedido)}>
                         <Pencil className="h-3 w-3 mr-1" />Editar
                       </Button>
@@ -457,7 +466,6 @@ export function RelatorioComissoes() {
         onToggleParcela={async (pedido, indice, marcarPago) => {
           const snap: any = pedido.orcamento_snapshot || {};
           const cond = snap.condicoes_pagamento;
-          if (!cond) return;
           const novas = aplicarStatusPago(cond, indice, marcarPago);
           await toggleParcelaPagaAsync({ id: pedido.id, novasCondicoes: novas });
         }}
