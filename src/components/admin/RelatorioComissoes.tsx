@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle } from 'lucide-react';
+import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle, CheckSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePedidos } from '@/hooks/usePedidos';
 import { derivarComissoes, aplicarStatusPago, ItemComissao, StatusParcelaComissao } from '@/lib/comissoes';
 import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog';
@@ -66,6 +67,7 @@ export function RelatorioComissoes() {
   const { pedidos, alterarPagamento, toggleParcelaPagaAsync, deletePedidoAsync, deletandoPedido } = usePedidos();
 
   const [mes, setMes] = useState<string>(mesAtualYYYYMM());
+  const [mesResumoConsultor, setMesResumoConsultor] = useState<string>(mesAtualYYYYMM());
   const [consultorFiltro, setConsultorFiltro] = useState<string>('todos');
   const [statusFiltro, setStatusFiltro] = useState<FiltroStatus>('todos');
   const [tipoFiltro, setTipoFiltro] = useState<FiltroTipo>('todos');
@@ -102,7 +104,17 @@ export function RelatorioComissoes() {
     });
   }, [todasParcelas, consultorFiltro, tipoFiltro, statusFiltro, mes]);
 
-  // Agrupa por consultor para o resumo
+  // Resumo por consultor — usa filtro de mês PRÓPRIO (independente do filtro global)
+  const parcelasResumoConsultor = useMemo(() => {
+    return todasParcelas.filter((p) => {
+      if (consultorFiltro !== 'todos' && p.consultor !== consultorFiltro) return false;
+      if (tipoFiltro !== 'todos' && p.tipoVenda !== tipoFiltro) return false;
+      const dt = p.pago && p.dataPagamento ? p.dataPagamento : p.dataVencimento;
+      if (!dt) return false;
+      return dt.slice(0, 7) === mesResumoConsultor;
+    });
+  }, [todasParcelas, consultorFiltro, tipoFiltro, mesResumoConsultor]);
+
   const resumoPorConsultor = useMemo(() => {
     type R = {
       consultor: string;
@@ -114,7 +126,7 @@ export function RelatorioComissoes() {
       comissaoMesParcelasAntigas: number;  // pedidos fechados em meses anteriores
     };
     const m = new Map<string, R>();
-    parcelasFiltradas.forEach((p) => {
+    parcelasResumoConsultor.forEach((p) => {
       let r = m.get(p.consultor);
       if (!r) {
         r = {
@@ -137,7 +149,7 @@ export function RelatorioComissoes() {
       else r.comissaoMesParcelasAntigas += p.comissao;
     });
     return Array.from(m.values()).sort((a, b) => b.comissaoPaga - a.comissaoPaga);
-  }, [parcelasFiltradas]);
+  }, [parcelasResumoConsultor]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
