@@ -334,7 +334,26 @@ export function RelatorioComissoes() {
 
       {/* Resumo por consultor */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Comissão por consultor — {mes}</CardTitle></CardHeader>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base">Comissão por consultor — {mesResumoConsultor}</CardTitle>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Mês</Label>
+            <Input
+              type="month"
+              value={mesResumoConsultor}
+              onChange={(e) => setMesResumoConsultor(e.target.value || mesAtualYYYYMM())}
+              className="h-8 w-[160px]"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setMesResumoConsultor(mesAtualYYYYMM())}
+              className="h-8"
+            >
+              Mês atual
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
