@@ -71,6 +71,7 @@ function expandirPixBoleto(
 ) {
   if (!parcelas?.length) return [] as Array<{
     indice: number; desc: string; data: string | null;
+    dataPagamento: string | null;
     valorBruto: number; valorLiquido: number; pago: boolean;
   }>;
   return parcelas.map((p, i) => {
