@@ -74,6 +74,7 @@ export function RelatorioComissoes() {
   const [detalhePedido, setDetalhePedido] = useState<Pedido | null>(null);
   const [editarPedido, setEditarPedido] = useState<Pedido | null>(null);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
+  const [consultorDetalhe, setConsultorDetalhe] = useState<string | null>(null);
 
   // Deriva todas as parcelas-comissão
   const todasParcelas = useMemo(() => {
@@ -371,8 +372,19 @@ export function RelatorioComissoes() {
               {resumoPorConsultor.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
               ) : resumoPorConsultor.map((r) => (
-                <TableRow key={r.consultor}>
-                  <TableCell className="font-medium">{r.consultor}</TableCell>
+                <TableRow
+                  key={r.consultor}
+                  className="cursor-pointer hover:bg-muted/50"
+                  tabIndex={0}
+                  onClick={() => setConsultorDetalhe(r.consultor)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setConsultorDetalhe(r.consultor);
+                    }
+                  }}
+                >
+                  <TableCell className="font-medium underline-offset-4 hover:underline">{r.consultor}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.recebidoMes)}</TableCell>
                   <TableCell className="text-right text-emerald-600 font-semibold">{fmtBRL(r.comissaoPaga)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.comissaoAVencer)}</TableCell>
@@ -513,6 +525,20 @@ export function RelatorioComissoes() {
           }
         }}
       />
+
+      <DetalheConsultorDialog
+        consultor={consultorDetalhe}
+        mes={mesResumoConsultor}
+        parcelas={consultorDetalhe ? parcelasResumoConsultor.filter((p) => p.consultor === consultorDetalhe) : []}
+        onClose={() => setConsultorDetalhe(null)}
+        onAbrirPedido={(pedidoId) => {
+          const ped = pedidos.find((x) => x.id === pedidoId);
+          if (ped) {
+            setConsultorDetalhe(null);
+            setDetalhePedido(ped);
+          }
+        }}
+      />
     </div>
   );
 }
@@ -609,6 +635,175 @@ function DetalhesPedidoComissaoDialog({
 }
 
 export default RelatorioComissoes;
+
+function DetalheConsultorDialog({
+  consultor,
+  mes,
+  parcelas,
+  onClose,
+  onAbrirPedido,
+}: {
+  consultor: string | null;
+  mes: string;
+  parcelas: ItemComissao[];
+  onClose: () => void;
+  onAbrirPedido: (pedidoId: string) => void;
+}) {
+  const totais = useMemo(() => {
+    return parcelas.reduce(
+      (a, p) => {
+        if (p.status === 'pago') { a.pago += p.comissao; a.recebido += p.valorBruto; }
+        else if (p.status === 'vencido') a.inad += p.comissao;
+        else if (p.status === 'pendente') a.aVencer += p.comissao;
+        return a;
+      },
+      { pago: 0, aVencer: 0, inad: 0, recebido: 0 },
+    );
+  }, [parcelas]);
+
+  const pagas = parcelas.filter((p) => p.status === 'pago');
+  const aVencer = parcelas.filter((p) => p.status === 'pendente');
+  const inadimplentes = parcelas.filter((p) => p.status === 'vencido');
+  const semData = parcelas.filter((p) => p.status === 'sem_data');
+
+  const exportar = () => {
+    if (!consultor) return;
+    const headers = [
+      'Pedido', 'Cliente', 'CPF/CNPJ', 'Tipo', 'Método',
+      'Parcela', 'Vencimento', 'Pagamento', 'Valor bruto', 'Valor líquido', '%', 'Comissão', 'Status',
+    ];
+    const rows = parcelas.map((p) => [
+      p.numeroPedido, p.clienteNome, p.clienteDoc,
+      p.tipoVenda === 'recompra' ? 'Recompra' : 'Nova venda',
+      p.metodoPagamento, p.descricaoParcela,
+      fmtDate(p.dataVencimento), fmtDate(p.dataPagamento),
+      String(p.valorBruto).replace('.', ','),
+      String(p.valorLiquido).replace('.', ','),
+      `${(p.percentual * 100).toFixed(0)}%`,
+      String(p.comissao).replace('.', ','),
+      p.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';'))
+      .join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comissao_${consultor}_${mes}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderGrupo = (titulo: string, lista: ItemComissao[], destaque: 'pago' | 'pendente' | 'vencido' | 'neutro') => {
+    if (!lista.length) return null;
+    const subtotal = lista.reduce((s, p) => s + p.comissao, 0);
+    const cor =
+      destaque === 'pago' ? 'text-emerald-600'
+      : destaque === 'vencido' ? 'text-destructive'
+      : destaque === 'pendente' ? 'text-amber-600'
+      : '';
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold">{titulo} <span className="text-muted-foreground font-normal">({lista.length})</span></div>
+          <div className={`text-sm font-semibold ${cor}`}>Subtotal: {fmtBRL(subtotal)}</div>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Pedido</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Parcela</TableHead>
+              <TableHead>Vencimento</TableHead>
+              <TableHead>Pagamento</TableHead>
+              <TableHead className="text-right">Bruto</TableHead>
+              <TableHead className="text-right">Líquido</TableHead>
+              <TableHead className="text-right">%</TableHead>
+              <TableHead className="text-right">Comissão</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {lista.map((p, i) => (
+              <TableRow
+                key={`${p.pedidoId}-${p.parcelaIndice}-${i}`}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onAbrirPedido(p.pedidoId)}
+              >
+                <TableCell className="font-medium">{p.numeroPedido}</TableCell>
+                <TableCell className="max-w-[180px] truncate" title={p.clienteNome}>{p.clienteNome}</TableCell>
+                <TableCell className="text-xs">{p.tipoVenda === 'recompra' ? 'Recompra (1%)' : 'Nova (5%)'}</TableCell>
+                <TableCell className="text-xs">{p.descricaoParcela}</TableCell>
+                <TableCell>{fmtDate(p.dataVencimento)}</TableCell>
+                <TableCell>{fmtDate(p.dataPagamento)}</TableCell>
+                <TableCell className="text-right">{fmtBRL(p.valorBruto)}</TableCell>
+                <TableCell className="text-right">{fmtBRL(p.valorLiquido)}</TableCell>
+                <TableCell className="text-right">{(p.percentual * 100).toFixed(0)}%</TableCell>
+                <TableCell className={`text-right font-semibold ${cor}`}>{fmtBRL(p.comissao)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
+  return (
+    <Dialog open={!!consultor} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-5xl max-h-[92dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Detalhamento da comissão — {consultor}</DialogTitle>
+          <DialogDescription>
+            Mês de referência: {mes}. Comissão calculada sobre parcelas efetivamente recebidas — não pelo parcelamento contratado.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground">Recebido (bruto)</div>
+            <div className="text-lg font-bold">{fmtBRL(totais.recebido)}</div>
+          </div>
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground">Comissão paga</div>
+            <div className="text-lg font-bold text-emerald-600">{fmtBRL(totais.pago)}</div>
+          </div>
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground">A vencer</div>
+            <div className="text-lg font-bold text-amber-600">{fmtBRL(totais.aVencer)}</div>
+          </div>
+          <div className="rounded border p-3">
+            <div className="text-muted-foreground">Inadimplente</div>
+            <div className="text-lg font-bold text-destructive">{fmtBRL(totais.inad)}</div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={exportar} disabled={!parcelas.length}>
+            <Download className="h-4 w-4 mr-2" /> Exportar CSV
+          </Button>
+        </div>
+
+        {parcelas.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8 text-sm">
+            Sem parcelas no período para este consultor.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {renderGrupo('Pagas no mês', pagas, 'pago')}
+            {renderGrupo('A vencer no mês', aVencer, 'pendente')}
+            {renderGrupo('Inadimplentes no mês', inadimplentes, 'vencido')}
+            {renderGrupo('Sem data definida', semData, 'neutro')}
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground pt-2">
+          Clique em uma parcela para abrir o detalhamento do pedido e confirmar pagamentos.
+        </p>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function ConfirmarParcelasPopover({
   pedido,
