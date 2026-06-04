@@ -74,6 +74,7 @@ export function RelatorioComissoes() {
   const [detalhePedido, setDetalhePedido] = useState<Pedido | null>(null);
   const [editarPedido, setEditarPedido] = useState<Pedido | null>(null);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
+  const [consultorDetalhe, setConsultorDetalhe] = useState<string | null>(null);
 
   // Deriva todas as parcelas-comissão
   const todasParcelas = useMemo(() => {
@@ -371,8 +372,19 @@ export function RelatorioComissoes() {
               {resumoPorConsultor.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
               ) : resumoPorConsultor.map((r) => (
-                <TableRow key={r.consultor}>
-                  <TableCell className="font-medium">{r.consultor}</TableCell>
+                <TableRow
+                  key={r.consultor}
+                  className="cursor-pointer hover:bg-muted/50"
+                  tabIndex={0}
+                  onClick={() => setConsultorDetalhe(r.consultor)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setConsultorDetalhe(r.consultor);
+                    }
+                  }}
+                >
+                  <TableCell className="font-medium underline-offset-4 hover:underline">{r.consultor}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.recebidoMes)}</TableCell>
                   <TableCell className="text-right text-emerald-600 font-semibold">{fmtBRL(r.comissaoPaga)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.comissaoAVencer)}</TableCell>
