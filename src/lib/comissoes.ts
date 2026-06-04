@@ -151,6 +151,7 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
   const metodo = metodoLabel(cond);
 
   let parts: Array<{ indice: number; desc: string; data: string | null;
+    dataPagamento: string | null;
     valorBruto: number; valorLiquido: number; pago: boolean; }> = [];
 
   if (cond?.metodo_principal === 'pix_boleto') {
@@ -166,6 +167,7 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
       indice: 0,
       desc: 'Pagamento integral',
       data: baseData,
+      dataPagamento: baseData,
       valorBruto: arredondarReais(valorTotal),
       valorLiquido: arredondarReais(valorTotal),
       pago: !!baseData,
@@ -184,6 +186,7 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
     parcelaIndice: p.indice,
     descricaoParcela: p.desc,
     dataVencimento: p.data,
+    dataPagamento: p.dataPagamento,
     valorBruto: p.valorBruto,
     valorLiquido: p.valorLiquido,
     comissao: arredondarReais(p.valorLiquido * percentual),
