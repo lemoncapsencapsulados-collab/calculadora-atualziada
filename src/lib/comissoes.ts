@@ -16,6 +16,7 @@ export interface ItemComissao {
   parcelaIndice: number;
   descricaoParcela: string;
   dataVencimento: string | null; // YYYY-MM-DD
+  dataPagamento: string | null;  // YYYY-MM-DD — quando pago
   valorBruto: number; // o que o cliente paga (com juros)
   valorLiquido: number; // base de comissão (sem juros)
   comissao: number;
@@ -70,6 +71,7 @@ function expandirPixBoleto(
 ) {
   if (!parcelas?.length) return [] as Array<{
     indice: number; desc: string; data: string | null;
+    dataPagamento: string | null;
     valorBruto: number; valorLiquido: number; pago: boolean;
   }>;
   return parcelas.map((p, i) => {
@@ -79,6 +81,7 @@ function expandirPixBoleto(
       indice: startIdx + i,
       desc: `${rotulo} ${i + 1}/${parcelas.length}${p.tipo_valor === 'percentual' ? ` (${p.valor}%)` : ''}`,
       data,
+      dataPagamento: p.data_pagamento || null,
       valorBruto: arredondarReais(base),
       valorLiquido: arredondarReais(base),
       pago: !!p.pago,
@@ -95,10 +98,12 @@ function expandirCartoes(
 ) {
   if (!cartoes?.length) return [] as Array<{
     indice: number; desc: string; data: string | null;
+    dataPagamento: string | null;
     valorBruto: number; valorLiquido: number; pago: boolean;
   }>;
   const out: Array<{
     indice: number; desc: string; data: string | null;
+    dataPagamento: string | null;
     valorBruto: number; valorLiquido: number; pago: boolean;
   }> = [];
   let idx = startIdx;
@@ -115,6 +120,7 @@ function expandirCartoes(
         indice: idx++,
         desc: `${rotulo} ${ci + 1} — parcela ${i + 1}/${c.parcelas}`,
         data,
+        dataPagamento: c.data_pagamento || null,
         valorBruto: valorParcelaBruto,
         valorLiquido: valorParcelaLiquido,
         pago: !!c.pago,
@@ -146,6 +152,7 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
   const metodo = metodoLabel(cond);
 
   let parts: Array<{ indice: number; desc: string; data: string | null;
+    dataPagamento: string | null;
     valorBruto: number; valorLiquido: number; pago: boolean; }> = [];
 
   if (cond?.metodo_principal === 'pix_boleto') {
@@ -161,6 +168,7 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
       indice: 0,
       desc: 'Pagamento integral',
       data: baseData,
+      dataPagamento: baseData,
       valorBruto: arredondarReais(valorTotal),
       valorLiquido: arredondarReais(valorTotal),
       pago: !!baseData,
@@ -179,6 +187,7 @@ export function derivarComissoes(pedido: Pedido): ItemComissao[] {
     parcelaIndice: p.indice,
     descricaoParcela: p.desc,
     dataVencimento: p.data,
+    dataPagamento: p.dataPagamento,
     valorBruto: p.valorBruto,
     valorLiquido: p.valorLiquido,
     comissao: arredondarReais(p.valorLiquido * percentual),

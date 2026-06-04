@@ -41,6 +41,26 @@ const statusBadge = (s: StatusParcelaComissao) => {
 type FiltroStatus = 'todos' | 'pago' | 'pendente' | 'vencido';
 type FiltroTipo = 'todos' | 'nova_venda' | 'recompra';
 
+type StatusPedido = 'pago' | 'parcial' | 'atrasado' | 'em_dia';
+
+function calcularStatusPedido(parcelas: ItemComissao[]): StatusPedido {
+  if (!parcelas.length) return 'em_dia';
+  const temAtraso = parcelas.some((p) => p.status === 'vencido');
+  if (temAtraso) return 'atrasado';
+  const todasPagas = parcelas.every((p) => p.status === 'pago');
+  if (todasPagas) return 'pago';
+  const algumaPaga = parcelas.some((p) => p.status === 'pago');
+  if (algumaPaga) return 'parcial';
+  return 'em_dia';
+}
+
+const badgeStatusPedido = (s: StatusPedido) => {
+  if (s === 'pago') return <Badge className="bg-emerald-600 hover:bg-emerald-600"><CheckCircle2 className="h-3 w-3 mr-1" />Pago</Badge>;
+  if (s === 'atrasado') return <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Atrasado</Badge>;
+  if (s === 'parcial') return <Badge className="bg-amber-500 hover:bg-amber-500 text-white"><Clock className="h-3 w-3 mr-1" />Parcialmente Pago</Badge>;
+  return <Badge variant="outline">Em dia</Badge>;
+};
+
 export function RelatorioComissoes() {
   const { pedidos, alterarPagamento, toggleParcelaPagaAsync } = usePedidos();
 
@@ -73,9 +93,9 @@ export function RelatorioComissoes() {
       if (consultorFiltro !== 'todos' && p.consultor !== consultorFiltro) return false;
       if (tipoFiltro !== 'todos' && p.tipoVenda !== tipoFiltro) return false;
       if (statusFiltro !== 'todos' && p.status !== statusFiltro) return false;
-      // Mês: parcela está no mês se data de vencimento OU data de pagamento cai no mês
-      const dt = p.dataVencimento;
-      if (!dt) return statusFiltro === 'todos';
+      // Mês: usa data efetiva de pagamento quando pago; senão a data de vencimento
+      const dt = p.pago && p.dataPagamento ? p.dataPagamento : p.dataVencimento;
+      if (!dt) return false;
       return dt.slice(0, 7) === mes;
     });
   }, [todasParcelas, consultorFiltro, tipoFiltro, statusFiltro, mes]);
@@ -131,13 +151,15 @@ export function RelatorioComissoes() {
       comissaoNoMes: number;
       temInadimplencia: boolean;
     };
-    const map = new Map<string, L>();
-    // comissão total do pedido a partir de todasParcelas
+    const map = new Map<string, L & { statusPedido: StatusPedido }>();
+    // agrupa parcelas globais (todas, não filtradas) por pedido para status real
+    const parcelasGlobaisPorPedido = new Map<string, ItemComissao[]>();
     const totaisPorPedido = new Map<string, number>();
-    const inadPorPedido = new Map<string, boolean>();
     todasParcelas.forEach((p) => {
       totaisPorPedido.set(p.pedidoId, (totaisPorPedido.get(p.pedidoId) || 0) + p.comissao);
-      if (p.status === 'vencido') inadPorPedido.set(p.pedidoId, true);
+      const arr = parcelasGlobaisPorPedido.get(p.pedidoId) || [];
+      arr.push(p);
+      parcelasGlobaisPorPedido.set(p.pedidoId, arr);
     });
     parcelasFiltradas.forEach((p) => {
       let l = map.get(p.pedidoId);
@@ -155,7 +177,8 @@ export function RelatorioComissoes() {
           valorTotalPedido: Number(snap.valor_total) || 0,
           comissaoTotalPedido: arredondarReais(totaisPorPedido.get(p.pedidoId) || 0),
           comissaoNoMes: 0,
-          temInadimplencia: !!inadPorPedido.get(p.pedidoId),
+          temInadimplencia: (parcelasGlobaisPorPedido.get(p.pedidoId) || []).some((x) => x.status === 'vencido'),
+          statusPedido: calcularStatusPedido(parcelasGlobaisPorPedido.get(p.pedidoId) || []),
         };
         map.set(p.pedidoId, l);
       }
@@ -212,7 +235,7 @@ export function RelatorioComissoes() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="space-y-1">
-            <Label>Mês de referência</Label>
+            <Label>Mês (pagamento/vencimento)</Label>
             <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
           </div>
           <div className="space-y-1">
@@ -347,11 +370,7 @@ export function RelatorioComissoes() {
                   <TableCell className="text-right">{fmtBRL(l.valorTotalPedido)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(l.comissaoTotalPedido)}</TableCell>
                   <TableCell className="text-right font-semibold">{fmtBRL(l.comissaoNoMes)}</TableCell>
-                  <TableCell>
-                    {l.temInadimplencia
-                      ? <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Inadimplente</Badge>
-                      : <Badge className="bg-emerald-600 hover:bg-emerald-600">Em dia</Badge>}
-                  </TableCell>
+                  <TableCell>{badgeStatusPedido(l.statusPedido)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="outline" onClick={() => setDetalhePedido(l.pedido)}>

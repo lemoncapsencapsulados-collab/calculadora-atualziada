@@ -112,6 +112,7 @@ export interface ParcelaPixBoleto {
   valor: number;
   data_vencimento?: string; // YYYY-MM-DD
   pago?: boolean;
+  data_pagamento?: string; // YYYY-MM-DD — data em que foi efetivamente pago
 }
 
 export interface CartaoPagamento {
@@ -120,6 +121,7 @@ export interface CartaoPagamento {
   parcelas: number;
   data_primeira_parcela?: string; // YYYY-MM-DD
   pago?: boolean;
+  data_pagamento?: string; // YYYY-MM-DD — data em que foi efetivamente pago
 }
 
 export interface CondicoesPagamento {
