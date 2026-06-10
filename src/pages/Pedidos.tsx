@@ -1045,6 +1045,7 @@ const Pedidos = () => {
                   <CardContent className="p-4 space-y-2">
                     <div>
                       <p className="font-semibold text-base leading-tight">{razao}</p>
+                      <div className="mt-0.5">{renderMarcaInline(pedido)}</div>
                       <p className="text-xs text-muted-foreground">{pedido.numero_pedido}</p>
                     </div>
                     <div className="flex justify-between text-sm">
