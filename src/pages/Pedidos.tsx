@@ -184,6 +184,7 @@ const Pedidos = () => {
   const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
+  const [filtroMarca, setFiltroMarca] = useState<string>('todas');
 
   const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
     if (sortBy === col) {
@@ -455,15 +456,21 @@ const Pedidos = () => {
     const razao = getRazaoSocialOuNome(pedido);
     if (cliente?.marca) {
       return (
-        <button
-          type="button"
-          onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          title="Editar marca"
-        >
-          <Tag className="h-3 w-3" />
-          {cliente.marca}
-        </button>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+            <Tag className="h-3 w-3" />
+            {cliente.marca}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            title="Editar marca"
+            onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </span>
       );
     }
     return (
