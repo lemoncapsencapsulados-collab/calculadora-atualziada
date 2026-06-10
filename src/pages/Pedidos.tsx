@@ -1221,6 +1221,14 @@ const Pedidos = () => {
           setPedidoParaEditarPagto(null);
         }}
       />
+
+      <AdicionarMarcaDialog
+        open={!!marcaDialog}
+        onOpenChange={(o) => !o && setMarcaDialog(null)}
+        clienteId={marcaDialog?.clienteId ?? null}
+        razaoSocial={marcaDialog?.razaoSocial ?? ''}
+        marcaAtual={marcaDialog?.marcaAtual}
+      />
     </div>
   );
 };
