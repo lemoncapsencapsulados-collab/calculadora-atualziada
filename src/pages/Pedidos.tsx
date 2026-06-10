@@ -413,6 +413,50 @@ const Pedidos = () => {
     });
   }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
 
+  const getValorFaturado = (pedido: any): number => {
+    const snap = pedido.orcamento_snapshot;
+    if (snap) return getPedidoValorEfetivo(snap);
+    return Number(pedido.valor_total) || Number(pedido.formula_snapshot?.custo_total) || 0;
+  };
+
+  const getRazaoSocialOuNome = (pedido: any): string => {
+    const snap = pedido.orcamento_snapshot;
+    const dc = snap?.dados_cliente || {};
+    if (dc.razao_social) return dc.razao_social;
+    const clienteId = snap?.cliente_id || dc.cliente_id;
+    if (clienteId && clientesById.has(clienteId)) {
+      const c = clientesById.get(clienteId)!;
+      if (c.razao_social) return c.razao_social;
+    }
+    const nome = (dc.nome_completo || snap?.nome_cliente || pedido.formula_snapshot?.cliente || '').trim();
+    const lower = nome.toLowerCase();
+    if (lower && clientesByNome.has(lower)) {
+      const c = clientesByNome.get(lower)!;
+      if (c.razao_social) return c.razao_social;
+    }
+    return nome || 'Cliente';
+  };
+
+  const sortedPedidos = useMemo(() => {
+    if (!sortBy) return filteredPedidos;
+    const arr = [...filteredPedidos];
+    arr.sort((a: any, b: any) => {
+      let va = 0, vb = 0;
+      if (sortBy === 'data_pagamento') {
+        va = a.orcamento_snapshot?.data_pagamento ? new Date(a.orcamento_snapshot.data_pagamento).getTime() : 0;
+        vb = b.orcamento_snapshot?.data_pagamento ? new Date(b.orcamento_snapshot.data_pagamento).getTime() : 0;
+      } else {
+        va = getValorFaturado(a);
+        vb = getValorFaturado(b);
+      }
+      return sortDir === 'asc' ? va - vb : vb - va;
+    });
+    return arr;
+  }, [filteredPedidos, sortBy, sortDir]);
+
+  const renderSortIcon = (col: 'data_pagamento' | 'valor_faturado') =>
+    sortBy !== col ? null : (sortDir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />);
+
   const renderOrcamentoPedido = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
     if (!snap) return null;
