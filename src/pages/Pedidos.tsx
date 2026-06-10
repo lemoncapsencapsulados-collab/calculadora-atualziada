@@ -179,6 +179,17 @@ const Pedidos = () => {
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
   const [pedidoParaEditarPagto, setPedidoParaEditarPagto] = useState<any | null>(null);
+  const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
+    if (sortBy === col) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(col);
+      setSortDir('desc');
+    }
+  };
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
   useEffect(() => {
