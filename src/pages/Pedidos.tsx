@@ -14,7 +14,8 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw
+  FileSpreadsheet, ChevronDown, ChevronUp, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw,
+  MoreVertical,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
@@ -46,8 +47,11 @@ import DetalhesPedidoDialog from '@/components/DetalhesPedidoDialog';
 import FichaTecnicaDialog from '@/components/FichaTecnicaDialog';
 import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
 import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
