@@ -1228,6 +1228,32 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
               </div>
             </CardContent>
           </Card>
+
+          {/* 7. Marca (opcional) */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                7. Marca
+                <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Nome da marca vinculada à razão social
+                </Label>
+                <Input
+                  value={marca}
+                  onChange={(e) => setMarca(e.target.value)}
+                  placeholder="Ex.: Lemon Naturals"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Se preenchido, a marca aparece na lista de pedidos ao lado da razão social.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {erroValidacao.length > 0 && (
