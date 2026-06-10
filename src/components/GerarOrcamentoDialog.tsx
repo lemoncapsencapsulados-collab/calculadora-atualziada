@@ -651,6 +651,53 @@ export default function GerarOrcamentoDialog({
     return true;
   }) || [];
 
+  // Precificações não-catálogo (para importar para catálogo)
+  const precificacoesImportaveis = (precificacoes as any[])?.filter(p => {
+    if (isCatalogo(p.formulas?.cliente || '')) return false;
+    if (buscaImportarCatalogo.trim()) {
+      const termo = buscaImportarCatalogo.toLowerCase();
+      const nomeFormula = (p.formulas?.nome_formula || '').toLowerCase();
+      const cliente = (p.formulas?.cliente || '').toLowerCase();
+      return nomeFormula.includes(termo) || cliente.includes(termo);
+    }
+    return true;
+  }) || [];
+
+  const handleImportarParaCatalogo = async () => {
+    if (selectedParaCatalogo.length === 0) return;
+    setImportandoCatalogo(true);
+    try {
+      const formulaIds = Array.from(new Set(
+        (precificacoes as any[])
+          .filter(p => selectedParaCatalogo.includes(p.id))
+          .map(p => p.formula_id)
+          .filter(Boolean)
+      ));
+      if (formulaIds.length === 0) {
+        toast.error('Nenhuma fórmula vinculada às precificações selecionadas.');
+        return;
+      }
+      const { error } = await supabase
+        .from('formulas')
+        .update({ cliente: 'Catálogo' })
+        .in('id', formulaIds);
+      if (error) throw error;
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['precificacoes'] }),
+        qc.invalidateQueries({ queryKey: ['formulas'] }),
+      ]);
+      toast.success(`${formulaIds.length} fórmula(s) importada(s) para o Catálogo!`);
+      setSelectedParaCatalogo([]);
+      setBuscaImportarCatalogo('');
+      setShowImportarCatalogo(false);
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Erro ao importar para o catálogo');
+    } finally {
+      setImportandoCatalogo(false);
+    }
+  };
+
   const isMargemBaixa = (p: any) => {
     const tipoProduto = p.formulas?.tipo_produto || 'Encapsulados';
     const margem = Number(p.margem_lucro_percentual);
