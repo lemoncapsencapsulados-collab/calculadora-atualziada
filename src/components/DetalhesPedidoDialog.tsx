@@ -6,16 +6,23 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History,
+  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History, Clock, ClipboardList,
 } from 'lucide-react';
 import { formatarCondicoesPagamento } from '@/lib/formatarPagamento';
 import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
 import HistoricoVhsysLista from '@/components/pedidos/HistoricoVhsysLista';
+import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
+import { CATEGORIAS_ENTREGAVEIS, type DemandaEntregavel, type EntregavelCategoria } from '@/lib/entregaveis';
+import type { AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 
 interface DetalhesPedidoDialogProps {
   pedido: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  setupDemandas?: DemandaEntregavel[];
+  onUpdateAcompanhamento?: (acomp: AcompanhamentoType) => void;
+  statusBadge?: { label: string; className: string };
+  prazoBadge?: { label: string; className: string; dataPrevista: Date };
 }
 
 const formatCurrency = (value: number) =>
@@ -41,7 +48,10 @@ const InfoRow = ({ label, value }: { label: string; value?: string | number | nu
   );
 };
 
-const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDialogProps) => {
+const DetalhesPedidoDialog = ({
+  pedido, open, onOpenChange,
+  setupDemandas, onUpdateAcompanhamento, statusBadge, prazoBadge,
+}: DetalhesPedidoDialogProps) => {
   if (!pedido) return null;
 
   const isOrcamento = !!pedido.orcamento_snapshot;
@@ -61,18 +71,58 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
     return v;
   };
 
+  const razaoSocial: string | undefined =
+    dadosCliente.razao_social || dadosCliente.nome_completo || snap?.nome_cliente || formulaSnap?.cliente;
+
+  const demandasPedido = (setupDemandas || []).filter((d) => d.pedido_id === pedido.id);
+  const setupCategorias = {
+    registro_inpi: demandasPedido.some((d) => d.categoria === 'registro_inpi'),
+    impressao_rotulos: demandasPedido.some((d) => d.categoria === 'impressao_rotulos'),
+    codigo_barras: demandasPedido.some((d) => d.categoria === 'codigo_barras'),
+  };
+  const setupAgrupado = CATEGORIAS_ENTREGAVEIS
+    .map((cat) => {
+      const itensCat = demandasPedido.filter((d) => d.categoria === cat.value);
+      const total = itensCat.reduce((sum, d) => sum + (d.quantidade || 0), 0);
+      return { ...cat, total, itens: itensCat };
+    })
+    .filter((g) => g.total > 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Detalhes do Pedido {pedido.numero_pedido}
+            {razaoSocial || `Pedido ${pedido.numero_pedido}`}
           </DialogTitle>
-          <DialogDescription>Informações completas do pedido</DialogDescription>
+          <DialogDescription>
+            {pedido.numero_pedido}
+            {snap?.consultor_responsavel ? ` · Consultor: ${snap.consultor_responsavel}` : ''}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Status do Pedido */}
+          {(statusBadge || prazoBadge) && (
+            <Section icon={Clock} title="Status do Pedido">
+              <div className="flex flex-wrap items-center gap-2">
+                {statusBadge && (
+                  <Badge className={statusBadge.className}>{statusBadge.label}</Badge>
+                )}
+                {prazoBadge && (
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-md border text-sm ${prazoBadge.className}`}>
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="font-semibold">{prazoBadge.label}</span>
+                    <span className="opacity-80 text-xs">
+                      · Entrega: {format(prazoBadge.dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
           {/* Informações Gerais */}
           <Section icon={Info} title="Informações Gerais">
             <div className="space-y-1 bg-muted/50 rounded-lg p-3">
@@ -279,6 +329,51 @@ const DetalhesPedidoDialog = ({ pedido, open, onOpenChange }: DetalhesPedidoDial
               <Separator />
               <Section icon={History} title={`Histórico de alterações de pagamento (${pedido.pagamento_alteracoes.length})`}>
                 <HistoricoPagamentoLista alteracoes={pedido.pagamento_alteracoes} />
+              </Section>
+            </>
+          )}
+
+          {/* Setup / Entregáveis */}
+          {setupAgrupado.length > 0 && (
+            <>
+              <Separator />
+              <Section icon={Layers} title="Setup (Entregáveis)">
+                <div className="space-y-2">
+                  {setupAgrupado.map((g) => (
+                    <div key={g.value} className="bg-muted/50 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{g.label}</span>
+                        <Badge variant="secondary" className="text-xs">Qtd: {g.total}</Badge>
+                      </div>
+                      {g.itens.length > 1 && (
+                        <ul className="mt-2 space-y-0.5">
+                          {g.itens.map((it, idx) => (
+                            <li key={idx} className="text-xs text-muted-foreground flex justify-between">
+                              <span>{it.detalhe || it.nome}</span>
+                              <span>x{it.quantidade}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            </>
+          )}
+
+          {/* Acompanhamento de Processos */}
+          {onUpdateAcompanhamento && (
+            <>
+              <Separator />
+              <Section icon={ClipboardList} title="Acompanhamento de Processos">
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <AcompanhamentoProcessos
+                    acompanhamento={pedido.acompanhamento_processos}
+                    onUpdate={onUpdateAcompanhamento}
+                    setupCategorias={setupCategorias}
+                  />
+                </div>
               </Section>
             </>
           )}
