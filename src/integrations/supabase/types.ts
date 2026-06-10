@@ -35,6 +35,7 @@ export type Database = {
           id: string
           inscricao_estadual: string | null
           inscricao_municipal: string | null
+          marca: string | null
           nome: string
           pessoas_fisicas: Json | null
           razao_social: string | null
@@ -65,6 +66,7 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
+          marca?: string | null
           nome: string
           pessoas_fisicas?: Json | null
           razao_social?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
+          marca?: string | null
           nome?: string
           pessoas_fisicas?: Json | null
           razao_social?: string | null

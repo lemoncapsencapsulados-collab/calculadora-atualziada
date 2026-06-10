@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Loader2, User, Truck, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, CheckCircle2, CalendarIcon, Beaker, Plus, Trash2, UserPlus, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -224,6 +224,9 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   // Forma de venda
   const [formaVenda, setFormaVenda] = useState<string>('sem_informacao');
 
+  // Marca (opcional) — vinculada à razão social ao confirmar
+  const [marca, setMarca] = useState<string>('');
+
   // Frete
   const [freteLemonCaps, setFreteLemonCaps] = useState<boolean>(true);
   const [usaTabelaTradicional, setUsaTabelaTradicional] = useState<boolean>(true);
@@ -304,6 +307,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     if (Array.isArray(cliente.pessoas_fisicas) && cliente.pessoas_fisicas.length > 0) {
       setPessoasFisicas(cliente.pessoas_fisicas as PessoaFisicaResponsavel[]);
     }
+    if (cliente.marca) setMarca(cliente.marca);
   };
 
   // Auto-set frete when envio tipo changes
@@ -524,6 +528,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         forma_venda: formaVenda,
         responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
         pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+        ...(marca.trim() ? { marca: marca.trim() } : {}),
       };
 
       let clienteIdFinal: string | undefined;
@@ -1220,6 +1225,32 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 {!dataPagamento && (diaPg || mesPg || anoPg) && (
                   <p className="text-xs text-destructive">Data inválida — preencha dia, mês e ano (4 dígitos).</p>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 7. Marca (opcional) */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                7. Marca
+                <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Nome da marca vinculada à razão social
+                </Label>
+                <Input
+                  value={marca}
+                  onChange={(e) => setMarca(e.target.value)}
+                  placeholder="Ex.: Lemon Naturals"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Se preenchido, a marca aparece na lista de pedidos ao lado da razão social.
+                </p>
               </div>
             </CardContent>
           </Card>

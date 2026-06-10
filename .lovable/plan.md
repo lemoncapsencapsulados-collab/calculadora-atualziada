@@ -1,72 +1,52 @@
-## Objetivo
+## Objetivos
 
-Substituir a grade de cards em `/pedidos` por uma lista tabular focada em 4 colunas: **Razão Social**, **Data de Pagamento**, **Valor Faturado** e **Detalhes**. Status, prazo e ações secundárias passam para o popup de Detalhes ou um menu compacto na linha.
+1. **Limpar o popup "Detalhes do Pedido"** — remover a seção "Acompanhamento de Processos" e a seção "Setup (Entregáveis)" para reduzir poluição visual.
+2. **Marca vinculada à Razão Social** — cada cliente (razão social) passa a ter uma marca; ela aparece automaticamente ao lado da razão social na lista de pedidos. Quando não houver marca, surge um botão "Adicionar marca" na própria linha.
+3. **Captura opcional no fluxo de aprovação** — quando o consultor move um orçamento de "enviado" para "aprovado", aparece um campo opcional "Marca". Se preenchido, já vincula a marca à razão social automaticamente.
+
+---
 
 ## Mudanças
 
-### 1. Visual: cards → lista
+### 1) `src/components/DetalhesPedidoDialog.tsx`
+- Remover o bloco **"Acompanhamento de Processos"** (`<AcompanhamentoProcessos>`) e suas props relacionadas (`onUpdateAcompanhamento`, `setupCategorias`).
+- Remover o bloco **"Setup (Entregáveis)"** (lista agrupada `setupAgrupado`) e a prop `setupDemandas`.
+- Limpar imports não utilizados (`AcompanhamentoProcessos`, `CATEGORIAS_ENTREGAVEIS`, `DemandaEntregavel`, `ClipboardList`).
+- Demais seções (Status, Cliente, Produtos, Pagamento, Histórico, Frete, Observações, Totais) **permanecem intactas**.
 
-Em `src/pages/Pedidos.tsx`, no bloco que hoje renderiza `<div className="grid ... md:grid-cols-2 xl:grid-cols-3"> filteredPedidos.map(...)`, trocar pela tabela:
+### 2) `src/pages/Pedidos.tsx`
+- Na tabela de pedidos, ao lado da **Razão Social** exibir a **marca** quando existir:
+  - Layout: `Razão Social  ·  Marca: <nome>` (texto secundário em destaque suave).
+  - Quando o cliente ainda não tiver marca cadastrada, mostrar um botão pequeno **"+ Adicionar marca"** no mesmo lugar.
+- Versão mobile recebe o mesmo tratamento.
+- Remover a passagem das props `setupDemandas` / `onUpdateAcompanhamento` para `DetalhesPedidoDialog`.
 
-| Coluna | Conteúdo |
-|---|---|
-| Razão Social | Texto principal grande/negrito (substitui o "clienteName" atual). Abaixo, em cinza pequeno, o `numero_pedido`. |
-| Data de Pagamento | `orcamento_snapshot.data_pagamento` formatado `dd/MM/yyyy`. Para pedidos antigos (formula_snapshot) ou sem data, mostrar "—". |
-| Valor Faturado | `getPedidoValorEfetivo(snap)` (ou `valor_total` quando não houver snapshot) com `formatBRL`. |
-| Detalhes | Botão "Ver Detalhes" + menu `⋮` (DropdownMenu) com as demais ações. |
+### 3) Novo `src/components/AdicionarMarcaDialog.tsx`
+- Dialog simples reutilizável com:
+  - Razão Social (somente leitura, vinda do pedido/cliente).
+  - Campo de texto **Marca** (obrigatório dentro do diálogo).
+  - Botões Cancelar / Salvar.
+- Ao salvar: atualiza `clientes.marca` do cliente vinculado e fecha. Lista de pedidos reflete via realtime/refetch do hook de clientes.
 
-Mobile: a tabela vira lista vertical (`md:table`/`block` ou `<Card>` por linha em telas pequenas) preservando a mesma ordem de colunas como pares label/valor.
+### 4) Fluxo de aprovação do orçamento
+- No componente onde o consultor muda status do orçamento para **"aprovado"** (provavelmente `AprovacaoOrcamentoDialog.tsx`), incluir um campo **Marca (opcional)** após o restante dos campos atuais.
+- Se preenchido, ao confirmar a aprovação também grava `clientes.marca` para a razão social vinculada (via `cliente_id` ou matching por CNPJ/razão social).
+- Se vazio, mantém comportamento atual (sem alterações na marca).
 
-### 2. Razão Social — origem e fallback
+### 5) Banco de dados (migração)
+- Adicionar coluna `marca text` em `public.clientes` (nullable).
+- Sem mudanças de RLS: políticas existentes já cobrem o campo.
 
-Novo helper local `getRazaoSocialOuNome(pedido)` que escolhe na ordem:
+### 6) Resolução da marca para exibição
+Helper `getMarcaCliente(pedido, clientes)`:
+1. `clientes.find(c => c.id === pedido.cliente_id)?.marca`
+2. Fallback: match por CNPJ/razão social do snapshot caso `cliente_id` esteja ausente.
+3. Retorna `null` se não houver — nesse caso, renderiza o botão "Adicionar marca".
 
-1. `orcamento_snapshot.dados_cliente.razao_social`
-2. Cadastro de cliente vinculado (via `cliente_id` ou nome em `clientesById`/`clientesByNome`) — campo `razao_social`
-3. Fallback: nome completo do cliente (`dados_cliente.nome_completo || nome_cliente || formula_snapshot.cliente`)
-
-Sem rótulo "PF" — fallback silencioso para nome completo.
-
-### 3. Menu ⋮ por linha
-
-Substitui os múltiplos botões inline. Itens (mesmos handlers de hoje, condicionados como já estão):
-
-- Ficha Técnica (isOrcamento)
-- Baixar Ordem (não-orçamento)
-- Relatório → PDF / Excel (isOrcamento)
-- Copiar Relatório WhatsApp (isOrcamento)
-- Abrir WhatsApp (com mesmo `buildWhatsappUrl` + tooltip de telefone indisponível)
-- Recompra (isOrcamento)
-- Alterar pagamento (isOrcamento)
-- Editar observações
-- Excluir (destrutivo, separador acima)
-
-Acompanhamento de Processos sai da linha e vira uma seção dentro do popup de Detalhes.
-
-### 4. Popup "Ver Detalhes"
-
-Continua usando `DetalhesPedidoDialog` (botão já chama `setPedidoDetalhe`). Acréscimos no dialog:
-
-- Cabeçalho mostra Razão Social em destaque + nome do responsável logo abaixo.
-- Bloco "Status do pedido": badge de status + faixa de prazo (mesmo cálculo `calcularPrazoEntrega` e cores que hoje aparecem no card).
-- Seção "Produção" listando cada fórmula/produto com quantidade (a partir de `orcamento_snapshot.formulas`/`formula_snapshot`).
-- Seção "Setup" listando cada entregável (registro INPI, impressão de rótulos, código de barras, etc.) com quantidade, derivado de `todasDemandas.filter(d => d.pedido_id === pedido.id)` agrupado por `categoria` (mesma fonte usada hoje em `setupCategorias`).
-- Seção "Acompanhamento de Processos" reaproveitando o componente `<AcompanhamentoProcessos>` já usado no card, com o mesmo `onUpdate`.
-- Manter os blocos já existentes do dialog (pagamento, endereço, condições, observações).
-
-### 5. Ordenação e filtros
-
-Mantém o `filteredPedidos`/`searchTerm`/`filterStatus` atuais. Adicionar ordenação clicável por **Data de Pagamento** (desc por padrão) e **Valor Faturado** via cabeçalhos da tabela.
+---
 
 ## Fora de escopo
-
-- Não muda schema, snapshots, edge functions, comissões ou regras de pagamento.
-- Não altera o card de "Resumo" no topo da página.
-- Não toca em PDF/Excel ou no `GerarOrcamentoDialog`.
-
-## Detalhes técnicos
-
-- Arquivos: `src/pages/Pedidos.tsx` (refator do bloco de listagem) e `src/components/DetalhesPedidoDialog.tsx` (adicionar seções Status/Produção/Setup/Acompanhamento).
-- Reuso: `getPedidoValorEfetivo`, `formatBRL`, `calcularPrazoEntrega`, `getStatusConfig`, `AcompanhamentoProcessos`, `DropdownMenu` shadcn.
-- Tabela: shadcn `Table` para desktop; em `<md` renderizar cada pedido como um bloco com as 4 linhas label/valor, preservando o botão Detalhes e o menu ⋮.
-- Nenhuma migração SQL.
+- Múltiplas marcas por razão social (este plano assume **uma marca por cliente**; se no futuro precisar de várias, migrar para tabela própria).
+- Edição/remoção da marca dentro do popup de Detalhes — fica só a inclusão via botão na linha e via aprovação.
+- Exibição da marca em PDFs, relatórios, dashboards ou orçamentos.
+- Alterações em `AcompanhamentoProcessos` em outras telas (continua funcionando onde já é usado fora de Pedidos).

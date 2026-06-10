@@ -62,6 +62,8 @@ import {
 import DemandasSetupResumo from '@/components/pedidos/DemandasSetupResumo';
 import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
 import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialog';
+import AdicionarMarcaDialog from '@/components/AdicionarMarcaDialog';
+import { Tag, Plus } from 'lucide-react';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -181,6 +183,7 @@ const Pedidos = () => {
   const [pedidoParaEditarPagto, setPedidoParaEditarPagto] = useState<any | null>(null);
   const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
 
   const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
     if (sortBy === col) {
@@ -435,6 +438,46 @@ const Pedidos = () => {
       if (c.razao_social) return c.razao_social;
     }
     return nome || 'Cliente';
+  };
+
+  const getClienteVinculado = (pedido: any): Cliente | null => {
+    const snap = pedido.orcamento_snapshot;
+    const dc = snap?.dados_cliente || {};
+    const clienteId = snap?.cliente_id || dc.cliente_id;
+    if (clienteId && clientesById.has(clienteId)) return clientesById.get(clienteId)!;
+    const nome = (dc.nome_completo || snap?.nome_cliente || pedido.formula_snapshot?.cliente || '').trim().toLowerCase();
+    if (nome && clientesByNome.has(nome)) return clientesByNome.get(nome)!;
+    return null;
+  };
+
+  const renderMarcaInline = (pedido: any) => {
+    const cliente = getClienteVinculado(pedido);
+    const razao = getRazaoSocialOuNome(pedido);
+    if (cliente?.marca) {
+      return (
+        <button
+          type="button"
+          onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          title="Editar marca"
+        >
+          <Tag className="h-3 w-3" />
+          {cliente.marca}
+        </button>
+      );
+    }
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+        disabled={!cliente}
+        title={cliente ? 'Adicionar marca' : 'Cliente ainda não cadastrado'}
+        onClick={() => cliente && setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
+      >
+        <Plus className="h-3 w-3 mr-1" /> Adicionar marca
+      </Button>
+    );
   };
 
   const sortedPedidos = useMemo(() => {
@@ -965,7 +1008,10 @@ const Pedidos = () => {
                   return (
                     <TableRow key={pedido.id}>
                       <TableCell>
-                        <div className="font-semibold text-foreground">{razao}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-foreground">{razao}</span>
+                          {renderMarcaInline(pedido)}
+                        </div>
                         <div className="text-xs text-muted-foreground">{pedido.numero_pedido}</div>
                       </TableCell>
                       <TableCell className="text-sm">
@@ -999,6 +1045,7 @@ const Pedidos = () => {
                   <CardContent className="p-4 space-y-2">
                     <div>
                       <p className="font-semibold text-base leading-tight">{razao}</p>
+                      <div className="mt-0.5">{renderMarcaInline(pedido)}</div>
                       <p className="text-xs text-muted-foreground">{pedido.numero_pedido}</p>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -1042,12 +1089,6 @@ const Pedidos = () => {
         pedido={pedidoDetalhe}
         open={!!pedidoDetalhe}
         onOpenChange={(open) => !open && setPedidoDetalhe(null)}
-        setupDemandas={todasDemandas}
-        onUpdateAcompanhamento={
-          pedidoDetalhe
-            ? (acomp) => updateAcompanhamento({ id: pedidoDetalhe.id, acompanhamento: acomp, pedidoId: pedidoDetalhe.id })
-            : undefined
-        }
         statusBadge={(() => {
           if (!pedidoDetalhe) return undefined;
           const derived = getStatusFromAcompanhamento(pedidoDetalhe.acompanhamento_processos);
@@ -1179,6 +1220,14 @@ const Pedidos = () => {
           });
           setPedidoParaEditarPagto(null);
         }}
+      />
+
+      <AdicionarMarcaDialog
+        open={!!marcaDialog}
+        onOpenChange={(o) => !o && setMarcaDialog(null)}
+        clienteId={marcaDialog?.clienteId ?? null}
+        razaoSocial={marcaDialog?.razaoSocial ?? ''}
+        marcaAtual={marcaDialog?.marcaAtual}
       />
     </div>
   );

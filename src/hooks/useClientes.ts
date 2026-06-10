@@ -29,6 +29,7 @@ export interface Cliente {
   responsavel_pj?: any;
   pessoas_fisicas?: any;
   dados_extras?: any;
+  marca?: string;
   created_at?: string;
   updated_at?: string;
 }
