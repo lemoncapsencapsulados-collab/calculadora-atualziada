@@ -839,278 +839,111 @@ const Pedidos = () => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {filteredPedidos.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">
-                {searchTerm || filterStatus !== 'todos' ? 'Nenhum pedido encontrado' : 'Nenhum pedido gerado ainda'}
-              </p>
-              <p className="text-sm mt-2">
-                {!searchTerm && filterStatus === 'todos' && 'Pedidos são criados automaticamente ao aprovar orçamentos'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredPedidos.map((pedido) => {
-            const derivedStatus = getStatusFromAcompanhamento(pedido.acompanhamento_processos);
-            const displayStatus = derivedStatus || pedido.status;
-            const statusConfig = getStatusConfig(displayStatus);
-            const StatusIcon = statusConfig.icon;
-            const isConcluido = displayStatus === 'concluido';
-            const isOrcamento = !!pedido.orcamento_snapshot;
-            const clienteName = isOrcamento 
-              ? pedido.orcamento_snapshot?.nome_cliente 
-              : pedido.formula_snapshot?.cliente || 'Cliente';
-
-            const { dataPrevista, diasRestantes } = calcularPrazoEntrega(pedido);
-            let prazoColor = 'bg-green-100 text-green-800 border-green-300';
-            let prazoLabel = `${diasRestantes} dias restantes`;
-            if (isConcluido) {
-              prazoColor = 'bg-gray-100 text-gray-700 border-gray-300';
-              prazoLabel = 'Entregue';
-            } else if (diasRestantes < 0) {
-              prazoColor = 'bg-red-100 text-red-800 border-red-300';
-              prazoLabel = `Atrasado ${Math.abs(diasRestantes)} ${Math.abs(diasRestantes) === 1 ? 'dia' : 'dias'}`;
-            } else if (diasRestantes === 0) {
-              prazoColor = 'bg-red-100 text-red-800 border-red-300';
-              prazoLabel = 'Entrega hoje';
-            } else if (diasRestantes <= 10) {
-              prazoColor = 'bg-yellow-100 text-yellow-800 border-yellow-300';
-              prazoLabel = `${diasRestantes} ${diasRestantes === 1 ? 'dia restante' : 'dias restantes'}`;
-            }
-
-            return (
-              <Card key={pedido.id} className={`hover:shadow-lg transition-shadow ${isConcluido ? 'border-green-400 bg-green-50/50' : ''}`}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1 flex-1">
-                      <CardTitle className="text-base">{pedido.numero_pedido}</CardTitle>
-                      <CardDescription className="text-sm">{clienteName}</CardDescription>
-                    </div>
-                    <Badge className={`${statusConfig.color} flex items-center gap-1 px-2 py-1`}>
-                      <StatusIcon className="h-3 w-3" />
-                      <span className="text-xs">{statusConfig.label}</span>
-                    </Badge>
-                  </div>
-                  <div className={`mt-2 flex items-center justify-between gap-2 px-3 py-2 rounded-md border ${prazoColor}`}>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span className="text-sm font-bold">{prazoLabel}</span>
-                    </div>
-                    <span className="text-xs opacity-90">
-                      Entrega: {format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}
+      {filteredPedidos.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium">
+              {searchTerm || filterStatus !== 'todos' ? 'Nenhum pedido encontrado' : 'Nenhum pedido gerado ainda'}
+            </p>
+            <p className="text-sm mt-2">
+              {!searchTerm && filterStatus === 'todos' && 'Pedidos são criados automaticamente ao aprovar orçamentos'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Desktop: tabela */}
+          <div className="hidden md:block rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Razão Social</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => toggleSort('data_pagamento')}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      Data de Pagamento {renderSortIcon('data_pagamento')}
                     </span>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-3">
-                  {isOrcamento ? renderOrcamentoPedido(pedido) : renderFormulaPedido(pedido)}
-
-                  {pedido.observacoes && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                      <div className="flex items-start gap-2">
-                        <Info className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-yellow-900 mb-1">Observações:</p>
-                          <p className="text-xs text-yellow-800 whitespace-pre-line line-clamp-3">{pedido.observacoes}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Acompanhamento de Processos */}
-                  <Collapsible>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="w-full justify-start text-xs h-8 px-2 font-semibold">
-                        <ClipboardList className="w-3.5 h-3.5 mr-1" /> Acompanhamento de Processos ▸
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="p-3 bg-muted/30 rounded-lg mt-1">
-                       <AcompanhamentoProcessos
-                        acompanhamento={pedido.acompanhamento_processos}
-                        onUpdate={(acomp) => updateAcompanhamento({ id: pedido.id, acompanhamento: acomp, pedidoId: pedido.id })}
-                        setupCategorias={(() => {
-                          const cats = todasDemandas
-                            .filter(d => d.pedido_id === pedido.id)
-                            .map(d => d.categoria);
-                          return {
-                            registro_inpi: cats.includes('registro_inpi'),
-                            impressao_rotulos: cats.includes('impressao_rotulos'),
-                            codigo_barras: cats.includes('codigo_barras'),
-                          };
-                        })()}
-                      />
-                    </CollapsibleContent>
-                  </Collapsible>
-
-
-                  <div className="flex gap-2 pt-2 flex-wrap">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
-                      <Info className="h-4 w-4 mr-1" />
-                      Ver Detalhes
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setEditingObs({ id: pedido.id, obs: pedido.observacoes || '' })}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {isOrcamento && (
-                      <Button variant="outline" size="sm" onClick={() => setFichaTecnicaPedido(pedido)} title="Ficha Técnica">
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {!isOrcamento && (
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => gerarPDFOrdemProducao(pedido)}>
-                        <Download className="h-4 w-4 mr-1" />
-                        Baixar Ordem
-                      </Button>
-                    )}
-                    {isOrcamento && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" title="Relatório">
-                            <FileSpreadsheet className="h-4 w-4" />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-right"
+                    onClick={() => toggleSort('valor_faturado')}
+                  >
+                    <span className="inline-flex items-center gap-1 justify-end w-full">
+                      Valor Faturado {renderSortIcon('valor_faturado')}
+                    </span>
+                  </TableHead>
+                  <TableHead className="text-right w-[200px]">Detalhes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedPedidos.map((pedido) => {
+                  const razao = getRazaoSocialOuNome(pedido);
+                  const snap = pedido.orcamento_snapshot;
+                  const dataPgto = snap?.data_pagamento;
+                  const valor = getValorFaturado(pedido);
+                  return (
+                    <TableRow key={pedido.id}>
+                      <TableCell>
+                        <div className="font-semibold text-foreground">{razao}</div>
+                        <div className="text-xs text-muted-foreground">{pedido.numero_pedido}</div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {dataPgto ? format(new Date(dataPgto), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrency(valor)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          <Button variant="outline" size="sm" onClick={() => setPedidoDetalhe(pedido)}>
+                            <Info className="h-4 w-4 mr-1" /> Detalhes
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem onClick={() => gerarRelatorioPedidoPDF(pedido)}>
-                            <FileText className="h-4 w-4 mr-2" /> PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => gerarRelatorioPedidoExcel(pedido)}>
-                            <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    {isOrcamento && (
-                      <Button variant="outline" size="sm" onClick={() => copiarRelatorioWhatsApp(pedido)} title="Copiar Relatório WhatsApp">
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    )}
+                          {renderAcoesMenu(pedido)}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
-                    {isOrcamento && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setRecompraPedido(pedido)}
-                        title="Adicionar Recompra"
-                        className="border-orange-400 text-orange-700 hover:bg-orange-50"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Recompra
-                      </Button>
-                    )}
-
-                    {(() => {
-                      const telefone = getTelefoneCliente(pedido);
-                      const nomeCliente = pedido.orcamento_snapshot?.dados_cliente?.nome_completo
-                        || pedido.orcamento_snapshot?.nome_cliente
-                        || pedido.formula_snapshot?.cliente
-                        || 'cliente';
-                      const msg = `Olá ${nomeCliente}, tudo bem? Sou da Lemon Caps, entrando em contato sobre o seu pedido ${pedido.numero_pedido}. Previsão de entrega: ${format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}.`;
-                      const url = buildWhatsappUrl(telefone, msg);
-                      const habilitado = !!url;
-                      return (
-                        <TooltipProvider delayDuration={150}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className={!habilitado ? 'inline-block cursor-not-allowed' : 'inline-block'}>
-                                <Button
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  disabled={!habilitado}
-                                  onClick={() => url && window.open(url, '_blank')}
-                                >
-                                  <MessageCircle className="h-4 w-4" />
-                                </Button>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {habilitado ? 'Abrir conversa no WhatsApp' : 'Telefone do cliente indisponível'}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      );
-                    })()}
-
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero_pedido });
-                      }}
-                      title="Excluir pedido"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {isOrcamento && (
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-amber-400 text-amber-700 hover:bg-amber-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPedidoParaEditarPagto(pedido);
-                        }}
-                        title="Alterar método/data de pagamento (requer senha)"
-                      >
-                        <Wallet className="h-4 w-4 mr-1" /> Alterar pagamento
-                      </Button>
-                      {(pedido.pagamento_alteracoes?.length ?? 0) > 0 && (
-                        <Badge variant="outline" className="border-amber-400 text-amber-700 text-xs">
-                          Pagamento alterado ({pedido.pagamento_alteracoes!.length})
-                        </Badge>
-                      )}
+          {/* Mobile: blocos */}
+          <div className="md:hidden space-y-3">
+            {sortedPedidos.map((pedido) => {
+              const razao = getRazaoSocialOuNome(pedido);
+              const snap = pedido.orcamento_snapshot;
+              const dataPgto = snap?.data_pagamento;
+              const valor = getValorFaturado(pedido);
+              return (
+                <Card key={pedido.id}>
+                  <CardContent className="p-4 space-y-2">
+                    <div>
+                      <p className="font-semibold text-base leading-tight">{razao}</p>
+                      <p className="text-xs text-muted-foreground">{pedido.numero_pedido}</p>
                     </div>
-                  )}
-
-                  {isOrcamento && (pedido.pagamento_alteracoes?.length ?? 0) > 0 && (
-                    <Collapsible>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="w-full justify-start text-xs h-7 px-2">
-                          <Wallet className="w-3 h-3 mr-1" /> Histórico de alterações de pagamento ▸
-                        </Button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="p-2 mt-1">
-                        <HistoricoPagamentoLista alteracoes={pedido.pagamento_alteracoes} compact />
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
-
-                  {/* Botões de Anexos */}
-                  <div className="flex gap-2 flex-wrap">
-                    {(() => {
-                      const contratos = getAnexosPorPedido(pedido.id, 'contrato');
-                      const comprovantes = getAnexosPorPedido(pedido.id, 'comprovante');
-                      const total = contratos.length + comprovantes.length;
-                      return (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 text-xs"
-                          onClick={() => setDocumentosDialogPedidoId(pedido.id)}
-                        >
-                          <FileText className="h-3.5 w-3.5 mr-1" />
-                          Documentos
-                          {total > 0 && (
-                            <span className="ml-1 text-muted-foreground">
-                              ({contratos.length} contrato{contratos.length !== 1 ? 's' : ''} · {comprovantes.length} comprovante{comprovantes.length !== 1 ? 's' : ''})
-                            </span>
-                          )}
-                        </Button>
-                      );
-                    })()}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Data de Pagamento</span>
+                      <span>{dataPgto ? format(new Date(dataPgto), 'dd/MM/yyyy', { locale: ptBR }) : '—'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Valor Faturado</span>
+                      <span className="font-semibold">{formatCurrency(valor)}</span>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
+                        <Info className="h-4 w-4 mr-1" /> Detalhes
+                      </Button>
+                      {renderAcoesMenu(pedido)}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
         </TabsContent>
 
         {CATEGORIAS_ENTREGAVEIS.map((c) => (
