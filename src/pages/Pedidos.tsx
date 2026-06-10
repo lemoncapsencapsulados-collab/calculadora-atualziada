@@ -244,6 +244,29 @@ const Pedidos = () => {
     return Array.from(set).sort();
   }, [pedidos]);
 
+  const marcasContagem = useMemo(() => {
+    const counts = new Map<string, number>();
+    let semMarca = 0;
+    // build a quick lookup similar to getClienteVinculado without depending on the function
+    pedidos.forEach((p: any) => {
+      const snap = p.orcamento_snapshot;
+      const dc = snap?.dados_cliente || {};
+      const clienteId = snap?.cliente_id || dc.cliente_id;
+      let cliente = clienteId ? clientes.find(c => c.id === clienteId) : undefined;
+      if (!cliente) {
+        const nome = (dc.nome_completo || snap?.nome_cliente || p.formula_snapshot?.cliente || '').trim().toLowerCase();
+        if (nome) cliente = clientes.find(c => (c.nome || '').trim().toLowerCase() === nome);
+      }
+      const marca = (cliente?.marca || '').trim();
+      if (!marca) { semMarca += 1; return; }
+      counts.set(marca, (counts.get(marca) || 0) + 1);
+    });
+    const lista = Array.from(counts.entries())
+      .map(([marca, count]) => ({ marca, count }))
+      .sort((a, b) => a.marca.localeCompare(b.marca));
+    return { lista, semMarca };
+  }, [pedidos, clientes]);
+
   const clientesById = useMemo(() => {
     const map = new Map<string, Cliente>();
     clientes.forEach(c => map.set(c.id, c));
