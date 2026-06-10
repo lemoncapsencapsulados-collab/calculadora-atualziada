@@ -1042,6 +1042,40 @@ const Pedidos = () => {
         pedido={pedidoDetalhe}
         open={!!pedidoDetalhe}
         onOpenChange={(open) => !open && setPedidoDetalhe(null)}
+        setupDemandas={todasDemandas}
+        onUpdateAcompanhamento={
+          pedidoDetalhe
+            ? (acomp) => updateAcompanhamento({ id: pedidoDetalhe.id, acompanhamento: acomp, pedidoId: pedidoDetalhe.id })
+            : undefined
+        }
+        statusBadge={(() => {
+          if (!pedidoDetalhe) return undefined;
+          const derived = getStatusFromAcompanhamento(pedidoDetalhe.acompanhamento_processos);
+          const cfg = getStatusConfig(derived || pedidoDetalhe.status);
+          return { label: cfg.label, className: cfg.color };
+        })()}
+        prazoBadge={(() => {
+          if (!pedidoDetalhe) return undefined;
+          const derived = getStatusFromAcompanhamento(pedidoDetalhe.acompanhamento_processos);
+          const isConcluido = (derived || pedidoDetalhe.status) === 'concluido';
+          const { dataPrevista, diasRestantes } = calcularPrazoEntrega(pedidoDetalhe);
+          let className = 'bg-green-100 text-green-800 border-green-300';
+          let label = `${diasRestantes} dias restantes`;
+          if (isConcluido) {
+            className = 'bg-gray-100 text-gray-700 border-gray-300';
+            label = 'Entregue';
+          } else if (diasRestantes < 0) {
+            className = 'bg-red-100 text-red-800 border-red-300';
+            label = `Atrasado ${Math.abs(diasRestantes)} ${Math.abs(diasRestantes) === 1 ? 'dia' : 'dias'}`;
+          } else if (diasRestantes === 0) {
+            className = 'bg-red-100 text-red-800 border-red-300';
+            label = 'Entrega hoje';
+          } else if (diasRestantes <= 10) {
+            className = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+            label = `${diasRestantes} ${diasRestantes === 1 ? 'dia restante' : 'dias restantes'}`;
+          }
+          return { label, className, dataPrevista };
+        })()}
       />
 
       {/* Dialog de edição de observações */}
