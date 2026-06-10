@@ -528,6 +528,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         forma_venda: formaVenda,
         responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
         pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
+        ...(marca.trim() ? { marca: marca.trim() } : {}),
       };
 
       let clienteIdFinal: string | undefined;
