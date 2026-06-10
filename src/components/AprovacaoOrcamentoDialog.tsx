@@ -224,6 +224,9 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
   // Forma de venda
   const [formaVenda, setFormaVenda] = useState<string>('sem_informacao');
 
+  // Marca (opcional) — vinculada à razão social ao confirmar
+  const [marca, setMarca] = useState<string>('');
+
   // Frete
   const [freteLemonCaps, setFreteLemonCaps] = useState<boolean>(true);
   const [usaTabelaTradicional, setUsaTabelaTradicional] = useState<boolean>(true);
