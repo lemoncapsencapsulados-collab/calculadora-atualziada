@@ -307,6 +307,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
     if (Array.isArray(cliente.pessoas_fisicas) && cliente.pessoas_fisicas.length > 0) {
       setPessoasFisicas(cliente.pessoas_fisicas as PessoaFisicaResponsavel[]);
     }
+    if (cliente.marca) setMarca(cliente.marca);
   };
 
   // Auto-set frete when envio tipo changes
