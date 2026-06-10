@@ -951,6 +951,67 @@ export default function GerarOrcamentoDialog({
                       </Button>
                     </div>
 
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-dashed"
+                      onClick={() => setShowImportarCatalogo(v => !v)}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      {showImportarCatalogo ? 'Fechar importação' : 'Importar precificação para o Catálogo'}
+                    </Button>
+
+                    {showImportarCatalogo && (
+                      <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                        <Input
+                          value={buscaImportarCatalogo}
+                          onChange={(e) => setBuscaImportarCatalogo(e.target.value)}
+                          placeholder="Buscar precificação por fórmula ou cliente..."
+                          className="h-9"
+                        />
+                        {precificacoesImportaveis.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Nenhuma precificação disponível para importar.</p>
+                        ) : (
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            {precificacoesImportaveis.map((prec: any) => (
+                              <label
+                                key={prec.id}
+                                className="flex items-center gap-3 p-2 border rounded-lg hover:bg-muted cursor-pointer bg-background"
+                              >
+                                <Checkbox
+                                  checked={selectedParaCatalogo.includes(prec.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedParaCatalogo(prev => [...prev, prec.id]);
+                                    } else {
+                                      setSelectedParaCatalogo(prev => prev.filter(id => id !== prec.id));
+                                    }
+                                  }}
+                                />
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{prec.formulas?.nome_formula}</p>
+                                  <p className="text-xs text-muted-foreground">{prec.formulas?.cliente}</p>
+                                </div>
+                                <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
+                                <span className="font-semibold text-sm">{formatCurrency(Number(prec.preco_venda))}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        {selectedParaCatalogo.length > 0 && (
+                          <Button
+                            onClick={handleImportarParaCatalogo}
+                            disabled={importandoCatalogo}
+                            className="w-full"
+                            size="sm"
+                          >
+                            <Star className="w-4 h-4 mr-2" />
+                            {importandoCatalogo ? 'Importando...' : `Importar ${selectedParaCatalogo.length} para o Catálogo`}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
                     <Input
                       value={buscaPrecificacao}
                       onChange={(e) => setBuscaPrecificacao(e.target.value)}
