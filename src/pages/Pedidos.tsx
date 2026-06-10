@@ -440,6 +440,46 @@ const Pedidos = () => {
     return nome || 'Cliente';
   };
 
+  const getClienteVinculado = (pedido: any): Cliente | null => {
+    const snap = pedido.orcamento_snapshot;
+    const dc = snap?.dados_cliente || {};
+    const clienteId = snap?.cliente_id || dc.cliente_id;
+    if (clienteId && clientesById.has(clienteId)) return clientesById.get(clienteId)!;
+    const nome = (dc.nome_completo || snap?.nome_cliente || pedido.formula_snapshot?.cliente || '').trim().toLowerCase();
+    if (nome && clientesByNome.has(nome)) return clientesByNome.get(nome)!;
+    return null;
+  };
+
+  const renderMarcaInline = (pedido: any) => {
+    const cliente = getClienteVinculado(pedido);
+    const razao = getRazaoSocialOuNome(pedido);
+    if (cliente?.marca) {
+      return (
+        <button
+          type="button"
+          onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          title="Editar marca"
+        >
+          <Tag className="h-3 w-3" />
+          {cliente.marca}
+        </button>
+      );
+    }
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+        disabled={!cliente}
+        title={cliente ? 'Adicionar marca' : 'Cliente ainda não cadastrado'}
+        onClick={() => cliente && setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
+      >
+        <Plus className="h-3 w-3 mr-1" /> Adicionar marca
+      </Button>
+    );
+  };
+
   const sortedPedidos = useMemo(() => {
     if (!sortBy) return filteredPedidos;
     const arr = [...filteredPedidos];
