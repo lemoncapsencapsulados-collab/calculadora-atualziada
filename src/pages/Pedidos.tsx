@@ -62,6 +62,8 @@ import {
 import DemandasSetupResumo from '@/components/pedidos/DemandasSetupResumo';
 import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
 import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialog';
+import AdicionarMarcaDialog from '@/components/AdicionarMarcaDialog';
+import { Tag, Plus } from 'lucide-react';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
