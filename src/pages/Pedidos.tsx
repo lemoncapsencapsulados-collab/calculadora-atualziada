@@ -1008,7 +1008,10 @@ const Pedidos = () => {
                   return (
                     <TableRow key={pedido.id}>
                       <TableCell>
-                        <div className="font-semibold text-foreground">{razao}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-foreground">{razao}</span>
+                          {renderMarcaInline(pedido)}
+                        </div>
                         <div className="text-xs text-muted-foreground">{pedido.numero_pedido}</div>
                       </TableCell>
                       <TableCell className="text-sm">
