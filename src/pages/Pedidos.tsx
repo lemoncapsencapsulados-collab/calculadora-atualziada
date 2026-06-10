@@ -394,6 +394,17 @@ const Pedidos = () => {
       const matchesConsultor = filtroConsultor === 'todos' || 
         (snapshot?.consultor_responsavel || '') === filtroConsultor;
 
+      let matchesMarca = true;
+      if (filtroMarca !== 'todas') {
+        const cliente = getClienteVinculado(pedido);
+        const marca = (cliente?.marca || '').trim();
+        if (filtroMarca === '__sem_marca__') {
+          matchesMarca = !marca;
+        } else {
+          matchesMarca = marca.toLowerCase() === filtroMarca.toLowerCase();
+        }
+      }
+
       let matchesData = true;
       if (dataInicioFiltro || dataFimFiltro) {
         const dataPgtoStr = snapshot?.data_pagamento?.substring(0, 10);
@@ -413,9 +424,9 @@ const Pedidos = () => {
         if (entregaFimFiltro && dataPrevStr > format(entregaFimFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
       }
 
-      return matchesSearch && matchesStatus && matchesConsultor && matchesData && matchesEntrega;
+      return matchesSearch && matchesStatus && matchesConsultor && matchesMarca && matchesData && matchesEntrega;
     });
-  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
+  }, [pedidos, searchTerm, filterStatus, filtroConsultor, filtroMarca, clientesById, clientesByNome, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
 
   const getValorFaturado = (pedido: any): number => {
     const snap = pedido.orcamento_snapshot;
