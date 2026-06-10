@@ -653,6 +653,84 @@ const Pedidos = () => {
     );
   };
 
+  const renderAcoesMenu = (pedido: any) => {
+    const isOrcamento = !!pedido.orcamento_snapshot;
+    const telefone = getTelefoneCliente(pedido);
+    const { dataPrevista } = calcularPrazoEntrega(pedido);
+    const nomeCliente = pedido.orcamento_snapshot?.dados_cliente?.nome_completo
+      || pedido.orcamento_snapshot?.nome_cliente
+      || pedido.formula_snapshot?.cliente
+      || 'cliente';
+    const waMsg = `Olá ${nomeCliente}, tudo bem? Sou da Lemon Caps, entrando em contato sobre o seu pedido ${pedido.numero_pedido}. Previsão de entrega: ${format(dataPrevista, 'dd/MM/yyyy', { locale: ptBR })}.`;
+    const waUrl = buildWhatsappUrl(telefone, waMsg);
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" title="Mais ações" className="h-9 w-9">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {isOrcamento && (
+            <DropdownMenuItem onClick={() => setFichaTecnicaPedido(pedido)}>
+              <Printer className="h-4 w-4 mr-2" /> Ficha Técnica
+            </DropdownMenuItem>
+          )}
+          {!isOrcamento && (
+            <DropdownMenuItem onClick={() => gerarPDFOrdemProducao(pedido)}>
+              <Download className="h-4 w-4 mr-2" /> Baixar Ordem
+            </DropdownMenuItem>
+          )}
+          {isOrcamento && (
+            <DropdownMenuItem onClick={() => gerarRelatorioPedidoPDF(pedido)}>
+              <FileText className="h-4 w-4 mr-2" /> Relatório PDF
+            </DropdownMenuItem>
+          )}
+          {isOrcamento && (
+            <DropdownMenuItem onClick={() => gerarRelatorioPedidoExcel(pedido)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Relatório Excel
+            </DropdownMenuItem>
+          )}
+          {isOrcamento && (
+            <DropdownMenuItem onClick={() => copiarRelatorioWhatsApp(pedido)}>
+              <Copy className="h-4 w-4 mr-2" /> Copiar Relatório WhatsApp
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            disabled={!waUrl}
+            onClick={() => waUrl && window.open(waUrl, '_blank')}
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            {waUrl ? 'Abrir WhatsApp' : 'WhatsApp (sem telefone)'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setDocumentosDialogPedidoId(pedido.id)}>
+            <FileText className="h-4 w-4 mr-2" /> Documentos
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditingObs({ id: pedido.id, obs: pedido.observacoes || '' })}>
+            <Pencil className="h-4 w-4 mr-2" /> Editar observações
+          </DropdownMenuItem>
+          {isOrcamento && (
+            <DropdownMenuItem onClick={() => setRecompraPedido(pedido)}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Recompra
+            </DropdownMenuItem>
+          )}
+          {isOrcamento && (
+            <DropdownMenuItem onClick={() => setPedidoParaEditarPagto(pedido)}>
+              <Wallet className="h-4 w-4 mr-2" /> Alterar pagamento
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero_pedido })}
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-3 sm:p-4 lg:p-6">
