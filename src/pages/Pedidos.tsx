@@ -898,6 +898,24 @@ const Pedidos = () => {
             </div>
 
             <div className="space-y-1">
+              <Label className="text-xs">Marca</Label>
+              <Select value={filtroMarca} onValueChange={setFiltroMarca}>
+                <SelectTrigger className="w-[220px] h-9">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas ({pedidos.length})</SelectItem>
+                  {marcasContagem.semMarca > 0 && (
+                    <SelectItem value="__sem_marca__">Sem marca ({marcasContagem.semMarca})</SelectItem>
+                  )}
+                  {marcasContagem.lista.map(({ marca, count }) => (
+                    <SelectItem key={marca} value={marca}>{marca} ({count})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-xs">Pgto. De</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -957,8 +975,8 @@ const Pedidos = () => {
               </Popover>
             </div>
 
-            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
-              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
+            {(filtroConsultor !== 'todos' || filtroMarca !== 'todas' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setFiltroMarca('todas'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
                 Limpar filtros
               </Button>
             )}
