@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
@@ -107,6 +108,11 @@ export default function GerarOrcamentoDialog({
   const [showPrecificacaoSelector, setShowPrecificacaoSelector] = useState(false);
   const [showCatalogoSelector, setShowCatalogoSelector] = useState(false);
   const [buscaPrecificacao, setBuscaPrecificacao] = useState('');
+  const [showImportarCatalogo, setShowImportarCatalogo] = useState(false);
+  const [selectedParaCatalogo, setSelectedParaCatalogo] = useState<string[]>([]);
+  const [buscaImportarCatalogo, setBuscaImportarCatalogo] = useState('');
+  const [importandoCatalogo, setImportandoCatalogo] = useState(false);
+  const qc = useQueryClient();
   const [selectedPrecificacoes, setSelectedPrecificacoes] = useState<string[]>([]);
   
   // Step 3: Setup costs
