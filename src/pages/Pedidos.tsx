@@ -184,6 +184,7 @@ const Pedidos = () => {
   const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
+  const [filtroMarca, setFiltroMarca] = useState<string>('todas');
 
   const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
     if (sortBy === col) {
@@ -242,6 +243,29 @@ const Pedidos = () => {
     });
     return Array.from(set).sort();
   }, [pedidos]);
+
+  const marcasContagem = useMemo(() => {
+    const counts = new Map<string, number>();
+    let semMarca = 0;
+    // build a quick lookup similar to getClienteVinculado without depending on the function
+    pedidos.forEach((p: any) => {
+      const snap = p.orcamento_snapshot;
+      const dc = snap?.dados_cliente || {};
+      const clienteId = snap?.cliente_id || dc.cliente_id;
+      let cliente = clienteId ? clientes.find(c => c.id === clienteId) : undefined;
+      if (!cliente) {
+        const nome = (dc.nome_completo || snap?.nome_cliente || p.formula_snapshot?.cliente || '').trim().toLowerCase();
+        if (nome) cliente = clientes.find(c => (c.nome || '').trim().toLowerCase() === nome);
+      }
+      const marca = (cliente?.marca || '').trim();
+      if (!marca) { semMarca += 1; return; }
+      counts.set(marca, (counts.get(marca) || 0) + 1);
+    });
+    const lista = Array.from(counts.entries())
+      .map(([marca, count]) => ({ marca, count }))
+      .sort((a, b) => a.marca.localeCompare(b.marca));
+    return { lista, semMarca };
+  }, [pedidos, clientes]);
 
   const clientesById = useMemo(() => {
     const map = new Map<string, Cliente>();
@@ -393,6 +417,17 @@ const Pedidos = () => {
       const matchesConsultor = filtroConsultor === 'todos' || 
         (snapshot?.consultor_responsavel || '') === filtroConsultor;
 
+      let matchesMarca = true;
+      if (filtroMarca !== 'todas') {
+        const cliente = getClienteVinculado(pedido);
+        const marca = (cliente?.marca || '').trim();
+        if (filtroMarca === '__sem_marca__') {
+          matchesMarca = !marca;
+        } else {
+          matchesMarca = marca.toLowerCase() === filtroMarca.toLowerCase();
+        }
+      }
+
       let matchesData = true;
       if (dataInicioFiltro || dataFimFiltro) {
         const dataPgtoStr = snapshot?.data_pagamento?.substring(0, 10);
@@ -412,9 +447,9 @@ const Pedidos = () => {
         if (entregaFimFiltro && dataPrevStr > format(entregaFimFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
       }
 
-      return matchesSearch && matchesStatus && matchesConsultor && matchesData && matchesEntrega;
+      return matchesSearch && matchesStatus && matchesConsultor && matchesMarca && matchesData && matchesEntrega;
     });
-  }, [pedidos, searchTerm, filterStatus, filtroConsultor, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
+  }, [pedidos, searchTerm, filterStatus, filtroConsultor, filtroMarca, clientesById, clientesByNome, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
 
   const getValorFaturado = (pedido: any): number => {
     const snap = pedido.orcamento_snapshot;
@@ -455,15 +490,21 @@ const Pedidos = () => {
     const razao = getRazaoSocialOuNome(pedido);
     if (cliente?.marca) {
       return (
-        <button
-          type="button"
-          onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-          title="Editar marca"
-        >
-          <Tag className="h-3 w-3" />
-          {cliente.marca}
-        </button>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+            <Tag className="h-3 w-3" />
+            {cliente.marca}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            title="Editar marca"
+            onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </span>
       );
     }
     return (
@@ -857,6 +898,24 @@ const Pedidos = () => {
             </div>
 
             <div className="space-y-1">
+              <Label className="text-xs">Marca</Label>
+              <Select value={filtroMarca} onValueChange={setFiltroMarca}>
+                <SelectTrigger className="w-[220px] h-9">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas ({pedidos.length})</SelectItem>
+                  {marcasContagem.semMarca > 0 && (
+                    <SelectItem value="__sem_marca__">Sem marca ({marcasContagem.semMarca})</SelectItem>
+                  )}
+                  {marcasContagem.lista.map(({ marca, count }) => (
+                    <SelectItem key={marca} value={marca}>{marca} ({count})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-xs">Pgto. De</Label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -916,8 +975,8 @@ const Pedidos = () => {
               </Popover>
             </div>
 
-            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
-              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
+            {(filtroConsultor !== 'todos' || filtroMarca !== 'todas' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setFiltroMarca('todas'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
                 Limpar filtros
               </Button>
             )}
