@@ -1,45 +1,72 @@
 ## Objetivo
 
-No Passo 2/5 do "Gerar Orçamento", permitir que o usuário selecione precificações existentes (uma a uma) e as marque como **Fórmulas do Catálogo**, fazendo com que passem a aparecer na seção "Fórmulas do Catálogo" desse orçamento e em todos os próximos.
+Substituir a grade de cards em `/pedidos` por uma lista tabular focada em 4 colunas: **Razão Social**, **Data de Pagamento**, **Valor Faturado** e **Detalhes**. Status, prazo e ações secundárias passam para o popup de Detalhes ou um menu compacto na linha.
 
-## Como funcionará (UX)
+## Mudanças
 
-1. Dentro do seletor **"Fórmulas do Catálogo"** (no Passo 2), incluir um novo botão `+ Importar precificação para o Catálogo`.
-2. Ao clicar, abre um sub-painel com:
-   - Campo de busca por nome de fórmula / cliente.
-   - Lista das precificações que **não** estão no catálogo (cliente diferente de "Catálogo"), cada uma com checkbox.
-3. Usuário marca uma ou várias e clica em **"Importar X para o Catálogo"**.
-4. Confirmação rápida (toast) e a lista de Fórmulas do Catálogo é atualizada na hora; as fórmulas importadas já aparecem disponíveis para seleção no orçamento atual.
+### 1. Visual: cards → lista
 
-## Regra de negócio aplicada
+Em `src/pages/Pedidos.tsx`, no bloco que hoje renderiza `<div className="grid ... md:grid-cols-2 xl:grid-cols-3"> filteredPedidos.map(...)`, trocar pela tabela:
 
-- A marcação é **permanente**: a coluna `cliente` da fórmula vinculada à precificação passa a ser `"Catálogo"`, que é o critério já usado em `isCatalogo(...)` em todo o projeto.
-- Nada mais é alterado (preço, custos, snapshot da fórmula permanecem iguais).
-- Padrão consistente com a forma como o sistema já identifica catálogo hoje (não cria nova coluna nem nova flag).
+| Coluna | Conteúdo |
+|---|---|
+| Razão Social | Texto principal grande/negrito (substitui o "clienteName" atual). Abaixo, em cinza pequeno, o `numero_pedido`. |
+| Data de Pagamento | `orcamento_snapshot.data_pagamento` formatado `dd/MM/yyyy`. Para pedidos antigos (formula_snapshot) ou sem data, mostrar "—". |
+| Valor Faturado | `getPedidoValorEfetivo(snap)` (ou `valor_total` quando não houver snapshot) com `formatBRL`. |
+| Detalhes | Botão "Ver Detalhes" + menu `⋮` (DropdownMenu) com as demais ações. |
+
+Mobile: a tabela vira lista vertical (`md:table`/`block` ou `<Card>` por linha em telas pequenas) preservando a mesma ordem de colunas como pares label/valor.
+
+### 2. Razão Social — origem e fallback
+
+Novo helper local `getRazaoSocialOuNome(pedido)` que escolhe na ordem:
+
+1. `orcamento_snapshot.dados_cliente.razao_social`
+2. Cadastro de cliente vinculado (via `cliente_id` ou nome em `clientesById`/`clientesByNome`) — campo `razao_social`
+3. Fallback: nome completo do cliente (`dados_cliente.nome_completo || nome_cliente || formula_snapshot.cliente`)
+
+Sem rótulo "PF" — fallback silencioso para nome completo.
+
+### 3. Menu ⋮ por linha
+
+Substitui os múltiplos botões inline. Itens (mesmos handlers de hoje, condicionados como já estão):
+
+- Ficha Técnica (isOrcamento)
+- Baixar Ordem (não-orçamento)
+- Relatório → PDF / Excel (isOrcamento)
+- Copiar Relatório WhatsApp (isOrcamento)
+- Abrir WhatsApp (com mesmo `buildWhatsappUrl` + tooltip de telefone indisponível)
+- Recompra (isOrcamento)
+- Alterar pagamento (isOrcamento)
+- Editar observações
+- Excluir (destrutivo, separador acima)
+
+Acompanhamento de Processos sai da linha e vira uma seção dentro do popup de Detalhes.
+
+### 4. Popup "Ver Detalhes"
+
+Continua usando `DetalhesPedidoDialog` (botão já chama `setPedidoDetalhe`). Acréscimos no dialog:
+
+- Cabeçalho mostra Razão Social em destaque + nome do responsável logo abaixo.
+- Bloco "Status do pedido": badge de status + faixa de prazo (mesmo cálculo `calcularPrazoEntrega` e cores que hoje aparecem no card).
+- Seção "Produção" listando cada fórmula/produto com quantidade (a partir de `orcamento_snapshot.formulas`/`formula_snapshot`).
+- Seção "Setup" listando cada entregável (registro INPI, impressão de rótulos, código de barras, etc.) com quantidade, derivado de `todasDemandas.filter(d => d.pedido_id === pedido.id)` agrupado por `categoria` (mesma fonte usada hoje em `setupCategorias`).
+- Seção "Acompanhamento de Processos" reaproveitando o componente `<AcompanhamentoProcessos>` já usado no card, com o mesmo `onUpdate`.
+- Manter os blocos já existentes do dialog (pagamento, endereço, condições, observações).
+
+### 5. Ordenação e filtros
+
+Mantém o `filteredPedidos`/`searchTerm`/`filterStatus` atuais. Adicionar ordenação clicável por **Data de Pagamento** (desc por padrão) e **Valor Faturado** via cabeçalhos da tabela.
+
+## Fora de escopo
+
+- Não muda schema, snapshots, edge functions, comissões ou regras de pagamento.
+- Não altera o card de "Resumo" no topo da página.
+- Não toca em PDF/Excel ou no `GerarOrcamentoDialog`.
 
 ## Detalhes técnicos
 
-**Arquivo principal:** `src/components/GerarOrcamentoDialog.tsx`
-
-1. Novos estados:
-   - `showImportarCatalogo: boolean`
-   - `selectedParaCatalogo: string[]` (ids de precificações)
-   - `buscaImportarCatalogo: string`
-
-2. Lista de origem: derivar de `precificacoes` (já carregadas no componente) filtrando `!isCatalogo(p.formulas?.cliente)`.
-
-3. Ação de importar:
-   - Coletar `formula_id` distintos das precificações selecionadas.
-   - `await supabase.from('formulas').update({ cliente: 'Catálogo' }).in('id', formulaIds)`.
-   - Invalidar as queries `['precificacoes']` e `['formulas']` via `queryClient.invalidateQueries` para refletir imediatamente em `precificacoesCatalogo`.
-   - Toast de sucesso e fechar o sub-painel.
-
-4. UI: novo botão dentro do card "Fórmulas do Catálogo" (acima do input de busca atual), e um pequeno bloco condicional que renderiza o seletor de precificações não-catalogadas com checkboxes — reaproveitando o mesmo estilo dos seletores já existentes (linhas 887-961).
-
-5. Sem mudanças de schema, sem mudanças em hooks/lib além do componente acima.
-
-## Fora do escopo
-
-- Não cria um novo seletor de "fórmulas" cruas (sem precificação) — apenas precificações já existentes podem virar catálogo, mantendo a coerência com a tela (que trabalha sempre com precificações).
-- Não muda comportamento da seção "Precificação Salva".
-- Não toca em pedidos, dashboard ou comissões.
+- Arquivos: `src/pages/Pedidos.tsx` (refator do bloco de listagem) e `src/components/DetalhesPedidoDialog.tsx` (adicionar seções Status/Produção/Setup/Acompanhamento).
+- Reuso: `getPedidoValorEfetivo`, `formatBRL`, `calcularPrazoEntrega`, `getStatusConfig`, `AcompanhamentoProcessos`, `DropdownMenu` shadcn.
+- Tabela: shadcn `Table` para desktop; em `<md` renderizar cada pedido como um bloco com as 4 linhas label/valor, preservando o botão Detalhes e o menu ⋮.
+- Nenhuma migração SQL.
