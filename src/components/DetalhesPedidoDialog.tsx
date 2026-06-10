@@ -314,51 +314,6 @@ const DetalhesPedidoDialog = ({
             </>
           )}
 
-          {/* Setup / Entregáveis */}
-          {setupAgrupado.length > 0 && (
-            <>
-              <Separator />
-              <Section icon={Layers} title="Setup (Entregáveis)">
-                <div className="space-y-2">
-                  {setupAgrupado.map((g) => (
-                    <div key={g.value} className="bg-muted/50 rounded-lg p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">{g.label}</span>
-                        <Badge variant="secondary" className="text-xs">Qtd: {g.total}</Badge>
-                      </div>
-                      {g.itens.length > 1 && (
-                        <ul className="mt-2 space-y-0.5">
-                          {g.itens.map((it, idx) => (
-                            <li key={idx} className="text-xs text-muted-foreground flex justify-between">
-                              <span>{it.detalhe || it.nome}</span>
-                              <span>x{it.quantidade}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            </>
-          )}
-
-          {/* Acompanhamento de Processos */}
-          {onUpdateAcompanhamento && (
-            <>
-              <Separator />
-              <Section icon={ClipboardList} title="Acompanhamento de Processos">
-                <div className="bg-muted/30 rounded-lg p-3">
-                  <AcompanhamentoProcessos
-                    acompanhamento={pedido.acompanhamento_processos}
-                    onUpdate={onUpdateAcompanhamento}
-                    setupCategorias={setupCategorias}
-                  />
-                </div>
-              </Section>
-            </>
-          )}
-
           {/* Histórico de cadastro no VhSys */}
           <Separator />
           <Section icon={History} title={`Histórico de cadastro no VhSys (${pedido.historico_vhsys?.length ?? 0})`}>
