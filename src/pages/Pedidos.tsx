@@ -1042,12 +1042,6 @@ const Pedidos = () => {
         pedido={pedidoDetalhe}
         open={!!pedidoDetalhe}
         onOpenChange={(open) => !open && setPedidoDetalhe(null)}
-        setupDemandas={todasDemandas}
-        onUpdateAcompanhamento={
-          pedidoDetalhe
-            ? (acomp) => updateAcompanhamento({ id: pedidoDetalhe.id, acompanhamento: acomp, pedidoId: pedidoDetalhe.id })
-            : undefined
-        }
         statusBadge={(() => {
           if (!pedidoDetalhe) return undefined;
           const derived = getStatusFromAcompanhamento(pedidoDetalhe.acompanhamento_processos);
