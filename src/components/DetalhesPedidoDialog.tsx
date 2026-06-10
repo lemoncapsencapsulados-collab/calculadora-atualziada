@@ -6,21 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History, Clock, ClipboardList,
+  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History, Clock,
 } from 'lucide-react';
 import { formatarCondicoesPagamento } from '@/lib/formatarPagamento';
 import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
 import HistoricoVhsysLista from '@/components/pedidos/HistoricoVhsysLista';
-import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
-import { CATEGORIAS_ENTREGAVEIS, type DemandaEntregavel, type EntregavelCategoria } from '@/lib/entregaveis';
-import type { AcompanhamentoProcessos as AcompanhamentoType } from '@/types/formula';
 
 interface DetalhesPedidoDialogProps {
   pedido: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  setupDemandas?: DemandaEntregavel[];
-  onUpdateAcompanhamento?: (acomp: AcompanhamentoType) => void;
   statusBadge?: { label: string; className: string };
   prazoBadge?: { label: string; className: string; dataPrevista: Date };
 }
@@ -50,7 +45,7 @@ const InfoRow = ({ label, value }: { label: string; value?: string | number | nu
 
 const DetalhesPedidoDialog = ({
   pedido, open, onOpenChange,
-  setupDemandas, onUpdateAcompanhamento, statusBadge, prazoBadge,
+  statusBadge, prazoBadge,
 }: DetalhesPedidoDialogProps) => {
   if (!pedido) return null;
 
@@ -73,20 +68,6 @@ const DetalhesPedidoDialog = ({
 
   const razaoSocial: string | undefined =
     dadosCliente.razao_social || dadosCliente.nome_completo || snap?.nome_cliente || formulaSnap?.cliente;
-
-  const demandasPedido = (setupDemandas || []).filter((d) => d.pedido_id === pedido.id);
-  const setupCategorias = {
-    registro_inpi: demandasPedido.some((d) => d.categoria === 'registro_inpi'),
-    impressao_rotulos: demandasPedido.some((d) => d.categoria === 'impressao_rotulos'),
-    codigo_barras: demandasPedido.some((d) => d.categoria === 'codigo_barras'),
-  };
-  const setupAgrupado = CATEGORIAS_ENTREGAVEIS
-    .map((cat) => {
-      const itensCat = demandasPedido.filter((d) => d.categoria === cat.value);
-      const total = itensCat.reduce((sum, d) => sum + (d.quantidade || 0), 0);
-      return { ...cat, total, itens: itensCat };
-    })
-    .filter((g) => g.total > 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
