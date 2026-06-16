@@ -206,6 +206,39 @@ export type Database = {
         }
         Relationships: []
       }
+      contrato_modelos: {
+        Row: {
+          ambiente: string
+          created_at: string
+          descricao: string | null
+          id: string
+          is_padrao: boolean
+          nome: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          ambiente?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          is_padrao?: boolean
+          nome: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          ambiente?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          is_padrao?: boolean
+          nome?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       embalagens: {
         Row: {
           categoria: string | null
