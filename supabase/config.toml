@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.extract-dose-from-image]
 verify_jwt = false
+
+[functions.criar-contrato-zapsign]
+verify_jwt = false

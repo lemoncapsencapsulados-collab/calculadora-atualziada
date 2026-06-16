@@ -24,6 +24,8 @@ import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
+import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
+import { FileSignature } from 'lucide-react';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -176,6 +178,109 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // VhSys: estado do botão de cadastro
   const [vhsysLoading, setVhsysLoading] = useState(false);
   const { registrarVhsysAsync } = usePedidos();
+
+  // ZapSign: estado do botão de envio
+  const [zapSignLoading, setZapSignLoading] = useState(false);
+
+  const handleEnviarZapSign = async () => {
+    setZapSignLoading(true);
+    try {
+      // Determina representante e dados do contratante
+      const isPJ = tipoPessoa === 'pj';
+      const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
+      const signerName = (isPJ ? representante.nome : representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente;
+      const signerEmail = representante.email || dadosCliente.email || '';
+      const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
+
+      if (!signerName || !signerEmail) {
+        toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
+        setZapSignLoading(false);
+        return;
+      }
+
+      const razaoSocial = isPJ ? (dadosCliente.razao_social || '') : (representante.nome || '');
+      const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
+      const enderecoContratante = isPJ
+        ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
+        : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
+
+      const primeiroItem = orcamento.itens_producao?.[0];
+      const produtoDescricao = primeiroItem
+        ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
+        : '';
+      const produtoApresentacao = primeiroItem?.quantidade_por_pote
+        ? `${primeiroItem.quantidade_por_pote} ${primeiroItem.unidade_por_pote || ''} por frasco`.trim()
+        : '';
+      const produtoPrecoUnit = primeiroItem ? formatBRL(primeiroItem.preco_unitario) : '';
+      const produtoQuantidade = primeiroItem ? String(primeiroItem.quantidade) : '';
+
+      const valorSetup = orcamento.subtotal_servicos || 0;
+      const valorProducao = orcamento.subtotal_producao || 0;
+      const valorTotal = orcamento.valor_total || 0;
+
+      const data = [
+        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: razaoSocial },
+        { de: '{{CNPJ_CONTRATANTE}}', para: cnpjContratante },
+        { de: '{{ENDERECO_CONTRATANTE}}', para: enderecoContratante },
+        { de: '{{EMAIL_CONTRATANTE}}', para: dadosCliente.email || signerEmail },
+        { de: '{{TELEFONE_CONTRATANTE}}', para: dadosCliente.telefone || signerPhone },
+        { de: '{{NOME_REPRESENTANTE}}', para: representante.nome || '' },
+        { de: '{{CPF_REPRESENTANTE}}', para: representante.cpf || '' },
+        { de: '{{NUMERO_CONTRATO}}', para: orcamento.numero_orcamento || '' },
+        { de: '{{DATA_CONTRATO}}', para: dataPorExtenso(new Date()) },
+        { de: '{{PRODUTO_DESCRICAO}}', para: produtoDescricao },
+        { de: '{{PRODUTO_APRESENTACAO}}', para: produtoApresentacao },
+        { de: '{{PRODUTO_PRECO_UNIT}}', para: produtoPrecoUnit },
+        { de: '{{PRODUTO_QUANTIDADE}}', para: produtoQuantidade },
+        { de: '{{VALOR_SETUP}}', para: formatBRL(valorSetup) },
+        { de: '{{VALOR_SETUP_EXTENSO}}', para: valorPorExtensoBRL(valorSetup) },
+        { de: '{{VALOR_PRODUCAO}}', para: formatBRL(valorProducao) },
+        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: valorPorExtensoBRL(valorProducao) },
+        { de: '{{VALOR_TOTAL_PROJETO}}', para: formatBRL(valorTotal) },
+        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: valorPorExtensoBRL(valorTotal) },
+      ];
+
+      const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
+        body: {
+          signer_name: signerName,
+          signer_email: signerEmail,
+          signer_phone_country: '55',
+          signer_phone_number: signerPhone,
+          lang: 'pt-br',
+          send_automatic_email: true,
+          data,
+        },
+      });
+
+      if (error) {
+        const ctx: any = (error as any).context;
+        let extra = '';
+        try {
+          const txt = ctx && typeof ctx.text === 'function' ? await ctx.text() : '';
+          extra = txt ? ` — ${txt}` : '';
+        } catch { /* noop */ }
+        toast.error(`Erro ZapSign: ${error.message}${extra}`);
+        return;
+      }
+
+      if (resp?.token && Array.isArray(resp?.signers) && resp.signers[0]?.sign_url) {
+        const url = resp.signers[0].sign_url;
+        toast.success('Contrato criado na ZapSign!', {
+          description: 'Clique para abrir o documento',
+          action: { label: 'Abrir', onClick: () => window.open(url, '_blank') },
+          duration: 10000,
+        });
+      } else if (resp?.error) {
+        toast.error(`ZapSign: ${resp.error}${resp.status ? ` (${resp.status})` : ''}`);
+      } else {
+        toast.success('Contrato criado na ZapSign!');
+      }
+    } catch (err: any) {
+      toast.error(`Falha ao enviar para ZapSign: ${err?.message || 'erro desconhecido'}`);
+    } finally {
+      setZapSignLoading(false);
+    }
+  };
 
   const handleCadastrarVhSys = async () => {
     setVhsysLoading(true);
@@ -594,6 +699,18 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             <Button onClick={handleDownload}>
               <Download className="w-4 h-4 mr-2" />
               Baixar PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleEnviarZapSign}
+              disabled={zapSignLoading}
+            >
+              {zapSignLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <FileSignature className="w-4 h-4 mr-2" />
+              )}
+              {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
             </Button>
           </DialogFooter>
         </DialogContent>
