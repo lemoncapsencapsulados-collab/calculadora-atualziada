@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake } from 'lucide-react';
+import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -23,6 +23,7 @@ export function Navigation({ onLogout }: NavigationProps) {
     { to: '/inventario', label: 'Inventário', icon: Package },
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/painel-administrador', label: 'Painel Administrador', icon: Shield },
+    { to: '/configuracao-contratos', label: 'Config. Contratos', icon: FileSignature },
   ];
 
   return (

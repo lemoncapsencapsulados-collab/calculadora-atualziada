@@ -13,6 +13,8 @@ interface RequestBody {
   lang?: string;
   send_automatic_email?: boolean;
   data: ZapSignDataItem[];
+  template_id?: string;
+  ambiente?: 'producao' | 'sandbox';
 }
 
 Deno.serve(async (req) => {
@@ -22,12 +24,12 @@ Deno.serve(async (req) => {
 
   try {
     const token = Deno.env.get("ZAPSIGN_API_TOKEN");
-    const templateId = Deno.env.get("ZAPSIGN_TEMPLATE_ID");
-    const baseUrl = (Deno.env.get("ZAPSIGN_BASE_URL") || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
+    const defaultTemplateId = Deno.env.get("ZAPSIGN_TEMPLATE_ID");
+    const defaultBaseUrl = (Deno.env.get("ZAPSIGN_BASE_URL") || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
 
-    if (!token || !templateId) {
+    if (!token) {
       return new Response(
-        JSON.stringify({ error: "ZapSign não configurada no servidor (token/template ausente)." }),
+        JSON.stringify({ error: "ZapSign não configurada no servidor (token ausente)." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -40,6 +42,20 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    const templateId = body.template_id || defaultTemplateId;
+    if (!templateId) {
+      return new Response(
+        JSON.stringify({ error: "Nenhum template_id informado e ZAPSIGN_TEMPLATE_ID não configurado." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const baseUrl = body.ambiente === 'sandbox'
+      ? 'https://sandbox.api.zapsign.com.br/api/v1'
+      : body.ambiente === 'producao'
+        ? 'https://api.zapsign.com.br/api/v1'
+        : defaultBaseUrl;
 
     const zapPayload = {
       template_id: templateId,
