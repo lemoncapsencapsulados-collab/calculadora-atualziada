@@ -24,6 +24,8 @@ import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
+import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
+import { FileSignature, ExternalLink } from 'lucide-react';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
