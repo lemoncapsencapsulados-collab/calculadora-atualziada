@@ -231,6 +231,35 @@ export default function InformacoesClienteDialog({ orcamento, onClose }: { orcam
   };
 
   const handleSubmit = async () => {
+    // Validar endereço antes de submeter
+    const camposFaltantes: string[] = [];
+
+    if (tipoPessoa === 'pj') {
+      if (!dados.endereco_cnpj?.trim()) camposFaltantes.push('Endereço');
+      if (!dados.cep_cnpj?.trim()) camposFaltantes.push('CEP');
+      if (!dados.cidade?.trim()) camposFaltantes.push('Cidade');
+      if (!dados.estado?.trim()) camposFaltantes.push('Estado');
+      if (!dados.telefone?.trim()) camposFaltantes.push('Telefone');
+      if (!dados.email?.trim()) camposFaltantes.push('Email');
+    } else {
+      const pf = pessoasFisicas[0];
+      if (!pf?.endereco?.trim()) camposFaltantes.push('Endereço');
+      if (!pf?.cep?.trim()) camposFaltantes.push('CEP');
+      if (!pf?.cidade?.trim()) camposFaltantes.push('Cidade');
+      if (!pf?.estado?.trim()) camposFaltantes.push('Estado');
+      if (!pf?.telefone?.trim()) camposFaltantes.push('Telefone');
+      if (!pf?.email?.trim()) camposFaltantes.push('Email');
+    }
+
+    if (camposFaltantes.length > 0) {
+      toast({
+        title: 'Dados incompletos',
+        description: `Preencha os seguintes campos obrigatórios: ${camposFaltantes.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const dadosCompletos: DadosCliente = {
