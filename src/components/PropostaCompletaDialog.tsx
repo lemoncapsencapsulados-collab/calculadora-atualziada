@@ -691,6 +691,53 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     };
   }, [pdfUrl]);
 
+  const zapSignDialog = () => (
+    <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {modelosContrato.length === 0 ? (
+            <Alert>
+              <AlertTriangle className="w-4 h-4" />
+              <AlertDescription>
+                Nenhum modelo de contrato cadastrado. Acesse <strong>Config. Contratos</strong> no menu para criar um.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <Label>Selecione o modelo</Label>
+              <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
+                <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
+                <SelectContent>
+                  {modelosContrato.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(() => {
+                const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
+                return m?.descricao ? (
+                  <p className="text-xs text-muted-foreground">{m.descricao}</p>
+                ) : null;
+              })()}
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
+          <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId}>
+            {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
+            {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (showPreview && pdfUrl) {
     return (
       <Dialog open onOpenChange={() => onClose()}>
