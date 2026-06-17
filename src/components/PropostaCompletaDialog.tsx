@@ -691,93 +691,99 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     };
   }, [pdfUrl]);
 
+  const zapSignDialog = () => (
+    <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {modelosContrato.length === 0 ? (
+            <Alert>
+              <AlertTriangle className="w-4 h-4" />
+              <AlertDescription>
+                Nenhum modelo de contrato cadastrado. Acesse <strong>Config. Contratos</strong> no menu para criar um.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <Label>Selecione o modelo</Label>
+              <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
+                <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
+                <SelectContent>
+                  {modelosContrato.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(() => {
+                const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
+                return m?.descricao ? (
+                  <p className="text-xs text-muted-foreground">{m.descricao}</p>
+                ) : null;
+              })()}
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
+          <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId}>
+            {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
+            {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (showPreview && pdfUrl) {
     return (
-      <Dialog open onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Preview do Resumo para Contrato</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 min-h-0">
-            <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPreview(false)}>Voltar</Button>
-            <Button
-              variant="outline"
-              onClick={handleCadastrarVhSys}
-              disabled={vhsysLoading}
-            >
-              {vhsysLoading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <UserPlus className="w-4 h-4 mr-2" />
-              )}
-              {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
-            </Button>
-            <Button onClick={handleDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              Baixar PDF
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setZapSignDialogOpen(true)}
-              disabled={zapSignLoading}
-            >
-              {zapSignLoading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <FileSignature className="w-4 h-4 mr-2" />
-              )}
-              {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-        <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
-          <DialogContent>
+      <>
+        <Dialog open onOpenChange={() => onClose()}>
+          <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
+              <DialogTitle>Preview do Resumo para Contrato</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              {modelosContrato.length === 0 ? (
-                <Alert>
-                  <AlertTriangle className="w-4 h-4" />
-                  <AlertDescription>
-                    Nenhum modelo de contrato cadastrado. Acesse <strong>Config. Contratos</strong> no menu para criar um.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <>
-                  <Label>Selecione o modelo</Label>
-                  <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
-                    <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
-                    <SelectContent>
-                      {modelosContrato.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(() => {
-                    const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
-                    return m?.descricao ? (
-                      <p className="text-xs text-muted-foreground">{m.descricao}</p>
-                    ) : null;
-                  })()}
-                </>
-              )}
+            <div className="flex-1 min-h-0">
+              <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
-              <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId}>
-                {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
-                {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
+              <Button variant="outline" onClick={() => setShowPreview(false)}>Voltar</Button>
+              <Button
+                variant="outline"
+                onClick={handleCadastrarVhSys}
+                disabled={vhsysLoading}
+              >
+                {vhsysLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <UserPlus className="w-4 h-4 mr-2" />
+                )}
+                {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
+              </Button>
+              <Button onClick={handleDownload}>
+                <Download className="w-4 h-4 mr-2" />
+                Baixar PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setZapSignDialogOpen(true)}
+                disabled={zapSignLoading}
+              >
+                {zapSignLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileSignature className="w-4 h-4 mr-2" />
+                )}
+                {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </Dialog>
+        {zapSignDialog()}
+      </>
     );
   }
 
@@ -785,41 +791,56 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   if (viewMode === 'visualizar') {
     const signedUrl = resumoSalvo?.signedUrl;
     return (
-      <Dialog open onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Resumo do Contrato — {orcamento.nome_cliente}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 min-h-0">
-            {loadingResumo ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Carregando resumo...
-              </div>
-            ) : signedUrl ? (
-              <iframe src={signedUrl} className="w-full h-full border rounded-lg" title="Resumo do Contrato" />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-                <AlertTriangle className="w-8 h-8" />
-                <p>Nenhum resumo de contrato salvo para este orçamento.</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>Fechar</Button>
-            <Button variant="outline" onClick={() => setViewMode('editar')}>
-              <FileCheck className="w-4 h-4 mr-2" />Editar Resumo
-            </Button>
-            {resumoSalvo?.resumo && (
-              <Button onClick={() => baixarPdfContrato(
-                resumoSalvo.resumo.pdf_path,
-                `Resumo-Contrato-${orcamento.numero_orcamento}.pdf`
-              )}>
-                <Download className="w-4 h-4 mr-2" />Baixar PDF
+      <>
+        <Dialog open onOpenChange={() => onClose()}>
+          <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Resumo do Contrato — {orcamento.nome_cliente}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 min-h-0">
+              {loadingResumo ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Carregando resumo...
+                </div>
+              ) : signedUrl ? (
+                <iframe src={signedUrl} className="w-full h-full border rounded-lg" title="Resumo do Contrato" />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+                  <AlertTriangle className="w-8 h-8" />
+                  <p>Nenhum resumo de contrato salvo para este orçamento.</p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>Fechar</Button>
+              <Button variant="outline" onClick={() => setViewMode('editar')}>
+                <FileCheck className="w-4 h-4 mr-2" />Editar Resumo
               </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {resumoSalvo?.resumo && (
+                <Button onClick={() => baixarPdfContrato(
+                  resumoSalvo.resumo.pdf_path,
+                  `Resumo-Contrato-${orcamento.numero_orcamento}.pdf`
+                )}>
+                  <Download className="w-4 h-4 mr-2" />Baixar PDF
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => setZapSignDialogOpen(true)}
+                disabled={zapSignLoading}
+              >
+                {zapSignLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileSignature className="w-4 h-4 mr-2" />
+                )}
+                {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {zapSignDialog()}
+      </>
     );
   }
 
