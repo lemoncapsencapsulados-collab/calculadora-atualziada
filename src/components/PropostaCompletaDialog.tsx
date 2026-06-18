@@ -756,11 +756,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   const zapSignDialog = () => (
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {modelosContrato.length === 0 ? (
             <Alert>
               <AlertTriangle className="w-4 h-4" />
@@ -770,23 +770,165 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             </Alert>
           ) : (
             <>
-              <Label>Selecione o modelo</Label>
-              <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
-                <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
-                <SelectContent>
-                  {modelosContrato.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(() => {
-                const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
-                return m?.descricao ? (
-                  <p className="text-xs text-muted-foreground">{m.descricao}</p>
-                ) : null;
-              })()}
+              <div className="space-y-1">
+                <Label>Modelo de contrato</Label>
+                <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
+                  <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
+                  <SelectContent>
+                    {modelosContrato.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
+                  return m?.descricao ? (
+                    <p className="text-xs text-muted-foreground">{m.descricao}</p>
+                  ) : null;
+                })()}
+              </div>
+
+              {zapSignCampos && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">Revise os campos do contrato</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setZapSignCampos(buildZapSignCamposPadrao())}
+                    >
+                      Restaurar padrão
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Signatário (quem assina)</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nome do signatário *</Label>
+                        <Input value={zapSignCampos.signer_name} onChange={(e) => updateZapCampo('signer_name', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email do signatário *</Label>
+                        <Input type="email" value={zapSignCampos.signer_email} onChange={(e) => updateZapCampo('signer_email', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Telefone (DDD + número)</Label>
+                        <Input value={zapSignCampos.signer_phone_number} onChange={(e) => updateZapCampo('signer_phone_number', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Contratante</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Razão Social / Nome</Label>
+                        <Input value={zapSignCampos.razao_social} onChange={(e) => updateZapCampo('razao_social', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">CNPJ / CPF</Label>
+                        <Input value={zapSignCampos.cnpj} onChange={(e) => updateZapCampo('cnpj', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Telefone do contratante</Label>
+                        <Input value={zapSignCampos.telefone_contratante} onChange={(e) => updateZapCampo('telefone_contratante', e.target.value)} />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Endereço</Label>
+                        <Textarea rows={2} value={zapSignCampos.endereco} onChange={(e) => updateZapCampo('endereco', e.target.value)} />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Email do contratante</Label>
+                        <Input type="email" value={zapSignCampos.email_contratante} onChange={(e) => updateZapCampo('email_contratante', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Representante</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nome do representante</Label>
+                        <Input value={zapSignCampos.nome_representante} onChange={(e) => updateZapCampo('nome_representante', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">CPF do representante</Label>
+                        <Input value={zapSignCampos.cpf_representante} onChange={(e) => updateZapCampo('cpf_representante', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Contrato</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Número do contrato</Label>
+                        <Input value={zapSignCampos.numero_contrato} onChange={(e) => updateZapCampo('numero_contrato', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Data do contrato</Label>
+                        <Input value={zapSignCampos.data_contrato} onChange={(e) => updateZapCampo('data_contrato', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Produto</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Descrição do produto</Label>
+                        <Input value={zapSignCampos.produto_descricao} onChange={(e) => updateZapCampo('produto_descricao', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Apresentação</Label>
+                        <Input value={zapSignCampos.produto_apresentacao} onChange={(e) => updateZapCampo('produto_apresentacao', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Quantidade</Label>
+                        <Input value={zapSignCampos.produto_quantidade} onChange={(e) => updateZapCampo('produto_quantidade', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Preço unitário</Label>
+                        <Input value={zapSignCampos.produto_preco_unit} onChange={(e) => updateZapCampo('produto_preco_unit', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Valores</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Setup</Label>
+                        <Input value={zapSignCampos.valor_setup} onChange={(e) => updateZapCampo('valor_setup', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Setup (por extenso)</Label>
+                        <Input value={zapSignCampos.valor_setup_extenso} onChange={(e) => updateZapCampo('valor_setup_extenso', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Produção</Label>
+                        <Input value={zapSignCampos.valor_producao} onChange={(e) => updateZapCampo('valor_producao', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Produção (por extenso)</Label>
+                        <Input value={zapSignCampos.valor_producao_extenso} onChange={(e) => updateZapCampo('valor_producao_extenso', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Total</Label>
+                        <Input value={zapSignCampos.valor_total} onChange={(e) => updateZapCampo('valor_total', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Total (por extenso)</Label>
+                        <Input value={zapSignCampos.valor_total_extenso} onChange={(e) => updateZapCampo('valor_total_extenso', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
