@@ -186,6 +186,91 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
+  // Campos editáveis do contrato ZapSign
+  type ZapSignCampos = {
+    signer_name: string;
+    signer_email: string;
+    signer_phone_number: string;
+    razao_social: string;
+    cnpj: string;
+    endereco: string;
+    email_contratante: string;
+    telefone_contratante: string;
+    nome_representante: string;
+    cpf_representante: string;
+    numero_contrato: string;
+    data_contrato: string;
+    produto_descricao: string;
+    produto_apresentacao: string;
+    produto_preco_unit: string;
+    produto_quantidade: string;
+    valor_setup: string;
+    valor_setup_extenso: string;
+    valor_producao: string;
+    valor_producao_extenso: string;
+    valor_total: string;
+    valor_total_extenso: string;
+  };
+  const [zapSignCampos, setZapSignCampos] = useState<ZapSignCampos | null>(null);
+
+  const buildZapSignCamposPadrao = (): ZapSignCampos => {
+    const isPJ = tipoPessoa === 'pj';
+    const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
+    const signerName = (representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente || '';
+    const signerEmail = representante.email || dadosCliente.email || '';
+    const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
+    const razaoSocial = isPJ ? (dadosCliente.razao_social || '') : (representante.nome || '');
+    const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
+    const enderecoContratante = isPJ
+      ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
+      : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
+    const primeiroItem = orcamento.itens_producao?.[0];
+    const produtoDescricao = primeiroItem
+      ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
+      : '';
+    const produtoApresentacao = primeiroItem?.quantidade_por_pote
+      ? `${primeiroItem.quantidade_por_pote} ${primeiroItem.unidade_por_pote || ''} por frasco`.trim()
+      : '';
+    const produtoPrecoUnit = primeiroItem ? formatBRL(primeiroItem.preco_unitario) : '';
+    const produtoQuantidade = primeiroItem ? String(primeiroItem.quantidade) : '';
+    const valorSetup = orcamento.subtotal_servicos || 0;
+    const valorProducao = orcamento.subtotal_producao || 0;
+    const valorTotal = orcamento.valor_total || 0;
+    return {
+      signer_name: signerName,
+      signer_email: signerEmail,
+      signer_phone_number: signerPhone,
+      razao_social: razaoSocial,
+      cnpj: cnpjContratante,
+      endereco: enderecoContratante,
+      email_contratante: dadosCliente.email || signerEmail,
+      telefone_contratante: dadosCliente.telefone || signerPhone,
+      nome_representante: representante.nome || '',
+      cpf_representante: representante.cpf || '',
+      numero_contrato: orcamento.numero_orcamento || '',
+      data_contrato: dataPorExtenso(new Date()),
+      produto_descricao: produtoDescricao,
+      produto_apresentacao: produtoApresentacao,
+      produto_preco_unit: produtoPrecoUnit,
+      produto_quantidade: produtoQuantidade,
+      valor_setup: formatBRL(valorSetup),
+      valor_setup_extenso: valorPorExtensoBRL(valorSetup),
+      valor_producao: formatBRL(valorProducao),
+      valor_producao_extenso: valorPorExtensoBRL(valorProducao),
+      valor_total: formatBRL(valorTotal),
+      valor_total_extenso: valorPorExtensoBRL(valorTotal),
+    };
+  };
+
+  const abrirZapSignDialog = () => {
+    setZapSignCampos(buildZapSignCamposPadrao());
+    setZapSignDialogOpen(true);
+  };
+
+  const updateZapCampo = (k: keyof ZapSignCampos, v: string) => {
+    setZapSignCampos(prev => prev ? { ...prev, [k]: v } : prev);
+  };
+
   useEffect(() => {
     if (zapSignDialogOpen && !modeloSelecionadoId && modelosContrato.length > 0) {
       const padrao = modelosContrato.find(m => m.is_padrao);
@@ -199,14 +284,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       toast.error('Selecione um modelo de contrato.');
       return;
     }
+    const campos = zapSignCampos || buildZapSignCamposPadrao();
     setZapSignLoading(true);
     try {
-      // Determina representante e dados do contratante
-      const isPJ = tipoPessoa === 'pj';
-      const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
-      const signerName = (isPJ ? representante.nome : representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente;
-      const signerEmail = representante.email || dadosCliente.email || '';
-      const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
+      const signerName = campos.signer_name;
+      const signerEmail = campos.signer_email;
+      const signerPhone = (campos.signer_phone_number || '').replace(/\D/g, '');
 
       if (!signerName || !signerEmail) {
         toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
@@ -214,46 +297,26 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         return;
       }
 
-      const razaoSocial = isPJ ? (dadosCliente.razao_social || '') : (representante.nome || '');
-      const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
-      const enderecoContratante = isPJ
-        ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
-        : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
-
-      const primeiroItem = orcamento.itens_producao?.[0];
-      const produtoDescricao = primeiroItem
-        ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
-        : '';
-      const produtoApresentacao = primeiroItem?.quantidade_por_pote
-        ? `${primeiroItem.quantidade_por_pote} ${primeiroItem.unidade_por_pote || ''} por frasco`.trim()
-        : '';
-      const produtoPrecoUnit = primeiroItem ? formatBRL(primeiroItem.preco_unitario) : '';
-      const produtoQuantidade = primeiroItem ? String(primeiroItem.quantidade) : '';
-
-      const valorSetup = orcamento.subtotal_servicos || 0;
-      const valorProducao = orcamento.subtotal_producao || 0;
-      const valorTotal = orcamento.valor_total || 0;
-
       const data = [
-        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: razaoSocial },
-        { de: '{{CNPJ_CONTRATANTE}}', para: cnpjContratante },
-        { de: '{{ENDERECO_CONTRATANTE}}', para: enderecoContratante },
-        { de: '{{EMAIL_CONTRATANTE}}', para: dadosCliente.email || signerEmail },
-        { de: '{{TELEFONE_CONTRATANTE}}', para: dadosCliente.telefone || signerPhone },
-        { de: '{{NOME_REPRESENTANTE}}', para: representante.nome || '' },
-        { de: '{{CPF_REPRESENTANTE}}', para: representante.cpf || '' },
-        { de: '{{NUMERO_CONTRATO}}', para: orcamento.numero_orcamento || '' },
-        { de: '{{DATA_CONTRATO}}', para: dataPorExtenso(new Date()) },
-        { de: '{{PRODUTO_DESCRICAO}}', para: produtoDescricao },
-        { de: '{{PRODUTO_APRESENTACAO}}', para: produtoApresentacao },
-        { de: '{{PRODUTO_PRECO_UNIT}}', para: produtoPrecoUnit },
-        { de: '{{PRODUTO_QUANTIDADE}}', para: produtoQuantidade },
-        { de: '{{VALOR_SETUP}}', para: formatBRL(valorSetup) },
-        { de: '{{VALOR_SETUP_EXTENSO}}', para: valorPorExtensoBRL(valorSetup) },
-        { de: '{{VALOR_PRODUCAO}}', para: formatBRL(valorProducao) },
-        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: valorPorExtensoBRL(valorProducao) },
-        { de: '{{VALOR_TOTAL_PROJETO}}', para: formatBRL(valorTotal) },
-        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: valorPorExtensoBRL(valorTotal) },
+        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{CNPJ_CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{ENDERECO_CONTRATANTE}}', para: campos.endereco },
+        { de: '{{EMAIL_CONTRATANTE}}', para: campos.email_contratante },
+        { de: '{{TELEFONE_CONTRATANTE}}', para: campos.telefone_contratante },
+        { de: '{{NOME_REPRESENTANTE}}', para: campos.nome_representante },
+        { de: '{{CPF_REPRESENTANTE}}', para: campos.cpf_representante },
+        { de: '{{NUMERO_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{DATA_CONTRATO}}', para: campos.data_contrato },
+        { de: '{{PRODUTO_DESCRICAO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO_APRESENTACAO}}', para: campos.produto_apresentacao },
+        { de: '{{PRODUTO_PRECO_UNIT}}', para: campos.produto_preco_unit },
+        { de: '{{PRODUTO_QUANTIDADE}}', para: campos.produto_quantidade },
+        { de: '{{VALOR_SETUP}}', para: campos.valor_setup },
+        { de: '{{VALOR_SETUP_EXTENSO}}', para: campos.valor_setup_extenso },
+        { de: '{{VALOR_PRODUCAO}}', para: campos.valor_producao },
+        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: campos.valor_producao_extenso },
+        { de: '{{VALOR_TOTAL_PROJETO}}', para: campos.valor_total },
+        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: campos.valor_total_extenso },
       ];
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
@@ -693,11 +756,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   const zapSignDialog = () => (
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {modelosContrato.length === 0 ? (
             <Alert>
               <AlertTriangle className="w-4 h-4" />
@@ -707,23 +770,165 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             </Alert>
           ) : (
             <>
-              <Label>Selecione o modelo</Label>
-              <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
-                <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
-                <SelectContent>
-                  {modelosContrato.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(() => {
-                const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
-                return m?.descricao ? (
-                  <p className="text-xs text-muted-foreground">{m.descricao}</p>
-                ) : null;
-              })()}
+              <div className="space-y-1">
+                <Label>Modelo de contrato</Label>
+                <Select value={modeloSelecionadoId} onValueChange={setModeloSelecionadoId}>
+                  <SelectTrigger><SelectValue placeholder="Escolha um modelo" /></SelectTrigger>
+                  <SelectContent>
+                    {modelosContrato.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome} {m.is_padrao ? '★' : ''} — {m.ambiente === 'producao' ? 'Produção' : 'Sandbox'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  const m = modelosContrato.find(x => x.id === modeloSelecionadoId);
+                  return m?.descricao ? (
+                    <p className="text-xs text-muted-foreground">{m.descricao}</p>
+                  ) : null;
+                })()}
+              </div>
+
+              {zapSignCampos && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">Revise os campos do contrato</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setZapSignCampos(buildZapSignCamposPadrao())}
+                    >
+                      Restaurar padrão
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Signatário (quem assina)</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nome do signatário *</Label>
+                        <Input value={zapSignCampos.signer_name} onChange={(e) => updateZapCampo('signer_name', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email do signatário *</Label>
+                        <Input type="email" value={zapSignCampos.signer_email} onChange={(e) => updateZapCampo('signer_email', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Telefone (DDD + número)</Label>
+                        <Input value={zapSignCampos.signer_phone_number} onChange={(e) => updateZapCampo('signer_phone_number', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Contratante</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Razão Social / Nome</Label>
+                        <Input value={zapSignCampos.razao_social} onChange={(e) => updateZapCampo('razao_social', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">CNPJ / CPF</Label>
+                        <Input value={zapSignCampos.cnpj} onChange={(e) => updateZapCampo('cnpj', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Telefone do contratante</Label>
+                        <Input value={zapSignCampos.telefone_contratante} onChange={(e) => updateZapCampo('telefone_contratante', e.target.value)} />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Endereço</Label>
+                        <Textarea rows={2} value={zapSignCampos.endereco} onChange={(e) => updateZapCampo('endereco', e.target.value)} />
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Email do contratante</Label>
+                        <Input type="email" value={zapSignCampos.email_contratante} onChange={(e) => updateZapCampo('email_contratante', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Representante</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nome do representante</Label>
+                        <Input value={zapSignCampos.nome_representante} onChange={(e) => updateZapCampo('nome_representante', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">CPF do representante</Label>
+                        <Input value={zapSignCampos.cpf_representante} onChange={(e) => updateZapCampo('cpf_representante', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Contrato</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Número do contrato</Label>
+                        <Input value={zapSignCampos.numero_contrato} onChange={(e) => updateZapCampo('numero_contrato', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Data do contrato</Label>
+                        <Input value={zapSignCampos.data_contrato} onChange={(e) => updateZapCampo('data_contrato', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Produto</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">Descrição do produto</Label>
+                        <Input value={zapSignCampos.produto_descricao} onChange={(e) => updateZapCampo('produto_descricao', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Apresentação</Label>
+                        <Input value={zapSignCampos.produto_apresentacao} onChange={(e) => updateZapCampo('produto_apresentacao', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Quantidade</Label>
+                        <Input value={zapSignCampos.produto_quantidade} onChange={(e) => updateZapCampo('produto_quantidade', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Preço unitário</Label>
+                        <Input value={zapSignCampos.produto_preco_unit} onChange={(e) => updateZapCampo('produto_preco_unit', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase">Valores</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Setup</Label>
+                        <Input value={zapSignCampos.valor_setup} onChange={(e) => updateZapCampo('valor_setup', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Setup (por extenso)</Label>
+                        <Input value={zapSignCampos.valor_setup_extenso} onChange={(e) => updateZapCampo('valor_setup_extenso', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Produção</Label>
+                        <Input value={zapSignCampos.valor_producao} onChange={(e) => updateZapCampo('valor_producao', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Produção (por extenso)</Label>
+                        <Input value={zapSignCampos.valor_producao_extenso} onChange={(e) => updateZapCampo('valor_producao_extenso', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Total</Label>
+                        <Input value={zapSignCampos.valor_total} onChange={(e) => updateZapCampo('valor_total', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Valor Total (por extenso)</Label>
+                        <Input value={zapSignCampos.valor_total_extenso} onChange={(e) => updateZapCampo('valor_total_extenso', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -769,7 +974,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setZapSignDialogOpen(true)}
+                onClick={abrirZapSignDialog}
                 disabled={zapSignLoading}
               >
                 {zapSignLoading ? (
@@ -826,7 +1031,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
               )}
               <Button
                 variant="outline"
-                onClick={() => setZapSignDialogOpen(true)}
+                onClick={abrirZapSignDialog}
                 disabled={zapSignLoading}
               >
                 {zapSignLoading ? (
