@@ -832,7 +832,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setZapSignDialogOpen(true)}
+                onClick={abrirZapSignDialog}
                 disabled={zapSignLoading}
               >
                 {zapSignLoading ? (
@@ -889,7 +889,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
               )}
               <Button
                 variant="outline"
-                onClick={() => setZapSignDialogOpen(true)}
+                onClick={abrirZapSignDialog}
                 disabled={zapSignLoading}
               >
                 {zapSignLoading ? (
