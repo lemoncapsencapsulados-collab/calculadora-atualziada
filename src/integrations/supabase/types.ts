@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      asaas_webhook_pendentes: {
+        Row: {
+          asaas_customer_id: string | null
+          asaas_payment_id: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          id: string
+          motivo: string
+          payload: Json
+          resolved: boolean
+          resolved_orcamento_id: string | null
+          updated_at: string
+          valor: number | null
+        }
+        Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          motivo: string
+          payload: Json
+          resolved?: boolean
+          resolved_orcamento_id?: string | null
+          updated_at?: string
+          valor?: number | null
+        }
+        Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          motivo?: string
+          payload?: Json
+          resolved?: boolean
+          resolved_orcamento_id?: string | null
+          updated_at?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_webhook_pendentes_resolved_orcamento_id_fkey"
+            columns: ["resolved_orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           cep: string | null
@@ -477,6 +527,9 @@ export type Database = {
       }
       orcamentos: {
         Row: {
+          asaas_installment_id: string | null
+          asaas_parcelas_total: number | null
+          asaas_payment_id: string | null
           cliente_id: string | null
           condicoes_pagamento: Json | null
           consultor_responsavel: string | null
@@ -493,6 +546,7 @@ export type Database = {
           numero_orcamento: string
           observacoes: string | null
           observacoes_internas: string | null
+          pagamentos_recebidos: Json
           prazo_preco_id: string | null
           preco_anterior_recalculo: number | null
           preco_recalculado_em: string | null
@@ -506,6 +560,9 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          asaas_installment_id?: string | null
+          asaas_parcelas_total?: number | null
+          asaas_payment_id?: string | null
           cliente_id?: string | null
           condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
@@ -522,6 +579,7 @@ export type Database = {
           numero_orcamento: string
           observacoes?: string | null
           observacoes_internas?: string | null
+          pagamentos_recebidos?: Json
           prazo_preco_id?: string | null
           preco_anterior_recalculo?: number | null
           preco_recalculado_em?: string | null
@@ -535,6 +593,9 @@ export type Database = {
           valor_total?: number
         }
         Update: {
+          asaas_installment_id?: string | null
+          asaas_parcelas_total?: number | null
+          asaas_payment_id?: string | null
           cliente_id?: string | null
           condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
@@ -551,6 +612,7 @@ export type Database = {
           numero_orcamento?: string
           observacoes?: string | null
           observacoes_internas?: string | null
+          pagamentos_recebidos?: Json
           prazo_preco_id?: string | null
           preco_anterior_recalculo?: number | null
           preco_recalculado_em?: string | null
