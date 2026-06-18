@@ -186,6 +186,91 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
+  // Campos editáveis do contrato ZapSign
+  type ZapSignCampos = {
+    signer_name: string;
+    signer_email: string;
+    signer_phone_number: string;
+    razao_social: string;
+    cnpj: string;
+    endereco: string;
+    email_contratante: string;
+    telefone_contratante: string;
+    nome_representante: string;
+    cpf_representante: string;
+    numero_contrato: string;
+    data_contrato: string;
+    produto_descricao: string;
+    produto_apresentacao: string;
+    produto_preco_unit: string;
+    produto_quantidade: string;
+    valor_setup: string;
+    valor_setup_extenso: string;
+    valor_producao: string;
+    valor_producao_extenso: string;
+    valor_total: string;
+    valor_total_extenso: string;
+  };
+  const [zapSignCampos, setZapSignCampos] = useState<ZapSignCampos | null>(null);
+
+  const buildZapSignCamposPadrao = (): ZapSignCampos => {
+    const isPJ = tipoPessoa === 'pj';
+    const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
+    const signerName = (representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente || '';
+    const signerEmail = representante.email || dadosCliente.email || '';
+    const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
+    const razaoSocial = isPJ ? (dadosCliente.razao_social || '') : (representante.nome || '');
+    const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
+    const enderecoContratante = isPJ
+      ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
+      : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
+    const primeiroItem = orcamento.itens_producao?.[0];
+    const produtoDescricao = primeiroItem
+      ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
+      : '';
+    const produtoApresentacao = primeiroItem?.quantidade_por_pote
+      ? `${primeiroItem.quantidade_por_pote} ${primeiroItem.unidade_por_pote || ''} por frasco`.trim()
+      : '';
+    const produtoPrecoUnit = primeiroItem ? formatBRL(primeiroItem.preco_unitario) : '';
+    const produtoQuantidade = primeiroItem ? String(primeiroItem.quantidade) : '';
+    const valorSetup = orcamento.subtotal_servicos || 0;
+    const valorProducao = orcamento.subtotal_producao || 0;
+    const valorTotal = orcamento.valor_total || 0;
+    return {
+      signer_name: signerName,
+      signer_email: signerEmail,
+      signer_phone_number: signerPhone,
+      razao_social: razaoSocial,
+      cnpj: cnpjContratante,
+      endereco: enderecoContratante,
+      email_contratante: dadosCliente.email || signerEmail,
+      telefone_contratante: dadosCliente.telefone || signerPhone,
+      nome_representante: representante.nome || '',
+      cpf_representante: representante.cpf || '',
+      numero_contrato: orcamento.numero_orcamento || '',
+      data_contrato: dataPorExtenso(new Date()),
+      produto_descricao: produtoDescricao,
+      produto_apresentacao: produtoApresentacao,
+      produto_preco_unit: produtoPrecoUnit,
+      produto_quantidade: produtoQuantidade,
+      valor_setup: formatBRL(valorSetup),
+      valor_setup_extenso: valorPorExtensoBRL(valorSetup),
+      valor_producao: formatBRL(valorProducao),
+      valor_producao_extenso: valorPorExtensoBRL(valorProducao),
+      valor_total: formatBRL(valorTotal),
+      valor_total_extenso: valorPorExtensoBRL(valorTotal),
+    };
+  };
+
+  const abrirZapSignDialog = () => {
+    setZapSignCampos(buildZapSignCamposPadrao());
+    setZapSignDialogOpen(true);
+  };
+
+  const updateZapCampo = (k: keyof ZapSignCampos, v: string) => {
+    setZapSignCampos(prev => prev ? { ...prev, [k]: v } : prev);
+  };
+
   useEffect(() => {
     if (zapSignDialogOpen && !modeloSelecionadoId && modelosContrato.length > 0) {
       const padrao = modelosContrato.find(m => m.is_padrao);
@@ -199,14 +284,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       toast.error('Selecione um modelo de contrato.');
       return;
     }
+    const campos = zapSignCampos || buildZapSignCamposPadrao();
     setZapSignLoading(true);
     try {
-      // Determina representante e dados do contratante
-      const isPJ = tipoPessoa === 'pj';
-      const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
-      const signerName = (isPJ ? representante.nome : representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente;
-      const signerEmail = representante.email || dadosCliente.email || '';
-      const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
+      const signerName = campos.signer_name;
+      const signerEmail = campos.signer_email;
+      const signerPhone = (campos.signer_phone_number || '').replace(/\D/g, '');
 
       if (!signerName || !signerEmail) {
         toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
@@ -214,46 +297,26 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         return;
       }
 
-      const razaoSocial = isPJ ? (dadosCliente.razao_social || '') : (representante.nome || '');
-      const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
-      const enderecoContratante = isPJ
-        ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
-        : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
-
-      const primeiroItem = orcamento.itens_producao?.[0];
-      const produtoDescricao = primeiroItem
-        ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
-        : '';
-      const produtoApresentacao = primeiroItem?.quantidade_por_pote
-        ? `${primeiroItem.quantidade_por_pote} ${primeiroItem.unidade_por_pote || ''} por frasco`.trim()
-        : '';
-      const produtoPrecoUnit = primeiroItem ? formatBRL(primeiroItem.preco_unitario) : '';
-      const produtoQuantidade = primeiroItem ? String(primeiroItem.quantidade) : '';
-
-      const valorSetup = orcamento.subtotal_servicos || 0;
-      const valorProducao = orcamento.subtotal_producao || 0;
-      const valorTotal = orcamento.valor_total || 0;
-
       const data = [
-        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: razaoSocial },
-        { de: '{{CNPJ_CONTRATANTE}}', para: cnpjContratante },
-        { de: '{{ENDERECO_CONTRATANTE}}', para: enderecoContratante },
-        { de: '{{EMAIL_CONTRATANTE}}', para: dadosCliente.email || signerEmail },
-        { de: '{{TELEFONE_CONTRATANTE}}', para: dadosCliente.telefone || signerPhone },
-        { de: '{{NOME_REPRESENTANTE}}', para: representante.nome || '' },
-        { de: '{{CPF_REPRESENTANTE}}', para: representante.cpf || '' },
-        { de: '{{NUMERO_CONTRATO}}', para: orcamento.numero_orcamento || '' },
-        { de: '{{DATA_CONTRATO}}', para: dataPorExtenso(new Date()) },
-        { de: '{{PRODUTO_DESCRICAO}}', para: produtoDescricao },
-        { de: '{{PRODUTO_APRESENTACAO}}', para: produtoApresentacao },
-        { de: '{{PRODUTO_PRECO_UNIT}}', para: produtoPrecoUnit },
-        { de: '{{PRODUTO_QUANTIDADE}}', para: produtoQuantidade },
-        { de: '{{VALOR_SETUP}}', para: formatBRL(valorSetup) },
-        { de: '{{VALOR_SETUP_EXTENSO}}', para: valorPorExtensoBRL(valorSetup) },
-        { de: '{{VALOR_PRODUCAO}}', para: formatBRL(valorProducao) },
-        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: valorPorExtensoBRL(valorProducao) },
-        { de: '{{VALOR_TOTAL_PROJETO}}', para: formatBRL(valorTotal) },
-        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: valorPorExtensoBRL(valorTotal) },
+        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{CNPJ_CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{ENDERECO_CONTRATANTE}}', para: campos.endereco },
+        { de: '{{EMAIL_CONTRATANTE}}', para: campos.email_contratante },
+        { de: '{{TELEFONE_CONTRATANTE}}', para: campos.telefone_contratante },
+        { de: '{{NOME_REPRESENTANTE}}', para: campos.nome_representante },
+        { de: '{{CPF_REPRESENTANTE}}', para: campos.cpf_representante },
+        { de: '{{NUMERO_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{DATA_CONTRATO}}', para: campos.data_contrato },
+        { de: '{{PRODUTO_DESCRICAO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO_APRESENTACAO}}', para: campos.produto_apresentacao },
+        { de: '{{PRODUTO_PRECO_UNIT}}', para: campos.produto_preco_unit },
+        { de: '{{PRODUTO_QUANTIDADE}}', para: campos.produto_quantidade },
+        { de: '{{VALOR_SETUP}}', para: campos.valor_setup },
+        { de: '{{VALOR_SETUP_EXTENSO}}', para: campos.valor_setup_extenso },
+        { de: '{{VALOR_PRODUCAO}}', para: campos.valor_producao },
+        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: campos.valor_producao_extenso },
+        { de: '{{VALOR_TOTAL_PROJETO}}', para: campos.valor_total },
+        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: campos.valor_total_extenso },
       ];
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
