@@ -75,14 +75,25 @@ Deno.serve(async (req) => {
     return jsonResp({ ok: true, warning: "Token não encontrado em contratos_zapsign" });
   }
 
+  // Só consideramos assinado quando TODOS os signatários concluíram.
+  // ZapSign dispara "doc_signed" apenas nesse momento; "signer_signed" é parcial e deve ser ignorado.
+  const docStatus = (payload?.status || payload?.document?.status || "").toString().toLowerCase();
+  const signers: any[] = Array.isArray(payload?.signers)
+    ? payload.signers
+    : Array.isArray(payload?.document?.signers)
+      ? payload.document.signers
+      : [];
+  const todosAssinaram = signers.length > 0 && signers.every((s: any) => {
+    const st = (s?.status || "").toString().toLowerCase();
+    return st === "signed" || !!s?.signed_at || s?.times_viewed_pdf_by_signer != null && s?.signed === true;
+  });
+
   const isSigned =
     eventType === "doc_signed" ||
-    eventType === "signed" ||
-    payload?.status === "signed" ||
-    !!payload?.signed_file ||
-    !!payload?.original_file;
+    docStatus === "signed" ||
+    todosAssinaram;
 
-  const isRefused = eventType === "doc_refused" || payload?.status === "refused";
+  const isRefused = eventType === "doc_refused" || docStatus === "refused";
 
   // Atualização de status básica
   const updates: Record<string, any> = {
