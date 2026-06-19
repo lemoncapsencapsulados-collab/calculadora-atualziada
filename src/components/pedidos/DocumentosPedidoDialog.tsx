@@ -41,11 +41,14 @@ export function DocumentosPedidoDialog({
   const enviarParaClickUp = async (a: PedidoAnexo) => {
     setEnviandoClickup(a.id);
     try {
-      const taskName = `${pedidoNumero || 'Pedido'}${pedido?.cliente ? ' — ' + pedido.cliente : ''}`;
+      const cliente = (pedido?.orcamento_snapshot as any)?.cliente_nome
+        || (pedido?.orcamento_snapshot as any)?.cliente
+        || '';
+      const taskName = `${pedidoNumero || 'Pedido'}${cliente ? ' — ' + cliente : ''}`;
       const { data, error } = await supabase.functions.invoke('clickup-enviar-contrato', {
         body: {
           taskName,
-          description: `Contrato do pedido ${pedidoNumero || ''}${pedido?.cliente ? ' — ' + pedido.cliente : ''}`,
+          description: `Contrato do pedido ${pedidoNumero || ''}${cliente ? ' — ' + cliente : ''}`,
           arquivoUrl: a.arquivo_url,
           arquivoNome: a.arquivo_nome,
         },
