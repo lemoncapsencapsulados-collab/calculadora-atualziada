@@ -105,6 +105,7 @@ export default function ConfiguracaoContratos() {
                     {m.descricao && <p className="text-xs text-muted-foreground mt-1">{m.descricao}</p>}
                   </div>
                   <div className="flex items-center gap-1">
+                    <VerificarTemplateButton templateId={m.template_id} ambiente={m.ambiente} />
                     <Button variant="ghost" size="icon" onClick={() => abrirEdicao(m)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
