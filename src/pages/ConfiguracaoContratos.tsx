@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileSignature, Plus, Pencil, Trash2, Star, Loader2 } from 'lucide-react';
+import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,65 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useContratoModelos, useSalvarContratoModelo, useExcluirContratoModelo, ContratoModelo } from '@/hooks/useContratoModelos';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false };
+
+function VerificarTemplateButton({ templateId, ambiente }: { templateId: string; ambiente: 'producao' | 'sandbox' }) {
+  const [checking, setChecking] = useState(false);
+
+  const handleCheck = async () => {
+    if (!templateId.trim()) return;
+    setChecking(true);
+    try {
+      const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-contrato-zapsign`);
+      url.searchParams.set('template_id', templateId.trim());
+      url.searchParams.set('ambiente', ambiente);
+
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+      });
+      const data = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        toast.error(`Erro ao verificar: ${data?.error || resp.statusText}`);
+        return;
+      }
+
+      if (data?.valid) {
+        toast.success('Template validado com sucesso na ZapSign!', {
+          description: `ID: ${templateId} | Ambiente: ${ambiente}`,
+        });
+      } else {
+        toast.error(`Template não encontrado na ZapSign (${data?.status || '?'})`, {
+          description: data?.hint || data?.details?.detail || 'Verifique o ID e o ambiente.',
+          duration: 8000,
+        });
+      }
+    } catch (err: any) {
+      toast.error(`Falha na verificação: ${err?.message || 'erro desconhecido'}`);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      title="Verificar template na ZapSign"
+      onClick={handleCheck}
+      disabled={checking}
+    >
+      {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+    </Button>
+  );
+}
+
 
 export default function ConfiguracaoContratos() {
   const { data: modelos = [], isLoading } = useContratoModelos();
@@ -103,6 +160,7 @@ export default function ConfiguracaoContratos() {
                     {m.descricao && <p className="text-xs text-muted-foreground mt-1">{m.descricao}</p>}
                   </div>
                   <div className="flex items-center gap-1">
+                    <VerificarTemplateButton templateId={m.template_id} ambiente={m.ambiente} />
                     <Button variant="ghost" size="icon" onClick={() => abrirEdicao(m)}>
                       <Pencil className="w-4 h-4" />
                     </Button>

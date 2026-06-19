@@ -17,23 +17,86 @@ interface RequestBody {
   ambiente?: 'producao' | 'sandbox';
 }
 
+function resolveBaseUrl(ambiente?: string, defaultBaseUrl?: string): string {
+  if (ambiente === 'sandbox') return 'https://sandbox.api.zapsign.com.br/api/v1';
+  if (ambiente === 'producao') return 'https://api.zapsign.com.br/api/v1';
+  return (defaultBaseUrl || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    const token = Deno.env.get("ZAPSIGN_API_TOKEN");
-    const defaultTemplateId = Deno.env.get("ZAPSIGN_TEMPLATE_ID");
-    const defaultBaseUrl = (Deno.env.get("ZAPSIGN_BASE_URL") || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
+  const token = Deno.env.get("ZAPSIGN_API_TOKEN");
+  const defaultTemplateId = Deno.env.get("ZAPSIGN_TEMPLATE_ID");
+  const defaultBaseUrl = (Deno.env.get("ZAPSIGN_BASE_URL") || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
 
-    if (!token) {
+  if (!token) {
+    return new Response(
+      JSON.stringify({ error: "ZapSign não configurada no servidor (ZAPSIGN_API_TOKEN ausente)." }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  // GET /validate-template?template_id=xxx&ambiente=producao
+  if (req.method === "GET") {
+    try {
+      const url = new URL(req.url);
+      const templateId = url.searchParams.get("template_id") || defaultTemplateId;
+      const ambiente = url.searchParams.get("ambiente") || undefined;
+      if (!templateId) {
+        return new Response(
+          JSON.stringify({ error: "Informe template_id via query param ou configure ZAPSIGN_TEMPLATE_ID." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const baseUrl = resolveBaseUrl(ambiente, defaultBaseUrl);
+      const validateUrl = `${baseUrl}/templates/${templateId}/`;
+      const resp = await fetch(validateUrl, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const text = await resp.text();
+      let json: any = null;
+      try { json = text ? JSON.parse(text) : null; } catch { /* keep raw text */ }
+      if (!resp.ok) {
+        return new Response(
+          JSON.stringify({
+            valid: false,
+            error: `ZapSign retornou ${resp.status}`,
+            status: resp.status,
+            template_id: templateId,
+            ambiente: ambiente || 'default',
+            url: validateUrl,
+            details: json ?? text,
+            hint: resp.status === 404
+              ? "Template não encontrado. Verifique: (1) se o ID está correto, (2) se está usando o token da conta certa, (3) se o ambiente (sandbox/produção) está correto."
+              : undefined,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       return new Response(
-        JSON.stringify({ error: "ZapSign não configurada no servidor (token ausente)." }),
+        JSON.stringify({
+          valid: true,
+          template_id: templateId,
+          ambiente: ambiente || 'default',
+          template: json ?? { raw: text },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    } catch (err: any) {
+      console.error("criar-contrato-zapsign validate error:", err);
+      return new Response(
+        JSON.stringify({ error: err?.message || "Erro desconhecido na validação" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+  }
 
+  // POST - criar contrato
+  try {
     const body = (await req.json()) as RequestBody;
 
     if (!body?.signer_name || !body?.signer_email || !Array.isArray(body?.data)) {
@@ -51,11 +114,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const baseUrl = body.ambiente === 'sandbox'
-      ? 'https://sandbox.api.zapsign.com.br/api/v1'
-      : body.ambiente === 'producao'
-        ? 'https://api.zapsign.com.br/api/v1'
-        : defaultBaseUrl;
+    const baseUrl = resolveBaseUrl(body.ambiente, defaultBaseUrl);
 
     const zapPayload = {
       template_id: templateId,
@@ -87,7 +146,13 @@ Deno.serve(async (req) => {
         JSON.stringify({
           error: `ZapSign retornou ${resp.status}`,
           status: resp.status,
+          template_id: templateId,
+          ambiente: body.ambiente || 'default',
+          url,
           details: json ?? text,
+          hint: resp.status === 404
+            ? "Template não encontrado. Verifique: (1) se o ID está correto, (2) se está usando o token da conta certa, (3) se o ambiente (sandbox/produção) está correto."
+            : undefined,
         }),
         { status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
