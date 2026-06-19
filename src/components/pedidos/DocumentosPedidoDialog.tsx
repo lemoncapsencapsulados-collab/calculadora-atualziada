@@ -274,6 +274,69 @@ export function DocumentosPedidoDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!assigneeDialog} onOpenChange={(o) => !o && setAssigneeDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atribuir tarefa no ClickUp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+            {carregandoMembros && (
+              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando membros...
+              </div>
+            )}
+            {!carregandoMembros && membros.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum membro encontrado.</p>
+            )}
+            {!carregandoMembros && membros.map((m) => {
+              const checked = selecionados.includes(m.id);
+              return (
+                <label
+                  key={m.id}
+                  className="flex items-center gap-3 p-2 rounded border cursor-pointer hover:bg-muted/40"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(v) => {
+                      setSelecionados((prev) =>
+                        v ? [...prev, m.id] : prev.filter((x) => x !== m.id)
+                      );
+                    }}
+                  />
+                  {m.profilePicture ? (
+                    <img src={m.profilePicture} alt={m.username} className="h-7 w-7 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs">
+                      {m.username?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{m.username}</p>
+                    {m.email && <p className="text-xs text-muted-foreground truncate">{m.email}</p>}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setAssigneeDialog(null)}>Cancelar</Button>
+            <Button
+              disabled={!assigneeDialog || enviandoClickup === assigneeDialog?.id}
+              onClick={async () => {
+                const a = assigneeDialog;
+                if (!a) return;
+                setAssigneeDialog(null);
+                await enviarParaClickUp(a, selecionados);
+              }}
+            >
+              {enviandoClickup === assigneeDialog?.id
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Enviando...</>
+                : <><Send className="h-4 w-4 mr-1" /> Enviar{selecionados.length ? ` (${selecionados.length})` : ' sem atribuir'}</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
