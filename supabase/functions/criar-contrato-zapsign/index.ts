@@ -18,6 +18,7 @@ interface RequestBody {
   ambiente?: 'producao' | 'sandbox';
   orcamento_id?: string;
   cliente_id?: string;
+  pedido_id?: string;
 }
 
 function resolveBaseUrl(ambiente?: string, defaultBaseUrl?: string): string {
@@ -177,6 +178,7 @@ Deno.serve(async (req) => {
             ambiente: body.ambiente || 'producao',
             orcamento_id: body.orcamento_id ?? null,
             cliente_id: body.cliente_id ?? null,
+            pedido_id: body.pedido_id ?? null,
             signer_name: body.signer_name,
             signer_email: body.signer_email,
             signer_phone: body.signer_phone_number ?? null,
