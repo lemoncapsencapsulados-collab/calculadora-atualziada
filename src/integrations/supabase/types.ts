@@ -289,6 +289,91 @@ export type Database = {
         }
         Relationships: []
       }
+      contratos_zapsign: {
+        Row: {
+          ambiente: string
+          cliente_id: string | null
+          created_at: string
+          id: string
+          orcamento_id: string | null
+          pedido_id: string | null
+          signed_at: string | null
+          signed_file_path: string | null
+          signed_file_url: string | null
+          signer_email: string | null
+          signer_name: string | null
+          signer_phone: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+          webhook_raw: Json | null
+          zapsign_open_id: string | null
+          zapsign_token: string
+        }
+        Insert: {
+          ambiente?: string
+          cliente_id?: string | null
+          created_at?: string
+          id?: string
+          orcamento_id?: string | null
+          pedido_id?: string | null
+          signed_at?: string | null
+          signed_file_path?: string | null
+          signed_file_url?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          signer_phone?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          webhook_raw?: Json | null
+          zapsign_open_id?: string | null
+          zapsign_token: string
+        }
+        Update: {
+          ambiente?: string
+          cliente_id?: string | null
+          created_at?: string
+          id?: string
+          orcamento_id?: string | null
+          pedido_id?: string | null
+          signed_at?: string | null
+          signed_file_path?: string | null
+          signed_file_url?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          signer_phone?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          webhook_raw?: Json | null
+          zapsign_open_id?: string | null
+          zapsign_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_zapsign_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_zapsign_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_zapsign_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       embalagens: {
         Row: {
           categoria: string | null
