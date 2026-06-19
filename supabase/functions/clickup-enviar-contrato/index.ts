@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,36 +6,31 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
     const token = Deno.env.get('CLICKUP_API_TOKEN');
     const listId = Deno.env.get('CLICKUP_LIST_CONTRATOS_ID');
-    if (!token || !listId) {
-      return new Response(JSON.stringify({ error: 'ClickUp não configurado' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!token || !listId) return jsonResponse({ error: 'ClickUp não configurado' }, 500);
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Não autenticado' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!authHeader) return jsonResponse({ error: 'Não autenticado' }, 401);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: claims } = await supabase.auth.getClaims();
-    if (!claims) {
-      return new Response(JSON.stringify({ error: 'Não autenticado' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+    if (claimsError || !claimsData?.claims) return jsonResponse({ error: 'Não autenticado' }, 401);
 
     const body = await req.json();
     const { taskName, description, arquivoUrl, arquivoNome } = body as {
@@ -43,24 +38,20 @@ Deno.serve(async (req) => {
     };
 
     if (!taskName || !arquivoUrl || !arquivoNome) {
-      return new Response(JSON.stringify({ error: 'taskName, arquivoUrl e arquivoNome são obrigatórios' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'taskName, arquivoUrl e arquivoNome são obrigatórios' }, 400);
     }
 
     // 1) Cria a task
     console.log('Creating ClickUp task in list', listId, 'name:', taskName);
     const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
       method: 'POST',
-      headers: { Authorization: token, 'Content-Type': 'application/json' },
+      headers: { Authorization: token, 'Content-Type': 'application/json', accept: 'application/json' },
       body: JSON.stringify({ name: taskName, description: description || '' }),
     });
     if (!taskRes.ok) {
       const txt = await taskRes.text();
       console.error('ClickUp task creation failed', taskRes.status, txt);
-      return new Response(JSON.stringify({ error: `ClickUp task: ${txt}` }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: false, error: `ClickUp task (${taskRes.status}): ${txt}` });
     }
     const task = await taskRes.json();
     const taskId: string = task.id;
@@ -70,9 +61,7 @@ Deno.serve(async (req) => {
     const fileRes = await fetch(arquivoUrl);
     if (!fileRes.ok) {
       console.error('File download failed', fileRes.status);
-      return new Response(JSON.stringify({ error: 'Falha ao baixar arquivo', taskId, taskUrl: task.url }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: false, error: `Falha ao baixar arquivo (${fileRes.status})`, taskId, taskUrl: task.url });
     }
     const blob = await fileRes.blob();
     const form = new FormData();
@@ -86,17 +75,11 @@ Deno.serve(async (req) => {
     if (!attRes.ok) {
       const txt = await attRes.text();
       console.error('ClickUp attachment failed', attRes.status, txt);
-      return new Response(JSON.stringify({ error: `ClickUp attachment: ${txt}`, taskId, taskUrl: task.url }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: false, error: `ClickUp attachment (${attRes.status}): ${txt}`, taskId, taskUrl: task.url });
     }
 
-    return new Response(JSON.stringify({ ok: true, taskId, taskUrl: task.url }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true, taskId, taskUrl: task.url });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: String(e) }, 500);
   }
 });
