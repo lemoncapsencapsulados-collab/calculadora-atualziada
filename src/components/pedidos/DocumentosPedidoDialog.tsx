@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown, Send, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PedidoAnexo, downloadAnexo, ANEXO_LIMITES } from '@/hooks/usePedidoAnexos';
@@ -37,8 +38,37 @@ export function DocumentosPedidoDialog({
   const [preview, setPreview] = useState<PedidoAnexo | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PedidoAnexo | null>(null);
   const [enviandoClickup, setEnviandoClickup] = useState<string | null>(null);
+  const [assigneeDialog, setAssigneeDialog] = useState<PedidoAnexo | null>(null);
+  const [membros, setMembros] = useState<Array<{ id: number; username: string; email?: string; profilePicture?: string }>>([]);
+  const [carregandoMembros, setCarregandoMembros] = useState(false);
+  const [selecionados, setSelecionados] = useState<number[]>([]);
 
-  const enviarParaClickUp = async (a: PedidoAnexo) => {
+  useEffect(() => {
+    if (!assigneeDialog) return;
+    let cancel = false;
+    (async () => {
+      setCarregandoMembros(true);
+      setSelecionados([]);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('Sessão expirada.');
+        const { data, error } = await supabase.functions.invoke('clickup-listar-membros', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (!cancel) setMembros(data?.members || []);
+      } catch (e: any) {
+        toast.error('Erro ao carregar membros do ClickUp: ' + (e?.message || String(e)));
+        if (!cancel) setAssigneeDialog(null);
+      } finally {
+        if (!cancel) setCarregandoMembros(false);
+      }
+    })();
+    return () => { cancel = true; };
+  }, [assigneeDialog]);
+
+  const enviarParaClickUp = async (a: PedidoAnexo, assignees: number[]) => {
     setEnviandoClickup(a.id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -55,6 +85,7 @@ export function DocumentosPedidoDialog({
           description: `Contrato do pedido ${pedidoNumero || ''}${cliente ? ' — ' + cliente : ''}`,
           arquivoUrl: a.arquivo_url,
           arquivoNome: a.arquivo_nome,
+          assignees,
         },
       });
       if (error) throw error;
@@ -115,7 +146,7 @@ export function DocumentosPedidoDialog({
               <Button
                 variant="ghost" size="sm" title="Enviar para ClickUp (Rótulos / Contratos)"
                 disabled={enviandoClickup === a.id}
-                onClick={() => enviarParaClickUp(a)}
+                onClick={() => setAssigneeDialog(a)}
               >
                 {enviandoClickup === a.id
                   ? <Loader2 className="h-4 w-4 animate-spin" />
