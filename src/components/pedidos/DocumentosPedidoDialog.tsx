@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown, Send, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PedidoAnexo, downloadAnexo, ANEXO_LIMITES } from '@/hooks/usePedidoAnexos';
 import { Pedido } from '@/types/formula';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -34,6 +36,29 @@ export function DocumentosPedidoDialog({
 }: Props) {
   const [preview, setPreview] = useState<PedidoAnexo | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PedidoAnexo | null>(null);
+  const [enviandoClickup, setEnviandoClickup] = useState<string | null>(null);
+
+  const enviarParaClickUp = async (a: PedidoAnexo) => {
+    setEnviandoClickup(a.id);
+    try {
+      const taskName = `${pedidoNumero || 'Pedido'}${pedido?.cliente ? ' — ' + pedido.cliente : ''}`;
+      const { data, error } = await supabase.functions.invoke('clickup-enviar-contrato', {
+        body: {
+          taskName,
+          description: `Contrato do pedido ${pedidoNumero || ''}${pedido?.cliente ? ' — ' + pedido.cliente : ''}`,
+          arquivoUrl: a.arquivo_url,
+          arquivoNome: a.arquivo_nome,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success('Enviado para o ClickUp (Rótulos / Contratos)');
+    } catch (e: any) {
+      toast.error('Erro ao enviar para o ClickUp: ' + (e?.message || String(e)));
+    } finally {
+      setEnviandoClickup(null);
+    }
+  };
 
   const mover = (tipo: 'contrato' | 'comprovante', lista: PedidoAnexo[], idx: number, dir: -1 | 1) => {
     if (!onReordenar || !pedidoId) return;
@@ -79,6 +104,17 @@ export function DocumentosPedidoDialog({
             </div>
           </div>
           <div className="flex gap-1">
+            {tipo === 'contrato' && (
+              <Button
+                variant="ghost" size="sm" title="Enviar para ClickUp (Rótulos / Contratos)"
+                disabled={enviandoClickup === a.id}
+                onClick={() => enviarParaClickUp(a)}
+              >
+                {enviandoClickup === a.id
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Send className="h-4 w-4" />}
+              </Button>
+            )}
             <Button variant="ghost" size="sm" title="Visualizar" onClick={() => setPreview(a)}>
               <Eye className="h-4 w-4" />
             </Button>
