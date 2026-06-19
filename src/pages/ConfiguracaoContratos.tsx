@@ -16,6 +16,54 @@ import { toast } from 'sonner';
 
 const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false };
 
+function VerificarTemplateButton({ templateId, ambiente }: { templateId: string; ambiente: 'producao' | 'sandbox' }) {
+  const [checking, setChecking] = useState(false);
+
+  const handleCheck = async () => {
+    if (!templateId.trim()) return;
+    setChecking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
+        method: 'GET',
+        queryParams: { template_id: templateId.trim(), ambiente },
+      } as any);
+
+      if (error) {
+        toast.error(`Erro ao verificar: ${error.message}`);
+        return;
+      }
+
+      if (data?.valid) {
+        toast.success('Template validado com sucesso na ZapSign!', {
+          description: `ID: ${templateId} | Ambiente: ${ambiente}`,
+        });
+      } else {
+        toast.error(`Template não encontrado na ZapSign (${data?.status || '?'})`, {
+          description: data?.hint || data?.details?.detail || 'Verifique o ID e o ambiente.',
+          duration: 8000,
+        });
+      }
+    } catch (err: any) {
+      toast.error(`Falha na verificação: ${err?.message || 'erro desconhecido'}`);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      title="Verificar template na ZapSign"
+      onClick={handleCheck}
+      disabled={checking}
+    >
+      {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+    </Button>
+  );
+}
+
+
 export default function ConfiguracaoContratos() {
   const { data: modelos = [], isLoading } = useContratoModelos();
   const salvar = useSalvarContratoModelo();
