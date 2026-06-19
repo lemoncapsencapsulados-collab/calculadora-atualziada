@@ -1,55 +1,31 @@
 ## Objetivo
+Atualizar os preços (R$/kg) das matérias-primas do inventário usando a planilha `ESTOQUE_MATÉRIA_PRIMA_JUNHO_26.xlsx`.
 
-Você continua gerando a cobrança direto no painel do Asaas (do jeito que já faz hoje). Quando o cliente pagar, o webhook chega aqui e o sistema **acha o orçamento sozinho pelo CNPJ/CPF do pagador** — sem colar ID, sem botão novo, sem mexer em nada no Asaas.
+## O que a planilha contém
+Aba `ESTOQUE` com 155 linhas, uma linha por lote, incluindo:
+- `ITEM/LOTE` (nome + às vezes sufixo de lote)
+- `QTD TOTAL (KG/L)` (quantidade em estoque)
+- `VALOR/KG` (preço por kg/L do lote)
+- `FORNECEDOR`, validade, etc.
 
-## Como vai funcionar
+## Estratégia
+1. Ler a aba `ESTOQUE` da planilha em um script local (não muda nada no projeto ainda).
+2. Para cada linha:
+   - Limpar o nome removendo sufixos de lote (códigos tipo `25H12-B041-...`, datas, e tamanhos como "5KG", "1KG", "10L") preservando o nome base da matéria-prima.
+   - Considerar apenas lotes com `QTD TOTAL > 0` (lotes zerados ficam de fora para não distorcer).
+3. Agrupar por nome base e calcular **média ponderada de `VALOR/KG`** pelo `QTD TOTAL`. Lotes únicos ficam com o preço do lote.
+4. Enviar a lista resultante (`{ nome, preco_por_kg }`) para a edge function existente `import-materias-primas`, que já:
+   - normaliza nomes (com aliases),
+   - faz match com `materias_primas.normalized_name`,
+   - converte o preço de kg para a `unidade_compra` cadastrada,
+   - atualiza `preco_compra` e retorna um relatório (criados / atualizados / ignorados / alertas).
+5. Mostrar o relatório final: quantas MPs foram atualizadas, quais não casaram (criadas novas ou ignoradas) e os aliases aplicados, para você revisar.
 
-1. Você gera a cobrança no Asaas como sempre fez.
-2. Cliente paga → Asaas dispara `PAYMENT_CONFIRMED` / `PAYMENT_RECEIVED` para o webhook.
-3. Edge function `asaas-webhook` recebe o evento e:
-   - Busca o **customer** no Asaas via API (`GET /customers/{id}`) pra pegar o `cpfCnpj`.
-   - Normaliza (só dígitos) e procura na tabela `orcamentos` por CNPJ/CPF dentro de `dados_cliente` (PJ ou PF).
-   - Filtra apenas orçamentos com `status IN ('rascunho','enviado')`.
-4. Decisão de match:
-   - **1 orçamento** → marca como `pago`, salva `data_pagamento`, `asaas_payment_id`, gera pedido.
-   - **Vários abertos** → casa pelo de **valor mais próximo** ao `value` da cobrança (tolerância R$ 0,01). Se ainda empatar, pega o **mais recente** e registra log.
-   - **Nenhum** → grava na nova tabela `asaas_webhook_pendentes` pra você revisar manualmente num painel simples.
-5. Idempotência: se `asaas_payment_id` já consta em algum orçamento pago, ignora o evento (evita parcela duplicada / reenvio do Asaas).
+## Regras importantes
+- **Não criar duplicatas**: se o nome base não bater com nenhuma MP existente nem com aliases, a função cria como nova MP em kg — vou destacar essas no relatório para você decidir se mantém ou apaga.
+- **Amido de Milho**: permanece com o nome real no banco (a ofuscação para "Excipiente" é só na UI/PDF), então o preço será atualizado normalmente.
+- **Sem mudança de schema** e sem mudança no app — só dados em `materias_primas.preco_compra` via a função já existente.
 
-## Parcelado
-
-Asaas manda 1 webhook por parcela. Como você quer "só marcar pago quando todas confirmarem":
-- No primeiro webhook de uma cobrança parcelada (campo `installment` preenchido), o sistema busca `GET /installments/{id}` pra saber o total de parcelas.
-- Salva em `pagamentos_recebidos jsonb` cada parcela recebida + `asaas_parcelas_total`.
-- Status vira `pago` só quando `pagamentos_recebidos.length === asaas_parcelas_total`.
-
-## Casos de borda
-
-- **Cliente sem CNPJ/CPF no orçamento** → vai pra fila de pendentes.
-- **CNPJ existe mas nenhum orçamento aberto** → fila de pendentes (pode ser pagamento avulso ou recompra antiga).
-- **Estorno (`PAYMENT_REFUNDED`)** → só logamos, status não muda automaticamente.
-- **Pagamento manual** → arrastar o card pra "Pago" no Kanban continua funcionando.
-
-## Mudanças técnicas
-
-**Banco** (migração):
-- `orcamentos`: `asaas_payment_id text`, `asaas_installment_id text`, `asaas_parcelas_total int`, `pagamentos_recebidos jsonb default '[]'`, índice em `asaas_payment_id`.
-- Nova tabela `asaas_webhook_pendentes` (id, payload jsonb, cpf_cnpj, valor, motivo, resolved boolean, created_at) — RLS pra `authenticated`.
-
-**Edge function nova**: `supabase/functions/asaas-webhook/index.ts` com `verify_jwt = false`. Valida header `asaas-access-token` contra `ASAAS_WEBHOOK_TOKEN`. Usa `ASAAS_API_KEY` pra consultar customer/installment.
-
-**Frontend**: nenhuma mudança obrigatória. Opcional: pequeno badge "X/Y parcelas" no card do Kanban quando `asaas_parcelas_total > 1`, e uma página simples `/asaas-pendentes` listando a fila pra você reconciliar com 1 clique (vincular ao orçamento certo).
-
-**Secrets necessários**:
-- `ASAAS_API_KEY` (você cadastra)
-- `ASAAS_WEBHOOK_TOKEN` (você define qualquer string e cola no painel Asaas)
-- `ASAAS_BASE_URL` (sandbox ou produção)
-
-**Configuração no Asaas (1 vez)**:
-- URL: `https://nawhpweyisawxaymmusg.supabase.co/functions/v1/asaas-webhook`
-- Eventos: `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`
-- Token: mesmo valor de `ASAAS_WEBHOOK_TOKEN`
-
-## Risco honesto do match por CNPJ
-
-Se o mesmo cliente tem 2 orçamentos abertos com valores muito parecidos, o automático pode acertar o "errado". Por isso o desempate por valor + a fila de pendentes — assim nada some, no pior caso fica esperando você confirmar.
+## Detalhes técnicos
+- Script Python local (sandbox) lê o xlsx com pandas/openpyxl, agrega e POSTa para `import-materias-primas` autenticado.
+- Nenhuma migração; nenhuma alteração em código do app.
