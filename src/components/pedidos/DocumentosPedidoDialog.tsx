@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown, Send, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PedidoAnexo, downloadAnexo, ANEXO_LIMITES } from '@/hooks/usePedidoAnexos';
@@ -37,8 +38,37 @@ export function DocumentosPedidoDialog({
   const [preview, setPreview] = useState<PedidoAnexo | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PedidoAnexo | null>(null);
   const [enviandoClickup, setEnviandoClickup] = useState<string | null>(null);
+  const [assigneeDialog, setAssigneeDialog] = useState<PedidoAnexo | null>(null);
+  const [membros, setMembros] = useState<Array<{ id: number; username: string; email?: string; profilePicture?: string }>>([]);
+  const [carregandoMembros, setCarregandoMembros] = useState(false);
+  const [selecionados, setSelecionados] = useState<number[]>([]);
 
-  const enviarParaClickUp = async (a: PedidoAnexo) => {
+  useEffect(() => {
+    if (!assigneeDialog) return;
+    let cancel = false;
+    (async () => {
+      setCarregandoMembros(true);
+      setSelecionados([]);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('Sessão expirada.');
+        const { data, error } = await supabase.functions.invoke('clickup-listar-membros', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        if (!cancel) setMembros(data?.members || []);
+      } catch (e: any) {
+        toast.error('Erro ao carregar membros do ClickUp: ' + (e?.message || String(e)));
+        if (!cancel) setAssigneeDialog(null);
+      } finally {
+        if (!cancel) setCarregandoMembros(false);
+      }
+    })();
+    return () => { cancel = true; };
+  }, [assigneeDialog]);
+
+  const enviarParaClickUp = async (a: PedidoAnexo, assignees: number[]) => {
     setEnviandoClickup(a.id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -55,6 +85,7 @@ export function DocumentosPedidoDialog({
           description: `Contrato do pedido ${pedidoNumero || ''}${cliente ? ' — ' + cliente : ''}`,
           arquivoUrl: a.arquivo_url,
           arquivoNome: a.arquivo_nome,
+          assignees,
         },
       });
       if (error) throw error;
@@ -115,7 +146,7 @@ export function DocumentosPedidoDialog({
               <Button
                 variant="ghost" size="sm" title="Enviar para ClickUp (Rótulos / Contratos)"
                 disabled={enviandoClickup === a.id}
-                onClick={() => enviarParaClickUp(a)}
+                onClick={() => setAssigneeDialog(a)}
               >
                 {enviandoClickup === a.id
                   ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -243,6 +274,69 @@ export function DocumentosPedidoDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!assigneeDialog} onOpenChange={(o) => !o && setAssigneeDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atribuir tarefa no ClickUp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+            {carregandoMembros && (
+              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" /> Carregando membros...
+              </div>
+            )}
+            {!carregandoMembros && membros.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum membro encontrado.</p>
+            )}
+            {!carregandoMembros && membros.map((m) => {
+              const checked = selecionados.includes(m.id);
+              return (
+                <label
+                  key={m.id}
+                  className="flex items-center gap-3 p-2 rounded border cursor-pointer hover:bg-muted/40"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(v) => {
+                      setSelecionados((prev) =>
+                        v ? [...prev, m.id] : prev.filter((x) => x !== m.id)
+                      );
+                    }}
+                  />
+                  {m.profilePicture ? (
+                    <img src={m.profilePicture} alt={m.username} className="h-7 w-7 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs">
+                      {m.username?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{m.username}</p>
+                    {m.email && <p className="text-xs text-muted-foreground truncate">{m.email}</p>}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setAssigneeDialog(null)}>Cancelar</Button>
+            <Button
+              disabled={!assigneeDialog || enviandoClickup === assigneeDialog?.id}
+              onClick={async () => {
+                const a = assigneeDialog;
+                if (!a) return;
+                setAssigneeDialog(null);
+                await enviarParaClickUp(a, selecionados);
+              }}
+            >
+              {enviandoClickup === assigneeDialog?.id
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Enviando...</>
+                : <><Send className="h-4 w-4 mr-1" /> Enviar{selecionados.length ? ` (${selecionados.length})` : ' sem atribuir'}</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
