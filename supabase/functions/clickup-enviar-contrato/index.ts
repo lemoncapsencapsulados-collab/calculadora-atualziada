@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     }
 
     // 1) Cria a task
+    console.log('Creating ClickUp task in list', listId, 'name:', taskName);
     const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json' },
@@ -56,16 +57,19 @@ Deno.serve(async (req) => {
     });
     if (!taskRes.ok) {
       const txt = await taskRes.text();
+      console.error('ClickUp task creation failed', taskRes.status, txt);
       return new Response(JSON.stringify({ error: `ClickUp task: ${txt}` }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     const task = await taskRes.json();
     const taskId: string = task.id;
+    console.log('Task created', taskId);
 
     // 2) Baixa o arquivo e anexa
     const fileRes = await fetch(arquivoUrl);
     if (!fileRes.ok) {
+      console.error('File download failed', fileRes.status);
       return new Response(JSON.stringify({ error: 'Falha ao baixar arquivo', taskId, taskUrl: task.url }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -81,6 +85,7 @@ Deno.serve(async (req) => {
     });
     if (!attRes.ok) {
       const txt = await attRes.text();
+      console.error('ClickUp attachment failed', attRes.status, txt);
       return new Response(JSON.stringify({ error: `ClickUp attachment: ${txt}`, taskId, taskUrl: task.url }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
