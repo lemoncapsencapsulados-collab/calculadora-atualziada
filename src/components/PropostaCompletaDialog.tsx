@@ -1020,7 +1020,19 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>Fechar</Button>
+              <Button variant="outline" onClick={() => setViewMode('editar')}>
+                <FileCheck className="w-4 h-4 mr-2" />Editar Resumo
+              </Button>
+              {resumoSalvo?.resumo && (
+                <Button onClick={() => baixarPdfContrato(
+                  resumoSalvo.resumo.pdf_path,
+                  `Resumo-Contrato-${orcamento.numero_orcamento}.pdf`
+                )}>
+                  <Download className="w-4 h-4 mr-2" />Baixar PDF
+                </Button>
+              )}
               <Button
+                variant="outline"
                 onClick={abrirZapSignDialog}
                 disabled={zapSignLoading}
               >
