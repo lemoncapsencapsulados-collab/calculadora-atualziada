@@ -11,6 +11,3 @@ verify_jwt = false
 
 [functions.criar-contrato-zapsign]
 verify_jwt = false
-
-[functions.asaas-webhook]
-verify_jwt = false
