@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, Upload, Eye, Download, Trash2, Receipt, FileSignature, ArrowUp, ArrowDown, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PedidoAnexo, downloadAnexo, ANEXO_LIMITES } from '@/hooks/usePedidoAnexos';
+import { EnviarContratoZapSignPedidoDialog } from './EnviarContratoZapSignPedidoDialog';
+import { Pedido } from '@/types/formula';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -15,6 +17,7 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   pedidoNumero?: string;
   pedidoId?: string;
+  pedido?: Pedido | null;
   contratos: PedidoAnexo[];
   comprovantes: PedidoAnexo[];
   onAdicionar: (tipo: 'contrato' | 'comprovante') => void;
@@ -28,10 +31,11 @@ function getExt(nome: string) {
 }
 
 export function DocumentosPedidoDialog({
-  open, onOpenChange, pedidoNumero, pedidoId, contratos, comprovantes, onAdicionar, onRemover, onReordenar,
+  open, onOpenChange, pedidoNumero, pedidoId, pedido, contratos, comprovantes, onAdicionar, onRemover, onReordenar,
 }: Props) {
   const [preview, setPreview] = useState<PedidoAnexo | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PedidoAnexo | null>(null);
+  const [zapOpen, setZapOpen] = useState(false);
 
   const mover = (tipo: 'contrato' | 'comprovante', lista: PedidoAnexo[], idx: number, dir: -1 | 1) => {
     if (!onReordenar || !pedidoId) return;
@@ -114,10 +118,16 @@ export function DocumentosPedidoDialog({
                   <FileSignature className="h-4 w-4" />
                   Contratos ({contratos.length})
                 </h3>
-                <Button size="sm" variant="outline" onClick={() => onAdicionar('contrato')}>
-                  <Upload className="h-3.5 w-3.5 mr-1" />
-                  Adicionar
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="default" onClick={() => setZapOpen(true)} disabled={!pedido}>
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                    Enviar ZapSign
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => onAdicionar('contrato')}>
+                    <Upload className="h-3.5 w-3.5 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
               </div>
               {renderLista('contrato', contratos, 'Nenhum contrato anexado.')}
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -198,6 +208,12 @@ export function DocumentosPedidoDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EnviarContratoZapSignPedidoDialog
+        open={zapOpen}
+        onOpenChange={setZapOpen}
+        pedido={pedido ?? null}
+      />
     </>
   );
 }
