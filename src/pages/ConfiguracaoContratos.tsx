@@ -23,13 +23,20 @@ function VerificarTemplateButton({ templateId, ambiente }: { templateId: string;
     if (!templateId.trim()) return;
     setChecking(true);
     try {
-      const { data, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
-        method: 'GET',
-        queryParams: { template_id: templateId.trim(), ambiente },
-      } as any);
+      const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-contrato-zapsign`);
+      url.searchParams.set('template_id', templateId.trim());
+      url.searchParams.set('ambiente', ambiente);
 
-      if (error) {
-        toast.error(`Erro ao verificar: ${error.message}`);
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+      });
+      const data = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        toast.error(`Erro ao verificar: ${data?.error || resp.statusText}`);
         return;
       }
 
