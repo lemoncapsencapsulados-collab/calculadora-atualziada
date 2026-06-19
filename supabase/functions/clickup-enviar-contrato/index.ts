@@ -40,8 +40,9 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { taskName, description, arquivoUrl, arquivoNome } = body as {
+    const { taskName, description, arquivoUrl, arquivoNome, assignees } = body as {
       taskName: string; description?: string; arquivoUrl: string; arquivoNome: string;
+      assignees?: number[];
     };
 
     if (!taskName || !arquivoUrl || !arquivoNome) {
@@ -50,10 +51,14 @@ Deno.serve(async (req) => {
 
     // 1) Cria a task
     console.log('Creating ClickUp task in list', listId, 'name:', taskName);
+    const taskPayload: Record<string, unknown> = { name: taskName, description: description || '' };
+    if (Array.isArray(assignees) && assignees.length > 0) {
+      taskPayload.assignees = assignees.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+    }
     const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ name: taskName, description: description || '' }),
+      body: JSON.stringify(taskPayload),
     });
     if (!taskRes.ok) {
       const txt = await taskRes.text();
