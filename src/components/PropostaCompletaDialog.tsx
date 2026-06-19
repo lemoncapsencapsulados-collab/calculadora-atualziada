@@ -330,6 +330,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           data,
           template_id: modelo.template_id,
           ambiente: modelo.ambiente,
+          orcamento_id: orcamento.id,
+          cliente_id: orcamento.cliente_id ?? null,
         },
       });
 

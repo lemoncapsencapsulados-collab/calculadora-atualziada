@@ -1,4 +1,5 @@
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 interface ZapSignDataItem {
   de: string;
@@ -15,6 +16,8 @@ interface RequestBody {
   data: ZapSignDataItem[];
   template_id?: string;
   ambiente?: 'producao' | 'sandbox';
+  orcamento_id?: string;
+  cliente_id?: string;
 }
 
 function resolveBaseUrl(ambiente?: string, defaultBaseUrl?: string): string {
@@ -156,6 +159,33 @@ Deno.serve(async (req) => {
         }),
         { status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // Registra o contrato para receber o webhook depois
+    try {
+      const docToken: string | undefined = json?.token;
+      const openId: string | undefined = json?.open_id;
+      if (docToken) {
+        const supaUrl = Deno.env.get("SUPABASE_URL");
+        const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        if (supaUrl && serviceRole) {
+          const admin = createClient(supaUrl, serviceRole, { auth: { persistSession: false } });
+          await admin.from("contratos_zapsign").upsert({
+            zapsign_token: docToken,
+            zapsign_open_id: openId ?? null,
+            template_id: templateId,
+            ambiente: body.ambiente || 'producao',
+            orcamento_id: body.orcamento_id ?? null,
+            cliente_id: body.cliente_id ?? null,
+            signer_name: body.signer_name,
+            signer_email: body.signer_email,
+            signer_phone: body.signer_phone_number ?? null,
+            status: 'pending',
+          }, { onConflict: 'zapsign_token' });
+        }
+      }
+    } catch (regErr) {
+      console.error("Falha ao registrar contrato_zapsign (não bloqueia envio):", regErr);
     }
 
     return new Response(JSON.stringify(json ?? { raw: text }), {
