@@ -22,7 +22,10 @@ Deno.serve(async (req) => {
     if (!token || !listId) return jsonResponse({ error: 'ClickUp não configurado' }, 500);
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return jsonResponse({ error: 'Não autenticado' }, 401);
+    if (!authHeader) {
+      console.error('Missing Authorization header');
+      return jsonResponse({ error: 'Não autenticado' }, 401);
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -30,7 +33,10 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
-    if (claimsError || !claimsData?.claims) return jsonResponse({ error: 'Não autenticado' }, 401);
+    if (claimsError || !claimsData?.claims) {
+      console.error('Invalid auth claims', claimsError?.message || 'claims ausentes');
+      return jsonResponse({ error: 'Não autenticado' }, 401);
+    }
 
     const body = await req.json();
     const { taskName, description, arquivoUrl, arquivoNome } = body as {

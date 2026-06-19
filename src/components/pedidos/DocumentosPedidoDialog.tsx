@@ -41,11 +41,15 @@ export function DocumentosPedidoDialog({
   const enviarParaClickUp = async (a: PedidoAnexo) => {
     setEnviandoClickup(a.id);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Sessão expirada. Faça login novamente.');
+
       const cliente = (pedido?.orcamento_snapshot as any)?.cliente_nome
         || (pedido?.orcamento_snapshot as any)?.cliente
         || '';
       const taskName = `${pedidoNumero || 'Pedido'}${cliente ? ' — ' + cliente : ''}`;
       const { data, error } = await supabase.functions.invoke('clickup-enviar-contrato', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: {
           taskName,
           description: `Contrato do pedido ${pedidoNumero || ''}${cliente ? ' — ' + cliente : ''}`,
