@@ -1235,6 +1235,7 @@ const Pedidos = () => {
             onOpenChange={(o) => !o && setDocumentosDialogPedidoId(null)}
             pedidoNumero={pedidoAtual?.numero_pedido}
             pedidoId={documentosDialogPedidoId || undefined}
+            pedido={pedidoAtual ?? null}
             contratos={documentosDialogPedidoId ? getAnexosPorPedido(documentosDialogPedidoId, 'contrato') : []}
             comprovantes={documentosDialogPedidoId ? getAnexosPorPedido(documentosDialogPedidoId, 'comprovante') : []}
             onAdicionar={(tipo) => documentosDialogPedidoId && triggerUpload(documentosDialogPedidoId, tipo)}
