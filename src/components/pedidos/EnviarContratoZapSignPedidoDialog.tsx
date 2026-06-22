@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, RotateCcw } from 'lucide-react';
+import { Loader2, Send, RotateCcw, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
@@ -17,6 +17,8 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   pedido: Pedido | null;
 }
+
+type ExtraSigner = { name: string; email: string; phone_number: string };
 
 type Campos = {
   signer_name: string;
@@ -94,10 +96,12 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido));
   const [loading, setLoading] = useState(false);
   const [askSenhaOpen, setAskSenhaOpen] = useState(false);
+  const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
 
   useEffect(() => {
     if (open) {
       setCampos(buildCampos(pedido));
+      setExtraSigners([]);
     }
   }, [open, pedido?.id]);
 
@@ -138,6 +142,12 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     if (!campos.signer_name || !campos.signer_email) {
       toast.error('Preencha nome e email do signatário.');
       return;
+    }
+    for (const s of extraSigners) {
+      if (!s.name?.trim() || !s.email?.trim()) {
+        toast.error('Preencha nome e email de todos os signatários adicionais.');
+        return;
+      }
     }
     if (!pedido) return;
     setAskSenhaOpen(true);
@@ -195,6 +205,14 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           pedido_id: pedido.id,
           orcamento_id: pedido.orcamento_id ?? null,
           cliente_id,
+          extra_signers: extraSigners
+            .filter((s) => s.name?.trim() && s.email?.trim())
+            .map((s) => ({
+              name: s.name.trim(),
+              email: s.email.trim(),
+              phone_country: '55',
+              phone_number: (s.phone_number || '').replace(/\D/g, ''),
+            })),
         },
       });
 
