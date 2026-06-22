@@ -339,21 +339,21 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
-      // Restore setup from servicos_marca
-      const setupServico = (orcamentoExistente.servicos_marca || []).find(
-        (s: any) => s.nome_plano === 'Setup'
+      // Restore setup (novo formato baseado em planos)
+      const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
+        (s: any) => s.nome_plano === 'Setup' || s?.setup_detalhes?.plano_id
       );
-      if (setupServico) {
-        const detalhes = (setupServico as any).setup_detalhes;
-        if (detalhes) {
-          if (detalhes.items) setSetupItems(detalhes.items);
-          if (detalhes.impressao_selecionado !== undefined) setSetupImpressaoSelecionado(detalhes.impressao_selecionado);
-          if (detalhes.impressao_itens) setSetupImpressaoItens(detalhes.impressao_itens);
-          if (detalhes.margem !== undefined) setMargemSetup(detalhes.margem);
-          if (detalhes.modo_calculo) setModoCalculoSetup(detalhes.modo_calculo);
-          if (detalhes.valor_fixo !== undefined) setValorFixoSetup(detalhes.valor_fixo);
+      const restoredMap: Record<string, number> = {};
+      let restoredPerfil: SetupPlanoPerfil | null = null;
+      for (const s of servicosSetup) {
+        const det: any = (s as any).setup_detalhes;
+        if (det?.plano_id) {
+          restoredMap[det.plano_id] = (restoredMap[det.plano_id] || 0) + (det.quantidade || 1);
+          if (!restoredPerfil && det.perfil) restoredPerfil = det.perfil;
         }
       }
+      if (restoredPerfil) setSetupPerfil(restoredPerfil);
+      if (Object.keys(restoredMap).length > 0) setPlanoQtdMap(restoredMap);
     }
   }, [orcamentoExistente]);
 
