@@ -383,6 +383,21 @@ export default function Orcamentos() {
                                     }>
                                       {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
                                     </Badge>
+                                    {(() => {
+                                      const sc = (orcamento as any).status_contrato as string | undefined;
+                                      const cfg = sc && CONTRATO_BADGE[sc];
+                                      return cfg ? (
+                                        <Badge variant="outline" className={cfg.className}>
+                                          <FileSignature className="w-3 h-3 mr-1" />
+                                          {cfg.label}
+                                        </Badge>
+                                      ) : null;
+                                    })()}
+                                    {(orcamento as any).vhsys_liquidado_em && (orcamento as any).status !== 'pago' && (
+                                      <Badge variant="outline" className="border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20">
+                                        VHSys liquidado · aguardando contrato
+                                      </Badge>
+                                    )}
                                     {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
                                   </div>
                                   <p className="text-muted-foreground text-sm mt-1">
