@@ -297,43 +297,31 @@ export type Database = {
           ambiente: string
           created_at: string
           descricao: string | null
-          docx_nome: string | null
-          docx_path: string | null
-          docx_size_bytes: number | null
           id: string
           is_padrao: boolean
           nome: string
           template_id: string
           updated_at: string
-          variaveis: Json | null
         }
         Insert: {
           ambiente?: string
           created_at?: string
           descricao?: string | null
-          docx_nome?: string | null
-          docx_path?: string | null
-          docx_size_bytes?: number | null
           id?: string
           is_padrao?: boolean
           nome: string
           template_id: string
           updated_at?: string
-          variaveis?: Json | null
         }
         Update: {
           ambiente?: string
           created_at?: string
           descricao?: string | null
-          docx_nome?: string | null
-          docx_path?: string | null
-          docx_size_bytes?: number | null
           id?: string
           is_padrao?: boolean
           nome?: string
           template_id?: string
           updated_at?: string
-          variaveis?: Json | null
         }
         Relationships: []
       }

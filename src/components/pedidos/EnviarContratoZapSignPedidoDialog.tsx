@@ -406,7 +406,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={loading || !modeloId}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            Enviar agora
+            Enviar para ZapSign
           </Button>
         </DialogFooter>
       </DialogContent>

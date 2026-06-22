@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw, Upload, FileText, Download } from 'lucide-react';
+import { useState } from 'react';
+import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,118 +14,8 @@ import { useContratoModelos, useSalvarContratoModelo, useExcluirContratoModelo, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ClickUpRotuloConfigCard } from '@/components/admin/ClickUpRotuloConfigCard';
-import { detectarVariaveisDocx } from '@/lib/contratoDocx';
 
-type DocxFormShape = {
-  docx_path: string | null;
-  docx_nome: string | null;
-  docx_size_bytes: number | null;
-  variaveis: string[];
-};
-
-function DocxUploadBlock<T extends DocxFormShape>({ form, setForm }: { form: T; setForm: React.Dispatch<React.SetStateAction<T>> }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const onPick = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.docx')) {
-      toast.error('Envie um arquivo .docx');
-      return;
-    }
-    setUploading(true);
-    try {
-      const variaveis = await detectarVariaveisDocx(file);
-      const path = `modelos/${Date.now()}_${file.name.replace(/[^\w.\-]/g, '_')}`;
-      const { error } = await supabase.storage.from('contratos').upload(path, file, {
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        upsert: true,
-      });
-      if (error) throw error;
-      // remove o antigo
-      if (form.docx_path && form.docx_path !== path) {
-        await supabase.storage.from('contratos').remove([form.docx_path]).catch(() => null);
-      }
-      setForm((prev) => ({
-        ...prev,
-        docx_path: path,
-        docx_nome: file.name,
-        docx_size_bytes: file.size,
-        variaveis,
-      }));
-      toast.success(`Documento enviado. ${variaveis.length} variáveis detectadas.`);
-    } catch (e: any) {
-      toast.error('Erro ao enviar .docx: ' + (e?.message || 'desconhecido'));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const baixar = async () => {
-    if (!form.docx_path) return;
-    const { data, error } = await supabase.storage.from('contratos').createSignedUrl(form.docx_path, 60);
-    if (error || !data) {
-      toast.error('Não foi possível baixar o documento.');
-      return;
-    }
-    window.open(data.signedUrl, '_blank');
-  };
-
-  return (
-    <div className="border rounded-lg p-3 space-y-2 bg-muted/20">
-      <div className="flex items-center gap-2">
-        <FileText className="w-4 h-4 text-primary" />
-        <Label className="font-semibold">Documento Word do contrato (.docx)</Label>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Envie o modelo do contrato com placeholders no formato <code className="bg-muted px-1 rounded">{'{nome_cliente}'}</code> ou <code className="bg-muted px-1 rounded">{'{{nome_cliente}}'}</code>. Você poderá editá-lo no preview antes de enviar para ZapSign.
-      </p>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onPick(f);
-          if (inputRef.current) inputRef.current.value = '';
-        }}
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading}>
-          {uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
-          {form.docx_path ? 'Substituir documento' : 'Enviar documento'}
-        </Button>
-        {form.docx_path && (
-          <>
-            <Button type="button" variant="ghost" size="sm" onClick={baixar}>
-              <Download className="w-4 h-4 mr-1" /> Baixar atual
-            </Button>
-            <span className="text-xs text-muted-foreground truncate">{form.docx_nome}</span>
-          </>
-        )}
-      </div>
-      {form.variaveis.length > 0 && (
-        <div className="flex flex-wrap gap-1 pt-1">
-          {form.variaveis.map((v) => (
-            <Badge key={v} variant="secondary" className="font-mono text-[10px]">{`{${v}}`}</Badge>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const EMPTY = {
-  nome: '',
-  template_id: '',
-  ambiente: 'producao' as 'producao' | 'sandbox',
-  descricao: '',
-  is_padrao: false,
-  docx_path: null as string | null,
-  docx_nome: null as string | null,
-  docx_size_bytes: null as number | null,
-  variaveis: [] as string[],
-};
+const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false };
 
 function VerificarTemplateButton({ templateId, ambiente }: { templateId: string; ambiente: 'producao' | 'sandbox' }) {
   const [checking, setChecking] = useState(false);
@@ -206,10 +96,6 @@ export default function ConfiguracaoContratos() {
       ambiente: m.ambiente,
       descricao: m.descricao || '',
       is_padrao: m.is_padrao,
-      docx_path: m.docx_path ?? null,
-      docx_nome: m.docx_nome ?? null,
-      docx_size_bytes: m.docx_size_bytes ?? null,
-      variaveis: (m.variaveis as string[] | undefined) ?? [],
     });
     setDialogOpen(true);
   };
@@ -224,10 +110,6 @@ export default function ConfiguracaoContratos() {
         ambiente: form.ambiente,
         descricao: form.descricao.trim() || null,
         is_padrao: form.is_padrao,
-        docx_path: form.docx_path,
-        docx_nome: form.docx_nome,
-        docx_size_bytes: form.docx_size_bytes,
-        variaveis: form.variaveis,
       },
     });
     setDialogOpen(false);
@@ -333,8 +215,6 @@ export default function ConfiguracaoContratos() {
               </div>
               <Switch checked={form.is_padrao} onCheckedChange={(c) => setForm({ ...form, is_padrao: c })} />
             </div>
-
-            <DocxUploadBlock form={form} setForm={setForm} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
