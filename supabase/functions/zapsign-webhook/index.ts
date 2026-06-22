@@ -245,6 +245,85 @@ Deno.serve(async (req) => {
   });
 });
 
+// Cria automaticamente uma task na lista de Rótulos do ClickUp quando o contrato é assinado.
+async function criarTaskRotuloClickUp(
+  supabase: any,
+  opts: { signerName?: string; orcamentoId?: string | null; signedFileUrl?: string | null; signedFileName?: string }
+) {
+  try {
+    const token = Deno.env.get("CLICKUP_API_TOKEN");
+    if (!token) return;
+    const { data: cfg } = await supabase
+      .from("clickup_rotulo_config")
+      .select("*")
+      .eq("ativo", true)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!cfg || !cfg.list_id) {
+      console.log("clickup_rotulo_config inativo/ausente - pulando criação automática");
+      return;
+    }
+
+    let nomeCliente = opts.signerName || "Cliente";
+    let numeroOrc = "";
+    if (opts.orcamentoId) {
+      const { data: orc } = await supabase
+        .from("orcamentos")
+        .select("numero_orcamento, nome_cliente")
+        .eq("id", opts.orcamentoId)
+        .maybeSingle();
+      if (orc) {
+        nomeCliente = orc.nome_cliente || nomeCliente;
+        numeroOrc = orc.numero_orcamento || "";
+      }
+    }
+    const prefix = cfg.prefixo_nome || "Rótulo - ";
+    const taskName = `${prefix}${nomeCliente}${numeroOrc ? ` (${numeroOrc})` : ""}`;
+    const assignees = Array.isArray(cfg.assignee_ids)
+      ? (cfg.assignee_ids as any[]).map((n) => Number(n)).filter((n) => Number.isFinite(n))
+      : [];
+
+    const payload: Record<string, unknown> = {
+      name: taskName,
+      description: `Contrato assinado automaticamente via ZapSign.\nCliente: ${nomeCliente}${numeroOrc ? `\nOrçamento: ${numeroOrc}` : ""}`,
+    };
+    if (assignees.length > 0) payload.assignees = assignees;
+
+    const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${cfg.list_id}/task`, {
+      method: "POST",
+      headers: { Authorization: token, "Content-Type": "application/json", accept: "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!taskRes.ok) {
+      console.error("Falha criar task ClickUp rótulo:", taskRes.status, await taskRes.text());
+      return;
+    }
+    const task = await taskRes.json();
+
+    if (opts.signedFileUrl) {
+      try {
+        const fileRes = await fetch(opts.signedFileUrl);
+        if (fileRes.ok) {
+          const blob = await fileRes.blob();
+          const form = new FormData();
+          form.append("attachment", blob, opts.signedFileName || "contrato_assinado.pdf");
+          await fetch(`https://api.clickup.com/api/v2/task/${task.id}/attachment`, {
+            method: "POST",
+            headers: { Authorization: token },
+            body: form,
+          });
+        }
+      } catch (e) {
+        console.error("Erro anexando PDF na task ClickUp:", e);
+      }
+    }
+    console.log("Task de rótulo criada no ClickUp:", task.id);
+  } catch (e) {
+    console.error("Erro criarTaskRotuloClickUp:", e);
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
