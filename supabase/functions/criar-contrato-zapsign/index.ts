@@ -184,6 +184,17 @@ Deno.serve(async (req) => {
             signer_phone: body.signer_phone_number ?? null,
             status: 'pending',
           }, { onConflict: 'zapsign_token' });
+
+          // Marca o orçamento como "contrato enviado" (em análise)
+          if (body.orcamento_id) {
+            await admin
+              .from("orcamentos")
+              .update({
+                status_contrato: 'enviado',
+                contrato_enviado_em: new Date().toISOString(),
+              })
+              .eq("id", body.orcamento_id);
+          }
         }
       }
     } catch (regErr) {
