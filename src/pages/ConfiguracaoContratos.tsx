@@ -23,7 +23,7 @@ type DocxFormShape = {
   variaveis: string[];
 };
 
-function DocxUploadBlock<T extends DocxFormShape>({ form, setForm }: { form: T; setForm: (f: T) => void }) {
+function DocxUploadBlock<T extends DocxFormShape>({ form, setForm }: { form: T; setForm: React.Dispatch<React.SetStateAction<T>> }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -45,13 +45,13 @@ function DocxUploadBlock<T extends DocxFormShape>({ form, setForm }: { form: T; 
       if (form.docx_path && form.docx_path !== path) {
         await supabase.storage.from('contratos').remove([form.docx_path]).catch(() => null);
       }
-      setForm({
-        ...form,
+      setForm((prev) => ({
+        ...prev,
         docx_path: path,
         docx_nome: file.name,
         docx_size_bytes: file.size,
         variaveis,
-      });
+      }));
       toast.success(`Documento enviado. ${variaveis.length} variáveis detectadas.`);
     } catch (e: any) {
       toast.error('Erro ao enviar .docx: ' + (e?.message || 'desconhecido'));
