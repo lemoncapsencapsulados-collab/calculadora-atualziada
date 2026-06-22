@@ -618,6 +618,8 @@ export type Database = {
           cliente_id: string | null
           condicoes_pagamento: Json | null
           consultor_responsavel: string | null
+          contrato_assinado_em: string | null
+          contrato_enviado_em: string | null
           created_at: string | null
           dados_cliente: Json | null
           data_envio: string | null
@@ -639,12 +641,15 @@ export type Database = {
           preco_recalculado_em: string | null
           servicos_marca: Json
           status: string
+          status_contrato: string
           subtotal_producao: number
           subtotal_servicos: number
           tipo_orcamento: string
           updated_at: string | null
           validade_dias: number
           valor_total: number
+          vhsys_liquidado_em: string | null
+          vhsys_valor_pago: number | null
         }
         Insert: {
           asaas_installment_id?: string | null
@@ -653,6 +658,8 @@ export type Database = {
           cliente_id?: string | null
           condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
+          contrato_assinado_em?: string | null
+          contrato_enviado_em?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
           data_envio?: string | null
@@ -674,12 +681,15 @@ export type Database = {
           preco_recalculado_em?: string | null
           servicos_marca?: Json
           status?: string
+          status_contrato?: string
           subtotal_producao?: number
           subtotal_servicos?: number
           tipo_orcamento?: string
           updated_at?: string | null
           validade_dias?: number
           valor_total?: number
+          vhsys_liquidado_em?: string | null
+          vhsys_valor_pago?: number | null
         }
         Update: {
           asaas_installment_id?: string | null
@@ -688,6 +698,8 @@ export type Database = {
           cliente_id?: string | null
           condicoes_pagamento?: Json | null
           consultor_responsavel?: string | null
+          contrato_assinado_em?: string | null
+          contrato_enviado_em?: string | null
           created_at?: string | null
           dados_cliente?: Json | null
           data_envio?: string | null
@@ -709,12 +721,15 @@ export type Database = {
           preco_recalculado_em?: string | null
           servicos_marca?: Json
           status?: string
+          status_contrato?: string
           subtotal_producao?: number
           subtotal_servicos?: number
           tipo_orcamento?: string
           updated_at?: string | null
           validade_dias?: number
           valor_total?: number
+          vhsys_liquidado_em?: string | null
+          vhsys_valor_pago?: number | null
         }
         Relationships: [
           {
