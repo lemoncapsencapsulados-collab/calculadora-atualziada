@@ -64,7 +64,7 @@ export function EditorContratoDocxDialog({ open, onOpenChange, modelo, variaveis
           documentMode: 'editing',
           pagination: true,
           rulers: false,
-          toolbar: containerRef.current.parentElement?.querySelector('#superdoc-toolbar') || undefined,
+          toolbar: '#superdoc-toolbar',
         });
         superdocRef.current = createdInstance;
       } catch (e: any) {
