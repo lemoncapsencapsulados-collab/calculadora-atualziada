@@ -903,7 +903,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setZapExtraSigners((p) => [...p, { name: '', email: '', phone_number: '' }])}
+                        onClick={adicionarSignatarioZap}
                       >
                         <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
                       </Button>
