@@ -286,86 +286,6 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     }
   };
 
-  /** Envio do documento .docx editado no SuperDoc (documento avulso) */
-  const enviarDocxEditado = async (docxBase64: string, fileName: string) => {
-    const modelo = modelos.find((m) => m.id === modeloId);
-    if (!modelo || !pedido) return;
-    setLoading(true);
-    try {
-      let cliente_id: string | null = null;
-      if (pedido.orcamento_id) {
-        const { data: orc } = await supabase
-          .from('orcamentos').select('cliente_id').eq('id', pedido.orcamento_id).maybeSingle();
-        cliente_id = (orc as any)?.cliente_id ?? null;
-      }
-      const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
-        body: {
-          mode: 'documento_avulso',
-          file_name: fileName,
-          docx_base64: docxBase64,
-          signer_name: campos.signer_name,
-          signer_email: campos.signer_email,
-          signer_phone_country: '55',
-          signer_phone_number: (campos.signer_phone_number || '').replace(/\D/g, ''),
-          lang: 'pt-br',
-          send_automatic_email: true,
-          ambiente: modelo.ambiente,
-          pedido_id: pedido.id,
-          orcamento_id: pedido.orcamento_id ?? null,
-          cliente_id,
-          extra_signers: extraSigners
-            .filter((s) => s.name?.trim() && s.email?.trim())
-            .map((s) => ({
-              name: s.name.trim(),
-              email: s.email.trim(),
-              phone_country: '55',
-              phone_number: (s.phone_number || '').replace(/\D/g, ''),
-            })),
-        },
-      });
-      if (error) {
-        toast.error(`Erro ZapSign: ${error.message}`);
-        return;
-      }
-      if (resp?.token) {
-        const url = resp?.signers?.[0]?.sign_url;
-        toast.success('Contrato enviado para ZapSign!', {
-          description: 'Quando assinado, o PDF será anexado automaticamente a este pedido.',
-          action: url ? { label: 'Abrir', onClick: () => window.open(url, '_blank') } : undefined,
-          duration: 10000,
-        });
-        setEditorOpen(false);
-        onOpenChange(false);
-      } else if (resp?.error) {
-        toast.error(`ZapSign: ${resp.error}${resp.status ? ` (${resp.status})` : ''}`);
-      }
-    } catch (err: any) {
-      toast.error(`Falha: ${err?.message || 'erro desconhecido'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const abrirEditor = () => {
-    const modelo = modelos.find((m) => m.id === modeloId);
-    if (!modelo) { toast.error('Selecione um modelo.'); return; }
-    if (!modelo.docx_path) {
-      toast.error('Este modelo não tem documento .docx cadastrado. Vá em Configuração de Contratos.');
-      return;
-    }
-    if (!campos.signer_name || !campos.signer_email) {
-      toast.error('Preencha nome e email do signatário.');
-      return;
-    }
-    for (const s of extraSigners) {
-      if (!s.name?.trim() || !s.email?.trim()) {
-        toast.error('Preencha nome e email de todos os signatários adicionais.');
-        return;
-      }
-    }
-    setEditorOpen(true);
-  };
-
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -484,12 +404,9 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button variant="secondary" onClick={abrirEditor} disabled={loading || !modeloId}>
-            <FileEdit className="w-4 h-4 mr-2" /> Editar contrato antes de enviar
-          </Button>
           <Button onClick={handleSubmit} disabled={loading || !modeloId}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            Enviar direto (sem editar)
+            Enviar agora
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -501,13 +418,6 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
       actionLabel="Enviar contrato"
       onConfirm={enviar}
-    />
-    <EditorContratoDocxDialog
-      open={editorOpen}
-      onOpenChange={setEditorOpen}
-      modelo={modelos.find((m) => m.id === modeloId) ?? null}
-      variaveis={variaveisDocx}
-      onEnviar={enviarDocxEditado}
     />
     </>
   );
