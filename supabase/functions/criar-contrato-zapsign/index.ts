@@ -19,6 +19,12 @@ interface RequestBody {
   orcamento_id?: string;
   cliente_id?: string;
   pedido_id?: string;
+  extra_signers?: Array<{
+    name: string;
+    email: string;
+    phone_country?: string;
+    phone_number?: string;
+  }>;
 }
 
 function resolveBaseUrl(ambiente?: string, defaultBaseUrl?: string): string {
@@ -120,7 +126,9 @@ Deno.serve(async (req) => {
 
     const baseUrl = resolveBaseUrl(body.ambiente, defaultBaseUrl);
 
-    const zapPayload = {
+    const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
+
+    const zapPayload: Record<string, unknown> = {
       template_id: templateId,
       signer_name: body.signer_name,
       signer_email: body.signer_email,
@@ -130,6 +138,32 @@ Deno.serve(async (req) => {
       send_automatic_email: body.send_automatic_email ?? true,
       data: body.data,
     };
+
+    // Quando há mais de um signatário, enviamos `signers` (array) para a ZapSign,
+    // incluindo o principal + extras. ZapSign só marca o documento como assinado
+    // quando TODOS os signatários assinarem (validado também no webhook).
+    if (extras.length > 0) {
+      zapPayload.signers = [
+        {
+          name: body.signer_name,
+          email: body.signer_email,
+          phone_country: body.signer_phone_country || "55",
+          phone_number: (body.signer_phone_number || "").replace(/\D/g, ""),
+          send_automatic_email: body.send_automatic_email ?? true,
+          auth_mode: "assinaturaTela",
+          lock_email: true,
+        },
+        ...extras.map((s) => ({
+          name: s.name,
+          email: s.email,
+          phone_country: s.phone_country || "55",
+          phone_number: (s.phone_number || "").replace(/\D/g, ""),
+          send_automatic_email: body.send_automatic_email ?? true,
+          auth_mode: "assinaturaTela",
+          lock_email: true,
+        })),
+      ];
+    }
 
     const url = `${baseUrl}/models/create-doc/`;
     const resp = await fetch(url, {
