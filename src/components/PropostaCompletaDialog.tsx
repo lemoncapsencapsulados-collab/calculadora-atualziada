@@ -938,13 +938,22 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
-          <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId}>
+          <Button onClick={() => setAskSenhaZapOpen(true)} disabled={zapSignLoading || !modeloSelecionadoId}>
             {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
             {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <AdminPasswordDialog
+      open={askSenhaZapOpen}
+      onOpenChange={setAskSenhaZapOpen}
+      title="Confirmar envio do contrato"
+      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
+      actionLabel="Enviar contrato"
+      onConfirm={handleEnviarZapSign}
+    />
+    </>
   );
 
   if (showPreview && pdfUrl) {
