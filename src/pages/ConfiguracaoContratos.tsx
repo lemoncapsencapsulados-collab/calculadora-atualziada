@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw, Upload, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,8 +14,19 @@ import { useContratoModelos, useSalvarContratoModelo, useExcluirContratoModelo, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ClickUpRotuloConfigCard } from '@/components/admin/ClickUpRotuloConfigCard';
+import { detectarVariaveisDocx } from '@/lib/contratoDocx';
 
-const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false };
+const EMPTY = {
+  nome: '',
+  template_id: '',
+  ambiente: 'producao' as 'producao' | 'sandbox',
+  descricao: '',
+  is_padrao: false,
+  docx_path: null as string | null,
+  docx_nome: null as string | null,
+  docx_size_bytes: null as number | null,
+  variaveis: [] as string[],
+};
 
 function VerificarTemplateButton({ templateId, ambiente }: { templateId: string; ambiente: 'producao' | 'sandbox' }) {
   const [checking, setChecking] = useState(false);
@@ -96,6 +107,10 @@ export default function ConfiguracaoContratos() {
       ambiente: m.ambiente,
       descricao: m.descricao || '',
       is_padrao: m.is_padrao,
+      docx_path: m.docx_path ?? null,
+      docx_nome: m.docx_nome ?? null,
+      docx_size_bytes: m.docx_size_bytes ?? null,
+      variaveis: (m.variaveis as string[] | undefined) ?? [],
     });
     setDialogOpen(true);
   };
@@ -110,6 +125,10 @@ export default function ConfiguracaoContratos() {
         ambiente: form.ambiente,
         descricao: form.descricao.trim() || null,
         is_padrao: form.is_padrao,
+        docx_path: form.docx_path,
+        docx_nome: form.docx_nome,
+        docx_size_bytes: form.docx_size_bytes,
+        variaveis: form.variaveis,
       },
     });
     setDialogOpen(false);
