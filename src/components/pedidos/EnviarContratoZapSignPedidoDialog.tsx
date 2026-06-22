@@ -260,12 +260,21 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={enviar} disabled={loading || !modeloId}>
+          <Button onClick={handleSubmit} disabled={loading || !modeloId}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Enviar para ZapSign
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <AdminPasswordDialog
+      open={askSenhaOpen}
+      onOpenChange={setAskSenhaOpen}
+      title="Confirmar envio do contrato"
+      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
+      actionLabel="Enviar contrato"
+      onConfirm={enviar}
+    />
+    </>
   );
 }
