@@ -362,33 +362,37 @@ export default function GerarOrcamentoDialog({
   const subtotalServicos = precoVendaSetup;
   const valorTotal = subtotalProducao + subtotalServicos;
 
-  // Build servicos_marca for saving
+  // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
-    if (custoTotalSetup === 0) return [];
-    const entregaveis: Entregavel[] = [];
-    setupItems.filter(i => i.selecionado).forEach(item => {
-      entregaveis.push({ nome: `${item.nome} (${item.quantidade}x)`, incluso: true, quantidade: item.quantidade });
+    if (planosSelecionados.length === 0) return [];
+    return planosSelecionados.map((p) => {
+      const bullets = (p.entregaveis_md || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+        .map((l) => l.replace(/^[-*]\s+/, ''));
+      const entregaveis: Entregavel[] = bullets.map((nome) => ({
+        nome,
+        incluso: true,
+        quantidade: p.quantidade,
+      }));
+      const qtdLabel = p.quantidade > 1 ? ` (${p.quantidade}x)` : '';
+      return {
+        nome_plano: `Setup — ${p.nome}${qtdLabel}`,
+        descricao: p.descricao || 'Plano de setup',
+        valor: p.preco_unitario * p.quantidade,
+        entregaveis,
+        setup_detalhes: {
+          plano_id: p.plano_id,
+          nome: p.nome,
+          perfil: p.perfil,
+          quantidade: p.quantidade,
+          preco_unitario: p.preco_unitario,
+          entregaveis_md: p.entregaveis_md,
+          modo_calculo: 'valor_fixo',
+        },
+      } as any;
     });
-    if (setupImpressaoSelecionado) {
-      setupImpressaoItens.forEach(item => {
-        entregaveis.push({ nome: `Impressão de rótulos - ${item.tipoProduto} (${item.quantidade}x)`, incluso: true, quantidade: item.quantidade });
-      });
-    }
-    return [{
-      nome_plano: 'Setup',
-      descricao: 'Serviços de setup para início da produção',
-      valor: precoVendaSetup,
-      entregaveis,
-      setup_detalhes: {
-        items: setupItems,
-        impressao_selecionado: setupImpressaoSelecionado,
-        impressao_itens: setupImpressaoItens,
-        margem: margemEfetiva,
-        custo_total: custoTotalSetup,
-        modo_calculo: modoCalculoSetup,
-        valor_fixo: valorFixoSetup,
-      },
-    } as any];
   };
 
   // Handlers
