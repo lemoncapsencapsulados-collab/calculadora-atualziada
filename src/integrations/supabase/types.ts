@@ -626,12 +626,14 @@ export type Database = {
           forma_pagamento: string | null
           historico_contatos: Json
           id: string
+          id_receita_vhsys: number | null
           itens_producao: Json
           nome_cliente: string
           numero_orcamento: string
           observacoes: string | null
           observacoes_internas: string | null
           pagamentos_recebidos: Json
+          pedido_id_gerado: string | null
           prazo_preco_id: string | null
           preco_anterior_recalculo: number | null
           preco_recalculado_em: string | null
@@ -659,12 +661,14 @@ export type Database = {
           forma_pagamento?: string | null
           historico_contatos?: Json
           id?: string
+          id_receita_vhsys?: number | null
           itens_producao?: Json
           nome_cliente: string
           numero_orcamento: string
           observacoes?: string | null
           observacoes_internas?: string | null
           pagamentos_recebidos?: Json
+          pedido_id_gerado?: string | null
           prazo_preco_id?: string | null
           preco_anterior_recalculo?: number | null
           preco_recalculado_em?: string | null
@@ -692,12 +696,14 @@ export type Database = {
           forma_pagamento?: string | null
           historico_contatos?: Json
           id?: string
+          id_receita_vhsys?: number | null
           itens_producao?: Json
           nome_cliente?: string
           numero_orcamento?: string
           observacoes?: string | null
           observacoes_internas?: string | null
           pagamentos_recebidos?: Json
+          pedido_id_gerado?: string | null
           prazo_preco_id?: string | null
           preco_anterior_recalculo?: number | null
           preco_recalculado_em?: string | null
@@ -1108,6 +1114,63 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      vhsys_eventos_log: {
+        Row: {
+          created_at: string
+          id: string
+          id_receita_vhsys: number | null
+          mensagem: string | null
+          orcamento_id: string | null
+          origem: string
+          payload: Json | null
+          pedido_id: string | null
+          resposta_vhsys: Json | null
+          status: string
+          tipo_evento: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          id_receita_vhsys?: number | null
+          mensagem?: string | null
+          orcamento_id?: string | null
+          origem: string
+          payload?: Json | null
+          pedido_id?: string | null
+          resposta_vhsys?: Json | null
+          status: string
+          tipo_evento: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          id_receita_vhsys?: number | null
+          mensagem?: string | null
+          orcamento_id?: string | null
+          origem?: string
+          payload?: Json | null
+          pedido_id?: string | null
+          resposta_vhsys?: Json | null
+          status?: string
+          tipo_evento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vhsys_eventos_log_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vhsys_eventos_log_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
