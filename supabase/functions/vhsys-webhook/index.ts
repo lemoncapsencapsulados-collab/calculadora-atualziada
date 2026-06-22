@@ -48,16 +48,21 @@ function extrairCnpjCpf(r: any): string {
 function extrairObservacao(r: any): string {
   return String(
     r?.obs_rec ?? r?.observacao_rec ?? r?.descricao_rec ?? r?.historico_rec ??
-    r?.descricao ?? r?.observacao ?? "",
+    r?.descricao ?? r?.observacao ?? r?.observacoes ?? "",
+  ) + " " + String(r?.numero_documento ?? r?.num_documento ?? "");
+}
+
+function extrairNomeCliente(r: any): string {
+  return String(
+    r?.razao_cliente ?? r?.nome_cli ?? r?.cliente?.razao_cliente ?? r?.cliente?.nome ?? "",
   );
 }
 
 function isLiquidada(r: any): boolean {
   const liq = String(r?.liquidado_rec ?? r?.liquidado ?? r?.status_rec ?? "").toLowerCase();
   const valor = Number(r?.valor_pago_rec ?? r?.valor_pago ?? 0);
-  const data = r?.data_pagamento_rec ?? r?.data_pagamento ?? null;
   const ok = ["s", "sim", "1", "true", "liquidado", "pago"].includes(liq);
-  return ok && valor > 0 && !!data;
+  return ok && valor > 0;
 }
 
 function clienteCnpjFromOrc(orc: any): string {
@@ -69,28 +74,45 @@ function clienteCnpjFromOrc(orc: any): string {
   return "";
 }
 
-async function localizarOrcamento(cnpjCpf: string, obs: string) {
-  if (!cnpjCpf || !obs) return { orc: null, motivo: "Payload sem CNPJ/CPF ou observação" };
-  const matches = obs.match(/[A-Z]{0,5}-?\d{2,}(?:-?\d{2,})*/gi) || [];
+function normNome(s: string): string {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+
+async function localizarOrcamento(cnpjCpf: string, obs: string, nomeCli: string) {
+  if (!obs && !cnpjCpf) return { orc: null, motivo: "Payload sem observação nem CNPJ/CPF" };
+  const matches = obs.match(/ORC-?\d+|[A-Z]{2,5}-?\d{2,}/gi) || [];
   if (!matches.length) return { orc: null, motivo: "Nenhum número de orçamento na observação" };
 
   const { data: orcs, error } = await supabase
     .from("orcamentos")
-    .select("id, numero_orcamento, status, dados_cliente, pedido_id_gerado, id_receita_vhsys")
+    .select("id, numero_orcamento, nome_cliente, status, dados_cliente, pedido_id_gerado, id_receita_vhsys")
     .in("status", ["enviado", "rascunho"])
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw error;
 
+  const nomeCliNorm = normNome(nomeCli);
   for (const o of orcs || []) {
-    if (clienteCnpjFromOrc(o) !== cnpjCpf) continue;
     const num = String(o.numero_orcamento || "");
     if (!num) continue;
-    if (matches.some((m) => m.toUpperCase().includes(num.toUpperCase()) || num.toUpperCase().includes(m.toUpperCase()))) {
-      return { orc: o, motivo: null };
+    const matchNum = matches.some((m) => m.toUpperCase().replace(/-/g, "") === num.toUpperCase().replace(/-/g, ""));
+    if (!matchNum) continue;
+
+    // Se payload tem CNPJ, confere. Senão, confere por nome (se houver) ou aceita só pelo número.
+    if (cnpjCpf) {
+      if (clienteCnpjFromOrc(o) === cnpjCpf) return { orc: o, motivo: null };
+      continue;
     }
+    if (nomeCliNorm) {
+      const orcNome = normNome(o.nome_cliente || "");
+      if (orcNome && (orcNome.includes(nomeCliNorm.split(" ")[0]) || nomeCliNorm.includes(orcNome.split(" ")[0]))) {
+        return { orc: o, motivo: null };
+      }
+      continue;
+    }
+    return { orc: o, motivo: null };
   }
-  return { orc: null, motivo: `Nenhum orçamento casou para CNPJ/CPF ${cnpjCpf} com nº ${matches.join(", ")}` };
+  return { orc: null, motivo: `Nenhum orçamento casou (nº ${matches.join(", ")}, cnpj '${cnpjCpf}', cliente '${nomeCli}')` };
 }
 
 async function proximoNumeroPedido(): Promise<string> {
@@ -175,6 +197,7 @@ Deno.serve(async (req) => {
   const idReceita = extrairIdReceita(receita);
   const cnpj = extrairCnpjCpf(receita);
   const obs = extrairObservacao(receita);
+  const nomeCli = extrairNomeCliente(receita);
 
   // 1) Liquidada?
   if (!isLiquidada(receita)) {
@@ -190,7 +213,7 @@ Deno.serve(async (req) => {
 
   // 2) Match
   try {
-    const { orc, motivo } = await localizarOrcamento(cnpj, obs);
+    const { orc, motivo } = await localizarOrcamento(cnpj, obs, nomeCli);
     if (!orc) {
       await supabase.from("vhsys_eventos_log").insert({
         origem: "webhook", tipo_evento: tipoEvento, id_receita_vhsys: idReceita,
@@ -213,7 +236,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const dataPgto = String(receita?.data_pagamento_rec ?? receita?.data_pagamento ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+    const dataPgto = String(receita?.data_pagamento_rec ?? receita?.data_pagamento ?? receita?.vencimento ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10);
     const valorPago = Number(receita?.valor_pago_rec ?? receita?.valor_pago ?? 0);
     const pedidoId = await criarPedido(orc.id, dataPgto);
 
