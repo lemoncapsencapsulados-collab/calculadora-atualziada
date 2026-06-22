@@ -20,6 +20,37 @@ interface Props {
 
 type ExtraSigner = { name: string; email: string; phone_number: string };
 
+function buildCandidatosExtras(pedido: Pedido | null): ExtraSigner[] {
+  const snap: any = pedido?.orcamento_snapshot || {};
+  const dc: any = snap.dados_cliente || {};
+  const out: ExtraSigner[] = [];
+  const push = (nome?: string, email?: string, tel?: string) => {
+    if (!nome && !email) return;
+    out.push({
+      name: nome || '',
+      email: email || '',
+      phone_number: (tel || '').replace(/\D/g, ''),
+    });
+  };
+  // Representante PJ
+  const repPJ = dc.responsavel_pj || {};
+  push(repPJ.nome, repPJ.email, repPJ.telefone);
+  // Pessoas físicas (sócios/representantes)
+  if (Array.isArray(dc.pessoas_fisicas)) {
+    for (const pf of dc.pessoas_fisicas) push(pf?.nome, pf?.email, pf?.telefone);
+  }
+  // Contato geral do cliente
+  push(dc.razao_social || snap.nome_cliente, dc.email, dc.telefone);
+  // Remove duplicatas por email
+  const seen = new Set<string>();
+  return out.filter((s) => {
+    const key = (s.email || s.name).toLowerCase().trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 type Campos = {
   signer_name: string;
   signer_email: string;
@@ -98,12 +129,29 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [askSenhaOpen, setAskSenhaOpen] = useState(false);
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
 
+  const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido), [pedido?.id]);
+
   useEffect(() => {
     if (open) {
       setCampos(buildCampos(pedido));
       setExtraSigners([]);
     }
   }, [open, pedido?.id]);
+
+  const adicionarSignatario = () => {
+    setExtraSigners((prev) => {
+      // Próximo candidato que ainda não foi usado (nem como principal)
+      const usados = new Set<string>();
+      const k = (s: { name?: string; email?: string }) => (s.email || s.name || '').toLowerCase().trim();
+      usados.add(k({ name: campos.signer_name, email: campos.signer_email }));
+      prev.forEach((s) => usados.add(k(s)));
+      const candidato = candidatosExtras.find((c) => {
+        const key = k(c);
+        return key && !usados.has(key);
+      });
+      return [...prev, candidato || { name: '', email: '', phone_number: '' }];
+    });
+  };
 
   useEffect(() => {
     if (open && !modeloId && modelos.length > 0) {
@@ -291,7 +339,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setExtraSigners((p) => [...p, { name: '', email: '', phone_number: '' }])}
+                onClick={adicionarSignatario}
               >
                 <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar signatário
               </Button>

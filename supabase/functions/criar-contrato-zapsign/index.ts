@@ -139,32 +139,6 @@ Deno.serve(async (req) => {
       data: body.data,
     };
 
-    // Quando há mais de um signatário, enviamos `signers` (array) para a ZapSign,
-    // incluindo o principal + extras. ZapSign só marca o documento como assinado
-    // quando TODOS os signatários assinarem (validado também no webhook).
-    if (extras.length > 0) {
-      zapPayload.signers = [
-        {
-          name: body.signer_name,
-          email: body.signer_email,
-          phone_country: body.signer_phone_country || "55",
-          phone_number: (body.signer_phone_number || "").replace(/\D/g, ""),
-          send_automatic_email: body.send_automatic_email ?? true,
-          auth_mode: "assinaturaTela",
-          lock_email: true,
-        },
-        ...extras.map((s) => ({
-          name: s.name,
-          email: s.email,
-          phone_country: s.phone_country || "55",
-          phone_number: (s.phone_number || "").replace(/\D/g, ""),
-          send_automatic_email: body.send_automatic_email ?? true,
-          auth_mode: "assinaturaTela",
-          lock_email: true,
-        })),
-      ];
-    }
-
     const url = `${baseUrl}/models/create-doc/`;
     const resp = await fetch(url, {
       method: "POST",
@@ -196,9 +170,47 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Adiciona signatários extras via endpoint dedicado (templates create-doc não aceita signers array).
+    const docToken: string | undefined = json?.token;
+    if (docToken && extras.length > 0) {
+      const addSignerUrl = `${baseUrl}/docs/${docToken}/add-signer/`;
+      const addedSigners: any[] = [];
+      for (const s of extras) {
+        try {
+          const addResp = await fetch(addSignerUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: s.name,
+              email: s.email,
+              phone_country: s.phone_country || "55",
+              phone_number: (s.phone_number || "").replace(/\D/g, ""),
+              auth_mode: "assinaturaTela",
+              send_automatic_email: body.send_automatic_email ?? true,
+              lock_email: true,
+            }),
+          });
+          const addText = await addResp.text();
+          let addJson: any = null;
+          try { addJson = addText ? JSON.parse(addText) : null; } catch { /* */ }
+          if (!addResp.ok) {
+            console.error("add-signer falhou:", addResp.status, addJson ?? addText);
+            addedSigners.push({ error: true, status: addResp.status, details: addJson ?? addText, signer: s });
+          } else {
+            addedSigners.push(addJson);
+          }
+        } catch (e) {
+          console.error("add-signer exception:", e);
+        }
+      }
+      (json as any).extra_signers_added = addedSigners;
+    }
+
     // Registra o contrato para receber o webhook depois
     try {
-      const docToken: string | undefined = json?.token;
       const openId: string | undefined = json?.open_id;
       if (docToken) {
         const supaUrl = Deno.env.get("SUPABASE_URL");
