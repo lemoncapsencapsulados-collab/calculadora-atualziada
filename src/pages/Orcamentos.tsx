@@ -46,6 +46,21 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
+const CONTRATO_BADGE: Record<string, { label: string; className: string }> = {
+  enviado: {
+    label: 'Contrato em análise',
+    className: 'border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20',
+  },
+  assinado: {
+    label: 'Contrato assinado',
+    className: 'border-emerald-500 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20',
+  },
+  recusado: {
+    label: 'Contrato recusado',
+    className: 'border-red-500 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20',
+  },
+};
+
 const PAGE_SIZE = 15;
 
 type ViewMode = 'list' | 'kanban';
@@ -368,6 +383,21 @@ export default function Orcamentos() {
                                     }>
                                       {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
                                     </Badge>
+                                    {(() => {
+                                      const sc = (orcamento as any).status_contrato as string | undefined;
+                                      const cfg = sc && CONTRATO_BADGE[sc];
+                                      return cfg ? (
+                                        <Badge variant="outline" className={cfg.className}>
+                                          <FileSignature className="w-3 h-3 mr-1" />
+                                          {cfg.label}
+                                        </Badge>
+                                      ) : null;
+                                    })()}
+                                    {(orcamento as any).vhsys_liquidado_em && (orcamento as any).status !== 'pago' && (
+                                      <Badge variant="outline" className="border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20">
+                                        VHSys liquidado · aguardando contrato
+                                      </Badge>
+                                    )}
                                     {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
                                   </div>
                                   <p className="text-muted-foreground text-sm mt-1">

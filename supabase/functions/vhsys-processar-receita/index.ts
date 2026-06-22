@@ -119,8 +119,8 @@ async function localizarOrcamento(receita: any) {
 
   const { data: orcs, error } = await supabase
     .from("orcamentos")
-    .select("id, numero_orcamento, status, dados_cliente, pedido_id_gerado, id_receita_vhsys")
-    .in("status", ["enviado", "rascunho"])
+    .select("id, numero_orcamento, status, status_contrato, dados_cliente, pedido_id_gerado, id_receita_vhsys")
+    .in("status", ["enviado", "rascunho", "pago"])
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw error;
@@ -265,6 +265,24 @@ export async function processarReceita(
 
   const dataPgto = String(receita?.data_pagamento_rec ?? receita?.data_pagamento ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10);
   const valorPago = Number(receita?.valor_pago_rec ?? receita?.valor_pago ?? 0);
+
+  // Sempre registra a liquidação no orçamento
+  await supabase.from("orcamentos").update({
+    id_receita_vhsys: idReceita,
+    vhsys_liquidado_em: dataPgto,
+    vhsys_valor_pago: valorPago,
+  }).eq("id", orcamento.id);
+
+  // Só gera pedido + marca como pago quando o contrato estiver assinado
+  if ((orcamento as any).status_contrato !== 'assinado') {
+    await logEvento({
+      origem, tipo_evento: tipoEvento, id_receita_vhsys: idReceita,
+      orcamento_id: orcamento.id, status: "pendente",
+      mensagem: `VHSys liquidado (R$ ${valorPago.toFixed(2)}) — aguardando contrato assinado para gerar pedido`,
+      resposta_vhsys: receita,
+    });
+    return { ok: true, status: "aguardando_contrato", mensagem: "Aguardando contrato assinado" };
+  }
 
   let pedidoId: string;
   try {

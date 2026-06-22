@@ -85,8 +85,8 @@ async function localizarOrcamento(cnpjCpf: string, obs: string, nomeCli: string)
 
   const { data: orcs, error } = await supabase
     .from("orcamentos")
-    .select("id, numero_orcamento, nome_cliente, status, dados_cliente, pedido_id_gerado, id_receita_vhsys")
-    .in("status", ["enviado", "rascunho"])
+    .select("id, numero_orcamento, nome_cliente, status, status_contrato, dados_cliente, pedido_id_gerado, id_receita_vhsys")
+    .in("status", ["enviado", "rascunho", "pago"])
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw error;
@@ -238,11 +238,30 @@ Deno.serve(async (req) => {
 
     const dataPgto = String(receita?.data_pagamento_rec ?? receita?.data_pagamento ?? receita?.vencimento ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10);
     const valorPago = Number(receita?.valor_pago_rec ?? receita?.valor_pago ?? 0);
-    const pedidoId = await criarPedido(orc.id, dataPgto);
 
+    // Sempre registra a liquidação do VHSys no orçamento
     await supabase.from("orcamentos").update({
-      status: "pago", data_pagamento: dataPgto,
-      id_receita_vhsys: idReceita, pedido_id_gerado: pedidoId,
+      id_receita_vhsys: idReceita,
+      vhsys_liquidado_em: dataPgto,
+      vhsys_valor_pago: valorPago,
+    }).eq("id", orc.id);
+
+    // Só converte para pedido + marca pago se o contrato já estiver assinado
+    if ((orc as any).status_contrato !== 'assinado') {
+      await supabase.from("vhsys_eventos_log").insert({
+        origem: "webhook", tipo_evento: tipoEvento, id_receita_vhsys: idReceita,
+        orcamento_id: orc.id, status: "pendente",
+        mensagem: `VHSys liquidado (R$ ${valorPago.toFixed(2)}) — aguardando contrato assinado para gerar pedido`,
+        payload, resposta_vhsys: receita,
+      });
+      return new Response(JSON.stringify({ ok: true, status: "aguardando_contrato", orcamento_id: orc.id }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const pedidoId = await criarPedido(orc.id, dataPgto);
+    await supabase.from("orcamentos").update({
+      status: "pago", data_pagamento: dataPgto, pedido_id_gerado: pedidoId,
     }).eq("id", orc.id);
 
     await supabase.from("vhsys_eventos_log").insert({
