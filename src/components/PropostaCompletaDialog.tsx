@@ -17,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
@@ -188,6 +188,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
+  type ZapExtraSigner = { name: string; email: string; phone_number: string };
+  const [zapExtraSigners, setZapExtraSigners] = useState<ZapExtraSigner[]>([]);
+
   // Campos editáveis do contrato ZapSign
   type ZapSignCampos = {
     signer_name: string;
@@ -266,6 +269,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   const abrirZapSignDialog = () => {
     setZapSignCampos(buildZapSignCamposPadrao());
+    setZapExtraSigners([]);
     setZapSignDialogOpen(true);
   };
 
@@ -297,6 +301,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
         setZapSignLoading(false);
         return;
+      }
+      for (const s of zapExtraSigners) {
+        if (!s.name?.trim() || !s.email?.trim()) {
+          toast.error('Preencha nome e email de todos os signatários adicionais.');
+          setZapSignLoading(false);
+          return;
+        }
       }
 
       const data = [
@@ -334,6 +345,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           ambiente: modelo.ambiente,
           orcamento_id: orcamento.id,
           cliente_id: orcamento.cliente_id ?? null,
+          extra_signers: zapExtraSigners
+            .filter((s) => s.name?.trim() && s.email?.trim())
+            .map((s) => ({
+              name: s.name.trim(),
+              email: s.email.trim(),
+              phone_country: '55',
+              phone_number: (s.phone_number || '').replace(/\D/g, ''),
+            })),
         },
       });
 
