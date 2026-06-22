@@ -7,13 +7,17 @@ interface ZapSignDataItem {
 }
 
 interface RequestBody {
+  /** "template" (padrão) usa template_id; "documento_avulso" envia base64_docx */
+  mode?: 'template' | 'documento_avulso';
+  file_name?: string;
+  docx_base64?: string;
   signer_name: string;
   signer_email: string;
   signer_phone_country?: string;
   signer_phone_number?: string;
   lang?: string;
   send_automatic_email?: boolean;
-  data: ZapSignDataItem[];
+  data?: ZapSignDataItem[];
   template_id?: string;
   ambiente?: 'producao' | 'sandbox';
   orcamento_id?: string;
@@ -108,16 +112,31 @@ Deno.serve(async (req) => {
   // POST - criar contrato
   try {
     const body = (await req.json()) as RequestBody;
+    const mode = body.mode || 'template';
 
-    if (!body?.signer_name || !body?.signer_email || !Array.isArray(body?.data)) {
+    if (!body?.signer_name || !body?.signer_email) {
       return new Response(
-        JSON.stringify({ error: "Payload inválido: signer_name, signer_email e data são obrigatórios." }),
+        JSON.stringify({ error: "Payload inválido: signer_name e signer_email são obrigatórios." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (mode === 'template' && !Array.isArray(body?.data)) {
+      return new Response(
+        JSON.stringify({ error: "Modo template requer 'data' (array de substituições)." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (mode === 'documento_avulso' && !body.docx_base64) {
+      return new Response(
+        JSON.stringify({ error: "Modo documento_avulso requer 'docx_base64'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const templateId = body.template_id || defaultTemplateId;
-    if (!templateId) {
+    if (mode === 'template' && !templateId) {
       return new Response(
         JSON.stringify({ error: "Nenhum template_id informado e ZAPSIGN_TEMPLATE_ID não configurado." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -128,18 +147,37 @@ Deno.serve(async (req) => {
 
     const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
 
-    const zapPayload: Record<string, unknown> = {
-      template_id: templateId,
-      signer_name: body.signer_name,
-      signer_email: body.signer_email,
-      signer_phone_country: body.signer_phone_country || "55",
-      signer_phone_number: (body.signer_phone_number || "").replace(/\D/g, ""),
-      lang: body.lang || "pt-br",
-      send_automatic_email: body.send_automatic_email ?? true,
-      data: body.data,
-    };
+    const isAvulso = mode === 'documento_avulso';
+    const zapPayload: Record<string, unknown> = isAvulso
+      ? {
+          name: (body.file_name || 'Contrato').replace(/\.docx$/i, ''),
+          base64_docx: body.docx_base64,
+          signers: [
+            {
+              name: body.signer_name,
+              email: body.signer_email,
+              phone_country: body.signer_phone_country || '55',
+              phone_number: (body.signer_phone_number || '').replace(/\D/g, ''),
+              auth_mode: 'assinaturaTela',
+              send_automatic_email: body.send_automatic_email ?? true,
+              lock_email: true,
+            },
+          ],
+          lang: body.lang || 'pt-br',
+          disable_signer_emails: false,
+        }
+      : {
+          template_id: templateId,
+          signer_name: body.signer_name,
+          signer_email: body.signer_email,
+          signer_phone_country: body.signer_phone_country || "55",
+          signer_phone_number: (body.signer_phone_number || "").replace(/\D/g, ""),
+          lang: body.lang || "pt-br",
+          send_automatic_email: body.send_automatic_email ?? true,
+          data: body.data,
+        };
 
-    const url = `${baseUrl}/models/create-doc/`;
+    const url = isAvulso ? `${baseUrl}/docs/` : `${baseUrl}/models/create-doc/`;
     const resp = await fetch(url, {
       method: "POST",
       headers: {
@@ -158,19 +196,21 @@ Deno.serve(async (req) => {
         JSON.stringify({
           error: `ZapSign retornou ${resp.status}`,
           status: resp.status,
-          template_id: templateId,
+          template_id: templateId ?? null,
+          mode,
           ambiente: body.ambiente || 'default',
           url,
           details: json ?? text,
           hint: resp.status === 404
-            ? "Template não encontrado. Verifique: (1) se o ID está correto, (2) se está usando o token da conta certa, (3) se o ambiente (sandbox/produção) está correto."
+            ? (isAvulso ? "Endpoint /docs/ não encontrado. Verifique base URL." : "Template não encontrado. Verifique ID, token e ambiente.")
             : undefined,
         }),
         { status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Adiciona signatários extras via endpoint dedicado (templates create-doc não aceita signers array).
+    // Adiciona signatários extras via endpoint dedicado.
+    // No modo avulso já enviamos o primeiro signatário em signers[]; os extras seguem pelo add-signer.
     const docToken: string | undefined = json?.token;
     if (docToken && extras.length > 0) {
       const addSignerUrl = `${baseUrl}/docs/${docToken}/add-signer/`;
@@ -220,7 +260,7 @@ Deno.serve(async (req) => {
           await admin.from("contratos_zapsign").upsert({
             zapsign_token: docToken,
             zapsign_open_id: openId ?? null,
-            template_id: templateId,
+            template_id: templateId ?? null,
             ambiente: body.ambiente || 'producao',
             orcamento_id: body.orcamento_id ?? null,
             cliente_id: body.cliente_id ?? null,
