@@ -1408,24 +1408,14 @@ export default function GerarOrcamentoDialog({
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">SETUP</p>
                       <div className="space-y-1">
-                        {setupItems.filter(i => i.selecionado).map((item, index) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span>• {item.nome} ({item.quantidade}x)</span>
-                            <span>{formatCurrency(item.custoUnitario * item.quantidade)}</span>
+                        {planosSelecionados.map((p) => (
+                          <div key={p.plano_id} className="flex justify-between text-sm">
+                            <span>• {p.nome}{p.quantidade > 1 ? ` (${p.quantidade}x)` : ''}</span>
+                            <span>{formatCurrency(p.preco_unitario * p.quantidade)}</span>
                           </div>
                         ))}
-                        {setupImpressaoSelecionado && setupImpressaoItens.map((item, index) => (
-                          <div key={`imp-${index}`} className="flex justify-between text-sm">
-                            <span>• Impressão - {item.tipoProduto} ({item.quantidade}x)</span>
-                            <span>{formatCurrency(item.custoUnitario * item.quantidade)}</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between text-xs text-muted-foreground pt-1">
-                          <span>Custo total setup:</span>
-                          <span>{formatCurrency(custoTotalSetup)}</span>
-                        </div>
                         <div className="flex justify-between font-medium pt-1 border-t">
-                          <span>Preço de Venda Setup (margem {margemEfetiva.toFixed(1)}%):</span>
+                          <span>Total do Setup:</span>
                           <span>{formatCurrency(precoVendaSetup)}</span>
                         </div>
                       </div>
