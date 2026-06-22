@@ -46,6 +46,21 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
+const CONTRATO_BADGE: Record<string, { label: string; className: string }> = {
+  enviado: {
+    label: 'Contrato em análise',
+    className: 'border-amber-500 text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20',
+  },
+  assinado: {
+    label: 'Contrato assinado',
+    className: 'border-emerald-500 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20',
+  },
+  recusado: {
+    label: 'Contrato recusado',
+    className: 'border-red-500 text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20',
+  },
+};
+
 const PAGE_SIZE = 15;
 
 type ViewMode = 'list' | 'kanban';
