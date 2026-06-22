@@ -62,10 +62,8 @@ export function EditorContratoDocxDialog({ open, onOpenChange, modelo, variaveis
           selector: containerRef.current,
           document: file,
           documentMode: 'editing',
-          pagination: true,
-          rulers: false,
           toolbar: '#superdoc-toolbar',
-        });
+        } as any);
         superdocRef.current = createdInstance;
       } catch (e: any) {
         console.error('SuperDoc init error:', e);
