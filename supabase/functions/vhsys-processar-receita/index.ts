@@ -304,8 +304,20 @@ export async function processarReceita(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // Aceita: (a) chamada interna com x-internal-secret, OU (b) usuário autenticado (reprocessamento manual da UI)
   const headerSecret = req.headers.get("x-internal-secret");
-  if (!WEBHOOK_SECRET || headerSecret !== WEBHOOK_SECRET) {
+  let autorizado = !!(WEBHOOK_SECRET && headerSecret === WEBHOOK_SECRET);
+  if (!autorizado) {
+    const auth = req.headers.get("Authorization") || "";
+    const jwt = auth.replace(/^Bearer\s+/i, "").trim();
+    if (jwt) {
+      try {
+        const { data, error } = await supabase.auth.getUser(jwt);
+        if (!error && data?.user) autorizado = true;
+      } catch { /* */ }
+    }
+  }
+  if (!autorizado) {
     return new Response(JSON.stringify({ error: "Não autorizado" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

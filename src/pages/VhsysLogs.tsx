@@ -67,11 +67,11 @@ function VhsysLogsContent() {
           origem: 'manual',
           tipo_evento: 'reprocessamento.manual',
         },
-        headers: { 'x-internal-secret': '__REDACTED__' },
       });
-      // O secret precisa vir do backend; reprocessamento manual chama via outra rota.
       if (error) throw error;
-      toast.success(`Resultado: ${(data as any)?.status || 'executado'}`);
+      const r = data as any;
+      if (r?.status === 'sucesso') toast.success('Reprocessado com sucesso');
+      else toast.message(`Resultado: ${r?.status || 'executado'}`, { description: r?.mensagem });
       await carregar();
     } catch (e) {
       toast.error('Erro ao reprocessar: ' + (e as Error).message);
