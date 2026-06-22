@@ -284,6 +284,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       toast.error('Selecione um modelo de contrato.');
       return;
     }
+    const senha = window.prompt('Digite a senha de administrador para enviar o contrato:');
+    if (senha === null) return;
+    if (senha !== '0212') {
+      toast.error('Senha incorreta');
+      return;
+    }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
     setZapSignLoading(true);
     try {

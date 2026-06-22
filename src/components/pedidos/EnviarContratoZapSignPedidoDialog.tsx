@@ -138,6 +138,12 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       return;
     }
     if (!pedido) return;
+    const senha = window.prompt('Digite a senha de administrador para enviar o contrato:');
+    if (senha === null) return;
+    if (senha !== '0212') {
+      toast.error('Senha incorreta');
+      return;
+    }
     setLoading(true);
     try {
       // Tenta obter cliente_id do orçamento, se houver
