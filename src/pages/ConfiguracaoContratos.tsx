@@ -234,6 +234,8 @@ export default function ConfiguracaoContratos() {
               </div>
               <Switch checked={form.is_padrao} onCheckedChange={(c) => setForm({ ...form, is_padrao: c })} />
             </div>
+
+            <DocxUploadBlock form={form} setForm={setForm} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
