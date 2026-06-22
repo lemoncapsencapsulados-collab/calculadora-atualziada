@@ -697,7 +697,10 @@ export default function GerarOrcamentoDialog({
       return true;
     }
     if (step === 3) {
-      // Etapa opcional no novo fluxo de planos
+      // No fluxo "Produtor Experiente" com margem, bloqueia se margem efetiva estiver abaixo do mínimo e não liberada
+      if (isPerfilExperiente && custoTotalSetupLegacy > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) {
+        return false;
+      }
       return true;
     }
     return true;
