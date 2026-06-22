@@ -275,6 +275,83 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
               </div>
             ))}
           </div>
+
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold">Signatários adicionais</p>
+                {extraSigners.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                    {extraSigners.length + 1} no total
+                  </span>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setExtraSigners((p) => [...p, { name: '', email: '', phone_number: '' }])}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar signatário
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O contrato só será considerado assinado (e anexado ao pedido) quando <strong>todos</strong> os signatários assinarem.
+            </p>
+
+            {extraSigners.length === 0 ? (
+              <div className="text-xs text-muted-foreground italic bg-muted/40 rounded-md p-3 text-center">
+                Apenas o signatário principal acima irá assinar.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {extraSigners.map((s, idx) => (
+                  <div key={idx} className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase">Signatário #{idx + 2}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={() => setExtraSigners((p) => p.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nome *</Label>
+                        <Input
+                          value={s.name}
+                          onChange={(e) => setExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))}
+                          placeholder="Nome completo"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email *</Label>
+                        <Input
+                          type="email"
+                          value={s.email}
+                          onChange={(e) => setExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, email: e.target.value } : it))}
+                          placeholder="email@exemplo.com"
+                        />
+                      </div>
+                      <div className="space-y-1 md:col-span-2">
+                        <Label className="text-xs">Telefone (DDD + número)</Label>
+                        <Input
+                          value={s.phone_number}
+                          onChange={(e) => setExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, phone_number: e.target.value } : it))}
+                          placeholder="5585999998888"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
