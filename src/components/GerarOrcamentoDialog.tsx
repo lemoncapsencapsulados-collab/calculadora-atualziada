@@ -54,6 +54,8 @@ import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente, useClientes } from '@/hooks/useClientes';
+import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
+import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 
 // ── Setup cost types ──
 interface SetupItem {
