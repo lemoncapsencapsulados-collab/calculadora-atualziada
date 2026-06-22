@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,9 +24,15 @@ interface Props {
   onPerfilChange: (p: SetupPlanoPerfil | null) => void;
   selecionados: Record<string, number>;
   onSelecionadosChange: (next: Record<string, number>) => void;
+  /**
+   * Conteúdo customizado para substituir a lista de planos.
+   * Usado p/ "Produtor Experiente" onde o pai renderiza a UI legada
+   * (custo personalizado com margem/valor fixo).
+   */
+  renderCustomBody?: ReactNode;
 }
 
-const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosChange }: Props) => {
+const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosChange, renderCustomBody }: Props) => {
   const { data: planos = [], isLoading } = useSetupPlanos(perfil ?? undefined);
 
   const totalSetup = useMemo(() => {
@@ -120,9 +126,15 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Selecione um ou mais planos e ajuste a quantidade. Combinações são permitidas (ex.: 1 Start + 1 Branding).
+        {renderCustomBody
+          ? 'Configure os itens, custos e margem do setup personalizado abaixo.'
+          : 'Selecione um ou mais planos e ajuste a quantidade. Combinações são permitidas (ex.: 1 Start + 1 Branding).'}
       </p>
 
+      {renderCustomBody ? (
+        <>{renderCustomBody}</>
+      ) : (
+        <>
       {isLoading && (
         <p className="text-sm text-muted-foreground">Carregando planos...</p>
       )}
@@ -222,6 +234,8 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
         <div className="py-4 text-center border rounded-lg bg-muted/30">
           <p className="text-xs text-muted-foreground">Esta seção é opcional. Selecione um plano se houver setup.</p>
         </div>
+      )}
+        </>
       )}
     </div>
   );
