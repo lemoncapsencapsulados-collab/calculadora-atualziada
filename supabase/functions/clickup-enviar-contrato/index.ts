@@ -40,10 +40,11 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { taskName, description, arquivoUrl, arquivoNome, assignees } = body as {
+    const { taskName, description, arquivoUrl, arquivoNome, assignees, listIdOverride } = body as {
       taskName: string; description?: string; arquivoUrl: string; arquivoNome: string;
-      assignees?: number[];
+      assignees?: number[]; listIdOverride?: string;
     };
+    const effectiveListId = listIdOverride || listId;
 
     if (!taskName || !arquivoUrl || !arquivoNome) {
       return jsonResponse({ error: 'taskName, arquivoUrl e arquivoNome são obrigatórios' }, 400);
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
     if (Array.isArray(assignees) && assignees.length > 0) {
       taskPayload.assignees = assignees.map((n) => Number(n)).filter((n) => Number.isFinite(n));
     }
-    const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
+    const taskRes = await fetch(`https://api.clickup.com/api/v2/list/${effectiveListId}/task`, {
       method: 'POST',
       headers: { Authorization: token, 'Content-Type': 'application/json', accept: 'application/json' },
       body: JSON.stringify(taskPayload),

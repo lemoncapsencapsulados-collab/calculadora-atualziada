@@ -18,8 +18,12 @@ Deno.serve(async (req) => {
 
   try {
     const token = Deno.env.get('CLICKUP_API_TOKEN');
-    const listId = Deno.env.get('CLICKUP_LIST_CONTRATOS_ID');
-    if (!token || !listId) return jsonResponse({ error: 'ClickUp não configurado' }, 500);
+    const defaultListId = Deno.env.get('CLICKUP_LIST_CONTRATOS_ID');
+    if (!token) return jsonResponse({ error: 'ClickUp não configurado' }, 500);
+
+    const url = new URL(req.url);
+    const listId = url.searchParams.get('list_id') || defaultListId;
+    if (!listId) return jsonResponse({ error: 'list_id não informado' }, 400);
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Não autenticado' }, 401);
