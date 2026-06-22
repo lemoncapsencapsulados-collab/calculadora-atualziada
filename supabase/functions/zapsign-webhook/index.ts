@@ -204,10 +204,93 @@ Deno.serve(async (req) => {
     return jsonResp({ error: "Erro ao atualizar contrato", details: updErr.message }, 500);
   }
 
+  // Marca status_contrato no orçamento e, se VHSys já tiver liquidado, converte em pedido
+  let pedidoCriadoId: string | null = null;
+  if (contrato.orcamento_id && (isSigned || isRefused)) {
+    const novoStatus = isRefused ? 'recusado' : 'assinado';
+    const patch: Record<string, any> = { status_contrato: novoStatus };
+    if (isSigned) patch.contrato_assinado_em = new Date().toISOString();
+    await supabase.from("orcamentos").update(patch).eq("id", contrato.orcamento_id);
+
+    if (isSigned) {
+      const { data: orc } = await supabase
+        .from("orcamentos")
+        .select("id, vhsys_liquidado_em, pedido_id_gerado, status")
+        .eq("id", contrato.orcamento_id)
+        .maybeSingle();
+      if (orc && orc.vhsys_liquidado_em && !orc.pedido_id_gerado) {
+        try {
+          pedidoCriadoId = await criarPedidoDeOrcamento(supabase, orc.id, String(orc.vhsys_liquidado_em).slice(0, 10));
+          await supabase
+            .from("orcamentos")
+            .update({ status: 'pago', data_pagamento: orc.vhsys_liquidado_em, pedido_id_gerado: pedidoCriadoId })
+            .eq("id", orc.id);
+          await supabase.from("vhsys_eventos_log").insert({
+            origem: "zapsign", tipo_evento: "contrato_assinado", orcamento_id: orc.id, pedido_id: pedidoCriadoId,
+            status: "sucesso", mensagem: "Contrato assinado + VHSys liquidado → pedido criado",
+          });
+        } catch (e) {
+          console.error("Erro criando pedido após assinatura:", e);
+        }
+      }
+    }
+  }
+
   return jsonResp({
     ok: true,
     contrato_id: contrato.id,
     status: updates.status || contrato.status,
     pedido_anexo_criado: pedidoAnexoCriado,
+    pedido_criado_id: pedidoCriadoId,
   });
 });
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+async function proximoNumeroPedido(supabase: any): Promise<string> {
+  const { data } = await supabase.from("pedidos").select("numero_pedido").like("numero_pedido", "PED-%");
+  let max = 0;
+  (data || []).forEach((p: any) => {
+    const m = String(p.numero_pedido || "").match(/PED-(\d+)/);
+    if (m) { const n = parseInt(m[1], 10); if (n > max) max = n; }
+  });
+  return `PED-${(max + 1).toString().padStart(3, "0")}`;
+}
+
+async function criarPedidoDeOrcamento(supabase: any, orcId: string, dataPgto: string): Promise<string> {
+  const { data: orc, error } = await supabase.from("orcamentos").select("*").eq("id", orcId).limit(1).single();
+  if (error || !orc) throw new Error(`Orçamento ${orcId} não encontrado`);
+  const { data: existentes } = await supabase.from("pedidos").select("id").eq("orcamento_id", orcId).limit(1);
+  if (existentes && existentes.length > 0) return existentes[0].id;
+  const snapshot = {
+    id: orc.id, numero_orcamento: orc.numero_orcamento, nome_cliente: orc.nome_cliente,
+    consultor_responsavel: orc.consultor_responsavel || undefined,
+    tipo_orcamento: orc.tipo_orcamento || "novo_produtor",
+    itens_producao: orc.itens_producao || [], servicos_marca: orc.servicos_marca || [],
+    dados_cliente: orc.dados_cliente || undefined,
+    detalhamento_frete: orc.detalhamento_frete || undefined,
+    condicoes_pagamento: orc.condicoes_pagamento || undefined,
+    subtotal_producao: Number(orc.subtotal_producao) || 0,
+    subtotal_servicos: Number(orc.subtotal_servicos) || 0,
+    valor_total: Number(orc.valor_total) || 0,
+    data_pagamento: dataPgto, observacoes: orc.observacoes || undefined,
+    updated_at: orc.updated_at || undefined,
+  };
+  const totalQtd = (orc.itens_producao || []).reduce((s: number, it: any) => s + (Number(it?.quantidade) || 1), 0);
+  const numero = await proximoNumeroPedido(supabase);
+  const { data: novo, error: err2 } = await supabase.from("pedidos").insert([{
+    orcamento_id: orcId, orcamento_snapshot: snapshot as any, numero_pedido: numero,
+    data_pedido: new Date().toISOString(), data_entrega: dataPgto || new Date().toISOString(),
+    quantidade_produto: totalQtd, unidade_produto: "potes",
+    status: "aguardando_producao", formula_id: null, formula_snapshot: null,
+    observacoes: orc.observacoes || null,
+  }]).select("id").single();
+  if (err2) throw new Error(err2.message);
+  try {
+    await fetch("https://n8n.lemoncaps.com.br/webhook/request-order", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snapshot),
+    });
+  } catch { /* ignore */ }
+  return novo!.id;
+}
