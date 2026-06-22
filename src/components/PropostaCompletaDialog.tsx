@@ -759,6 +759,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   }, [pdfUrl]);
 
   const zapSignDialog = () => (
+    <>
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
