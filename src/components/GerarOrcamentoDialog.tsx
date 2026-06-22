@@ -54,6 +54,8 @@ import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente, useClientes } from '@/hooks/useClientes';
+import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
+import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 
 // ── Setup cost types ──
 interface SetupItem {
@@ -128,6 +130,11 @@ export default function GerarOrcamentoDialog({
   const [senhaSetupDialog, setSenhaSetupDialog] = useState(false);
   const [senhaSetupInput, setSenhaSetupInput] = useState('');
   const [setupMargemLiberada, setSetupMargemLiberada] = useState(false);
+
+  // Step 3 (novo fluxo): planos de setup por perfil
+  const [setupPerfil, setSetupPerfil] = useState<SetupPlanoPerfil | null>(null);
+  const [planoQtdMap, setPlanoQtdMap] = useState<Record<string, number>>({});
+  const { data: setupPlanosDoPerfil = [] } = useSetupPlanos(setupPerfil ?? undefined);
 
   // Edição de custo de impressão protegida por senha
   const [impressaoEdicaoLiberada, setImpressaoEdicaoLiberada] = useState(false);
@@ -294,36 +301,21 @@ export default function GerarOrcamentoDialog({
     });
   }, [numProdutos, produtosPorTipo]);
 
-  // ── Setup cost calculations ──
-  const custoTotalSetup = useMemo(() => {
-    let total = 0;
-    setupItems.forEach(item => {
-      if (item.selecionado) total += item.custoUnitario * item.quantidade;
-    });
-    if (setupImpressaoSelecionado) {
-      setupImpressaoItens.forEach(item => {
-        total += item.custoUnitario * item.quantidade;
-      });
-    }
-    return total;
-  }, [setupItems, setupImpressaoSelecionado, setupImpressaoItens]);
+  // ── Setup cost calculations (novo fluxo: planos com preço fixo) ──
+  const planosSelecionados: PlanoSelecionado[] = useMemo(
+    () => buildPlanosSelecionados(setupPlanosDoPerfil, planoQtdMap),
+    [setupPlanosDoPerfil, planoQtdMap]
+  );
 
-  const precoVendaSetup = useMemo(() => {
-    if (custoTotalSetup === 0) return 0;
-    if (modoCalculoSetup === 'valor_fixo') return valorFixoSetup;
-    const divisor = 1 - 0.06 - 0.05 - 0.05 - (margemSetup / 100);
-    if (divisor <= 0) return 0;
-    return custoTotalSetup / divisor;
-  }, [custoTotalSetup, margemSetup, modoCalculoSetup, valorFixoSetup]);
+  const precoVendaSetup = useMemo(
+    () => planosSelecionados.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0),
+    [planosSelecionados]
+  );
 
-  // Margem derivada no modo valor fixo
-  const margemEfetiva = useMemo(() => {
-    if (modoCalculoSetup === 'margem') return margemSetup;
-    if (valorFixoSetup <= 0 || custoTotalSetup <= 0) return 0;
-    return (1 - (custoTotalSetup / valorFixoSetup) - 0.06 - 0.05 - 0.05) * 100;
-  }, [modoCalculoSetup, margemSetup, valorFixoSetup, custoTotalSetup]);
-
-  const validacaoMargemSetup = validarMargemPorTipo(margemEfetiva, 'Setup');
+  // Mantidos para compatibilidade com handlers/dialogs legados (sem uso ativo no novo fluxo)
+  const custoTotalSetup = precoVendaSetup;
+  const margemEfetiva = 0;
+  const validacaoMargemSetup = validarMargemPorTipo(0, 'Setup');
 
   // Carregar dados se editando
   useEffect(() => {
@@ -347,21 +339,21 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
-      // Restore setup from servicos_marca
-      const setupServico = (orcamentoExistente.servicos_marca || []).find(
-        (s: any) => s.nome_plano === 'Setup'
+      // Restore setup (novo formato baseado em planos)
+      const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
+        (s: any) => s.nome_plano === 'Setup' || s?.setup_detalhes?.plano_id
       );
-      if (setupServico) {
-        const detalhes = (setupServico as any).setup_detalhes;
-        if (detalhes) {
-          if (detalhes.items) setSetupItems(detalhes.items);
-          if (detalhes.impressao_selecionado !== undefined) setSetupImpressaoSelecionado(detalhes.impressao_selecionado);
-          if (detalhes.impressao_itens) setSetupImpressaoItens(detalhes.impressao_itens);
-          if (detalhes.margem !== undefined) setMargemSetup(detalhes.margem);
-          if (detalhes.modo_calculo) setModoCalculoSetup(detalhes.modo_calculo);
-          if (detalhes.valor_fixo !== undefined) setValorFixoSetup(detalhes.valor_fixo);
+      const restoredMap: Record<string, number> = {};
+      let restoredPerfil: SetupPlanoPerfil | null = null;
+      for (const s of servicosSetup) {
+        const det: any = (s as any).setup_detalhes;
+        if (det?.plano_id) {
+          restoredMap[det.plano_id] = (restoredMap[det.plano_id] || 0) + (det.quantidade || 1);
+          if (!restoredPerfil && det.perfil) restoredPerfil = det.perfil;
         }
       }
+      if (restoredPerfil) setSetupPerfil(restoredPerfil);
+      if (Object.keys(restoredMap).length > 0) setPlanoQtdMap(restoredMap);
     }
   }, [orcamentoExistente]);
 
@@ -370,33 +362,37 @@ export default function GerarOrcamentoDialog({
   const subtotalServicos = precoVendaSetup;
   const valorTotal = subtotalProducao + subtotalServicos;
 
-  // Build servicos_marca for saving
+  // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
-    if (custoTotalSetup === 0) return [];
-    const entregaveis: Entregavel[] = [];
-    setupItems.filter(i => i.selecionado).forEach(item => {
-      entregaveis.push({ nome: `${item.nome} (${item.quantidade}x)`, incluso: true, quantidade: item.quantidade });
+    if (planosSelecionados.length === 0) return [];
+    return planosSelecionados.map((p) => {
+      const bullets = (p.entregaveis_md || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+        .map((l) => l.replace(/^[-*]\s+/, ''));
+      const entregaveis: Entregavel[] = bullets.map((nome) => ({
+        nome,
+        incluso: true,
+        quantidade: p.quantidade,
+      }));
+      const qtdLabel = p.quantidade > 1 ? ` (${p.quantidade}x)` : '';
+      return {
+        nome_plano: `Setup — ${p.nome}${qtdLabel}`,
+        descricao: p.descricao || 'Plano de setup',
+        valor: p.preco_unitario * p.quantidade,
+        entregaveis,
+        setup_detalhes: {
+          plano_id: p.plano_id,
+          nome: p.nome,
+          perfil: p.perfil,
+          quantidade: p.quantidade,
+          preco_unitario: p.preco_unitario,
+          entregaveis_md: p.entregaveis_md,
+          modo_calculo: 'valor_fixo',
+        },
+      } as any;
     });
-    if (setupImpressaoSelecionado) {
-      setupImpressaoItens.forEach(item => {
-        entregaveis.push({ nome: `Impressão de rótulos - ${item.tipoProduto} (${item.quantidade}x)`, incluso: true, quantidade: item.quantidade });
-      });
-    }
-    return [{
-      nome_plano: 'Setup',
-      descricao: 'Serviços de setup para início da produção',
-      valor: precoVendaSetup,
-      entregaveis,
-      setup_detalhes: {
-        items: setupItems,
-        impressao_selecionado: setupImpressaoSelecionado,
-        impressao_itens: setupImpressaoItens,
-        margem: margemEfetiva,
-        custo_total: custoTotalSetup,
-        modo_calculo: modoCalculoSetup,
-        valor_fixo: valorFixoSetup,
-      },
-    } as any];
   };
 
   // Handlers
@@ -614,8 +610,8 @@ export default function GerarOrcamentoDialog({
       return true;
     }
     if (step === 3) {
-      // Block if margin is below minimum and not unlocked
-      if (custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) return false;
+      // Etapa opcional no novo fluxo de planos
+      return true;
     }
     return true;
   };
@@ -1339,317 +1335,14 @@ export default function GerarOrcamentoDialog({
             </div>
           )}
 
-          {/* STEP 3: Custo de Setup */}
+          {/* STEP 3: Custo de Setup (novo fluxo de planos) */}
           {step === 3 && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg flex items-center gap-2">
-                <Settings2 className="w-5 h-5" />
-                Custo de Setup
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Selecione os itens de setup e ajuste as quantidades. As quantidades são pré-preenchidas com base nos produtos adicionados.
-              </p>
-
-              {/* Setup items */}
-              <div className="space-y-2">
-                {setupItems.map((item, idx) => (
-                  <Card key={item.id} className={cn(item.selecionado && 'border-primary')}>
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={item.selecionado}
-                          onCheckedChange={(checked) => {
-                            setSetupItems(prev => prev.map((si, i) =>
-                              i === idx ? { ...si, selecionado: !!checked } : si
-                            ));
-                          }}
-                        />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{item.nome}</p>
-                          <p className="text-xs text-muted-foreground">{formatCurrency(item.custoUnitario)}/un</p>
-                        </div>
-                        {item.selecionado && (
-                          <>
-                            <Input
-                              type="number"
-                              min={0}
-                              className="w-20"
-                              value={item.quantidade}
-                              onChange={(e) => {
-                                setSetupItems(prev => prev.map((si, i) =>
-                                  i === idx ? { ...si, quantidade: parseInt(e.target.value) || 0 } : si
-                                ));
-                              }}
-                            />
-                            <span className="text-sm font-semibold min-w-[80px] text-right">
-                              {formatCurrency(item.custoUnitario * item.quantidade)}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {/* Impressão de rótulos */}
-                <Card className={cn(setupImpressaoSelecionado && 'border-primary')}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={setupImpressaoSelecionado}
-                        onCheckedChange={(checked) => setSetupImpressaoSelecionado(!!checked)}
-                      />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Impressão de rótulos</p>
-                        <p className="text-xs text-muted-foreground">Custo varia por tipo de produto</p>
-                      </div>
-                      {setupImpressaoSelecionado && !impressaoEdicaoLiberada && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setSenhaImpressaoDialog(true)}
-                          title="Editar custos de impressão (requer senha)"
-                        >
-                          <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                        </Button>
-                      )}
-                      {setupImpressaoSelecionado && impressaoEdicaoLiberada && (
-                        <Badge variant="outline" className="text-xs gap-1">
-                          <LockOpen className="w-3 h-3" />
-                          Editável
-                        </Badge>
-                      )}
-                    </div>
-
-                    {setupImpressaoSelecionado && setupImpressaoItens.length > 0 && (
-                      <div className="ml-7 space-y-2 border-l-2 border-primary/20 pl-3">
-                        {setupImpressaoItens.map((imp, idx) => (
-                          <div key={imp.tipoProduto} className="flex items-center gap-3">
-                            <div className="flex-1">
-                              <p className="text-sm">{imp.tipoProduto}</p>
-                              {impressaoEdicaoLiberada ? (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-xs text-muted-foreground">R$</span>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    step={10}
-                                    className="w-24 h-6 text-xs"
-                                    value={imp.custoUnitario}
-                                    onChange={(e) => {
-                                      setSetupImpressaoItens(prev => prev.map((si, i) =>
-                                        i === idx ? { ...si, custoUnitario: parseFloat(e.target.value) || 0 } : si
-                                      ));
-                                    }}
-                                  />
-                                  <span className="text-xs text-muted-foreground">/un</span>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-muted-foreground">{formatCurrency(imp.custoUnitario)}/un</p>
-                              )}
-                            </div>
-                            <Input
-                              type="number"
-                              min={0}
-                              className="w-20"
-                              value={imp.quantidade}
-                              onChange={(e) => {
-                                setSetupImpressaoItens(prev => prev.map((si, i) =>
-                                  i === idx ? { ...si, quantidade: parseInt(e.target.value) || 0 } : si
-                                ));
-                              }}
-                            />
-                            <span className="text-sm font-semibold min-w-[80px] text-right">
-                              {formatCurrency(imp.custoUnitario * imp.quantidade)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {setupImpressaoSelecionado && setupImpressaoItens.length === 0 && (
-                      <p className="ml-7 text-xs text-muted-foreground">
-                        Nenhum produto adicionado no passo anterior.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Custo total e margem */}
-              {custoTotalSetup > 0 && (() => {
-                const taxaAntecipacao = precoVendaSetup * 0.06;
-                const impostoSetup = precoVendaSetup * 0.05;
-                const comissaoSetup = precoVendaSetup * 0.05;
-                const margemLucroValor = precoVendaSetup * (margemEfetiva / 100);
-
-                return (
-                  <Card>
-                    <CardContent className="p-4 space-y-4">
-                      {/* Detalhamento do Custo */}
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">Detalhamento do Custo</h4>
-                        {setupItems.filter(si => si.selecionado && si.quantidade > 0).map((si, idx) => (
-                          <div key={idx} className="flex justify-between text-sm">
-                            <span>{si.nome} ({si.quantidade}x)</span>
-                            <span>{formatCurrency(si.custoUnitario * si.quantidade)}</span>
-                          </div>
-                        ))}
-                        {setupImpressaoSelecionado && setupImpressaoItens.filter(si => si.quantidade > 0).map((si, idx) => (
-                          <div key={`imp-${idx}`} className="flex justify-between text-sm">
-                            <span>Impressão - {si.tipoProduto} ({si.quantidade}x)</span>
-                            <span>{formatCurrency(si.custoUnitario * si.quantidade)}</span>
-                          </div>
-                        ))}
-                        <Separator className="my-2" />
-                        <div className="flex justify-between text-sm font-semibold">
-                          <span>Custo Total do Setup</span>
-                          <span>{formatCurrency(custoTotalSetup)}</span>
-                        </div>
-                      </div>
-
-                      {/* Modo de Cálculo Toggle */}
-                      <div className="space-y-3">
-                        <Label className="text-sm font-semibold">Modo de Cálculo</Label>
-                        <div className="flex rounded-lg border overflow-hidden w-fit">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setModoCalculoSetup('margem');
-                              setSetupMargemLiberada(false);
-                            }}
-                            className={cn(
-                              'px-4 py-2 text-sm font-medium transition-all',
-                              modoCalculoSetup === 'margem'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'hover:bg-muted'
-                            )}
-                          >
-                            Margem %
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setModoCalculoSetup('valor_fixo');
-                              setValorFixoSetup(precoVendaSetup > 0 ? Math.round(precoVendaSetup * 100) / 100 : 0);
-                              setSetupMargemLiberada(false);
-                            }}
-                            className={cn(
-                              'px-4 py-2 text-sm font-medium transition-all',
-                              modoCalculoSetup === 'valor_fixo'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'hover:bg-muted'
-                            )}
-                          >
-                            Valor Fixo R$
-                          </button>
-                        </div>
-
-                        {modoCalculoSetup === 'margem' ? (
-                          <div className="space-y-2">
-                            <Label className="text-sm">Margem de Lucro (%)</Label>
-                            <div className="flex items-center gap-3">
-                              <Input
-                                type="number"
-                                min={0}
-                                max={90}
-                                step={0.5}
-                                className={cn("w-24", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
-                                value={margemSetup}
-                                onChange={(e) => {
-                                  setMargemSetup(parseFloat(e.target.value) || 0);
-                                  setSetupMargemLiberada(false);
-                                }}
-                              />
-                              <span className="text-sm">%</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <Label className="text-sm">Valor cobrado de Setup (R$)</Label>
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm">R$</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                step={100}
-                                className={cn("w-36", validacaoMargemSetup.borderColor && `border-2 ${validacaoMargemSetup.borderColor}`)}
-                                value={valorFixoSetup}
-                                onChange={(e) => {
-                                  setValorFixoSetup(parseFloat(e.target.value) || 0);
-                                  setSetupMargemLiberada(false);
-                                }}
-                              />
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Margem resultante: <span className="font-semibold">{margemEfetiva.toFixed(1)}%</span>
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className={cn(
-                        'p-2 rounded-lg text-sm',
-                        validacaoMargemSetup.bgColor === 'gold-shimmer' ? 'gold-shimmer' : validacaoMargemSetup.bgColor,
-                        validacaoMargemSetup.color
-                      )}>
-                        {validacaoMargemSetup.mensagem}
-                      </div>
-
-                      {validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-destructive text-destructive"
-                          onClick={() => setSenhaSetupDialog(true)}
-                        >
-                          Liberar com senha
-                        </Button>
-                      )}
-
-                      {/* Composição do Preço de Venda */}
-                      <div className="space-y-1 pt-2">
-                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">Composição do Preço de Venda</h4>
-                        <div className="flex justify-between text-sm">
-                          <span>Custo Base</span>
-                          <span>{formatCurrency(custoTotalSetup)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Taxa de Antecipação (6%)</span>
-                          <span>{formatCurrency(taxaAntecipacao)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Imposto (5%)</span>
-                          <span>{formatCurrency(impostoSetup)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Comissão (5%)</span>
-                          <span>{formatCurrency(comissaoSetup)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Margem de Lucro ({margemEfetiva.toFixed(1)}%)</span>
-                          <span>{formatCurrency(margemLucroValor)}</span>
-                        </div>
-                        <Separator className="my-2" />
-                        <div className="flex justify-between items-center font-semibold text-base">
-                          <span>Preço de Venda do Setup</span>
-                          <span className="text-xl font-bold">{formatCurrency(precoVendaSetup)}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })()}
-
-              {custoTotalSetup === 0 && (
-                <div className="py-6 text-center border rounded-lg bg-muted/30">
-                  <Settings2 className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Selecione pelo menos um item de setup acima.</p>
-                  <p className="text-xs text-muted-foreground mt-1">(Esta seção é opcional)</p>
-                </div>
-              )}
-            </div>
+            <SetupPlanosStep
+              perfil={setupPerfil}
+              onPerfilChange={setSetupPerfil}
+              selecionados={planoQtdMap}
+              onSelecionadosChange={setPlanoQtdMap}
+            />
           )}
 
           {/* STEP 4: Condições de Pagamento */}
@@ -1715,24 +1408,14 @@ export default function GerarOrcamentoDialog({
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">SETUP</p>
                       <div className="space-y-1">
-                        {setupItems.filter(i => i.selecionado).map((item, index) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span>• {item.nome} ({item.quantidade}x)</span>
-                            <span>{formatCurrency(item.custoUnitario * item.quantidade)}</span>
+                        {planosSelecionados.map((p) => (
+                          <div key={p.plano_id} className="flex justify-between text-sm">
+                            <span>• {p.nome}{p.quantidade > 1 ? ` (${p.quantidade}x)` : ''}</span>
+                            <span>{formatCurrency(p.preco_unitario * p.quantidade)}</span>
                           </div>
                         ))}
-                        {setupImpressaoSelecionado && setupImpressaoItens.map((item, index) => (
-                          <div key={`imp-${index}`} className="flex justify-between text-sm">
-                            <span>• Impressão - {item.tipoProduto} ({item.quantidade}x)</span>
-                            <span>{formatCurrency(item.custoUnitario * item.quantidade)}</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between text-xs text-muted-foreground pt-1">
-                          <span>Custo total setup:</span>
-                          <span>{formatCurrency(custoTotalSetup)}</span>
-                        </div>
                         <div className="flex justify-between font-medium pt-1 border-t">
-                          <span>Preço de Venda Setup (margem {margemEfetiva.toFixed(1)}%):</span>
+                          <span>Total do Setup:</span>
                           <span>{formatCurrency(precoVendaSetup)}</span>
                         </div>
                       </div>
@@ -1969,10 +1652,7 @@ export default function GerarOrcamentoDialog({
                     toast.error('Confirme os preços editados antes de avançar.');
                     return;
                   }
-                  if (step === 3 && custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) {
-                    toast.error('Margem de setup abaixo do mínimo. Libere com senha para continuar.');
-                    return;
-                  }
+                  // Step 3 (planos): sem validação de margem — preço fixo.
                   setStep(step + 1);
                 }}
                 disabled={!canGoNext()}
