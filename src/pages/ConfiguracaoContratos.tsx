@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { useContratoModelos, useSalvarContratoModelo, useExcluirContratoModelo, ContratoModelo } from '@/hooks/useContratoModelos';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ClickUpRotuloConfigCard } from '@/components/admin/ClickUpRotuloConfigCard';
 
 const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false };
 
@@ -174,6 +175,10 @@ export default function ConfiguracaoContratos() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <ClickUpRotuloConfigCard />
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
