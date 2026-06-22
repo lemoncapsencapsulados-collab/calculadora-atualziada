@@ -1965,10 +1965,7 @@ export default function GerarOrcamentoDialog({
                     toast.error('Confirme os preços editados antes de avançar.');
                     return;
                   }
-                  if (step === 3 && custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) {
-                    toast.error('Margem de setup abaixo do mínimo. Libere com senha para continuar.');
-                    return;
-                  }
+                  // Step 3 (planos): sem validação de margem — preço fixo.
                   setStep(step + 1);
                 }}
                 disabled={!canGoNext()}
