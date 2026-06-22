@@ -175,9 +175,9 @@ function VhsysLogsContent() {
               <RefreshCw className={`w-3.5 h-3.5 mr-1 ${whLoading ? 'animate-spin' : ''}`} />
               Listar webhooks no VHSys
             </Button>
-            <Button size="sm" onClick={() => gerenciarWebhook('create', { entidade: 'receitas', evento: 'atualizar' })} disabled={whLoading}>
+            <Button size="sm" onClick={() => gerenciarWebhook('create', { entidade: 'contas_receber' })} disabled={whLoading}>
               <Plus className="w-3.5 h-3.5 mr-1" />
-              Cadastrar webhook (receitas / atualizar)
+              Cadastrar webhook (contas_receber)
             </Button>
           </div>
           {urlEsperada && (

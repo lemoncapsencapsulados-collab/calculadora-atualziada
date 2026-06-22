@@ -11,6 +11,10 @@ const SECRET_SERVICE = Deno.env.get("VHSYS_SECRET_SERVICE")!;
 const WEBHOOK_SECRET = Deno.env.get("VHSYS_WEBHOOK_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
+// Basic Auth credentials que o VHSys usa para chamar nosso webhook
+const WEBHOOK_USER = "lemoncaps_vhsys";
+const WEBHOOK_PASSWORD = WEBHOOK_SECRET; // já tem comprimento >= 8
+
 function vhsysHeaders() {
   return {
     "Content-Type": "application/json",
@@ -64,17 +68,29 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create") {
-      const entidade = String(body?.entidade || "receitas");
-      const evento = String(body?.evento || "atualizar");
-      const payload = { url: webhookUrl(), entidade, evento };
+      // Entidades válidas (VHSys): clientes, ordem_servico, vendas_balcao, contas_receber, produtos, todos
+      const entidade = String(body?.entidade || "contas_receber");
+      const payload = {
+        url: webhookUrl(),
+        user: WEBHOOK_USER,
+        password: WEBHOOK_PASSWORD,
+        entidade,
+      };
       const resp = await fetch(`${VHSYS_BASE}/webhook`, {
         method: "POST", headers: vhsysHeaders(), body: JSON.stringify(payload),
       });
-      const json = await resp.json().catch(() => ({}));
+      const text = await resp.text();
+      let json: any = {};
+      try { json = JSON.parse(text); } catch { json = { raw: text }; }
+      // VHSys às vezes devolve code 200 mas com erros de validação em data:[...]
+      const dataErros = Array.isArray(json?.data) ? json.data : [];
+      const realmenteOk = resp.ok && (json?.code === 201 || (json?.code === 200 && !dataErros.length)) && !!json?.data?.id_webhook;
       return new Response(JSON.stringify({
-        ok: resp.ok, status: resp.status,
-        enviado: { entidade, evento, url: mask(webhookUrl()) },
+        ok: realmenteOk,
+        status: resp.status,
+        enviado: { entidade, url: mask(webhookUrl()), user: WEBHOOK_USER },
         resposta: json,
+        avisos: dataErros,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
