@@ -17,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
@@ -188,6 +188,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
+  type ZapExtraSigner = { name: string; email: string; phone_number: string };
+  const [zapExtraSigners, setZapExtraSigners] = useState<ZapExtraSigner[]>([]);
+
   // Campos editáveis do contrato ZapSign
   type ZapSignCampos = {
     signer_name: string;
@@ -266,6 +269,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   const abrirZapSignDialog = () => {
     setZapSignCampos(buildZapSignCamposPadrao());
+    setZapExtraSigners([]);
     setZapSignDialogOpen(true);
   };
 
@@ -297,6 +301,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
         setZapSignLoading(false);
         return;
+      }
+      for (const s of zapExtraSigners) {
+        if (!s.name?.trim() || !s.email?.trim()) {
+          toast.error('Preencha nome e email de todos os signatários adicionais.');
+          setZapSignLoading(false);
+          return;
+        }
       }
 
       const data = [
@@ -334,6 +345,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           ambiente: modelo.ambiente,
           orcamento_id: orcamento.id,
           cliente_id: orcamento.cliente_id ?? null,
+          extra_signers: zapExtraSigners
+            .filter((s) => s.name?.trim() && s.email?.trim())
+            .map((s) => ({
+              name: s.name.trim(),
+              email: s.email.trim(),
+              phone_country: '55',
+              phone_number: (s.phone_number || '').replace(/\D/g, ''),
+            })),
         },
       });
 
@@ -825,6 +844,61 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         <Input value={zapSignCampos.signer_phone_number} onChange={(e) => updateZapCampo('signer_phone_number', e.target.value)} />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-primary" />
+                        <p className="text-xs font-semibold uppercase">Signatários adicionais</p>
+                        {zapExtraSigners.length > 0 && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            {zapExtraSigners.length + 1} no total
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setZapExtraSigners((p) => [...p, { name: '', email: '', phone_number: '' }])}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      O contrato só será considerado <strong>assinado</strong> e vinculado ao orçamento/pedido quando <strong>todos</strong> os signatários assinarem.
+                    </p>
+                    {zapExtraSigners.map((s, idx) => (
+                      <div key={idx} className="rounded-md border bg-background p-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase">Signatário #{idx + 2}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-destructive hover:text-destructive"
+                            onClick={() => setZapExtraSigners((p) => p.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nome *</Label>
+                            <Input value={s.name} onChange={(e) => setZapExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Email *</Label>
+                            <Input type="email" value={s.email} onChange={(e) => setZapExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, email: e.target.value } : it))} />
+                          </div>
+                          <div className="space-y-1 col-span-2">
+                            <Label className="text-xs">Telefone (DDD + número)</Label>
+                            <Input value={s.phone_number} onChange={(e) => setZapExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, phone_number: e.target.value } : it))} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="space-y-2">
