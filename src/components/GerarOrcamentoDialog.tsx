@@ -301,36 +301,21 @@ export default function GerarOrcamentoDialog({
     });
   }, [numProdutos, produtosPorTipo]);
 
-  // ── Setup cost calculations ──
-  const custoTotalSetup = useMemo(() => {
-    let total = 0;
-    setupItems.forEach(item => {
-      if (item.selecionado) total += item.custoUnitario * item.quantidade;
-    });
-    if (setupImpressaoSelecionado) {
-      setupImpressaoItens.forEach(item => {
-        total += item.custoUnitario * item.quantidade;
-      });
-    }
-    return total;
-  }, [setupItems, setupImpressaoSelecionado, setupImpressaoItens]);
+  // ── Setup cost calculations (novo fluxo: planos com preço fixo) ──
+  const planosSelecionados: PlanoSelecionado[] = useMemo(
+    () => buildPlanosSelecionados(setupPlanosDoPerfil, planoQtdMap),
+    [setupPlanosDoPerfil, planoQtdMap]
+  );
 
-  const precoVendaSetup = useMemo(() => {
-    if (custoTotalSetup === 0) return 0;
-    if (modoCalculoSetup === 'valor_fixo') return valorFixoSetup;
-    const divisor = 1 - 0.06 - 0.05 - 0.05 - (margemSetup / 100);
-    if (divisor <= 0) return 0;
-    return custoTotalSetup / divisor;
-  }, [custoTotalSetup, margemSetup, modoCalculoSetup, valorFixoSetup]);
+  const precoVendaSetup = useMemo(
+    () => planosSelecionados.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0),
+    [planosSelecionados]
+  );
 
-  // Margem derivada no modo valor fixo
-  const margemEfetiva = useMemo(() => {
-    if (modoCalculoSetup === 'margem') return margemSetup;
-    if (valorFixoSetup <= 0 || custoTotalSetup <= 0) return 0;
-    return (1 - (custoTotalSetup / valorFixoSetup) - 0.06 - 0.05 - 0.05) * 100;
-  }, [modoCalculoSetup, margemSetup, valorFixoSetup, custoTotalSetup]);
-
-  const validacaoMargemSetup = validarMargemPorTipo(margemEfetiva, 'Setup');
+  // Mantidos para compatibilidade com handlers/dialogs legados (sem uso ativo no novo fluxo)
+  const custoTotalSetup = precoVendaSetup;
+  const margemEfetiva = 0;
+  const validacaoMargemSetup = validarMargemPorTipo(0, 'Setup');
 
   // Carregar dados se editando
   useEffect(() => {
