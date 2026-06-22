@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
+import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 
 interface Props {
   open: boolean;
@@ -92,6 +93,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [modeloId, setModeloId] = useState<string>('');
   const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido));
   const [loading, setLoading] = useState(false);
+  const [askSenhaOpen, setAskSenhaOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -130,7 +132,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'valor_total', label: 'Valor total' },
   ]), []);
 
-  const enviar = async () => {
+  const handleSubmit = () => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo) { toast.error('Selecione um modelo de contrato.'); return; }
     if (!campos.signer_name || !campos.signer_email) {
@@ -138,12 +140,12 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       return;
     }
     if (!pedido) return;
-    const senha = window.prompt('Digite a senha de administrador para enviar o contrato:');
-    if (senha === null) return;
-    if (senha !== '0212') {
-      toast.error('Senha incorreta');
-      return;
-    }
+    setAskSenhaOpen(true);
+  };
+
+  const enviar = async () => {
+    const modelo = modelos.find((m) => m.id === modeloId);
+    if (!modelo || !pedido) return;
     setLoading(true);
     try {
       // Tenta obter cliente_id do orçamento, se houver
