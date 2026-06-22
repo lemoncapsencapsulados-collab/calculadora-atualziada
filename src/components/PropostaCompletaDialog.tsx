@@ -273,6 +273,48 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     setZapSignDialogOpen(true);
   };
 
+  // Constrói candidatos a signatários extras a partir dos dados do cliente do orçamento
+  const buildCandidatosExtras = (): ZapExtraSigner[] => {
+    const out: ZapExtraSigner[] = [];
+    const push = (nome?: string, email?: string, tel?: string) => {
+      if (!nome && !email) return;
+      out.push({
+        name: nome || '',
+        email: email || '',
+        phone_number: (tel || '').replace(/\D/g, ''),
+      });
+    };
+    // Representante PJ
+    if (responsavelPJ) push(responsavelPJ.nome, responsavelPJ.email, responsavelPJ.telefone);
+    // Pessoas físicas
+    (pessoasFisicas || []).forEach((pf) => push(pf?.nome, pf?.email, pf?.telefone));
+    // Contato geral do cliente
+    push(dadosCliente.razao_social || orcamento.nome_cliente, dadosCliente.email, dadosCliente.telefone);
+    // Dedup
+    const seen = new Set<string>();
+    return out.filter((s) => {
+      const key = (s.email || s.name).toLowerCase().trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const adicionarSignatarioZap = () => {
+    setZapExtraSigners((prev) => {
+      const candidatos = buildCandidatosExtras();
+      const k = (s: { name?: string; email?: string }) => (s.email || s.name || '').toLowerCase().trim();
+      const usados = new Set<string>();
+      usados.add(k({ name: zapSignCampos?.signer_name, email: zapSignCampos?.signer_email }));
+      prev.forEach((s) => usados.add(k(s)));
+      const proximo = candidatos.find((c) => {
+        const key = k(c);
+        return key && !usados.has(key);
+      });
+      return [...prev, proximo || { name: '', email: '', phone_number: '' }];
+    });
+  };
+
   const updateZapCampo = (k: keyof ZapSignCampos, v: string) => {
     setZapSignCampos(prev => prev ? { ...prev, [k]: v } : prev);
   };
@@ -861,7 +903,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setZapExtraSigners((p) => [...p, { name: '', email: '', phone_number: '' }])}
+                        onClick={adicionarSignatarioZap}
                       >
                         <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
                       </Button>
