@@ -273,15 +273,32 @@ const DetalhesPedidoDialog = ({
               <Separator />
               <Section icon={Layers} title="Serviços de Marca">
                 <div className="space-y-2">
-                  {servicos.map((s: any, idx: number) => (
-                    <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-sm">{s.nome_plano}</span>
-                        <span className="font-semibold text-sm text-primary">{formatCurrency(s.valor)}</span>
+                  {servicos.map((s: any, idx: number) => {
+                    const entregaveis: Array<{ nome: string; incluso: boolean; quantidade: number }> = s.entregaveis || [];
+                    const inclusos = entregaveis.filter((e) => e.incluso);
+                    const det = s.setup_detalhes;
+                    return (
+                      <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-1">
+                        <div className="flex justify-between items-center gap-2">
+                          <span className="font-medium text-sm">{s.nome_plano}</span>
+                          <span className="font-semibold text-sm text-primary whitespace-nowrap">{formatCurrency(s.valor)}</span>
+                        </div>
+                        {s.descricao && <p className="text-xs text-muted-foreground">{s.descricao}</p>}
+                        {det?.perfil && (
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Perfil: {det.perfil === 'novo_produtor' ? 'Novo Produtor' : 'Produtor Experiente'}
+                          </p>
+                        )}
+                        {inclusos.length > 0 && (
+                          <ul className="mt-1 space-y-0.5 border-l-2 border-primary/30 pl-2">
+                            {inclusos.map((e, i) => (
+                              <li key={i} className="text-xs text-foreground/80">• {e.nome}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      {s.descricao && <p className="text-xs text-muted-foreground">{s.descricao}</p>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Section>
             </>
