@@ -301,21 +301,52 @@ export default function GerarOrcamentoDialog({
     });
   }, [numProdutos, produtosPorTipo]);
 
-  // ── Setup cost calculations (novo fluxo: planos com preço fixo) ──
+  // ── Setup cost calculations ──
+  // Fluxo "Novo Produtor": planos fixos vindos de setup_planos
   const planosSelecionados: PlanoSelecionado[] = useMemo(
     () => buildPlanosSelecionados(setupPlanosDoPerfil, planoQtdMap),
     [setupPlanosDoPerfil, planoQtdMap]
   );
 
-  const precoVendaSetup = useMemo(
-    () => planosSelecionados.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0),
-    [planosSelecionados]
-  );
+  // Fluxo "Produtor Experiente": setup personalizado (custos + margem/valor fixo)
+  const custoTotalSetupLegacy = useMemo(() => {
+    let total = 0;
+    setupItems.forEach((item) => {
+      if (item.selecionado) total += item.custoUnitario * item.quantidade;
+    });
+    if (setupImpressaoSelecionado) {
+      setupImpressaoItens.forEach((item) => {
+        total += item.custoUnitario * item.quantidade;
+      });
+    }
+    return total;
+  }, [setupItems, setupImpressaoSelecionado, setupImpressaoItens]);
 
-  // Mantidos para compatibilidade com handlers/dialogs legados (sem uso ativo no novo fluxo)
-  const custoTotalSetup = precoVendaSetup;
-  const margemEfetiva = 0;
-  const validacaoMargemSetup = validarMargemPorTipo(0, 'Setup');
+  const precoVendaSetupLegacy = useMemo(() => {
+    if (custoTotalSetupLegacy === 0) return 0;
+    if (modoCalculoSetup === 'valor_fixo') return valorFixoSetup;
+    const divisor = 1 - 0.06 - 0.05 - 0.05 - (margemSetup / 100);
+    if (divisor <= 0) return 0;
+    return custoTotalSetupLegacy / divisor;
+  }, [custoTotalSetupLegacy, margemSetup, modoCalculoSetup, valorFixoSetup]);
+
+  const margemEfetivaLegacy = useMemo(() => {
+    if (precoVendaSetupLegacy <= 0) return 0;
+    // margem líquida após custos, taxa antecipação 6%, imposto 5%, comissão 5%
+    return (1 - custoTotalSetupLegacy / precoVendaSetupLegacy - 0.06 - 0.05 - 0.05) * 100;
+  }, [precoVendaSetupLegacy, custoTotalSetupLegacy]);
+
+  // Valores efetivos (dependem do perfil escolhido)
+  const isPerfilExperiente = setupPerfil === 'produtor_experiente';
+  const precoVendaSetup = isPerfilExperiente
+    ? precoVendaSetupLegacy
+    : planosSelecionados.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
+  const custoTotalSetup = isPerfilExperiente ? custoTotalSetupLegacy : precoVendaSetup;
+  const margemEfetiva = isPerfilExperiente ? margemEfetivaLegacy : 0;
+  const validacaoMargemSetup = validarMargemPorTipo(
+    isPerfilExperiente ? margemEfetivaLegacy : 0,
+    'Setup'
+  );
 
   // Carregar dados se editando
   useEffect(() => {
@@ -339,10 +370,11 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
-      // Restore setup (novo formato baseado em planos)
+      // Restore setup
       const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
-        (s: any) => s.nome_plano === 'Setup' || s?.setup_detalhes?.plano_id
+        (s: any) => s.nome_plano === 'Setup' || (s.nome_plano || '').startsWith('Setup') || s?.setup_detalhes
       );
+      // 1) Tenta formato "Novo Produtor" (planos fixos)
       const restoredMap: Record<string, number> = {};
       let restoredPerfil: SetupPlanoPerfil | null = null;
       for (const s of servicosSetup) {
@@ -352,8 +384,23 @@ export default function GerarOrcamentoDialog({
           if (!restoredPerfil && det.perfil) restoredPerfil = det.perfil;
         }
       }
-      if (restoredPerfil) setSetupPerfil(restoredPerfil);
-      if (Object.keys(restoredMap).length > 0) setPlanoQtdMap(restoredMap);
+      if (Object.keys(restoredMap).length > 0) {
+        setSetupPerfil(restoredPerfil || 'novo_produtor');
+        setPlanoQtdMap(restoredMap);
+      } else {
+        // 2) Formato "Produtor Experiente" (legado, plano personalizado)
+        const legacy = servicosSetup.find((s: any) => (s as any).setup_detalhes?.items);
+        if (legacy) {
+          const det: any = (legacy as any).setup_detalhes;
+          setSetupPerfil('produtor_experiente');
+          if (Array.isArray(det.items)) setSetupItems(det.items);
+          if (det.impressao_selecionado !== undefined) setSetupImpressaoSelecionado(!!det.impressao_selecionado);
+          if (Array.isArray(det.impressao_itens)) setSetupImpressaoItens(det.impressao_itens);
+          if (det.margem !== undefined) setMargemSetup(Number(det.margem) || 0);
+          if (det.modo_calculo) setModoCalculoSetup(det.modo_calculo === 'valor_fixo' ? 'valor_fixo' : 'margem');
+          if (det.valor_fixo !== undefined) setValorFixoSetup(Number(det.valor_fixo) || 0);
+        }
+      }
     }
   }, [orcamentoExistente]);
 
@@ -364,6 +411,46 @@ export default function GerarOrcamentoDialog({
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
+    // Fluxo "Produtor Experiente": uma entrada única "Setup personalizado"
+    if (isPerfilExperiente) {
+      if (custoTotalSetupLegacy === 0) return [];
+      const entregaveis: Entregavel[] = [];
+      setupItems.filter((i) => i.selecionado && i.quantidade > 0).forEach((item) => {
+        entregaveis.push({
+          nome: `${item.nome} (${item.quantidade}x)`,
+          incluso: true,
+          quantidade: item.quantidade,
+        });
+      });
+      if (setupImpressaoSelecionado) {
+        setupImpressaoItens.filter((i) => i.quantidade > 0).forEach((item) => {
+          entregaveis.push({
+            nome: `Impressão de rótulos - ${item.tipoProduto} (${item.quantidade}x)`,
+            incluso: true,
+            quantidade: item.quantidade,
+          });
+        });
+      }
+      return [{
+        nome_plano: 'Setup',
+        descricao: modoCalculoSetup === 'valor_fixo'
+          ? `Custo: ${formatCurrency(custoTotalSetupLegacy)} | Valor fixo`
+          : `Custo: ${formatCurrency(custoTotalSetupLegacy)} | Margem: ${margemSetup}%`,
+        valor: precoVendaSetupLegacy,
+        entregaveis,
+        setup_detalhes: {
+          perfil: 'produtor_experiente',
+          items: setupItems,
+          impressao_selecionado: setupImpressaoSelecionado,
+          impressao_itens: setupImpressaoItens,
+          margem: margemSetup,
+          modo_calculo: modoCalculoSetup,
+          valor_fixo: valorFixoSetup,
+          custo_total: custoTotalSetupLegacy,
+        },
+      } as any];
+    }
+    // Fluxo "Novo Produtor": uma entrada por plano fixo selecionado
     if (planosSelecionados.length === 0) return [];
     return planosSelecionados.map((p) => {
       const bullets = (p.entregaveis_md || '')
