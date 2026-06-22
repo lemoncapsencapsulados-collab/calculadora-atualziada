@@ -610,8 +610,8 @@ export default function GerarOrcamentoDialog({
       return true;
     }
     if (step === 3) {
-      // Block if margin is below minimum and not unlocked
-      if (custoTotalSetup > 0 && validacaoMargemSetup.status === 'baixa' && !setupMargemLiberada) return false;
+      // Etapa opcional no novo fluxo de planos
+      return true;
     }
     return true;
   };
