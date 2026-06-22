@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -164,8 +164,8 @@ function VhsysLogsContent() {
                     const open = !!expandido[e.id];
                     const podeReprocessar = (e.status === 'erro' || e.status === 'pendente') && !!e.id_receita_vhsys;
                     return (
-                      <>
-                        <TableRow key={e.id} className="cursor-pointer" onClick={() => setExpandido(p => ({ ...p, [e.id]: !open }))}>
+                      <Fragment key={e.id}>
+                        <TableRow className="cursor-pointer" onClick={() => setExpandido(p => ({ ...p, [e.id]: !open }))}>
                           <TableCell>
                             {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                           </TableCell>
@@ -195,7 +195,7 @@ function VhsysLogsContent() {
                           </TableCell>
                         </TableRow>
                         {open && (
-                          <TableRow key={e.id + '-d'}>
+                          <TableRow>
                             <TableCell colSpan={8} className="bg-muted/30">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-2">
                                 <div>
@@ -220,7 +220,7 @@ function VhsysLogsContent() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
