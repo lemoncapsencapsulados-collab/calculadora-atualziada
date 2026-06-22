@@ -64,6 +64,42 @@ export type Database = {
           },
         ]
       }
+      clickup_rotulo_config: {
+        Row: {
+          assignee_ids: Json
+          assignee_nomes: Json
+          ativo: boolean
+          created_at: string
+          id: string
+          list_id: string
+          list_nome: string | null
+          prefixo_nome: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_ids?: Json
+          assignee_nomes?: Json
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          list_id: string
+          list_nome?: string | null
+          prefixo_nome?: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_ids?: Json
+          assignee_nomes?: Json
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          list_id?: string
+          list_nome?: string | null
+          prefixo_nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           cep: string | null
