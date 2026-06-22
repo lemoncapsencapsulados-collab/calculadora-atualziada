@@ -14,6 +14,7 @@ const SECRET_SERVICE = Deno.env.get("VHSYS_SECRET_SERVICE")!;
 const WEBHOOK_SECRET = Deno.env.get("VHSYS_WEBHOOK_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -78,18 +79,18 @@ function obsContemNumero(receita: any, numero: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  // Autenticação leve: aceita service role (cron via pg_net) OU x-internal-secret (chamada manual da UI)
+  // Autenticação leve: aceita anon/service role (cron via pg_net) OU x-internal-secret (chamada manual)
   const headerSecret = req.headers.get("x-internal-secret");
-  const auth = req.headers.get("authorization") || "";
+  const auth = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   const okSecret = WEBHOOK_SECRET && headerSecret === WEBHOOK_SECRET;
-  const okServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
-  if (!okSecret && !okServiceRole) {
+  const okBearer = auth === SERVICE_ROLE || auth === ANON_KEY;
+  if (!okSecret && !okBearer) {
     return new Response(JSON.stringify({ error: "Não autorizado" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const origem: "polling" | "manual" = okSecret && !okServiceRole ? "manual" : "polling";
+  const origem: "polling" | "manual" = okSecret ? "manual" : "polling";
 
   // Orçamentos elegíveis: enviado nos últimos 90 dias
   const cutoff = new Date(Date.now() - 90 * 86400_000).toISOString();
