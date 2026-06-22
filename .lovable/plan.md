@@ -1,97 +1,81 @@
-## Reformular Passo 3 (Custo de Setup) — Novo Produtor x Produtor Experiente
+## Objetivo
 
-### 1. Tela inicial do Passo 3 (seleção do perfil)
+No Passo 3 do "Gerar Orçamento", manter o comportamento atual quando o perfil é **Novo Produtor** (4 planos fixos da tabela `setup_planos`), e voltar a UI completa antiga ("plano personalizado") quando o perfil for **Produtor Experiente** — com a seleção de itens (Código de barras, Design de rótulos, Página de vendas, INPI, Impressão por tipo), modo de cálculo (Margem % ou Valor fixo), comissão do vendedor, impostos e margem de lucro.
 
-Antes de mostrar qualquer item, exibir 2 cards grandes lado a lado:
+## Estado atual
 
-- **NOVO PRODUTOR** — "Para clientes que estão começando a marca"
-- **PRODUTOR EXPERIENTE** — "Para clientes com histórico de vendas dos produtos orçados"
-  - Inclui badge/observação: *"Obs: Precisa ter histórico de vendas do(s) produto(s) orçado(s)"*
+- `SetupPlanosStep` mostra a tela de escolha de perfil e, em qualquer perfil escolhido, lista os planos de `setup_planos`.
+- Para "Produtor Experiente" não há planos cadastrados → tela vazia ("Nenhum plano cadastrado").
+- Os estados legados (`setupItems`, `setupImpressaoItens`, `margemSetup`, `modoCalculoSetup`, `valorFixoSetup`, `setupMargemLiberada`, etc.) ainda existem no `GerarOrcamentoDialog`, mas a UI que os renderizava foi removida (presente em commits anteriores, ex.: `d2599cf`).
 
-Botão "Voltar" na lateral permite trocar de perfil depois de escolhido.
+## Mudanças
 
-### 2. Caminho PRODUTOR EXPERIENTE
+### 1. `src/components/orcamento/SetupPlanosStep.tsx`
+- Manter a tela de escolha de perfil (Novo Produtor / Produtor Experiente).
+- Continuar renderizando a lista de planos **apenas** quando `perfil === 'novo_produtor'`.
+- Quando `perfil === 'produtor_experiente'`, expor um "slot" via children/render-prop ou — mais simples — não renderizar a área de planos e devolver controle ao pai. Implementação: adicionar prop `renderCustomBody?: ReactNode` exibida no lugar da grade de planos quando perfil = produtor_experiente. Cabeçalho ("Custo de Setup — Produtor Experiente" + "Trocar perfil") permanece.
 
-Mostra os 4 planos de Produtor Experiente como cards selecionáveis com quantidade (input numérico por plano), permitindo combinações como "1 Start + 1 Branding". A lista mostrada virá de uma tabela configurável (ver §4).
+### 2. `src/components/GerarOrcamentoDialog.tsx` — STEP 3
 
-- Subtotal de setup = soma de (preço fixo do plano × quantidade)
-- Os itens atuais (Código de barras, Design, Página de vendas, INPI, Impressão) **deixam de aparecer neste caminho** — substituídos pelos planos.
+Reintroduzir a UI legada do setup (referência: commit `d2599cf`, linhas ~1338–1730) dentro de um novo bloco renderizado **somente quando `setupPerfil === 'produtor_experiente'`**. Itens:
 
-### 3. Caminho NOVO PRODUTOR
+- Lista de itens fixos com checkbox + quantidade + custo unitário:
+  - Código de barras (R$ 5,70)
+  - Design de rótulos (R$ 200)
+  - Página de vendas (R$ 300)
+  - Registro de Marca no INPI (R$ 880)
+- Card "Custo de Impressão" com checkbox; quando marcado, linhas por tipo de produto (`setupImpressaoItens`) derivadas dos itens de produção, com custo unitário editável (protegido pelo dialog de senha já existente — `senhaImpressaoDialog`).
+- Resumo de custos selecionados (subtotal de custos).
+- Tabs / botões para alternar `modoCalculoSetup` entre **Margem %** e **Valor fixo**:
+  - Margem: input `margemSetup` (com validação por `validarMargemPorTipo` e dialog de senha `senhaSetupDialog` já existentes para liberar margem abaixo do mínimo).
+  - Valor fixo: input `valorFixoSetup`.
+- Componente de margem efetiva e preço final (mesmas regras já existentes em utilitários: comissão consultor, impostos 16%, margem-alvo por tipo).
 
-Mostra os 3 planos fixos como cards selecionáveis (mesma UX de quantidade por plano):
+A renderização desta UI será passada via `renderCustomBody` para o `SetupPlanosStep`.
 
-| Plano | Preço |
-|---|---|
-| FAÇA VOCÊ MESMO | R$ 1.999,90 |
-| START | R$ 2.999,90 |
-| BRANDING | R$ 7.999,90 |
-| PREMIUM | R$ 11.999,90 |
+### 3. Cálculo de `precoVendaSetup` e `buildServicosMarca`
 
-> Obs: o usuário descreveu 4 planos (incluindo "FAÇA VOCÊ MESMO"). Trataremos como 4 planos no caminho Novo Produtor. Caso queira somente 3, basta desativar um na config.
+Adaptar para dois fluxos:
 
-Cada card é expansível mostrando os entregáveis (lista com checkmarks idêntica ao texto enviado).
+```text
+se setupPerfil === 'novo_produtor':
+    precoVendaSetup = Σ (plano.preco_fixo × qtd)   // já existe
+    buildServicosMarca() devolve 1 entrada por plano
 
-### 4. Origem dos dados dos planos
-
-Nova tabela `setup_planos` armazenando os planos de ambos os perfis, com:
-- `perfil` (`novo_produtor` | `produtor_experiente`)
-- `nome`, `preco_fixo`, `descricao_curta`
-- `entregaveis_md` (texto markdown formatado)
-- `ativo`, `ordem`
-
-Seed inicial com os 4 planos de Novo Produtor (textos exatos enviados). Para Produtor Experiente entrará vazio até você informar os planos (mensagem combinada: *"na tela aparecerá somente os planos que eu envie"*) — após o plano aprovado, faremos o seed inicial dos planos que você passar.
-
-Tela de administração simples em `ConfiguracaoContratos` (ou nova subpágina `ConfiguracaoPlanosSetup`) para criar/editar/desativar planos sem precisar de deploy.
-
-### 5. Cálculo e fluxo de preço
-
-- Modo "preço fixo" passa a ser **padrão** para ambos os caminhos.
-- `precoVendaSetup = Σ (plano.preco_fixo × qtd)`.
-- Sem aplicação de margem por cima (você confirmou: substitui o cálculo).
-- Mantém a senha admin para overrides manuais já existente.
-
-### 6. Persistência no Orçamento
-
-Em `servicos_marca`, o item "Setup" passa a guardar:
-
-```json
-{
-  "nome_plano": "Setup",
-  "valor": <total>,
-  "setup_detalhes": {
-    "perfil": "novo_produtor",
-    "planos_selecionados": [
-      { "plano_id": "...", "nome": "START", "quantidade": 1, "preco_unitario": 2999.90, "entregaveis_md": "..." }
-    ],
-    "modo_calculo": "valor_fixo"
-  }
-}
+se setupPerfil === 'produtor_experiente':
+    custoTotalSetup = Σ (setupItems selecionados × qtd × custoUnitario)
+                    + Σ (setupImpressaoItens × qtd × custoUnitario)
+    precoVendaSetup = 
+        modoCalculoSetup === 'valor_fixo'
+            ? valorFixoSetup
+            : calcular preço a partir do custo + margem + impostos + comissão
+              (mesma fórmula legada já existente nos utilitários)
+    buildServicosMarca() devolve 1 entrada "Setup personalizado" com:
+        - lista de entregáveis = itens selecionados (com qtd)
+        - valor = precoVendaSetup
+        - setup_detalhes = { modo_calculo, margem, valor_fixo,
+                             itens: [...], impressao: [...], perfil: 'produtor_experiente' }
 ```
 
-A descrição renderizada no PDF/visualização do orçamento e do pedido lista cada plano com sua quantidade e entregáveis (markdown → bullets), tudo dentro de uma única linha "Setup — Plano X (qtd)".
+### 4. Restauração de orçamento existente
 
-### 7. Pedido Gerado
+`useEffect` que restaura `orcamentoExistente`:
+- Se algum `servicos_marca[i].setup_detalhes.plano_id` existir → fluxo Novo Produtor (já funciona).
+- Caso contrário, se houver `setup_detalhes` no formato legado (campos `itens`, `impressao`, `modo_calculo`, `margem`, `valor_fixo`) → setar `setupPerfil = 'produtor_experiente'` e restaurar `setupItems`, `setupImpressaoItens`, `margemSetup`, `valorFixoSetup`, `modoCalculoSetup`.
 
-Como o pedido faz snapshot do orçamento (`orcamento_snapshot`), os detalhes do plano fluem automaticamente para o pedido. Vamos:
-- Renderizar a seção "Detalhes do Setup" em `DetalhesPedidoDialog` e no PDF de pedido com o plano + entregáveis.
-- Manter `DemandasSetupResumo` funcionando: se o plano selecionado contém entregáveis mapeáveis (rótulos, página de vendas, INPI), criamos automaticamente as demandas correspondentes ao gerar o pedido (mapping por palavras-chave nos entregáveis do plano).
+### 5. STEP 5 — Resumo
 
-### 8. Detalhes técnicos
+No bloco "SETUP" do resumo:
+- Se `setupPerfil === 'produtor_experiente'`: listar os itens legados selecionados (Código de barras, INPI, Impressão por tipo, etc.) com seus subtotais e o preço final do setup.
+- Se `setupPerfil === 'novo_produtor'`: continuar listando os planos (comportamento atual).
 
-**Arquivos a alterar:**
-- `src/components/GerarOrcamentoDialog.tsx` — substituir a UI do passo 3 pelo novo fluxo (perfil → planos com quantidade).
-- Novo `src/components/orcamento/SetupPerfilPicker.tsx` e `src/components/orcamento/PlanoCard.tsx`.
-- Novo hook `src/hooks/useSetupPlanos.ts` (lista planos ativos por perfil).
-- `src/lib/orcamentoGenerator.ts` / `src/lib/pdfGenerator.ts` / `src/lib/propostaGenerator.ts` — renderizar entregáveis do plano.
-- `src/components/DetalhesPedidoDialog.tsx` — mostrar plano de setup escolhido.
-- `src/lib/entregaveis.ts` — função `derivarDemandasDePlano(plano)` para auto-popular demandas no pedido.
+### 6. Banco de dados
 
-**Migration:**
-- Tabela `setup_planos` com GRANTs + RLS (SELECT para `authenticated`/`anon` para leitura na UI pública do orçamento, INSERT/UPDATE/DELETE só para `authenticated`).
-- Seed dos 4 planos de Novo Produtor com os textos enviados.
+Sem migrações — a tabela `setup_planos` continua existindo, apenas não é consultada para o perfil "Produtor Experiente". Os planos do perfil "produtor_experiente" inseridos em testes podem ficar inativos sem efeito visual.
 
-**Compatibilidade:** orçamentos antigos continuam funcionando porque a leitura de `setup_detalhes` faz fallback para o formato anterior (items + impressao).
+## Arquivos afetados
 
-### Pendente para depois do plano aprovado
-Você me envia os planos de **Produtor Experiente** (nomes, preços, entregáveis) para eu fazer o seed deles.
+- `src/components/orcamento/SetupPlanosStep.tsx` — aceitar `renderCustomBody` e pular grade de planos para "Produtor Experiente".
+- `src/components/GerarOrcamentoDialog.tsx` — reintroduzir UI legada do setup; ajustar `precoVendaSetup`, `buildServicosMarca`, restauração e Step 5.
+
+Nenhum outro arquivo precisa mudar (helpers de cálculo, PDF e propostas já consomem `servicos_marca`/`setup_detalhes` genéricos).
