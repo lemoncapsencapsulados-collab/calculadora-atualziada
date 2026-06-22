@@ -11,6 +11,10 @@ export interface ContratoModelo {
   is_padrao: boolean;
   created_at: string;
   updated_at: string;
+  docx_path?: string | null;
+  docx_nome?: string | null;
+  docx_size_bytes?: number | null;
+  variaveis?: string[] | null;
 }
 
 export type ContratoModeloInput = Omit<ContratoModelo, 'id' | 'created_at' | 'updated_at'>;
