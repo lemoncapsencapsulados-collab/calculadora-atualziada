@@ -51,11 +51,14 @@ Deno.serve(async (req) => {
   try {
     if (action === "list") {
       const resp = await fetch(`${VHSYS_BASE}/webhook`, { headers: vhsysHeaders() });
-      const json = await resp.json().catch(() => ({}));
+      const text = await resp.text();
+      let json: any = {};
+      try { json = JSON.parse(text); } catch { json = { raw: text }; }
       return new Response(JSON.stringify({
         ok: resp.ok,
         status: resp.status,
         webhooks: sanitizeList(json),
+        resposta: json,
         urlEsperada: mask(webhookUrl()),
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
