@@ -204,6 +204,16 @@ Deno.serve(async (req) => {
     return jsonResp({ error: "Erro ao atualizar contrato", details: updErr.message }, 500);
   }
 
+  // Cria automaticamente uma task na lista de Rótulos do ClickUp
+  if (isSigned) {
+    await criarTaskRotuloClickUp(supabase, {
+      signerName: contrato.signer_name,
+      orcamentoId: contrato.orcamento_id,
+      signedFileUrl: updates.signed_file_url || null,
+      signedFileName: `Contrato assinado - ${contrato.signer_name || "ZapSign"}.pdf`,
+    });
+  }
+
   // Marca status_contrato no orçamento e, se VHSys já tiver liquidado, converte em pedido
   let pedidoCriadoId: string | null = null;
   if (contrato.orcamento_id && (isSigned || isRefused)) {
