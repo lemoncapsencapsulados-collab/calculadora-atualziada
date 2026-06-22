@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
+import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 
 interface Props {
   open: boolean;
@@ -92,6 +93,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [modeloId, setModeloId] = useState<string>('');
   const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido));
   const [loading, setLoading] = useState(false);
+  const [askSenhaOpen, setAskSenhaOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -130,7 +132,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'valor_total', label: 'Valor total' },
   ]), []);
 
-  const enviar = async () => {
+  const handleSubmit = () => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo) { toast.error('Selecione um modelo de contrato.'); return; }
     if (!campos.signer_name || !campos.signer_email) {
@@ -138,12 +140,12 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       return;
     }
     if (!pedido) return;
-    const senha = window.prompt('Digite a senha de administrador para enviar o contrato:');
-    if (senha === null) return;
-    if (senha !== '0212') {
-      toast.error('Senha incorreta');
-      return;
-    }
+    setAskSenhaOpen(true);
+  };
+
+  const enviar = async () => {
+    const modelo = modelos.find((m) => m.id === modeloId);
+    if (!modelo || !pedido) return;
     setLoading(true);
     try {
       // Tenta obter cliente_id do orçamento, se houver
@@ -219,6 +221,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -258,12 +261,21 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={enviar} disabled={loading || !modeloId}>
+          <Button onClick={handleSubmit} disabled={loading || !modeloId}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Enviar para ZapSign
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <AdminPasswordDialog
+      open={askSenhaOpen}
+      onOpenChange={setAskSenhaOpen}
+      title="Confirmar envio do contrato"
+      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
+      actionLabel="Enviar contrato"
+      onConfirm={enviar}
+    />
+    </>
   );
 }

@@ -27,6 +27,7 @@ import { usePedidos } from '@/hooks/usePedidos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
+import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -183,6 +184,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);
   const [zapSignDialogOpen, setZapSignDialogOpen] = useState(false);
+  const [askSenhaZapOpen, setAskSenhaZapOpen] = useState(false);
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
@@ -282,12 +284,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
     if (!modelo) {
       toast.error('Selecione um modelo de contrato.');
-      return;
-    }
-    const senha = window.prompt('Digite a senha de administrador para enviar o contrato:');
-    if (senha === null) return;
-    if (senha !== '0212') {
-      toast.error('Senha incorreta');
       return;
     }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
@@ -763,6 +759,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   }, [pdfUrl]);
 
   const zapSignDialog = () => (
+    <>
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -942,13 +939,22 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
-          <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId}>
+          <Button onClick={() => setAskSenhaZapOpen(true)} disabled={zapSignLoading || !modeloSelecionadoId}>
             {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
             {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <AdminPasswordDialog
+      open={askSenhaZapOpen}
+      onOpenChange={setAskSenhaZapOpen}
+      title="Confirmar envio do contrato"
+      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
+      actionLabel="Enviar contrato"
+      onConfirm={handleEnviarZapSign}
+    />
+    </>
   );
 
   if (showPreview && pdfUrl) {
