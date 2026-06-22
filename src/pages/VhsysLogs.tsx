@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronDown, ChevronRight, RefreshCw, PlayCircle, AlertCircle, Info } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, PlayCircle, AlertCircle, Info, Plus, Trash2, Webhook } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -39,6 +39,9 @@ function VhsysLogsContent() {
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
   const [reproc, setReproc] = useState<string | null>(null);
   const [executando, setExecutando] = useState(false);
+  const [webhooks, setWebhooks] = useState<any[] | null>(null);
+  const [urlEsperada, setUrlEsperada] = useState<string>('');
+  const [whLoading, setWhLoading] = useState(false);
 
   const carregar = async () => {
     setLoading(true);
@@ -97,6 +100,33 @@ function VhsysLogsContent() {
     }
   };
 
+  const gerenciarWebhook = async (action: 'list' | 'create' | 'delete', extra: Record<string, any> = {}) => {
+    setWhLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vhsys-gerenciar-webhook', {
+        body: { action, ...extra },
+      });
+      if (error) throw error;
+      const r = data as any;
+      if (action === 'list') {
+        setWebhooks(r?.webhooks || []);
+        setUrlEsperada(r?.urlEsperada || '');
+      } else {
+        if (r?.ok) toast.success(action === 'create' ? 'Webhook criado no VHSys' : 'Webhook removido');
+        else toast.error(`Falha (${r?.status}): ${JSON.stringify(r?.resposta)}`);
+        // re-list
+        const { data: d2 } = await supabase.functions.invoke('vhsys-gerenciar-webhook', { body: { action: 'list' } });
+        const r2 = d2 as any;
+        setWebhooks(r2?.webhooks || []);
+        setUrlEsperada(r2?.urlEsperada || '');
+      }
+    } catch (e) {
+      toast.error('Erro: ' + (e as Error).message);
+    } finally {
+      setWhLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl space-y-4">
       <div className="flex items-center justify-between">
@@ -134,6 +164,68 @@ function VhsysLogsContent() {
           </p>
         </AlertDescription>
       </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Webhook className="w-4 h-4" /> Webhooks no VHSys</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => gerenciarWebhook('list')} disabled={whLoading}>
+              <RefreshCw className={`w-3.5 h-3.5 mr-1 ${whLoading ? 'animate-spin' : ''}`} />
+              Listar webhooks no VHSys
+            </Button>
+            <Button size="sm" onClick={() => gerenciarWebhook('create', { entidade: 'receitas', evento: 'atualizar' })} disabled={whLoading}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Cadastrar webhook (receitas / atualizar)
+            </Button>
+          </div>
+          {urlEsperada && (
+            <p className="text-xs text-muted-foreground">URL esperada: <code>{urlEsperada}</code></p>
+          )}
+          {webhooks !== null && (
+            webhooks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum webhook cadastrado no VHSys ainda.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Entidade</TableHead>
+                      <TableHead>Evento</TableHead>
+                      <TableHead>URL</TableHead>
+                      <TableHead className="text-right">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {webhooks.map((w: any) => (
+                      <TableRow key={w.id || w.id_webhook}>
+                        <TableCell className="text-xs font-mono">{w.id || w.id_webhook}</TableCell>
+                        <TableCell className="text-xs">{w.entidade}</TableCell>
+                        <TableCell className="text-xs">{w.evento}</TableCell>
+                        <TableCell className="text-xs font-mono break-all max-w-md">{w.url}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="ghost"
+                            onClick={() => {
+                              if (confirm('Remover este webhook do VHSys?')) {
+                                gerenciarWebhook('delete', { id: w.id || w.id_webhook });
+                              }
+                            }}
+                            disabled={whLoading}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
