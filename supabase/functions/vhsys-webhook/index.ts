@@ -12,6 +12,8 @@ const WEBHOOK_SECRET = Deno.env.get("VHSYS_WEBHOOK_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const WEBHOOK_USER = "lemoncaps_vhsys";
+
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -37,7 +39,18 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const querySecret = url.searchParams.get("secret");
   const headerSecret = req.headers.get("x-vhsys-secret") || req.headers.get("secret-access-token");
-  const ok = WEBHOOK_SECRET && (headerSecret === WEBHOOK_SECRET || querySecret === WEBHOOK_SECRET);
+
+  // Basic Auth (VHSys envia Authorization: Basic base64(user:password))
+  let basicOk = false;
+  const authz = req.headers.get("authorization") || "";
+  if (authz.toLowerCase().startsWith("basic ")) {
+    try {
+      const [u, p] = atob(authz.slice(6).trim()).split(":");
+      basicOk = u === WEBHOOK_USER && p === WEBHOOK_SECRET;
+    } catch { /* ignore */ }
+  }
+
+  const ok = WEBHOOK_SECRET && (basicOk || headerSecret === WEBHOOK_SECRET || querySecret === WEBHOOK_SECRET);
   if (!ok) {
     return new Response(JSON.stringify({ error: "Não autorizado" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
