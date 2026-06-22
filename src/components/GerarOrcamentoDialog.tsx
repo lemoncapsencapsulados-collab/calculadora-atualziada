@@ -131,6 +131,11 @@ export default function GerarOrcamentoDialog({
   const [senhaSetupInput, setSenhaSetupInput] = useState('');
   const [setupMargemLiberada, setSetupMargemLiberada] = useState(false);
 
+  // Step 3 (novo fluxo): planos de setup por perfil
+  const [setupPerfil, setSetupPerfil] = useState<SetupPlanoPerfil | null>(null);
+  const [planoQtdMap, setPlanoQtdMap] = useState<Record<string, number>>({});
+  const { data: setupPlanosDoPerfil = [] } = useSetupPlanos(setupPerfil ?? undefined);
+
   // Edição de custo de impressão protegida por senha
   const [impressaoEdicaoLiberada, setImpressaoEdicaoLiberada] = useState(false);
   const [senhaImpressaoDialog, setSenhaImpressaoDialog] = useState(false);
