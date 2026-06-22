@@ -4,14 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, RotateCcw, Plus, Trash2, Users, FileEdit } from 'lucide-react';
+import { Loader2, Send, RotateCcw, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
-import { EditorContratoDocxDialog } from '@/components/contrato/EditorContratoDocxDialog';
 
 interface Props {
   open: boolean;
@@ -129,7 +128,6 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [loading, setLoading] = useState(false);
   const [askSenhaOpen, setAskSenhaOpen] = useState(false);
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
-  const [editorOpen, setEditorOpen] = useState(false);
 
   const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido), [pedido?.id]);
 
@@ -202,31 +200,6 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     if (!pedido) return;
     setAskSenhaOpen(true);
   };
-
-  // monta o dicionário de variáveis para mesclagem no .docx
-  const variaveisDocx: Record<string, string> = useMemo(() => ({
-    razao_social: campos.razao_social,
-    cnpj: campos.cnpj,
-    endereco: campos.endereco,
-    email_contratante: campos.email_contratante,
-    telefone_contratante: campos.telefone_contratante,
-    nome_representante: campos.nome_representante,
-    cpf_representante: campos.cpf_representante,
-    numero_contrato: campos.numero_contrato,
-    data_contrato: campos.data_contrato,
-    produto_descricao: campos.produto_descricao,
-    produto_apresentacao: campos.produto_apresentacao,
-    produto_preco_unit: campos.produto_preco_unit,
-    produto_quantidade: campos.produto_quantidade,
-    valor_setup: campos.valor_setup,
-    valor_setup_extenso: campos.valor_setup_extenso,
-    valor_producao: campos.valor_producao,
-    valor_producao_extenso: campos.valor_producao_extenso,
-    valor_total: campos.valor_total,
-    valor_total_extenso: campos.valor_total_extenso,
-    signer_name: campos.signer_name,
-    signer_email: campos.signer_email,
-  }), [campos]);
 
   const enviar = async () => {
     const modelo = modelos.find((m) => m.id === modeloId);
