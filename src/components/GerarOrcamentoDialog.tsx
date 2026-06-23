@@ -728,6 +728,16 @@ export default function GerarOrcamentoDialog({
   const isCatalogo = (cliente: string) => 
     cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
 
+  // Habilita "Revenda Lemon" no Passo 3: todos os itens devem ser fórmulas do Catálogo
+  const todosItensSaoCatalogo = useMemo(() => {
+    if (!itensProducao.length) return false;
+    return itensProducao.every((it) => {
+      if (it.tipo !== 'precificacao' || !it.precificacao_id) return false;
+      const prec = (precificacoes as any[])?.find((p) => p.id === it.precificacao_id);
+      return !!prec && isCatalogo(prec.formulas?.cliente || '');
+    });
+  }, [itensProducao, precificacoes]);
+
   // Precificações disponíveis (excluindo catálogo)
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
