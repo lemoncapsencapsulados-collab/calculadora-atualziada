@@ -212,6 +212,22 @@ export default function ConfiguracaoContratos() {
               <Label>Descrição / observações</Label>
               <Textarea value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} placeholder="Para que serve esse modelo, quando usar..." rows={3} />
             </div>
+            <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+              <div>
+                <Label className="text-sm font-semibold">Cópia automática para email</Label>
+                <p className="text-xs text-muted-foreground">Quando enviar o contrato para a ZapSign, esse email será incluído como signatário adicional e receberá o documento (Word/PDF) automaticamente.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Email</Label>
+                  <Input type="email" value={form.email_envio} onChange={(e) => setForm({ ...form, email_envio: e.target.value })} placeholder="contratos@empresa.com" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Nome do destinatário</Label>
+                  <Input value={form.nome_envio} onChange={(e) => setForm({ ...form, nome_envio: e.target.value })} placeholder="Ex.: Setor de Contratos" />
+                </div>
+              </div>
+            </div>
             <div className="flex items-center justify-between border rounded-lg p-3">
               <div>
                 <Label className="cursor-pointer">Marcar como padrão</Label>

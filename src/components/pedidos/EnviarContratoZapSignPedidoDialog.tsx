@@ -239,6 +239,25 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: campos.valor_total_extenso },
       ];
 
+      // Email configurado no modelo (cópia automática)
+      const extrasConfigurados: ExtraSigner[] = [];
+      if (modelo.email_envio?.trim()) {
+        extrasConfigurados.push({
+          name: (modelo.nome_envio?.trim() || modelo.nome || 'Cópia do contrato'),
+          email: modelo.email_envio.trim(),
+          phone_number: '',
+        });
+      }
+      // Mescla com extras manuais, removendo duplicatas por email
+      const mapExtras = new Map<string, ExtraSigner>();
+      [...extrasConfigurados, ...extraSigners].forEach((s) => {
+        const key = (s.email || s.name).toLowerCase().trim();
+        if (key && !mapExtras.has(key)) mapExtras.set(key, s);
+      });
+      // Não duplica o signatário principal
+      mapExtras.delete((campos.signer_email || '').toLowerCase().trim());
+      const extrasFinal = Array.from(mapExtras.values());
+
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {
           signer_name: campos.signer_name,
@@ -253,7 +272,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           pedido_id: pedido.id,
           orcamento_id: pedido.orcamento_id ?? null,
           cliente_id,
-          extra_signers: extraSigners
+          extra_signers: extrasFinal
             .filter((s) => s.name?.trim() && s.email?.trim())
             .map((s) => ({
               name: s.name.trim(),
