@@ -338,10 +338,13 @@ export default function GerarOrcamentoDialog({
 
   // Valores efetivos (dependem do perfil escolhido)
   const isPerfilExperiente = setupPerfil === 'produtor_experiente';
-  const precoVendaSetup = isPerfilExperiente
+  const isRevendaLemon = setupPerfil === 'revenda_lemon';
+  const precoVendaSetup = isRevendaLemon
+    ? 0
+    : isPerfilExperiente
     ? precoVendaSetupLegacy
     : planosSelecionados.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
-  const custoTotalSetup = isPerfilExperiente ? custoTotalSetupLegacy : precoVendaSetup;
+  const custoTotalSetup = isRevendaLemon ? 0 : isPerfilExperiente ? custoTotalSetupLegacy : precoVendaSetup;
   const margemEfetiva = isPerfilExperiente ? margemEfetivaLegacy : 0;
   const validacaoMargemSetup = validarMargemPorTipo(
     isPerfilExperiente ? margemEfetivaLegacy : 0,
