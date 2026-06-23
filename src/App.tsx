@@ -18,6 +18,7 @@ import PainelAdministrador from "./pages/PainelAdministrador";
 import SucessoCliente from "./pages/SucessoCliente";
 import ConfiguracaoContratos from "./pages/ConfiguracaoContratos";
 import VhsysLogs from "./pages/VhsysLogs";
+import EmailLogs from "./pages/EmailLogs";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -93,6 +94,7 @@ const AppContent = () => {
           <Route path="/painel-administrador" element={<PainelAdministrador />} />
           <Route path="/configuracao-contratos" element={<ConfiguracaoContratos />} />
           <Route path="/vhsys-logs" element={<VhsysLogs />} />
+          <Route path="/email-logs" element={<EmailLogs />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
