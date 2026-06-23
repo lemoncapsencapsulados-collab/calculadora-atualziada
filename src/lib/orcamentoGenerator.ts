@@ -663,6 +663,9 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
       const nomeNormalizado = String(ent.nome || '')
         .replace(/[\u00A0\u2007\u202F]/g, ' ') // NBSP e variantes
         .replace(/[\t\r\n]+/g, ' ')
+        // Remove emojis e símbolos não suportados pelo Helvetica que quebram
+        // a medição de largura do splitTextToSize (✅ ❌ 🤝 etc.)
+        .replace(/[\u2700-\u27BF\u2600-\u26FF\u2300-\u23FF\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F6FF}\u{1F900}-\u{1F9FF}]/gu, '')
         .replace(/\s+/g, ' ')
         .trim();
       const linhas = doc.splitTextToSize(`• ${nomeNormalizado}${qtdLabel}`, maxWidth) as string[];
