@@ -1451,6 +1451,8 @@ export default function GerarOrcamentoDialog({
               onPerfilChange={setSetupPerfil}
               selecionados={planoQtdMap}
               onSelecionadosChange={setPlanoQtdMap}
+              revendaDisponivel={todosItensSaoCatalogo}
+              revendaMotivoBloqueio="Disponível apenas quando todos os itens são fórmulas do Catálogo."
               renderCustomBody={isPerfilExperiente ? (
                 <div className="space-y-4">
                   {/* Setup items */}
