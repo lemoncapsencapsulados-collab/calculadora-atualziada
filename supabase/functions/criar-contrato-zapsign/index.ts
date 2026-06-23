@@ -129,6 +129,39 @@ Deno.serve(async (req) => {
     const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
     console.log("[criar-contrato-zapsign] extras recebidos:", JSON.stringify(extras));
 
+    // Busca email_envio/nome_envio configurado no modelo de contrato e adiciona como cópia
+    try {
+      const supaUrl0 = Deno.env.get("SUPABASE_URL");
+      const serviceRole0 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supaUrl0 && serviceRole0) {
+        const admin0 = createClient(supaUrl0, serviceRole0, { auth: { persistSession: false } });
+        const { data: modelo } = await admin0
+          .from("contrato_modelos")
+          .select("email_envio, nome_envio")
+          .eq("template_id", templateId)
+          .limit(1)
+          .maybeSingle();
+        const emailCopia = (modelo?.email_envio || "").trim();
+        if (emailCopia) {
+          const ja = new Set<string>([
+            (body.signer_email || "").toLowerCase().trim(),
+            ...extras.map((s) => (s.email || "").toLowerCase().trim()),
+          ]);
+          if (!ja.has(emailCopia.toLowerCase())) {
+            extras.push({
+              name: (modelo?.nome_envio || "Cópia").trim(),
+              email: emailCopia,
+              phone_country: "55",
+              phone_number: "",
+            });
+            console.log("[criar-contrato-zapsign] cópia do modelo adicionada:", emailCopia);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[criar-contrato-zapsign] falha ao carregar cópia do modelo:", e);
+    }
+
     const zapPayload: Record<string, unknown> = {
       template_id: templateId,
       signer_name: body.signer_name,
