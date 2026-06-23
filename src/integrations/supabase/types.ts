@@ -300,9 +300,11 @@ export type Database = {
           docx_nome: string | null
           docx_path: string | null
           docx_size_bytes: number | null
+          email_envio: string | null
           id: string
           is_padrao: boolean
           nome: string
+          nome_envio: string | null
           template_id: string
           updated_at: string
           variaveis: Json | null
@@ -314,9 +316,11 @@ export type Database = {
           docx_nome?: string | null
           docx_path?: string | null
           docx_size_bytes?: number | null
+          email_envio?: string | null
           id?: string
           is_padrao?: boolean
           nome: string
+          nome_envio?: string | null
           template_id: string
           updated_at?: string
           variaveis?: Json | null
@@ -328,9 +332,11 @@ export type Database = {
           docx_nome?: string | null
           docx_path?: string | null
           docx_size_bytes?: number | null
+          email_envio?: string | null
           id?: string
           is_padrao?: boolean
           nome?: string
+          nome_envio?: string | null
           template_id?: string
           updated_at?: string
           variaveis?: Json | null
