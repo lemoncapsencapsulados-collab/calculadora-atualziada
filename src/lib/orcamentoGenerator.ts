@@ -588,7 +588,10 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 }
 
 function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
-  if (!orcamento.servicos_marca || orcamento.servicos_marca.length === 0) {
+  const servicosVisiveis = (orcamento.servicos_marca || []).filter(
+    (s: any) => s?.setup_detalhes?.perfil !== 'revenda_lemon'
+  );
+  if (servicosVisiveis.length === 0) {
     return yPos;
   }
 
@@ -597,7 +600,7 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   yPos = renderSectionTitle(doc, 'Serviços de Marca', yPos);
 
   // Tabela de serviços
-  const servicosData = orcamento.servicos_marca.map((servico) => [
+  const servicosData = servicosVisiveis.map((servico) => [
     servico.nome_plano,
     servico.descricao || '-',
     formatCurrency(servico.valor),
@@ -633,7 +636,7 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   yPos = (doc as any).lastAutoTable.finalY + 5;
 
   // Renderizar entregáveis de cada serviço
-  for (const servico of orcamento.servicos_marca) {
+  for (const servico of servicosVisiveis) {
     const entregaveis = (servico as any).entregaveis as Array<{ nome: string; incluso: boolean; quantidade: number }> | undefined;
     if (!entregaveis || entregaveis.length === 0) continue;
 
