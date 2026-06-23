@@ -321,9 +321,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   const [zapCnpjLoading, setZapCnpjLoading] = useState(false);
   const [zapUltimoCnpj, setZapUltimoCnpj] = useState('');
-  const consultarCnpjZap = async (cnpjRaw: string) => {
+  const consultarCnpjZap = async (cnpjRaw: string, force = false) => {
     const nums = (cnpjRaw || '').replace(/\D/g, '');
-    if (nums.length !== 14 || nums === zapUltimoCnpj) return;
+    if (nums.length !== 14) return;
+    if (!force && nums === zapUltimoCnpj) return;
     setZapUltimoCnpj(nums);
     setZapCnpjLoading(true);
     try {
@@ -1000,7 +1001,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                             variant="outline"
                             size="icon"
                             title="Consultar CNPJ na Receita"
-                            onClick={() => consultarCnpjZap(zapSignCampos.cnpj)}
+                            onClick={() => consultarCnpjZap(zapSignCampos.cnpj, true)}
                             disabled={zapCnpjLoading || (zapSignCampos.cnpj || '').replace(/\D/g, '').length !== 14}
                           >
                             {zapCnpjLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
