@@ -340,10 +340,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       const telefone = [d.ddd_telefone_1, d.ddd_telefone_2].filter(Boolean).join(' / ');
       setZapSignCampos(prev => prev ? {
         ...prev,
-        razao_social: prev.razao_social?.trim() ? prev.razao_social : (d.razao_social || d.nome_fantasia || ''),
-        endereco: prev.endereco?.trim() ? prev.endereco : endereco,
-        email_contratante: prev.email_contratante?.trim() ? prev.email_contratante : (d.email || ''),
-        telefone_contratante: prev.telefone_contratante?.trim() ? prev.telefone_contratante : telefone,
+        razao_social: (d.razao_social || d.nome_fantasia || prev.razao_social || ''),
+        endereco: endereco || prev.endereco,
+        email_contratante: (d.email || prev.email_contratante || ''),
+        telefone_contratante: telefone || prev.telefone_contratante || '',
       } : prev);
       toast.success('Dados do CNPJ preenchidos automaticamente.');
     } catch (e: any) {
