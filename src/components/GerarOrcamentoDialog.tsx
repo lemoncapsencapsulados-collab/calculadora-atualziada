@@ -380,6 +380,12 @@ export default function GerarOrcamentoDialog({
       // 1) Tenta formato "Novo Produtor" (planos fixos)
       const restoredMap: Record<string, number> = {};
       let restoredPerfil: SetupPlanoPerfil | null = null;
+      // 0) Tenta perfil "Revenda Lemon"
+      const revenda = servicosSetup.find((s: any) => (s as any).setup_detalhes?.perfil === 'revenda_lemon');
+      if (revenda) {
+        setSetupPerfil('revenda_lemon');
+        return;
+      }
       for (const s of servicosSetup) {
         const det: any = (s as any).setup_detalhes;
         if (det?.plano_id) {
