@@ -319,6 +319,39 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     setZapSignCampos(prev => prev ? { ...prev, [k]: v } : prev);
   };
 
+  const [zapCnpjLoading, setZapCnpjLoading] = useState(false);
+  const [zapUltimoCnpj, setZapUltimoCnpj] = useState('');
+  const consultarCnpjZap = async (cnpjRaw: string) => {
+    const nums = (cnpjRaw || '').replace(/\D/g, '');
+    if (nums.length !== 14 || nums === zapUltimoCnpj) return;
+    setZapUltimoCnpj(nums);
+    setZapCnpjLoading(true);
+    try {
+      const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${nums}`);
+      if (!resp.ok) { toast.error('CNPJ não encontrado na Receita.'); return; }
+      const d = await resp.json();
+      const endereco = [
+        [d.logradouro, d.numero].filter(Boolean).join(', '),
+        d.complemento, d.bairro,
+        d.municipio && d.uf ? `${d.municipio} - ${d.uf}` : (d.municipio || d.uf),
+        d.cep ? `CEP ${String(d.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+      ].filter(Boolean).join(' - ');
+      const telefone = [d.ddd_telefone_1, d.ddd_telefone_2].filter(Boolean).join(' / ');
+      setZapSignCampos(prev => prev ? {
+        ...prev,
+        razao_social: prev.razao_social?.trim() ? prev.razao_social : (d.razao_social || d.nome_fantasia || ''),
+        endereco: prev.endereco?.trim() ? prev.endereco : endereco,
+        email_contratante: prev.email_contratante?.trim() ? prev.email_contratante : (d.email || ''),
+        telefone_contratante: prev.telefone_contratante?.trim() ? prev.telefone_contratante : telefone,
+      } : prev);
+      toast.success('Dados do CNPJ preenchidos automaticamente.');
+    } catch (e: any) {
+      toast.error(`Falha ao consultar CNPJ: ${e?.message || 'erro'}`);
+    } finally {
+      setZapCnpjLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (zapSignDialogOpen && !modeloSelecionadoId && modelosContrato.length > 0) {
       const padrao = modelosContrato.find(m => m.is_padrao);
@@ -951,8 +984,15 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         <Input value={zapSignCampos.razao_social} onChange={(e) => updateZapCampo('razao_social', e.target.value)} />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">CNPJ / CPF</Label>
-                        <Input value={zapSignCampos.cnpj} onChange={(e) => updateZapCampo('cnpj', e.target.value)} />
+                        <Label className="text-xs flex items-center gap-2">
+                          CNPJ / CPF
+                          {zapCnpjLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                        </Label>
+                        <Input
+                          value={zapSignCampos.cnpj}
+                          onChange={(e) => updateZapCampo('cnpj', e.target.value)}
+                          onBlur={(e) => consultarCnpjZap(e.target.value)}
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Telefone do contratante</Label>
