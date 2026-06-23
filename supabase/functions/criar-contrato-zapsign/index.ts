@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
     const baseUrl = resolveBaseUrl(body.ambiente, defaultBaseUrl);
 
     const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
+    console.log("[criar-contrato-zapsign] extras recebidos:", JSON.stringify(extras));
 
     const zapPayload: Record<string, unknown> = {
       template_id: templateId,
@@ -176,6 +177,7 @@ Deno.serve(async (req) => {
       const addSignerUrl = `${baseUrl}/docs/${docToken}/add-signer/`;
       const addedSigners: any[] = [];
       for (const s of extras) {
+        console.log("[criar-contrato-zapsign] add-signer ->", s.email, "doc:", docToken);
         try {
           const addResp = await fetch(addSignerUrl, {
             method: "POST",
@@ -196,6 +198,7 @@ Deno.serve(async (req) => {
           const addText = await addResp.text();
           let addJson: any = null;
           try { addJson = addText ? JSON.parse(addText) : null; } catch { /* */ }
+          console.log("[criar-contrato-zapsign] add-signer resp:", addResp.status, addText?.slice(0, 500));
           if (!addResp.ok) {
             console.error("add-signer falhou:", addResp.status, addJson ?? addText);
             addedSigners.push({ error: true, status: addResp.status, details: addJson ?? addText, signer: s });
