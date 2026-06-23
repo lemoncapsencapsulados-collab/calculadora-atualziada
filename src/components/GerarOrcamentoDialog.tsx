@@ -414,6 +414,16 @@ export default function GerarOrcamentoDialog({
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
+    // Fluxo "Revenda Lemon": entrada simbólica (valor 0) só para restaurar perfil
+    if (isRevendaLemon) {
+      return [{
+        nome_plano: 'Revenda Lemon',
+        descricao: 'Sem custo de setup — somente custo de produção',
+        valor: 0,
+        entregaveis: [],
+        setup_detalhes: { perfil: 'revenda_lemon' },
+      } as any];
+    }
     // Fluxo "Produtor Experiente": uma entrada única "Setup personalizado"
     if (isPerfilExperiente) {
       if (custoTotalSetupLegacy === 0) return [];
