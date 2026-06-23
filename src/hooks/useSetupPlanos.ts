@@ -23,7 +23,7 @@ export function useSetupPlanos(perfil?: SetupPlanoPerfil | null) {
         .select('*')
         .eq('ativo', true)
         .order('ordem', { ascending: true });
-      if (perfil) q = q.eq('perfil', perfil);
+      if (perfil) q = q.eq('perfil', perfil as any);
       const { data, error } = await q;
       if (error) throw error;
       return (data || []) as any;
