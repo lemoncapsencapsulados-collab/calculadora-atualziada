@@ -128,6 +128,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [loading, setLoading] = useState(false);
   const [askSenhaOpen, setAskSenhaOpen] = useState(false);
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
+  const [consultandoCnpj, setConsultandoCnpj] = useState(false);
+  const [ultimoCnpjConsultado, setUltimoCnpjConsultado] = useState<string>('');
 
   const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido), [pedido?.id]);
 
@@ -161,6 +163,42 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   }, [open, modelos, modeloId]);
 
   const upd = (k: keyof Campos, v: string) => setCampos((p) => ({ ...p, [k]: v }));
+
+  const consultarCnpj = async (cnpjRaw: string) => {
+    const nums = (cnpjRaw || '').replace(/\D/g, '');
+    if (nums.length !== 14) return;
+    if (nums === ultimoCnpjConsultado) return;
+    setUltimoCnpjConsultado(nums);
+    setConsultandoCnpj(true);
+    try {
+      const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${nums}`);
+      if (!resp.ok) {
+        toast.error('CNPJ não encontrado na Receita.');
+        return;
+      }
+      const d = await resp.json();
+      const endereco = [
+        [d.logradouro, d.numero].filter(Boolean).join(', '),
+        d.complemento,
+        d.bairro,
+        d.municipio && d.uf ? `${d.municipio} - ${d.uf}` : (d.municipio || d.uf),
+        d.cep ? `CEP ${String(d.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+      ].filter(Boolean).join(' - ');
+      const telefone = [d.ddd_telefone_1, d.ddd_telefone_2].filter(Boolean).join(' / ');
+      setCampos((p) => ({
+        ...p,
+        razao_social: p.razao_social?.trim() ? p.razao_social : (d.razao_social || d.nome_fantasia || ''),
+        endereco: p.endereco?.trim() ? p.endereco : endereco,
+        email_contratante: p.email_contratante?.trim() ? p.email_contratante : (d.email || ''),
+        telefone_contratante: p.telefone_contratante?.trim() ? p.telefone_contratante : telefone,
+      }));
+      toast.success('Dados do CNPJ preenchidos automaticamente.');
+    } catch (e: any) {
+      toast.error(`Falha ao consultar CNPJ: ${e?.message || 'erro'}`);
+    } finally {
+      setConsultandoCnpj(false);
+    }
+  };
 
   const fields: Array<{ k: keyof Campos; label: string; full?: boolean }> = useMemo(() => ([
     { k: 'signer_name', label: 'Nome do signatário' },
@@ -337,8 +375,17 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {fields.map((f) => (
               <div key={f.k} className={`space-y-1 ${f.full ? 'md:col-span-2' : ''}`}>
-                <Label className="text-xs">{f.label}</Label>
-                <Input value={campos[f.k]} onChange={(e) => upd(f.k, e.target.value)} />
+                <Label className="text-xs flex items-center gap-2">
+                  {f.label}
+                  {f.k === 'cnpj' && consultandoCnpj && (
+                    <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                  )}
+                </Label>
+                <Input
+                  value={campos[f.k]}
+                  onChange={(e) => upd(f.k, e.target.value)}
+                  onBlur={f.k === 'cnpj' ? (e) => consultarCnpj(e.target.value) : undefined}
+                />
               </div>
             ))}
           </div>
