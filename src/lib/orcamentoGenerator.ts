@@ -653,11 +653,19 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.textDark);
+    const pageWidthEnt = getPageWidth(doc);
+    const indent = LAYOUT.margin + 10;
+    const maxWidth = pageWidthEnt - indent - LAYOUT.margin;
     for (const ent of inclusos) {
-      yPos = checkPageBreak(doc, yPos, 5);
       const qtdLabel = ent.quantidade > 1 ? ` (${ent.quantidade}x)` : '';
-      doc.text(`• ${ent.nome}${qtdLabel}`, LAYOUT.margin + 10, yPos);
-      yPos += 5;
+      const linhas = doc.splitTextToSize(`• ${ent.nome}${qtdLabel}`, maxWidth) as string[];
+      for (let i = 0; i < linhas.length; i++) {
+        yPos = checkPageBreak(doc, yPos, 5);
+        // Indenta as linhas de continuação um pouco para preservar leitura do bullet
+        const x = i === 0 ? indent : indent + 3;
+        doc.text(linhas[i], x, yPos);
+        yPos += 5;
+      }
     }
     yPos += 3;
   }
