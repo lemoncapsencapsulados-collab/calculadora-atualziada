@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings2, ArrowLeft, Sparkles, Trophy, AlertTriangle, Plus, Minus } from 'lucide-react';
+import { Settings2, ArrowLeft, Sparkles, Trophy, AlertTriangle, Plus, Minus, Store, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
 import { useSetupPlanos, SetupPlano, SetupPlanoPerfil, parseEntregaveisMd } from '@/hooks/useSetupPlanos';
@@ -30,10 +30,15 @@ interface Props {
    * (custo personalizado com margem/valor fixo).
    */
   renderCustomBody?: ReactNode;
+  /** Habilita o card "Revenda Lemon" (só quando todos os itens são do Catálogo) */
+  revendaDisponivel?: boolean;
+  /** Texto exibido quando o card "Revenda Lemon" está desabilitado */
+  revendaMotivoBloqueio?: string;
 }
 
-const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosChange, renderCustomBody }: Props) => {
-  const { data: planos = [], isLoading } = useSetupPlanos(perfil ?? undefined);
+const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosChange, renderCustomBody, revendaDisponivel = false, revendaMotivoBloqueio }: Props) => {
+  const planosPerfil = perfil === 'revenda_lemon' ? undefined : perfil ?? undefined;
+  const { data: planos = [], isLoading } = useSetupPlanos(planosPerfil);
 
   const totalSetup = useMemo(() => {
     return planos.reduce((acc, p) => acc + (selecionados[p.id] || 0) * p.preco_fixo, 0);
@@ -59,7 +64,7 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
           Selecione o perfil do produtor para ver os planos disponíveis.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             type="button"
             onClick={() => onPerfilChange('novo_produtor')}
@@ -97,6 +102,40 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
               </p>
             </div>
           </button>
+
+          <button
+            type="button"
+            disabled={!revendaDisponivel}
+            onClick={() => revendaDisponivel && onPerfilChange('revenda_lemon')}
+            className={cn(
+              'text-left rounded-xl border-2 p-6 transition-all focus:outline-none focus:ring-2',
+              revendaDisponivel
+                ? 'border-emerald-400/40 bg-card hover:border-emerald-500 hover:shadow-md focus:ring-emerald-500 cursor-pointer'
+                : 'border-muted bg-muted/30 opacity-70 cursor-not-allowed'
+            )}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className={cn('rounded-lg p-2.5', revendaDisponivel ? 'bg-emerald-500/10' : 'bg-muted')}>
+                {revendaDisponivel ? (
+                  <Store className="h-6 w-6 text-emerald-600" />
+                ) : (
+                  <Lock className="h-6 w-6 text-muted-foreground" />
+                )}
+              </div>
+              <h4 className="text-lg font-bold">REVENDA LEMON</h4>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Para clientes que apenas revendem produtos Lemon. Sem custo de setup — apenas custo de produção.
+            </p>
+            {!revendaDisponivel && (
+              <div className="flex items-start gap-2 rounded-md bg-muted border p-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  {revendaMotivoBloqueio || 'Disponível apenas quando todos os itens são fórmulas do Catálogo.'}
+                </p>
+              </div>
+            )}
+          </button>
         </div>
       </div>
     );
@@ -109,8 +148,14 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
         <h3 className="font-semibold text-lg flex items-center gap-2">
           <Settings2 className="w-5 h-5" />
           Custo de Setup —{' '}
-          <Badge variant={perfil === 'novo_produtor' ? 'default' : 'outline'} className={cn(perfil === 'produtor_experiente' && 'border-amber-500 text-amber-700')}>
-            {perfil === 'novo_produtor' ? 'Novo Produtor' : 'Produtor Experiente'}
+          <Badge
+            variant={perfil === 'novo_produtor' ? 'default' : 'outline'}
+            className={cn(
+              perfil === 'produtor_experiente' && 'border-amber-500 text-amber-700',
+              perfil === 'revenda_lemon' && 'border-emerald-500 text-emerald-700'
+            )}
+          >
+            {perfil === 'novo_produtor' ? 'Novo Produtor' : perfil === 'produtor_experiente' ? 'Produtor Experiente' : 'Revenda Lemon'}
           </Badge>
         </h3>
         <Button
@@ -125,6 +170,25 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
         </Button>
       </div>
 
+      {perfil === 'revenda_lemon' ? (
+        <Card className="bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300">
+          <CardContent className="p-6 space-y-2">
+            <div className="flex items-center gap-2">
+              <Store className="w-5 h-5 text-emerald-600" />
+              <h4 className="font-semibold">Revenda Lemon selecionada</h4>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Este orçamento segue <strong>sem custo de setup</strong> — apenas o custo de produção dos itens do Catálogo.
+            </p>
+            <Separator className="my-2" />
+            <div className="flex justify-between items-center">
+              <span className="font-semibold">Total do Setup</span>
+              <span className="text-2xl font-bold text-emerald-700">{formatCurrency(0)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       <p className="text-sm text-muted-foreground">
         {renderCustomBody
           ? 'Configure os itens, custos e margem do setup personalizado abaixo.'
@@ -234,6 +298,8 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
         <div className="py-4 text-center border rounded-lg bg-muted/30">
           <p className="text-xs text-muted-foreground">Esta seção é opcional. Selecione um plano se houver setup.</p>
         </div>
+      )}
+        </>
       )}
         </>
       )}

@@ -338,10 +338,13 @@ export default function GerarOrcamentoDialog({
 
   // Valores efetivos (dependem do perfil escolhido)
   const isPerfilExperiente = setupPerfil === 'produtor_experiente';
-  const precoVendaSetup = isPerfilExperiente
+  const isRevendaLemon = setupPerfil === 'revenda_lemon';
+  const precoVendaSetup = isRevendaLemon
+    ? 0
+    : isPerfilExperiente
     ? precoVendaSetupLegacy
     : planosSelecionados.reduce((acc, p) => acc + p.preco_unitario * p.quantidade, 0);
-  const custoTotalSetup = isPerfilExperiente ? custoTotalSetupLegacy : precoVendaSetup;
+  const custoTotalSetup = isRevendaLemon ? 0 : isPerfilExperiente ? custoTotalSetupLegacy : precoVendaSetup;
   const margemEfetiva = isPerfilExperiente ? margemEfetivaLegacy : 0;
   const validacaoMargemSetup = validarMargemPorTipo(
     isPerfilExperiente ? margemEfetivaLegacy : 0,
@@ -377,6 +380,12 @@ export default function GerarOrcamentoDialog({
       // 1) Tenta formato "Novo Produtor" (planos fixos)
       const restoredMap: Record<string, number> = {};
       let restoredPerfil: SetupPlanoPerfil | null = null;
+      // 0) Tenta perfil "Revenda Lemon"
+      const revenda = servicosSetup.find((s: any) => (s as any).setup_detalhes?.perfil === 'revenda_lemon');
+      if (revenda) {
+        setSetupPerfil('revenda_lemon');
+        return;
+      }
       for (const s of servicosSetup) {
         const det: any = (s as any).setup_detalhes;
         if (det?.plano_id) {
@@ -411,6 +420,16 @@ export default function GerarOrcamentoDialog({
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
+    // Fluxo "Revenda Lemon": entrada simbólica (valor 0) só para restaurar perfil
+    if (isRevendaLemon) {
+      return [{
+        nome_plano: 'Revenda Lemon',
+        descricao: 'Sem custo de setup — somente custo de produção',
+        valor: 0,
+        entregaveis: [],
+        setup_detalhes: { perfil: 'revenda_lemon' },
+      } as any];
+    }
     // Fluxo "Produtor Experiente": uma entrada única "Setup personalizado"
     if (isPerfilExperiente) {
       if (custoTotalSetupLegacy === 0) return [];
@@ -708,6 +727,16 @@ export default function GerarOrcamentoDialog({
 
   const isCatalogo = (cliente: string) => 
     cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
+
+  // Habilita "Revenda Lemon" no Passo 3: todos os itens devem ser fórmulas do Catálogo
+  const todosItensSaoCatalogo = useMemo(() => {
+    if (!itensProducao.length) return false;
+    return itensProducao.every((it) => {
+      if (it.tipo !== 'precificacao' || !it.precificacao_id) return false;
+      const prec = (precificacoes as any[])?.find((p) => p.id === it.precificacao_id);
+      return !!prec && isCatalogo(prec.formulas?.cliente || '');
+    });
+  }, [itensProducao, precificacoes]);
 
   // Precificações disponíveis (excluindo catálogo)
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
@@ -1432,6 +1461,8 @@ export default function GerarOrcamentoDialog({
               onPerfilChange={setSetupPerfil}
               selecionados={planoQtdMap}
               onSelecionadosChange={setPlanoQtdMap}
+              revendaDisponivel={todosItensSaoCatalogo}
+              revendaMotivoBloqueio="Disponível apenas quando todos os itens são fórmulas do Catálogo."
               renderCustomBody={isPerfilExperiente ? (
                 <div className="space-y-4">
                   {/* Setup items */}
@@ -1792,6 +1823,16 @@ export default function GerarOrcamentoDialog({
                           <span>Subtotal:</span>
                           <span>{formatCurrency(subtotalProducao)}</span>
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isRevendaLemon && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">SETUP</p>
+                      <div className="flex justify-between text-sm">
+                        <span>• Revenda Lemon — sem custo de setup</span>
+                        <span>{formatCurrency(0)}</span>
                       </div>
                     </div>
                   )}

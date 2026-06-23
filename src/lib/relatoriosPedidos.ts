@@ -106,7 +106,9 @@ const extractData = (pedido: PedidoReport) => {
         : dadosCliente.cidade || '',
     tipoOrcamento: snap.tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor',
     itens: itensEnriquecidos,
-    servicos: (snap.servicos_marca || []) as any[],
+    servicos: ((snap.servicos_marca || []) as any[]).filter(
+      (s: any) => s?.setup_detalhes?.perfil !== 'revenda_lemon'
+    ),
     subtotalSetup: snap.subtotal_servicos || 0,
     subtotalProducao: snap.subtotal_producao || 0,
     valorTotal: snap.valor_total || 0,
