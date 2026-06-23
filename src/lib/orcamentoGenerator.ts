@@ -658,7 +658,14 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     const maxWidth = pageWidthEnt - indent - LAYOUT.margin;
     for (const ent of inclusos) {
       const qtdLabel = ent.quantidade > 1 ? ` (${ent.quantidade}x)` : '';
-      const linhas = doc.splitTextToSize(`• ${ent.nome}${qtdLabel}`, maxWidth) as string[];
+      // Normaliza espaços não-quebráveis e outros whitespaces para permitir que
+      // o splitTextToSize quebre corretamente nas margens.
+      const nomeNormalizado = String(ent.nome || '')
+        .replace(/[\u00A0\u2007\u202F]/g, ' ') // NBSP e variantes
+        .replace(/[\t\r\n]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const linhas = doc.splitTextToSize(`• ${nomeNormalizado}${qtdLabel}`, maxWidth) as string[];
       for (let i = 0; i < linhas.length; i++) {
         yPos = checkPageBreak(doc, yPos, 5);
         // Indenta as linhas de continuação um pouco para preservar leitura do bullet
