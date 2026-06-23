@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ClickUpRotuloConfigCard } from '@/components/admin/ClickUpRotuloConfigCard';
 
-const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false };
+const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false, email_envio: '', nome_envio: '' };
 
 function VerificarTemplateButton({ templateId, ambiente }: { templateId: string; ambiente: 'producao' | 'sandbox' }) {
   const [checking, setChecking] = useState(false);
@@ -96,6 +96,8 @@ export default function ConfiguracaoContratos() {
       ambiente: m.ambiente,
       descricao: m.descricao || '',
       is_padrao: m.is_padrao,
+      email_envio: m.email_envio || '',
+      nome_envio: m.nome_envio || '',
     });
     setDialogOpen(true);
   };
@@ -110,6 +112,8 @@ export default function ConfiguracaoContratos() {
         ambiente: form.ambiente,
         descricao: form.descricao.trim() || null,
         is_padrao: form.is_padrao,
+        email_envio: form.email_envio.trim() || null,
+        nome_envio: form.nome_envio.trim() || null,
       },
     });
     setDialogOpen(false);

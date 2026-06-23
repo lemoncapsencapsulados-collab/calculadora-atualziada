@@ -9,6 +9,8 @@ export interface ContratoModelo {
   ambiente: 'producao' | 'sandbox';
   descricao: string | null;
   is_padrao: boolean;
+  email_envio: string | null;
+  nome_envio: string | null;
   created_at: string;
   updated_at: string;
 }
