@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type SetupPlanoPerfil = 'novo_produtor' | 'produtor_experiente';
+export type SetupPlanoPerfil = 'novo_produtor' | 'produtor_experiente' | 'revenda_lemon';
 
 export interface SetupPlano {
   id: string;
