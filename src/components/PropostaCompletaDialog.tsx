@@ -988,11 +988,24 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                           CNPJ / CPF
                           {zapCnpjLoading && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
                         </Label>
-                        <Input
-                          value={zapSignCampos.cnpj}
-                          onChange={(e) => updateZapCampo('cnpj', e.target.value)}
-                          onBlur={(e) => consultarCnpjZap(e.target.value)}
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            value={zapSignCampos.cnpj}
+                            onChange={(e) => updateZapCampo('cnpj', e.target.value)}
+                            onBlur={(e) => consultarCnpjZap(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            title="Consultar CNPJ na Receita"
+                            onClick={() => consultarCnpjZap(zapSignCampos.cnpj)}
+                            disabled={zapCnpjLoading || (zapSignCampos.cnpj || '').replace(/\D/g, '').length !== 14}
+                          >
+                            {zapCnpjLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Telefone do contratante</Label>
