@@ -1827,6 +1827,16 @@ export default function GerarOrcamentoDialog({
                     </div>
                   )}
 
+                  {isRevendaLemon && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground mb-2">SETUP</p>
+                      <div className="flex justify-between text-sm">
+                        <span>• Revenda Lemon — sem custo de setup</span>
+                        <span>{formatCurrency(0)}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {precoVendaSetup > 0 && (
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">SETUP</p>
