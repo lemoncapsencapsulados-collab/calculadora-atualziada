@@ -337,10 +337,25 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         d.municipio && d.uf ? `${d.municipio} - ${d.uf}` : (d.municipio || d.uf),
         d.cep ? `CEP ${String(d.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
       ].filter(Boolean).join(' - ');
-      const telefone = [d.ddd_telefone_1, d.ddd_telefone_2].filter(Boolean).join(' / ');
+      const formatarTel = (t: any) => {
+        const n = String(t || '').replace(/\D/g, '');
+        if (n.length === 11) return `(${n.slice(0,2)}) ${n.slice(2,7)}-${n.slice(7)}`;
+        if (n.length === 10) return `(${n.slice(0,2)}) ${n.slice(2,6)}-${n.slice(6)}`;
+        return n;
+      };
+      const telefone = [d.ddd_telefone_1, d.ddd_telefone_2]
+        .map(formatarTel)
+        .filter(Boolean)
+        .join(' / ');
+      // Para MEI, a Receita devolve a razão social com o CPF do titular concatenado no final.
+      // Removemos qualquer sequência de 11 dígitos (com ou sem espaços) ao final do nome.
+      const razaoSocialLimpa = String(d.razao_social || d.nome_fantasia || '')
+        .replace(/\s*\d{11}\s*$/, '')
+        .replace(/\s*\d{3}\.?\d{3}\.?\d{3}-?\d{2}\s*$/, '')
+        .trim();
       setZapSignCampos(prev => prev ? {
         ...prev,
-        razao_social: (d.razao_social || d.nome_fantasia || prev.razao_social || ''),
+        razao_social: (razaoSocialLimpa || prev.razao_social || ''),
         endereco: endereco || prev.endereco,
         email_contratante: (d.email || prev.email_contratante || ''),
         telefone_contratante: telefone || prev.telefone_contratante || '',
