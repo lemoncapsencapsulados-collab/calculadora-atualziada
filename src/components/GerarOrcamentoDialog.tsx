@@ -56,6 +56,13 @@ import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
+import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
+
+const CUSTO_ESTABILIDADE_PADRAO = 1500;
+const CUSTO_ANVISA_PADRAO = 2500;
+const ESTABILIDADE_PRAZO_TEXTO =
+  'Prazo para início de vendas: 3 meses após o teste de estabilidade. ' +
+  'O produto entra em estabilidade após 10 dias úteis (desenvolvimento da ficha técnica pela equipe técnica).';
 
 // ── Setup cost types ──
 interface SetupItem {
