@@ -436,7 +436,12 @@ export default function GerarOrcamentoDialog({
 
   // Cálculos
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
-  const subtotalServicos = precoVendaSetup;
+  // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon)
+  const aplicaEstabilidade = !isRevendaLemon && itensProducao.length > 0;
+  const totalEstabilidadeAnvisa = aplicaEstabilidade
+    ? (custoEstabilidadeUnit + custoAnvisaUnit) * itensProducao.length
+    : 0;
+  const subtotalServicos = precoVendaSetup + totalEstabilidadeAnvisa;
   const valorTotal = subtotalProducao + subtotalServicos;
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
