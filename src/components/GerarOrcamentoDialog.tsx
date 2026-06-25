@@ -897,7 +897,7 @@ export default function GerarOrcamentoDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {step} de 5
+            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {isRevendaLemon && step > 4 ? step - 1 : step} de {isRevendaLemon ? 5 : 6}
           </DialogTitle>
         </DialogHeader>
 
