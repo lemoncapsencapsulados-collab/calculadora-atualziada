@@ -161,6 +161,11 @@ export default function GerarOrcamentoDialog({
   // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
 
+  // Step 4 (novo): Estabilidade + Notificação Anvisa
+  const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
+  const [custoAnvisaUnit, setCustoAnvisaUnit] = useState<number>(CUSTO_ANVISA_PADRAO);
+  const [estabilidadeEdicaoLiberada, setEstabilidadeEdicaoLiberada] = useState(false);
+
   // Estado para liberação de margem mínima com senha
   const [senhaMargemOrcDialog, setSenhaMargemOrcDialog] = useState(false);
   const [senhaMargemOrcInput, setSenhaMargemOrcInput] = useState('');
