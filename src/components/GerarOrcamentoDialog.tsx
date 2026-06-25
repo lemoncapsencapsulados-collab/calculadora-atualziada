@@ -2145,13 +2145,18 @@ export default function GerarOrcamentoDialog({
           <div className="flex justify-between pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+              onClick={() => {
+                if (step === 1) { onClose(); return; }
+                // Pula Estabilidade ao voltar quando perfil é Revenda Lemon
+                if (step === 5 && isRevendaLemon) { setStep(3); return; }
+                setStep(step - 1);
+              }}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               {step === 1 ? 'Cancelar' : 'Voltar'}
             </Button>
 
-            {step < 5 ? (
+            {step < 6 ? (
               <Button
                 onClick={() => {
                   if (step === 2 && itensProducao.length === 0) {
@@ -2163,6 +2168,8 @@ export default function GerarOrcamentoDialog({
                     return;
                   }
                   // Step 3 (planos): sem validação de margem — preço fixo.
+                  // Pula Estabilidade (step 4) quando perfil é Revenda Lemon
+                  if (step === 3 && isRevendaLemon) { setStep(5); return; }
                   setStep(step + 1);
                 }}
                 disabled={!canGoNext()}
