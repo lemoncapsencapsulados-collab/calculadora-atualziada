@@ -1838,8 +1838,8 @@ export default function GerarOrcamentoDialog({
             </div>
           )}
 
-          {/* STEP 5: Resumo */}
-          {step === 5 && (
+          {/* STEP 6: Resumo */}
+          {step === 6 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Resumo do Orçamento</h3>
               
