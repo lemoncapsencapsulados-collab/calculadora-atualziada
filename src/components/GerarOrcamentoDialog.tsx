@@ -452,9 +452,7 @@ export default function GerarOrcamentoDialog({
       }
       return [{
         nome_plano: 'Setup',
-        descricao: modoCalculoSetup === 'valor_fixo'
-          ? `Custo: ${formatCurrency(custoTotalSetupLegacy)} | Valor fixo`
-          : `Custo: ${formatCurrency(custoTotalSetupLegacy)} | Margem: ${margemSetup}%`,
+        descricao: 'Setup personalizado',
         valor: precoVendaSetupLegacy,
         entregaveis,
         setup_detalhes: {
