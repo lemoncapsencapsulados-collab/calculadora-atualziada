@@ -385,6 +385,15 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
+      // Restaurar custos de Estabilidade + Anvisa, se existirem
+      const servicoEstab = (orcamentoExistente.servicos_marca || []).find(
+        (s: any) => s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
+      ) as any;
+      if (servicoEstab?.setup_detalhes) {
+        const det = servicoEstab.setup_detalhes;
+        if (typeof det.custo_estabilidade_unit === 'number') setCustoEstabilidadeUnit(det.custo_estabilidade_unit);
+        if (typeof det.custo_anvisa_unit === 'number') setCustoAnvisaUnit(det.custo_anvisa_unit);
+      }
       // Restore setup
       const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
         (s: any) => s.nome_plano === 'Setup' || (s.nome_plano || '').startsWith('Setup') || s?.setup_detalhes
