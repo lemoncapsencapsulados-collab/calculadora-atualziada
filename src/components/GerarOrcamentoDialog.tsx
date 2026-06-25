@@ -446,9 +446,31 @@ export default function GerarOrcamentoDialog({
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
+    const extras: ServicoMarca[] = [];
+    if (aplicaEstabilidade && totalEstabilidadeAnvisa > 0) {
+      const qtd = itensProducao.length;
+      extras.push({
+        nome_plano: 'Teste de Estabilidade + Notificação Anvisa',
+        descricao:
+          `${qtd} produto(s) × ${formatCurrency(custoEstabilidadeUnit)} (estabilidade) + ` +
+          `${qtd} fórmula(s) × ${formatCurrency(custoAnvisaUnit)} (Anvisa). ` +
+          ESTABILIDADE_PRAZO_TEXTO,
+        valor: totalEstabilidadeAnvisa,
+        entregaveis: [
+          { nome: `Teste de estabilidade (${qtd}x)`, incluso: true, quantidade: qtd },
+          { nome: `Notificação Anvisa do Produto (${qtd}x)`, incluso: true, quantidade: qtd },
+        ],
+        setup_detalhes: {
+          tipo: 'estabilidade_anvisa',
+          custo_estabilidade_unit: custoEstabilidadeUnit,
+          custo_anvisa_unit: custoAnvisaUnit,
+          quantidade: qtd,
+        },
+      } as any);
+    }
     // Fluxo "Revenda Lemon": entrada simbólica (valor 0) só para restaurar perfil
     if (isRevendaLemon) {
-      return [{
+      return [...extras, {
         nome_plano: 'Revenda Lemon',
         descricao: 'Sem custo de setup — somente custo de produção',
         valor: 0,
@@ -458,7 +480,7 @@ export default function GerarOrcamentoDialog({
     }
     // Fluxo "Produtor Experiente": uma entrada única "Setup personalizado"
     if (isPerfilExperiente) {
-      if (custoTotalSetupLegacy === 0) return [];
+      if (custoTotalSetupLegacy === 0) return extras;
       const entregaveis: Entregavel[] = [];
       setupItems.filter((i) => i.selecionado && i.quantidade > 0).forEach((item) => {
         entregaveis.push({
@@ -476,7 +498,7 @@ export default function GerarOrcamentoDialog({
           });
         });
       }
-      return [{
+      return [...extras, {
         nome_plano: 'Setup',
         descricao: 'Setup personalizado',
         valor: precoVendaSetupLegacy,
@@ -494,8 +516,8 @@ export default function GerarOrcamentoDialog({
       } as any];
     }
     // Fluxo "Novo Produtor": uma entrada por plano fixo selecionado
-    if (planosSelecionados.length === 0) return [];
-    return planosSelecionados.map((p) => {
+    if (planosSelecionados.length === 0) return extras;
+    const planosFinais: ServicoMarca[] = planosSelecionados.map((p) => {
       const bullets = (p.entregaveis_md || '')
         .split('\n')
         .map((l) => l.trim())
@@ -523,6 +545,7 @@ export default function GerarOrcamentoDialog({
         },
       } as any;
     });
+    return [...extras, ...planosFinais];
   };
 
   // Handlers
