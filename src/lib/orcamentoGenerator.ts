@@ -600,9 +600,22 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   yPos = renderSectionTitle(doc, 'Serviços de Marca', yPos);
 
   // Tabela de serviços
+  // Sanitiza descrição: NUNCA expor custo interno/margem ao cliente.
+  // Remove trechos como "Custo: R$ X | Margem: Y%", "Custo: ...", "Margem: ...".
+  const sanitizarDescricao = (desc: string | undefined | null): string => {
+    if (!desc) return '-';
+    let s = String(desc);
+    // Remove o padrão completo Custo + Margem (com ou sem separador)
+    s = s.replace(/Custo:\s*R?\$?\s*[\d.,]+\s*(\|\s*Margem:\s*[\d.,]+\s*%?)?/gi, '');
+    s = s.replace(/Custo:\s*R?\$?\s*[\d.,]+\s*(\|\s*Valor\s*fixo)?/gi, '');
+    s = s.replace(/Margem:\s*[\d.,]+\s*%?/gi, '');
+    // Limpa separadores órfãos e espaços
+    s = s.replace(/^\s*\|\s*/, '').replace(/\s*\|\s*$/, '').replace(/\s*\|\s*\|\s*/g, ' | ').trim();
+    return s || '-';
+  };
   const servicosData = servicosVisiveis.map((servico) => [
     servico.nome_plano,
-    servico.descricao || '-',
+    sanitizarDescricao(servico.descricao),
     formatCurrency(servico.valor),
   ]);
 
