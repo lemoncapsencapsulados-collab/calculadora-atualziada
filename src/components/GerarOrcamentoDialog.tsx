@@ -1815,8 +1815,21 @@ export default function GerarOrcamentoDialog({
             />
           )}
 
-          {/* STEP 4: Condições de Pagamento */}
+          {/* STEP 4: Estabilidade + Notificação Anvisa */}
           {step === 4 && (
+            <EstabilidadeAnvisaStep
+              itensProducao={itensProducao}
+              custoEstabilidadeUnit={custoEstabilidadeUnit}
+              custoAnvisaUnit={custoAnvisaUnit}
+              onChangeEstabilidade={setCustoEstabilidadeUnit}
+              onChangeAnvisa={setCustoAnvisaUnit}
+              edicaoLiberada={estabilidadeEdicaoLiberada}
+              onLiberarEdicao={() => setEstabilidadeEdicaoLiberada(true)}
+            />
+          )}
+
+          {/* STEP 5: Condições de Pagamento */}
+          {step === 5 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Condições de Pagamento</h3>
 
