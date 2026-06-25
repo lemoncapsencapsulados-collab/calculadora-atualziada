@@ -56,6 +56,13 @@ import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
+import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
+
+const CUSTO_ESTABILIDADE_PADRAO = 1500;
+const CUSTO_ANVISA_PADRAO = 2500;
+const ESTABILIDADE_PRAZO_TEXTO =
+  'Prazo para início de vendas: 3 meses após o teste de estabilidade. ' +
+  'O produto entra em estabilidade após 10 dias úteis (desenvolvimento da ficha técnica pela equipe técnica).';
 
 // ── Setup cost types ──
 interface SetupItem {
@@ -153,6 +160,11 @@ export default function GerarOrcamentoDialog({
 
   // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
+
+  // Step 4 (novo): Estabilidade + Notificação Anvisa
+  const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
+  const [custoAnvisaUnit, setCustoAnvisaUnit] = useState<number>(CUSTO_ANVISA_PADRAO);
+  const [estabilidadeEdicaoLiberada, setEstabilidadeEdicaoLiberada] = useState(false);
 
   // Estado para liberação de margem mínima com senha
   const [senhaMargemOrcDialog, setSenhaMargemOrcDialog] = useState(false);
@@ -373,6 +385,15 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
+      // Restaurar custos de Estabilidade + Anvisa, se existirem
+      const servicoEstab = (orcamentoExistente.servicos_marca || []).find(
+        (s: any) => s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
+      ) as any;
+      if (servicoEstab?.setup_detalhes) {
+        const det = servicoEstab.setup_detalhes;
+        if (typeof det.custo_estabilidade_unit === 'number') setCustoEstabilidadeUnit(det.custo_estabilidade_unit);
+        if (typeof det.custo_anvisa_unit === 'number') setCustoAnvisaUnit(det.custo_anvisa_unit);
+      }
       // Restore setup
       const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
         (s: any) => s.nome_plano === 'Setup' || (s.nome_plano || '').startsWith('Setup') || s?.setup_detalhes
@@ -415,14 +436,41 @@ export default function GerarOrcamentoDialog({
 
   // Cálculos
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
-  const subtotalServicos = precoVendaSetup;
+  // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon)
+  const aplicaEstabilidade = !isRevendaLemon && itensProducao.length > 0;
+  const totalEstabilidadeAnvisa = aplicaEstabilidade
+    ? (custoEstabilidadeUnit + custoAnvisaUnit) * itensProducao.length
+    : 0;
+  const subtotalServicos = precoVendaSetup + totalEstabilidadeAnvisa;
   const valorTotal = subtotalProducao + subtotalServicos;
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
+    const extras: ServicoMarca[] = [];
+    if (aplicaEstabilidade && totalEstabilidadeAnvisa > 0) {
+      const qtd = itensProducao.length;
+      extras.push({
+        nome_plano: 'Teste de Estabilidade + Notificação Anvisa',
+        descricao:
+          `${qtd} produto(s) × ${formatCurrency(custoEstabilidadeUnit)} (estabilidade) + ` +
+          `${qtd} fórmula(s) × ${formatCurrency(custoAnvisaUnit)} (Anvisa). ` +
+          ESTABILIDADE_PRAZO_TEXTO,
+        valor: totalEstabilidadeAnvisa,
+        entregaveis: [
+          { nome: `Teste de estabilidade (${qtd}x)`, incluso: true, quantidade: qtd },
+          { nome: `Notificação Anvisa do Produto (${qtd}x)`, incluso: true, quantidade: qtd },
+        ],
+        setup_detalhes: {
+          tipo: 'estabilidade_anvisa',
+          custo_estabilidade_unit: custoEstabilidadeUnit,
+          custo_anvisa_unit: custoAnvisaUnit,
+          quantidade: qtd,
+        },
+      } as any);
+    }
     // Fluxo "Revenda Lemon": entrada simbólica (valor 0) só para restaurar perfil
     if (isRevendaLemon) {
-      return [{
+      return [...extras, {
         nome_plano: 'Revenda Lemon',
         descricao: 'Sem custo de setup — somente custo de produção',
         valor: 0,
@@ -432,7 +480,7 @@ export default function GerarOrcamentoDialog({
     }
     // Fluxo "Produtor Experiente": uma entrada única "Setup personalizado"
     if (isPerfilExperiente) {
-      if (custoTotalSetupLegacy === 0) return [];
+      if (custoTotalSetupLegacy === 0) return extras;
       const entregaveis: Entregavel[] = [];
       setupItems.filter((i) => i.selecionado && i.quantidade > 0).forEach((item) => {
         entregaveis.push({
@@ -450,7 +498,7 @@ export default function GerarOrcamentoDialog({
           });
         });
       }
-      return [{
+      return [...extras, {
         nome_plano: 'Setup',
         descricao: 'Setup personalizado',
         valor: precoVendaSetupLegacy,
@@ -468,8 +516,8 @@ export default function GerarOrcamentoDialog({
       } as any];
     }
     // Fluxo "Novo Produtor": uma entrada por plano fixo selecionado
-    if (planosSelecionados.length === 0) return [];
-    return planosSelecionados.map((p) => {
+    if (planosSelecionados.length === 0) return extras;
+    const planosFinais: ServicoMarca[] = planosSelecionados.map((p) => {
       const bullets = (p.entregaveis_md || '')
         .split('\n')
         .map((l) => l.trim())
@@ -497,6 +545,7 @@ export default function GerarOrcamentoDialog({
         },
       } as any;
     });
+    return [...extras, ...planosFinais];
   };
 
   // Handlers
@@ -848,7 +897,7 @@ export default function GerarOrcamentoDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {step} de 5
+            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {isRevendaLemon && step > 4 ? step - 1 : step} de {isRevendaLemon ? 5 : 6}
           </DialogTitle>
         </DialogHeader>
 
@@ -1766,8 +1815,21 @@ export default function GerarOrcamentoDialog({
             />
           )}
 
-          {/* STEP 4: Condições de Pagamento */}
+          {/* STEP 4: Estabilidade + Notificação Anvisa */}
           {step === 4 && (
+            <EstabilidadeAnvisaStep
+              itensProducao={itensProducao}
+              custoEstabilidadeUnit={custoEstabilidadeUnit}
+              custoAnvisaUnit={custoAnvisaUnit}
+              onChangeEstabilidade={setCustoEstabilidadeUnit}
+              onChangeAnvisa={setCustoAnvisaUnit}
+              edicaoLiberada={estabilidadeEdicaoLiberada}
+              onLiberarEdicao={() => setEstabilidadeEdicaoLiberada(true)}
+            />
+          )}
+
+          {/* STEP 5: Condições de Pagamento */}
+          {step === 5 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Condições de Pagamento</h3>
 
@@ -1789,8 +1851,8 @@ export default function GerarOrcamentoDialog({
             </div>
           )}
 
-          {/* STEP 5: Resumo */}
-          {step === 5 && (
+          {/* STEP 6: Resumo */}
+          {step === 6 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Resumo do Orçamento</h3>
               
@@ -2083,13 +2145,18 @@ export default function GerarOrcamentoDialog({
           <div className="flex justify-between pt-4 border-t">
             <Button
               variant="outline"
-              onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+              onClick={() => {
+                if (step === 1) { onClose(); return; }
+                // Pula Estabilidade ao voltar quando perfil é Revenda Lemon
+                if (step === 5 && isRevendaLemon) { setStep(3); return; }
+                setStep(step - 1);
+              }}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               {step === 1 ? 'Cancelar' : 'Voltar'}
             </Button>
 
-            {step < 5 ? (
+            {step < 6 ? (
               <Button
                 onClick={() => {
                   if (step === 2 && itensProducao.length === 0) {
@@ -2101,6 +2168,8 @@ export default function GerarOrcamentoDialog({
                     return;
                   }
                   // Step 3 (planos): sem validação de margem — preço fixo.
+                  // Pula Estabilidade (step 4) quando perfil é Revenda Lemon
+                  if (step === 3 && isRevendaLemon) { setStep(5); return; }
                   setStep(step + 1);
                 }}
                 disabled={!canGoNext()}
