@@ -468,6 +468,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
                         <Input
                           value={s.name}
                           onChange={(e) => setExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))}
+                          onBlur={(e) => setExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: formatarNomeProprio(e.target.value) } : it))}
                           placeholder="Nome completo"
                         />
                       </div>
