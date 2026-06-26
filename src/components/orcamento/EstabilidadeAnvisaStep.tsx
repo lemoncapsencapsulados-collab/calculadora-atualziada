@@ -94,7 +94,7 @@ export default function EstabilidadeAnvisaStep({
                 disabled={!edicaoLiberada}
               />
               <p className="text-xs text-muted-foreground">
-                {qtd} × {formatCurrency(custoEstabilidadeUnit)} = <span className="font-medium">{formatCurrency(totalEstab)}</span>
+                {qtd} produto(s) × {formatCurrency(custoEstabilidadeUnit)} = <span className="font-medium">{formatCurrency(totalEstab)}</span>
               </p>
             </div>
 
