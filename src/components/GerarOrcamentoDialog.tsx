@@ -58,10 +58,10 @@ import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/co
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
 
-const CUSTO_ESTABILIDADE_PADRAO = 1500;
-const CUSTO_ANVISA_PADRAO = 2500;
+const CUSTO_ESTABILIDADE_PADRAO = 4100;
+const CUSTO_ANVISA_PADRAO = 1750;
 const ESTABILIDADE_PRAZO_TEXTO =
-  'Prazo para início de vendas: 3 meses após o teste de estabilidade. ' +
+  'Prazo para início de vendas: 6 meses após o teste de estabilidade. ' +
   'O produto entra em estabilidade após 10 dias úteis (desenvolvimento da ficha técnica pela equipe técnica).';
 
 // ── Setup cost types ──
@@ -385,14 +385,20 @@ export default function GerarOrcamentoDialog({
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
       }
-      // Restaurar custos de Estabilidade + Anvisa, se existirem
-      const servicoEstab = (orcamentoExistente.servicos_marca || []).find(
-        (s: any) => s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
-      ) as any;
-      if (servicoEstab?.setup_detalhes) {
-        const det = servicoEstab.setup_detalhes;
-        if (typeof det.custo_estabilidade_unit === 'number') setCustoEstabilidadeUnit(det.custo_estabilidade_unit);
-        if (typeof det.custo_anvisa_unit === 'number') setCustoAnvisaUnit(det.custo_anvisa_unit);
+      // Restaurar custos de Estabilidade + Anvisa, se existirem (formato novo: 2 entradas separadas; legado: 1 combinada)
+      const servicosProd = (orcamentoExistente.servicos_marca || []).filter(
+        (s: any) => s?.setup_detalhes?.categoria === 'producao' || s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
+      ) as any[];
+      for (const sp of servicosProd) {
+        const det = sp.setup_detalhes || {};
+        if (det.tipo === 'estabilidade' && typeof det.custo_unit === 'number') {
+          setCustoEstabilidadeUnit(det.custo_unit);
+        } else if (det.tipo === 'anvisa' && typeof det.custo_unit === 'number') {
+          setCustoAnvisaUnit(det.custo_unit);
+        } else if (det.tipo === 'estabilidade_anvisa') {
+          if (typeof det.custo_estabilidade_unit === 'number') setCustoEstabilidadeUnit(det.custo_estabilidade_unit);
+          if (typeof det.custo_anvisa_unit === 'number') setCustoAnvisaUnit(det.custo_anvisa_unit);
+        }
       }
       // Restore setup
       const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
@@ -447,26 +453,44 @@ export default function GerarOrcamentoDialog({
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
     const extras: ServicoMarca[] = [];
-    if (aplicaEstabilidade && totalEstabilidadeAnvisa > 0) {
+    if (aplicaEstabilidade) {
       const qtd = itensProducao.length;
-      extras.push({
-        nome_plano: 'Teste de Estabilidade + Notificação Anvisa',
-        descricao:
-          `${qtd} produto(s) × ${formatCurrency(custoEstabilidadeUnit)} (estabilidade) + ` +
-          `${qtd} fórmula(s) × ${formatCurrency(custoAnvisaUnit)} (Anvisa). ` +
-          ESTABILIDADE_PRAZO_TEXTO,
-        valor: totalEstabilidadeAnvisa,
-        entregaveis: [
-          { nome: `Teste de estabilidade (${qtd}x)`, incluso: true, quantidade: qtd },
-          { nome: `Notificação Anvisa do Produto (${qtd}x)`, incluso: true, quantidade: qtd },
-        ],
-        setup_detalhes: {
-          tipo: 'estabilidade_anvisa',
-          custo_estabilidade_unit: custoEstabilidadeUnit,
-          custo_anvisa_unit: custoAnvisaUnit,
-          quantidade: qtd,
-        },
-      } as any);
+      const totalEstab = custoEstabilidadeUnit * qtd;
+      const totalAnvisa = custoAnvisaUnit * qtd;
+      if (totalEstab > 0) {
+        extras.push({
+          nome_plano: 'Teste de Estabilidade',
+          descricao:
+            `${qtd} produto(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. ` +
+            ESTABILIDADE_PRAZO_TEXTO,
+          valor: totalEstab,
+          entregaveis: [
+            { nome: `Teste de estabilidade do produto (${qtd}x)`, incluso: true, quantidade: qtd },
+          ],
+          setup_detalhes: {
+            categoria: 'producao',
+            tipo: 'estabilidade',
+            custo_unit: custoEstabilidadeUnit,
+            quantidade: qtd,
+          },
+        } as any);
+      }
+      if (totalAnvisa > 0) {
+        extras.push({
+          nome_plano: 'Notificação Anvisa do Produto',
+          descricao: `${qtd} produto(s) × ${formatCurrency(custoAnvisaUnit)} por produto.`,
+          valor: totalAnvisa,
+          entregaveis: [
+            { nome: `Notificação Anvisa do Produto (${qtd}x)`, incluso: true, quantidade: qtd },
+          ],
+          setup_detalhes: {
+            categoria: 'producao',
+            tipo: 'anvisa',
+            custo_unit: custoAnvisaUnit,
+            quantidade: qtd,
+          },
+        } as any);
+      }
     }
     // Fluxo "Revenda Lemon": entrada simbólica (valor 0) só para restaurar perfil
     if (isRevendaLemon) {
