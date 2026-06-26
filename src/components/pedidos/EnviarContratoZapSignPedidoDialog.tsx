@@ -11,6 +11,7 @@ import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
+import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 
 interface Props {
   open: boolean;
@@ -27,7 +28,7 @@ function buildCandidatosExtras(pedido: Pedido | null): ExtraSigner[] {
   const push = (nome?: string, email?: string, tel?: string) => {
     if (!nome && !email) return;
     out.push({
-      name: nome || '',
+      name: formatarNomeProprio(nome || ''),
       email: email || '',
       phone_number: (tel || '').replace(/\D/g, ''),
     });
@@ -83,10 +84,10 @@ function buildCampos(pedido: Pedido | null): Campos {
   const repPJ = (dc.responsavel_pj) || {};
   const repPF = (dc.pessoas_fisicas && dc.pessoas_fisicas[0]) || {};
   const rep: any = isPJ ? repPJ : repPF;
-  const signerName = rep.nome || dc.razao_social || snap.nome_cliente || '';
+  const signerName = formatarNomeProprio(rep.nome || dc.razao_social || snap.nome_cliente || '');
   const signerEmail = rep.email || dc.email || '';
   const signerPhone = (rep.telefone || dc.telefone || '').replace(/\D/g, '');
-  const razao = isPJ ? (dc.razao_social || '') : (rep.nome || '');
+  const razao = isPJ ? formatarNomeProprio(dc.razao_social || '') : formatarNomeProprio(rep.nome || '');
   const cnpj = isPJ ? (dc.cnpj || '') : (rep.cpf || '');
   const endereco = isPJ
     ? [dc.endereco_cnpj, dc.cidade, dc.estado, dc.cep_cnpj].filter(Boolean).join(' - ')
@@ -104,7 +105,7 @@ function buildCampos(pedido: Pedido | null): Campos {
     endereco,
     email_contratante: dc.email || signerEmail,
     telefone_contratante: dc.telefone || signerPhone,
-    nome_representante: rep.nome || '',
+    nome_representante: formatarNomeProprio(rep.nome || ''),
     cpf_representante: rep.cpf || '',
     numero_contrato: pedido?.numero_pedido || snap.numero_orcamento || '',
     data_contrato: dataPorExtenso(new Date()),
@@ -209,8 +210,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'endereco', label: 'Endereço', full: true },
     { k: 'email_contratante', label: 'Email do contratante' },
     { k: 'telefone_contratante', label: 'Telefone do contratante' },
-    { k: 'nome_representante', label: 'Nome do representante' },
-    { k: 'cpf_representante', label: 'CPF do representante' },
+    { k: 'nome_representante', label: 'Nome do representante legal *' },
+    { k: 'cpf_representante', label: 'CPF do representante legal *' },
     { k: 'numero_contrato', label: 'Número do contrato' },
     { k: 'data_contrato', label: 'Data do contrato' },
     { k: 'produto_descricao', label: 'Produto', full: true },
@@ -229,6 +230,15 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       toast.error('Preencha nome e email do signatário.');
       return;
     }
+    if (!campos.nome_representante?.trim()) {
+      toast.error('Informe o nome do representante legal.');
+      return;
+    }
+    const cpfRep = (campos.cpf_representante || '').replace(/\D/g, '');
+    if (!cpfRep || !validarCPF(cpfRep)) {
+      toast.error('Informe um CPF válido para o representante legal.');
+      return;
+    }
     for (const s of extraSigners) {
       if (!s.name?.trim() || !s.email?.trim()) {
         toast.error('Preencha nome e email de todos os signatários adicionais.');
@@ -236,6 +246,14 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       }
     }
     if (!pedido) return;
+    // Normaliza nomes em Title Case antes do envio
+    setCampos((p) => ({
+      ...p,
+      signer_name: formatarNomeProprio(p.signer_name),
+      razao_social: formatarNomeProprio(p.razao_social),
+      nome_representante: formatarNomeProprio(p.nome_representante),
+    }));
+    setExtraSigners((prev) => prev.map((s) => ({ ...s, name: formatarNomeProprio(s.name) })));
     setAskSenhaOpen(true);
   };
 
@@ -384,7 +402,17 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
                 <Input
                   value={campos[f.k]}
                   onChange={(e) => upd(f.k, e.target.value)}
-                  onBlur={f.k === 'cnpj' ? (e) => consultarCnpj(e.target.value) : undefined}
+                  onBlur={(e) => {
+                    if (f.k === 'cnpj') {
+                      consultarCnpj(e.target.value);
+                    } else if (
+                      f.k === 'signer_name' ||
+                      f.k === 'razao_social' ||
+                      f.k === 'nome_representante'
+                    ) {
+                      upd(f.k, formatarNomeProprio(e.target.value));
+                    }
+                  }}
                 />
               </div>
             ))}
