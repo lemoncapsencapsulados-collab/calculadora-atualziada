@@ -100,7 +100,7 @@ export default function EstabilidadeAnvisaStep({
 
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm">
-                <Shield className="w-4 h-4" /> Notificação Anvisa (por fórmula)
+                <Shield className="w-4 h-4" /> Notificação Anvisa (por produto)
               </Label>
               <Input
                 type="number"
@@ -111,7 +111,7 @@ export default function EstabilidadeAnvisaStep({
                 disabled={!edicaoLiberada}
               />
               <p className="text-xs text-muted-foreground">
-                {qtd} × {formatCurrency(custoAnvisaUnit)} = <span className="font-medium">{formatCurrency(totalAnvisa)}</span>
+                {qtd} produto(s) × {formatCurrency(custoAnvisaUnit)} = <span className="font-medium">{formatCurrency(totalAnvisa)}</span>
               </p>
             </div>
           </div>
@@ -132,7 +132,7 @@ export default function EstabilidadeAnvisaStep({
           </div>
           <ul className="text-sm text-amber-900/90 dark:text-amber-100/90 space-y-1 list-disc pl-5">
             <li>O produto entra em <strong>teste de estabilidade após 10 dias úteis</strong> (prazo da equipe técnica para desenvolver a ficha técnica).</li>
-            <li>O <strong>prazo para começar a vender</strong> é de <strong>3 meses após o início do teste de estabilidade</strong>.</li>
+            <li>O <strong>prazo para começar a vender</strong> é de <strong>6 meses após o início do teste de estabilidade</strong>.</li>
           </ul>
           <p className="text-xs text-amber-700/80 dark:text-amber-300/80 flex items-start gap-1.5 pt-1">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
