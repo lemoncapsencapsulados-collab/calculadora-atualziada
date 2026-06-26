@@ -588,123 +588,132 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 }
 
 function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
-  const servicosVisiveis = (orcamento.servicos_marca || []).filter(
+  const todosVisiveis = (orcamento.servicos_marca || []).filter(
     (s: any) => s?.setup_detalhes?.perfil !== 'revenda_lemon'
   );
-  if (servicosVisiveis.length === 0) {
+  if (todosVisiveis.length === 0) {
     return yPos;
   }
 
-  const pageWidth = getPageWidth(doc);
-  
-  yPos = renderSectionTitle(doc, 'Serviços de Marca', yPos);
+  const producao = todosVisiveis.filter((s: any) => s?.setup_detalhes?.categoria === 'producao');
+  const marca = todosVisiveis.filter((s: any) => s?.setup_detalhes?.categoria !== 'producao');
 
-  // Tabela de serviços
+  const pageWidth = getPageWidth(doc);
+
   // Sanitiza descrição: NUNCA expor custo interno/margem ao cliente.
-  // Remove trechos como "Custo: R$ X | Margem: Y%", "Custo: ...", "Margem: ...".
   const sanitizarDescricao = (desc: string | undefined | null): string => {
     if (!desc) return '-';
     let s = String(desc);
-    // Remove o padrão completo Custo + Margem (com ou sem separador)
     s = s.replace(/Custo:\s*R?\$?\s*[\d.,]+\s*(\|\s*Margem:\s*[\d.,]+\s*%?)?/gi, '');
     s = s.replace(/Custo:\s*R?\$?\s*[\d.,]+\s*(\|\s*Valor\s*fixo)?/gi, '');
     s = s.replace(/Margem:\s*[\d.,]+\s*%?/gi, '');
-    // Limpa separadores órfãos e espaços
     s = s.replace(/^\s*\|\s*/, '').replace(/\s*\|\s*$/, '').replace(/\s*\|\s*\|\s*/g, ' | ').trim();
     return s || '-';
   };
-  const servicosData = servicosVisiveis.map((servico) => [
-    servico.nome_plano,
-    sanitizarDescricao(servico.descricao),
-    formatCurrency(servico.valor),
-  ]);
 
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Serviço', 'Descrição', 'Valor']],
-    body: servicosData,
-    margin: { left: LAYOUT.margin, right: LAYOUT.margin },
-    headStyles: {
-      fillColor: COLORS.darkGreen,
-      textColor: COLORS.white,
-      fontStyle: 'bold',
-      fontSize: LAYOUT.fontSize.small,
-      cellPadding: 4,
-    },
-    bodyStyles: {
-      textColor: COLORS.textDark,
-      fontSize: LAYOUT.fontSize.body,
-      cellPadding: 4,
-    },
-    alternateRowStyles: {
-      fillColor: COLORS.lightGray,
-    },
-    columnStyles: {
-      0: { cellWidth: 50, fontStyle: 'bold' },
-      1: { cellWidth: 'auto' },
-      2: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
-    },
-  });
+  const renderGrupo = (
+    titulo: string,
+    lista: any[],
+    subtotalLabel: string,
+    subtotalValor: number,
+    yIn: number,
+  ): number => {
+    if (lista.length === 0) return yIn;
+    let y = renderSectionTitle(doc, titulo, yIn);
 
-  yPos = (doc as any).lastAutoTable.finalY + 5;
+    const tableData = lista.map((servico) => [
+      servico.nome_plano,
+      sanitizarDescricao(servico.descricao),
+      formatCurrency(servico.valor),
+    ]);
 
-  // Renderizar entregáveis de cada serviço
-  for (const servico of servicosVisiveis) {
-    const entregaveis = (servico as any).entregaveis as Array<{ nome: string; incluso: boolean; quantidade: number }> | undefined;
-    if (!entregaveis || entregaveis.length === 0) continue;
+    autoTable(doc, {
+      startY: y,
+      head: [['Serviço', 'Descrição', 'Valor']],
+      body: tableData,
+      margin: { left: LAYOUT.margin, right: LAYOUT.margin },
+      headStyles: {
+        fillColor: COLORS.darkGreen,
+        textColor: COLORS.white,
+        fontStyle: 'bold',
+        fontSize: LAYOUT.fontSize.small,
+        cellPadding: 4,
+      },
+      bodyStyles: {
+        textColor: COLORS.textDark,
+        fontSize: LAYOUT.fontSize.body,
+        cellPadding: 4,
+      },
+      alternateRowStyles: {
+        fillColor: COLORS.lightGray,
+      },
+      columnStyles: {
+        0: { cellWidth: 50, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
+      },
+    });
 
-    const inclusos = entregaveis.filter(e => e.incluso);
-    if (inclusos.length === 0) continue;
+    y = (doc as any).lastAutoTable.finalY + 5;
 
-    yPos = checkPageBreak(doc, yPos, 10 + inclusos.length * 5);
+    for (const servico of lista) {
+      const entregaveis = (servico as any).entregaveis as Array<{ nome: string; incluso: boolean; quantidade: number }> | undefined;
+      if (!entregaveis || entregaveis.length === 0) continue;
+      const inclusos = entregaveis.filter(e => e.incluso);
+      if (inclusos.length === 0) continue;
 
-    doc.setFontSize(LAYOUT.fontSize.small);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...COLORS.darkGreen);
-    doc.text(`Entregáveis — ${servico.nome_plano}:`, LAYOUT.margin + 5, yPos);
-    yPos += 5;
+      y = checkPageBreak(doc, y, 10 + inclusos.length * 5);
 
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.textDark);
-    const pageWidthEnt = getPageWidth(doc);
-    const indent = LAYOUT.margin + 10;
-    const maxWidth = pageWidthEnt - indent - LAYOUT.margin;
-    for (const ent of inclusos) {
-      const qtdLabel = ent.quantidade > 1 ? ` (${ent.quantidade}x)` : '';
-      // Normaliza espaços não-quebráveis e outros whitespaces para permitir que
-      // o splitTextToSize quebre corretamente nas margens.
-      const nomeNormalizado = String(ent.nome || '')
-        .replace(/[\u00A0\u2007\u202F]/g, ' ') // NBSP e variantes
-        .replace(/[\t\r\n]+/g, ' ')
-        // Remove emojis e símbolos não suportados pelo Helvetica que quebram
-        // a medição de largura do splitTextToSize (✅ ❌ 🤝 etc.)
-        .replace(/[\u2700-\u27BF\u2600-\u26FF\u2300-\u23FF\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F6FF}\u{1F900}-\u{1F9FF}]/gu, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      const linhas = doc.splitTextToSize(`• ${nomeNormalizado}${qtdLabel}`, maxWidth) as string[];
-      for (let i = 0; i < linhas.length; i++) {
-        yPos = checkPageBreak(doc, yPos, 5);
-        // Indenta as linhas de continuação um pouco para preservar leitura do bullet
-        const x = i === 0 ? indent : indent + 3;
-        doc.text(linhas[i], x, yPos);
-        yPos += 5;
+      doc.setFontSize(LAYOUT.fontSize.small);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text(`Entregáveis — ${servico.nome_plano}:`, LAYOUT.margin + 5, y);
+      y += 5;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      const pageWidthEnt = getPageWidth(doc);
+      const indent = LAYOUT.margin + 10;
+      const maxWidth = pageWidthEnt - indent - LAYOUT.margin;
+      for (const ent of inclusos) {
+        const qtdLabel = ent.quantidade > 1 ? ` (${ent.quantidade}x)` : '';
+        const nomeNormalizado = String(ent.nome || '')
+          .replace(/[\u00A0\u2007\u202F]/g, ' ')
+          .replace(/[\t\r\n]+/g, ' ')
+          .replace(/[\u2700-\u27BF\u2600-\u26FF\u2300-\u23FF\u{1F300}-\u{1FAFF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F6FF}\u{1F900}-\u{1F9FF}]/gu, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const linhas = doc.splitTextToSize(`• ${nomeNormalizado}${qtdLabel}`, maxWidth) as string[];
+        for (let i = 0; i < linhas.length; i++) {
+          y = checkPageBreak(doc, y, 5);
+          const x = i === 0 ? indent : indent + 3;
+          doc.text(linhas[i], x, y);
+          y += 5;
+        }
       }
+      y += 3;
     }
-    yPos += 3;
-  }
 
-  // Subtotal de serviços
-  doc.setFillColor(...COLORS.mediumGreen);
-  doc.rect(pageWidth / 2, yPos, pageWidth / 2 - LAYOUT.margin, 10, 'F');
-  
-  doc.setTextColor(...COLORS.white);
-  doc.setFontSize(LAYOUT.fontSize.body);
-  doc.setFont('helvetica', 'bold');
-  doc.text('SUBTOTAL SERVIÇOS:', pageWidth / 2 + 5, yPos + 6);
-  doc.setFontSize(LAYOUT.fontSize.body + 2);
-  doc.text(formatCurrency(orcamento.subtotal_servicos), pageWidth - LAYOUT.margin - 5, yPos + 6, { align: 'right' });
+    y = checkPageBreak(doc, y, 15);
+    doc.setFillColor(...COLORS.mediumGreen);
+    doc.rect(pageWidth / 2, y, pageWidth / 2 - LAYOUT.margin, 10, 'F');
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(LAYOUT.fontSize.body);
+    doc.setFont('helvetica', 'bold');
+    doc.text(subtotalLabel, pageWidth / 2 + 5, y + 6);
+    doc.setFontSize(LAYOUT.fontSize.body + 2);
+    doc.text(formatCurrency(subtotalValor), pageWidth - LAYOUT.margin - 5, y + 6, { align: 'right' });
 
-  return yPos + 15 + LAYOUT.sectionGap;
+    return y + 15 + LAYOUT.sectionGap;
+  };
+
+  const subtotalProducao = producao.reduce((acc, s: any) => acc + (Number(s.valor) || 0), 0);
+  const subtotalMarca = marca.reduce((acc, s: any) => acc + (Number(s.valor) || 0), 0);
+
+  yPos = renderGrupo('Serviços de Produção', producao, 'SUBTOTAL SERV. PRODUÇÃO:', subtotalProducao, yPos);
+  yPos = renderGrupo('Serviços de Marca', marca, 'SUBTOTAL SERV. MARCA:', subtotalMarca, yPos);
+
+  return yPos;
 }
 
 function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {

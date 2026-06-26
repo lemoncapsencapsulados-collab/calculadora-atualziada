@@ -267,42 +267,57 @@ const DetalhesPedidoDialog = ({
             )}
           </Section>
 
-          {/* Serviços de Marca */}
-          {isOrcamento && servicos.length > 0 && (
-            <>
-              <Separator />
-              <Section icon={Layers} title="Serviços de Marca">
-                <div className="space-y-2">
-                  {servicos.map((s: any, idx: number) => {
-                    const entregaveis: Array<{ nome: string; incluso: boolean; quantidade: number }> = s.entregaveis || [];
-                    const inclusos = entregaveis.filter((e) => e.incluso);
-                    const det = s.setup_detalhes;
-                    return (
-                      <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-1">
-                        <div className="flex justify-between items-center gap-2">
-                          <span className="font-medium text-sm">{s.nome_plano}</span>
-                          <span className="font-semibold text-sm text-primary whitespace-nowrap">{formatCurrency(s.valor)}</span>
-                        </div>
-                        {s.descricao && <p className="text-xs text-muted-foreground">{s.descricao}</p>}
-                        {det?.perfil && (
-                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            Perfil: {det.perfil === 'novo_produtor' ? 'Novo Produtor' : 'Produtor Experiente'}
-                          </p>
-                        )}
-                        {inclusos.length > 0 && (
-                          <ul className="mt-1 space-y-0.5 border-l-2 border-primary/30 pl-2">
-                            {inclusos.map((e, i) => (
-                              <li key={i} className="text-xs text-foreground/80">• {e.nome}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    );
-                  })}
+          {/* Serviços de Produção e Marca */}
+          {isOrcamento && servicos.length > 0 && (() => {
+            const producao = servicos.filter((s: any) => s?.setup_detalhes?.categoria === 'producao');
+            const marca = servicos.filter((s: any) => s?.setup_detalhes?.categoria !== 'producao');
+            const renderItem = (s: any, idx: number) => {
+              const entregaveis: Array<{ nome: string; incluso: boolean; quantidade: number }> = s.entregaveis || [];
+              const inclusos = entregaveis.filter((e) => e.incluso);
+              const det = s.setup_detalhes;
+              return (
+                <div key={idx} className="bg-muted/50 rounded-lg p-3 space-y-1">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="font-medium text-sm">{s.nome_plano}</span>
+                    <span className="font-semibold text-sm text-primary whitespace-nowrap">{formatCurrency(s.valor)}</span>
+                  </div>
+                  {s.descricao && <p className="text-xs text-muted-foreground">{s.descricao}</p>}
+                  {det?.perfil && (
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Perfil: {det.perfil === 'novo_produtor' ? 'Novo Produtor' : 'Produtor Experiente'}
+                    </p>
+                  )}
+                  {inclusos.length > 0 && (
+                    <ul className="mt-1 space-y-0.5 border-l-2 border-primary/30 pl-2">
+                      {inclusos.map((e, i) => (
+                        <li key={i} className="text-xs text-foreground/80">• {e.nome}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              </Section>
-            </>
-          )}
+              );
+            };
+            return (
+              <>
+                {producao.length > 0 && (
+                  <>
+                    <Separator />
+                    <Section icon={Layers} title="Serviços de Produção">
+                      <div className="space-y-2">{producao.map(renderItem)}</div>
+                    </Section>
+                  </>
+                )}
+                {marca.length > 0 && (
+                  <>
+                    <Separator />
+                    <Section icon={Layers} title="Serviços de Marca">
+                      <div className="space-y-2">{marca.map(renderItem)}</div>
+                    </Section>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {/* Condições de Pagamento */}
           {isOrcamento && (condicoes.metodo_principal || condicoes.valor_entrada || condicoes.valor_termino) && (
