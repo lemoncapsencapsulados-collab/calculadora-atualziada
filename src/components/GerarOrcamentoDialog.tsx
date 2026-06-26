@@ -444,6 +444,8 @@ export default function GerarOrcamentoDialog({
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
   // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon)
   const aplicaEstabilidade = !isRevendaLemon && itensProducao.length > 0;
+  const isCatalogo = (cliente: string) =>
+    cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
   // Item é "catálogo" quando vem de uma precificação cujo cliente é Catálogo Lemon
   const itemEhCatalogo = (it: ItemProducao) => {
     if (it.tipo !== 'precificacao' || !it.precificacao_id) return false;
@@ -808,9 +810,6 @@ export default function GerarOrcamentoDialog({
     }
     return true;
   };
-
-  const isCatalogo = (cliente: string) => 
-    cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
 
   // Habilita "Revenda Lemon" no Passo 3: todos os itens devem ser fórmulas do Catálogo
   const todosItensSaoCatalogo = useMemo(() => {
