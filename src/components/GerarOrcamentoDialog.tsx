@@ -444,9 +444,21 @@ export default function GerarOrcamentoDialog({
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
   // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon)
   const aplicaEstabilidade = !isRevendaLemon && itensProducao.length > 0;
-  const totalEstabilidadeAnvisa = aplicaEstabilidade
-    ? (custoEstabilidadeUnit + custoAnvisaUnit) * itensProducao.length
-    : 0;
+  // Item é "catálogo" quando vem de uma precificação cujo cliente é Catálogo Lemon
+  const itemEhCatalogo = (it: ItemProducao) => {
+    if (it.tipo !== 'precificacao' || !it.precificacao_id) return false;
+    const prec = (precificacoes as any[])?.find((p) => p.id === it.precificacao_id);
+    return !!prec && isCatalogo(prec.formulas?.cliente || '');
+  };
+  // Estabilidade: apenas itens NÃO-catálogo (fórmulas personalizadas)
+  // Anvisa: todos os itens de produção
+  const itensEstabilidade = aplicaEstabilidade
+    ? itensProducao.filter((it) => !itemEhCatalogo(it))
+    : [];
+  const itensAnvisa = aplicaEstabilidade ? itensProducao : [];
+  const totalEstabilidadeAnvisa =
+    custoEstabilidadeUnit * itensEstabilidade.length +
+    custoAnvisaUnit * itensAnvisa.length;
   const subtotalServicos = precoVendaSetup + totalEstabilidadeAnvisa;
   const valorTotal = subtotalProducao + subtotalServicos;
 
@@ -454,40 +466,41 @@ export default function GerarOrcamentoDialog({
   const buildServicosMarca = (): ServicoMarca[] => {
     const extras: ServicoMarca[] = [];
     if (aplicaEstabilidade) {
-      const qtd = itensProducao.length;
-      const totalEstab = custoEstabilidadeUnit * qtd;
-      const totalAnvisa = custoAnvisaUnit * qtd;
+      const qtdEstab = itensEstabilidade.length;
+      const qtdAnvisa = itensAnvisa.length;
+      const totalEstab = custoEstabilidadeUnit * qtdEstab;
+      const totalAnvisa = custoAnvisaUnit * qtdAnvisa;
       if (totalEstab > 0) {
         extras.push({
           nome_plano: 'Teste de Estabilidade',
           descricao:
-            `${qtd} produto(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. ` +
+            `${qtdEstab} produto(s) personalizado(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. Fórmulas do Catálogo Lemon são isentas. ` +
             ESTABILIDADE_PRAZO_TEXTO,
           valor: totalEstab,
           entregaveis: [
-            { nome: `Teste de estabilidade do produto (${qtd}x)`, incluso: true, quantidade: qtd },
+            { nome: `Teste de estabilidade do produto (${qtdEstab}x)`, incluso: true, quantidade: qtdEstab },
           ],
           setup_detalhes: {
             categoria: 'producao',
             tipo: 'estabilidade',
             custo_unit: custoEstabilidadeUnit,
-            quantidade: qtd,
+            quantidade: qtdEstab,
           },
         } as any);
       }
       if (totalAnvisa > 0) {
         extras.push({
           nome_plano: 'Notificação Anvisa do Produto',
-          descricao: `${qtd} produto(s) × ${formatCurrency(custoAnvisaUnit)} por produto.`,
+          descricao: `${qtdAnvisa} produto(s) × ${formatCurrency(custoAnvisaUnit)} por produto.`,
           valor: totalAnvisa,
           entregaveis: [
-            { nome: `Notificação Anvisa do Produto (${qtd}x)`, incluso: true, quantidade: qtd },
+            { nome: `Notificação Anvisa do Produto (${qtdAnvisa}x)`, incluso: true, quantidade: qtdAnvisa },
           ],
           setup_detalhes: {
             categoria: 'producao',
             tipo: 'anvisa',
             custo_unit: custoAnvisaUnit,
-            quantidade: qtd,
+            quantidade: qtdAnvisa,
           },
         } as any);
       }
@@ -1843,6 +1856,9 @@ export default function GerarOrcamentoDialog({
           {step === 4 && (
             <EstabilidadeAnvisaStep
               itensProducao={itensProducao}
+              itensEstabilidade={itensEstabilidade}
+              itensAnvisa={itensAnvisa}
+              isItemCatalogo={(it) => itemEhCatalogo(it)}
               custoEstabilidadeUnit={custoEstabilidadeUnit}
               custoAnvisaUnit={custoAnvisaUnit}
               onChangeEstabilidade={setCustoEstabilidadeUnit}
