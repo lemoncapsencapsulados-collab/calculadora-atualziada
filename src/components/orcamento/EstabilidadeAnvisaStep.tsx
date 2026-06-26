@@ -12,6 +12,9 @@ import { ItemProducao } from '@/types/orcamento';
 
 interface Props {
   itensProducao: ItemProducao[];
+  itensEstabilidade?: ItemProducao[];
+  itensAnvisa?: ItemProducao[];
+  isItemCatalogo?: (it: ItemProducao) => boolean;
   custoEstabilidadeUnit: number;
   custoAnvisaUnit: number;
   onChangeEstabilidade: (v: number) => void;
@@ -22,6 +25,9 @@ interface Props {
 
 export default function EstabilidadeAnvisaStep({
   itensProducao,
+  itensEstabilidade,
+  itensAnvisa,
+  isItemCatalogo,
   custoEstabilidadeUnit,
   custoAnvisaUnit,
   onChangeEstabilidade,
@@ -31,8 +37,10 @@ export default function EstabilidadeAnvisaStep({
 }: Props) {
   const [askPwd, setAskPwd] = useState(false);
   const qtd = itensProducao.length;
-  const totalEstab = custoEstabilidadeUnit * qtd;
-  const totalAnvisa = custoAnvisaUnit * qtd;
+  const qtdEstab = (itensEstabilidade ?? itensProducao).length;
+  const qtdAnvisa = (itensAnvisa ?? itensProducao).length;
+  const totalEstab = custoEstabilidadeUnit * qtdEstab;
+  const totalAnvisa = custoAnvisaUnit * qtdAnvisa;
   const total = totalEstab + totalAnvisa;
 
   return (
@@ -68,12 +76,24 @@ export default function EstabilidadeAnvisaStep({
               <p className="text-sm text-muted-foreground italic">Nenhum produto no Passo 2.</p>
             ) : (
               <ul className="text-sm space-y-1">
-                {itensProducao.map((it, i) => (
-                  <li key={i} className="flex justify-between">
-                    <span>• {it.nome_produto}</span>
-                    <span className="text-muted-foreground">{it.segmento}</span>
-                  </li>
-                ))}
+                {itensProducao.map((it, i) => {
+                  const cat = isItemCatalogo ? isItemCatalogo(it) : false;
+                  return (
+                    <li key={i} className="flex justify-between items-center gap-2">
+                      <span>• {it.nome_produto}</span>
+                      <span className="flex items-center gap-2">
+                        {cat ? (
+                          <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
+                            Catálogo — isento de estabilidade
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Personalizada</Badge>
+                        )}
+                        <span className="text-muted-foreground">{it.segmento}</span>
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -83,7 +103,7 @@ export default function EstabilidadeAnvisaStep({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5 text-sm">
-                <FlaskConical className="w-4 h-4" /> Teste de estabilidade (por produto)
+                <FlaskConical className="w-4 h-4" /> Teste de estabilidade (por produto personalizado)
               </Label>
               <Input
                 type="number"
@@ -91,11 +111,17 @@ export default function EstabilidadeAnvisaStep({
                 min={0}
                 value={custoEstabilidadeUnit}
                 onChange={(e) => onChangeEstabilidade(parseFloat(e.target.value) || 0)}
-                disabled={!edicaoLiberada}
+                disabled={!edicaoLiberada || qtdEstab === 0}
               />
-              <p className="text-xs text-muted-foreground">
-                {qtd} produto(s) × {formatCurrency(custoEstabilidadeUnit)} = <span className="font-medium">{formatCurrency(totalEstab)}</span>
-              </p>
+              {qtdEstab === 0 ? (
+                <p className="text-xs text-emerald-700">
+                  Todos os itens são do Catálogo Lemon — sem custo de teste de estabilidade.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {qtdEstab} produto(s) personalizado(s) × {formatCurrency(custoEstabilidadeUnit)} = <span className="font-medium">{formatCurrency(totalEstab)}</span>
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -111,7 +137,7 @@ export default function EstabilidadeAnvisaStep({
                 disabled={!edicaoLiberada}
               />
               <p className="text-xs text-muted-foreground">
-                {qtd} produto(s) × {formatCurrency(custoAnvisaUnit)} = <span className="font-medium">{formatCurrency(totalAnvisa)}</span>
+                {qtdAnvisa} produto(s) × {formatCurrency(custoAnvisaUnit)} = <span className="font-medium">{formatCurrency(totalAnvisa)}</span>
               </p>
             </div>
           </div>
