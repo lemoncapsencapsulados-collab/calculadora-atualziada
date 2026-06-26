@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
-import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
+import { validarCPF, validarCNPJ, validarEmail, formatarNomeProprio } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
@@ -221,10 +221,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const buildZapSignCamposPadrao = (): ZapSignCampos => {
     const isPJ = tipoPessoa === 'pj';
     const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
-    const signerName = (representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente || '';
+    const signerName = formatarNomeProprio((representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente || '');
     const signerEmail = representante.email || dadosCliente.email || '';
     const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
-    const razaoSocial = isPJ ? (dadosCliente.razao_social || '') : (representante.nome || '');
+    const razaoSocial = isPJ ? formatarNomeProprio(dadosCliente.razao_social || '') : formatarNomeProprio(representante.nome || '');
     const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
     const enderecoContratante = isPJ
       ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
@@ -250,7 +250,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       endereco: enderecoContratante,
       email_contratante: dadosCliente.email || signerEmail,
       telefone_contratante: dadosCliente.telefone || signerPhone,
-      nome_representante: representante.nome || '',
+      nome_representante: formatarNomeProprio(representante.nome || ''),
       cpf_representante: representante.cpf || '',
       numero_contrato: orcamento.numero_orcamento || '',
       data_contrato: dataPorExtenso(new Date()),
@@ -390,6 +390,17 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
       if (!signerName || !signerEmail) {
         toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
+        setZapSignLoading(false);
+        return;
+      }
+      if (!campos.nome_representante?.trim()) {
+        toast.error('Informe o nome do representante legal.');
+        setZapSignLoading(false);
+        return;
+      }
+      const cpfRep = (campos.cpf_representante || '').replace(/\D/g, '');
+      if (!cpfRep || !validarCPF(cpfRep)) {
+        toast.error('Informe um CPF válido para o representante legal.');
         setZapSignLoading(false);
         return;
       }
@@ -924,7 +935,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Nome do signatário *</Label>
-                        <Input value={zapSignCampos.signer_name} onChange={(e) => updateZapCampo('signer_name', e.target.value)} />
+                        <Input
+                          value={zapSignCampos.signer_name}
+                          onChange={(e) => updateZapCampo('signer_name', e.target.value)}
+                          onBlur={(e) => updateZapCampo('signer_name', formatarNomeProprio(e.target.value))}
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Email do signatário *</Label>
@@ -977,7 +992,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs">Nome *</Label>
-                            <Input value={s.name} onChange={(e) => setZapExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))} />
+                            <Input
+                              value={s.name}
+                              onChange={(e) => setZapExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: e.target.value } : it))}
+                              onBlur={(e) => setZapExtraSigners((p) => p.map((it, i) => i === idx ? { ...it, name: formatarNomeProprio(e.target.value) } : it))}
+                            />
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Email *</Label>
@@ -997,7 +1016,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                     <div className="grid grid-cols-2 gap-3">
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Razão Social / Nome</Label>
-                        <Input value={zapSignCampos.razao_social} onChange={(e) => updateZapCampo('razao_social', e.target.value)} />
+                        <Input
+                          value={zapSignCampos.razao_social}
+                          onChange={(e) => updateZapCampo('razao_social', e.target.value)}
+                          onBlur={(e) => updateZapCampo('razao_social', formatarNomeProprio(e.target.value))}
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs flex items-center gap-2">
@@ -1042,12 +1065,23 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                     <p className="text-xs font-semibold text-muted-foreground uppercase">Representante</p>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">Nome do representante</Label>
-                        <Input value={zapSignCampos.nome_representante} onChange={(e) => updateZapCampo('nome_representante', e.target.value)} />
+                        <Label className="text-xs">Nome do representante legal *</Label>
+                        <Input
+                          value={zapSignCampos.nome_representante}
+                          onChange={(e) => updateZapCampo('nome_representante', e.target.value)}
+                          onBlur={(e) => updateZapCampo('nome_representante', formatarNomeProprio(e.target.value))}
+                          placeholder="Nome completo do representante"
+                          required
+                        />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">CPF do representante</Label>
-                        <Input value={zapSignCampos.cpf_representante} onChange={(e) => updateZapCampo('cpf_representante', e.target.value)} />
+                        <Label className="text-xs">CPF do representante legal *</Label>
+                        <Input
+                          value={zapSignCampos.cpf_representante}
+                          onChange={(e) => updateZapCampo('cpf_representante', e.target.value)}
+                          placeholder="000.000.000-00"
+                          required
+                        />
                       </div>
                     </div>
                   </div>

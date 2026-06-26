@@ -40,3 +40,26 @@ export function validarCNPJ(cnpj: string): boolean {
 export function validarEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+
+/**
+ * Formata nomes próprios em "Title Case" preservando acentos.
+ * Mantém conectivos (de, da, do, dos, das, e) em minúsculo (exceto no início).
+ * Mantém siglas ALL CAPS curtas (ex: LTDA, ME, EPP, S/A) em maiúsculo.
+ */
+export function formatarNomeProprio(input: string | null | undefined): string {
+  if (!input) return '';
+  const conectivos = new Set(['de', 'da', 'do', 'dos', 'das', 'e', 'di', 'du']);
+  const siglas = new Set(['ltda', 'me', 'epp', 'eireli', 's/a', 'sa', 'cia', 'inc', 'ltd']);
+  const limpo = String(input).replace(/\s+/g, ' ').trim();
+  if (!limpo) return '';
+  return limpo
+    .split(' ')
+    .map((palavra, idx) => {
+      const baixo = palavra.toLowerCase();
+      if (siglas.has(baixo)) return palavra.toUpperCase();
+      if (idx > 0 && conectivos.has(baixo)) return baixo;
+      // Suporta hífen e apóstrofo (ex: D'Avila, Saint-Germain)
+      return baixo.replace(/(^|[\s\-'’])(\p{L})/gu, (_, sep, ch) => sep + ch.toUpperCase());
+    })
+    .join(' ');
+}
