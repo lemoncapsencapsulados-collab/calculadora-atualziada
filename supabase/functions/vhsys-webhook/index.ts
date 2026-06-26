@@ -98,16 +98,12 @@ async function localizarOrcamento(cnpjCpf: string, obs: string, nomeCli: string)
     const matchNum = matches.some((m) => m.toUpperCase().replace(/-/g, "") === num.toUpperCase().replace(/-/g, ""));
     if (!matchNum) continue;
 
-    // Se payload tem CNPJ, confere. Senão, confere por nome (se houver) ou aceita só pelo número.
+    // Se o payload tem CNPJ/CPF, confere. Caso contrário, o número do orçamento
+    // (ORC-xxx) já é identificador único — aceita o match só pelo número, mesmo
+    // que o nome divirja (VHSys frequentemente não envia CNPJ no payload e o
+    // nome da conta a receber pode ser o do titular bancário, não do cliente).
     if (cnpjCpf) {
       if (clienteCnpjFromOrc(o) === cnpjCpf) return { orc: o, motivo: null };
-      continue;
-    }
-    if (nomeCliNorm) {
-      const orcNome = normNome(o.nome_cliente || "");
-      if (orcNome && (orcNome.includes(nomeCliNorm.split(" ")[0]) || nomeCliNorm.includes(orcNome.split(" ")[0]))) {
-        return { orc: o, motivo: null };
-      }
       continue;
     }
     return { orc: o, motivo: null };
