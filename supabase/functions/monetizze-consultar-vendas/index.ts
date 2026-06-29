@@ -109,6 +109,25 @@ function getProdutoNome(t: any): string {
   );
 }
 
+function getProdutoNomesTodos(t: any): string[] {
+  const nomes: string[] = [];
+  const push = (v: any) => { if (v) nomes.push(String(v)); };
+  push(t?.produto?.nome);
+  push(t?.produto?.descricao);
+  push(t?.product?.name);
+  push(t?.product_name);
+  push(t?.nome_produto);
+  push(t?.plano?.nome);
+  if (Array.isArray(t?.produtos)) {
+    for (const p of t.produtos) {
+      push(p?.nome);
+      push(p?.descricao);
+      push(p?.planoNome);
+    }
+  }
+  return nomes;
+}
+
 function getValor(t: any): number {
   const v = t?.venda?.valor ?? t?.valor ?? t?.valor_total ?? t?.amount ?? 0;
   return parseMoney(v);
@@ -209,7 +228,7 @@ Deno.serve(async (req) => {
 
     const filtroNome = normalizar(filtro.produto_nome || '');
     const filtradas = filtroNome
-      ? transacoes.filter((t) => normalizar(getProdutoNome(t)).includes(filtroNome))
+      ? transacoes.filter((t) => getProdutoNomesTodos(t).some((n) => normalizar(n).includes(filtroNome)))
       : transacoes;
 
     const quantidade = filtradas.length;
