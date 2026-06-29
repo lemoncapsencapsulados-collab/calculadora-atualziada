@@ -111,23 +111,40 @@ function getProdutoNome(t: any): string {
 
 function getValor(t: any): number {
   const v = t?.venda?.valor ?? t?.valor ?? t?.valor_total ?? t?.amount ?? 0;
-  return Number(v) || 0;
+  return parseMoney(v);
+}
+
+function parseMoney(v: any): number {
+  if (v === undefined || v === null || v === '') return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  const raw = String(v).trim();
+  if (!raw) return 0;
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function somaComissoes(arr: any): number {
+  if (!Array.isArray(arr)) return 0;
+  return arr.reduce((s: number, c: any) => s + parseMoney(c?.valor ?? c?.value ?? c?.amount), 0);
 }
 
 function getComissao(t: any): number {
-  // Monetizze: o valor de comissão da conta consultada vem em venda.valorRecebido
-  const direto = t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
+  // Monetizze: o painel de "Comissão" soma o array de comissionados.
+  // `venda.valorRecebido` pode vir líquido/arredondado e não bate com o total do painel.
+  const somaTopo = somaComissoes(t?.comissoes);
+  if (somaTopo > 0) return somaTopo;
+
+  const somaVenda = somaComissoes(t?.venda?.comissoes);
+  if (somaVenda > 0) return somaVenda;
+
+  const direto = t?.venda?.comissao ?? t?.comissao ?? t?.commission ?? t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
   if (direto !== undefined && direto !== null && direto !== '') {
-    const n = Number(direto);
-    if (!isNaN(n)) return n;
+    return parseMoney(direto);
   }
-  // fallback: somar array de comissoes
-  if (Array.isArray(t?.comissoes)) {
-    const soma = t.comissoes.reduce((s: number, c: any) => s + (Number(c?.valor) || 0), 0);
-    if (soma > 0) return soma;
-  }
-  const c = t?.venda?.comissao ?? t?.comissao ?? t?.commission ?? 0;
-  return Number(c) || 0;
+  return 0;
 }
 
 function getDataFinalizacao(t: any): string | null {
