@@ -126,18 +126,31 @@ function parseMoney(v: any): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function somaComissoes(arr: any): number {
+function getTipoPostback(t: any): string {
+  return String(t?.tipoPostback?.descricao || t?.venda?.tipoPostback?.descricao || '').toLowerCase();
+}
+
+function somaComissoes(arr: any, tipoPreferido = ''): number {
   if (!Array.isArray(arr)) return 0;
-  return arr.reduce((s: number, c: any) => s + parseMoney(c?.valor ?? c?.value ?? c?.amount), 0);
+  const normalizar = (s: any) => String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const alvo = normalizar(tipoPreferido);
+  const lista = alvo
+    ? arr.filter((c: any) => normalizar(c?.tipo_comissao || c?.tipoComissao || c?.tipo || c?.descricao).includes(alvo))
+    : arr;
+  return lista.reduce((s: number, c: any) => s + parseMoney(c?.valor ?? c?.value ?? c?.amount), 0);
 }
 
 function getComissao(t: any): number {
-  // Monetizze: o painel de "Comissão" soma o array de comissionados.
-  // `venda.valorRecebido` pode vir líquido/arredondado e não bate com o total do painel.
-  const somaTopo = somaComissoes(t?.comissoes);
+  // Monetizze: o painel de "Comissão" usa o item de comissão do papel da conta consultada
+  // (Produtor/Co-Produtor/Afiliado). `valorRecebido` pode vir líquido/arredondado.
+  const tipo = getTipoPostback(t);
+  const somaTopo = somaComissoes(t?.comissoes, tipo);
   if (somaTopo > 0) return somaTopo;
 
-  const somaVenda = somaComissoes(t?.venda?.comissoes);
+  const somaVenda = somaComissoes(t?.venda?.comissoes, tipo);
   if (somaVenda > 0) return somaVenda;
 
   const direto = t?.venda?.comissao ?? t?.comissao ?? t?.commission ?? t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
