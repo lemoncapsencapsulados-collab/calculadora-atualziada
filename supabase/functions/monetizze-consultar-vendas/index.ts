@@ -33,12 +33,22 @@ function rangeMes(mes: string): { ini: string; fim: string } {
   };
 }
 
-async function buscarTransacoes(token: string, filtro: Filtro): Promise<any[]> {
+async function fetchComTimeout(url: string, opts: RequestInit, ms = 25000): Promise<Response> {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+async function buscarTransacoes(token: string, consumerKey: string, filtro: Filtro): Promise<any[]> {
   const { ini, fim } = rangeMes(filtro.mes);
   const statusList = filtro.status && filtro.status.length ? filtro.status : [2, 6];
   const todas: any[] = [];
   let page = 1;
-  const maxPages = 50;
+  const maxPages = 20;
   while (page <= maxPages) {
     const params = new URLSearchParams();
     params.set('end_date_min', ini);
@@ -47,15 +57,24 @@ async function buscarTransacoes(token: string, filtro: Filtro): Promise<any[]> {
     if (filtro.produto_codigo) params.set('product', filtro.produto_codigo);
     params.set('page', String(page));
     const url = `${API_BASE}/transactions?${params.toString()}`;
-    const r = await fetch(url, { method: 'GET', headers: { 'TOKEN': token, 'Content-Type': 'application/json' } });
+    console.log(`[monetizze] GET page=${page}`);
+    const r = await fetchComTimeout(url, {
+      method: 'GET',
+      headers: {
+        'TOKEN': token,
+        'X_CONSUMER_KEY': consumerKey,
+        'Content-Type': 'application/json',
+      },
+    }, 25000);
     const txt = await r.text();
     if (!r.ok) throw new Error(`Monetizze /transactions falhou (${r.status}): ${txt.slice(0, 500)}`);
     let data: any;
     try { data = JSON.parse(txt); } catch { throw new Error(`Resposta inválida: ${txt.slice(0, 200)}`); }
     const lista: any[] = Array.isArray(data) ? data : (data.dados || data.data || data.transactions || []);
+    console.log(`[monetizze] page=${page} itens=${lista.length}`);
     if (!lista.length) break;
     todas.push(...lista);
-    if (lista.length < 100) break;
+    if (lista.length < 50) break;
     page++;
   }
   return todas;
@@ -122,7 +141,9 @@ Deno.serve(async (req) => {
     }
 
     const token = await gerarToken(consumerKey);
-    const transacoes = await buscarTransacoes(token, filtro);
+    console.log('[monetizze] token ok');
+    const transacoes = await buscarTransacoes(token, consumerKey, filtro);
+    console.log(`[monetizze] total transacoes=${transacoes.length}`);
 
     const filtroNome = normalizar(filtro.produto_nome || '');
     const filtradas = filtroNome
