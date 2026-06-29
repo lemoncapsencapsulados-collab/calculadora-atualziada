@@ -7,6 +7,7 @@ interface Filtro {
   produto_nome?: string;
   produto_codigo?: string;
   status?: number[];
+  debug?: boolean;
 }
 
 async function gerarToken(consumerKey: string): Promise<string> {
@@ -192,6 +193,7 @@ Deno.serve(async (req) => {
       produto_nome: body.produto_nome,
       produto_codigo: body.produto_codigo,
       status: body.status,
+      debug: body.debug === true,
     };
     if (!filtro.mes || !/^\d{4}-\d{2}$/.test(filtro.mes)) {
       return new Response(JSON.stringify({ error: 'Parâmetro "mes" obrigatório no formato YYYY-MM' }), {
@@ -232,7 +234,7 @@ Deno.serve(async (req) => {
       comissao: getComissao(t),
     }));
 
-    return new Response(JSON.stringify({
+    const resposta: any = {
       mes: filtro.mes,
       filtro_produto: filtro.produto_nome || null,
       total_retornado_api: transacoes.length,
@@ -241,7 +243,36 @@ Deno.serve(async (req) => {
       comissao_total: Number(comissaoTotal.toFixed(2)),
       por_produto: Array.from(porProduto.values()).sort((a, b) => b.faturamento - a.faturamento),
       itens,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    };
+
+    if (filtro.debug) {
+      const sum = (fn: (t: any) => number) => Number(filtradas.reduce((s, t) => s + fn(t), 0).toFixed(2));
+      const byTipo = new Map<string, number>();
+      filtradas.forEach((t) => {
+        [...(Array.isArray(t?.comissoes) ? t.comissoes : []), ...(Array.isArray(t?.venda?.comissoes) ? t.venda.comissoes : [])]
+          .forEach((c: any) => {
+            const tipo = c?.tipo_comissao || c?.tipoComissao || c?.tipo || c?.descricao || '(sem tipo)';
+            byTipo.set(tipo, (byTipo.get(tipo) || 0) + parseMoney(c?.valor ?? c?.value ?? c?.amount));
+          });
+      });
+      resposta.debug = {
+        soma_valor_recebido: sum((t) => parseMoney(t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido)),
+        soma_comissao_por_tipo: Array.from(byTipo.entries()).map(([tipo, valor]) => ({ tipo, valor: Number(valor.toFixed(2)) })),
+        divergencias: filtradas
+          .map((t) => ({
+            codigo: getCodigoVenda(t),
+            produto: getProdutoNome(t),
+            valor_recebido: parseMoney(t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido),
+            comissao: getComissao(t),
+            diferenca: Number((getComissao(t) - parseMoney(t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido)).toFixed(2)),
+          }))
+          .filter((d) => Math.abs(d.diferenca) >= 0.01)
+          .sort((a, b) => Math.abs(b.diferenca) - Math.abs(a.diferenca))
+          .slice(0, 30),
+      };
+    }
+
+    return new Response(JSON.stringify(resposta), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     console.error('[monetizze-consultar-vendas] erro', e);
     return new Response(JSON.stringify({ error: e?.message || String(e) }), {
