@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Loader2, Search, ShoppingBag, TrendingUp, Percent } from 'lucide-react';
+import { Loader2, Search, ShoppingBag, TrendingUp, Percent, UserCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUsuarios } from '@/hooks/useUsuarios';
 
 const fmtBRL = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -43,6 +45,12 @@ export function MonetizzeConsultaCard() {
   const [produtoCodigo, setProdutoCodigo] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Resultado | null>(null);
+  const [consultorId, setConsultorId] = useState<string>('');
+  const [percentual, setPercentual] = useState<number>(1);
+  const { data: usuarios = [] } = useUsuarios(true);
+
+  const consultorSelecionado = usuarios.find((u) => u.id === consultorId) || null;
+  const valorConsultor = data ? (data.comissao_total * (percentual || 0)) / 100 : 0;
 
   const consultar = async () => {
     if (!mes) {
@@ -120,6 +128,52 @@ export function MonetizzeConsultaCard() {
 
         {data && (
           <div className="space-y-4">
+            <Card className="border-primary/30 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <UserCheck className="h-4 w-4" /> Comissão de consultor sobre a comissão real
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label>Consultor</Label>
+                    <Select value={consultorId} onValueChange={setConsultorId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um consultor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {usuarios.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.nome}{u.cargo ? ` — ${u.cargo}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Percentual (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      value={percentual}
+                      onChange={(e) => setPercentual(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Valor a receber</Label>
+                    <div className="h-10 px-3 rounded-md border bg-background flex items-center font-bold text-emerald-600">
+                      {fmtBRL(valorConsultor)}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cálculo: <strong>{percentual}%</strong> de {fmtBRL(data.comissao_total)} (comissão real do período){consultorSelecionado ? <> · vinculado a <strong>{consultorSelecionado.nome}</strong></> : ''}.
+                </p>
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Card>
                 <CardHeader className="pb-2">
