@@ -253,6 +253,14 @@ Deno.serve(async (req) => {
       ? transacoes.filter((t) => getProdutoNomesTodos(t).some((n) => normalizar(n).includes(filtroNome)))
       : transacoes;
 
+    if (filtroNome) {
+      const excluidas = transacoes.filter((t) => !getProdutoNomesTodos(t).some((n) => normalizar(n).includes(filtroNome)));
+      console.log(`[monetizze] excluídas pelo filtro nome=${excluidas.length}`);
+      excluidas.slice(0, 10).forEach((t, i) => {
+        console.log(`[monetizze] excluida[${i}] nomes=${JSON.stringify(getProdutoNomesTodos(t))} cod=${t?.produto?.codigo}`);
+      });
+    }
+
     const quantidade = filtradas.length;
     const faturamento = filtradas.reduce((s, t) => s + getValor(t), 0);
     const comissaoTotal = filtradas.reduce((s, t) => s + getComissao(t), 0);
