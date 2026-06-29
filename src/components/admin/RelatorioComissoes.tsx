@@ -16,6 +16,7 @@ import { usePedidos } from '@/hooks/usePedidos';
 import { derivarComissoes, aplicarStatusPago, ItemComissao, StatusParcelaComissao } from '@/lib/comissoes';
 import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog';
 import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoDialog';
+import { MonetizzeConsultaCard } from '@/components/admin/MonetizzeConsultaCard';
 import { Pedido } from '@/types/formula';
 import { arredondarReais } from '@/lib/utils';
 
@@ -264,6 +265,9 @@ export function RelatorioComissoes() {
 
   return (
     <div className="space-y-6">
+      {/* Monetizze — faturamento real */}
+      <MonetizzeConsultaCard />
+
       {/* Filtros */}
       <Card>
         <CardHeader>
