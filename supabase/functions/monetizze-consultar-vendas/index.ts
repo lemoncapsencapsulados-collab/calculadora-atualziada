@@ -111,23 +111,56 @@ function getProdutoNome(t: any): string {
 
 function getValor(t: any): number {
   const v = t?.venda?.valor ?? t?.valor ?? t?.valor_total ?? t?.amount ?? 0;
-  return Number(v) || 0;
+  return parseMoney(v);
+}
+
+function parseMoney(v: any): number {
+  if (v === undefined || v === null || v === '') return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  const raw = String(v).trim();
+  if (!raw) return 0;
+  const normalized = raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.')
+    : raw;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getTipoPostback(t: any): string {
+  return String(t?.tipoPostback?.descricao || t?.venda?.tipoPostback?.descricao || '').toLowerCase();
+}
+
+function somaComissoes(arr: any, tipoPreferido = ''): number {
+  if (!Array.isArray(arr)) return 0;
+  const normalizar = (s: any) => String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const alvo = normalizar(tipoPreferido);
+  const lista = alvo
+    ? arr.filter((c: any) => normalizar(c?.tipo_comissao || c?.tipoComissao || c?.tipo || c?.descricao).includes(alvo))
+    : arr;
+  return lista.reduce((s: number, c: any) => s + parseMoney(c?.valor ?? c?.value ?? c?.amount), 0);
 }
 
 function getComissao(t: any): number {
-  // Monetizze: o valor de comissão da conta consultada vem em venda.valorRecebido
+  // No relatório da Monetizze, o total "Comissão" bate com venda.valorRecebido.
   const direto = t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
   if (direto !== undefined && direto !== null && direto !== '') {
-    const n = Number(direto);
-    if (!isNaN(n)) return n;
+    return parseMoney(direto);
   }
-  // fallback: somar array de comissoes
-  if (Array.isArray(t?.comissoes)) {
-    const soma = t.comissoes.reduce((s: number, c: any) => s + (Number(c?.valor) || 0), 0);
-    if (soma > 0) return soma;
-  }
-  const c = t?.venda?.comissao ?? t?.comissao ?? t?.commission ?? 0;
-  return Number(c) || 0;
+
+  const c = t?.venda?.comissao ?? t?.comissao ?? t?.commission;
+  if (c !== undefined && c !== null && c !== '') return parseMoney(c);
+
+  const tipo = getTipoPostback(t);
+  const somaTopo = somaComissoes(t?.comissoes, tipo);
+  if (somaTopo > 0) return somaTopo;
+
+  const somaVenda = somaComissoes(t?.venda?.comissoes, tipo);
+  if (somaVenda > 0) return somaVenda;
+
+  return 0;
 }
 
 function getDataFinalizacao(t: any): string | null {
@@ -202,7 +235,7 @@ Deno.serve(async (req) => {
       comissao: getComissao(t),
     }));
 
-    return new Response(JSON.stringify({
+    const resposta = {
       mes: filtro.mes,
       filtro_produto: filtro.produto_nome || null,
       total_retornado_api: transacoes.length,
@@ -211,7 +244,9 @@ Deno.serve(async (req) => {
       comissao_total: Number(comissaoTotal.toFixed(2)),
       por_produto: Array.from(porProduto.values()).sort((a, b) => b.faturamento - a.faturamento),
       itens,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    };
+
+    return new Response(JSON.stringify(resposta), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     console.error('[monetizze-consultar-vendas] erro', e);
     return new Response(JSON.stringify({ error: e?.message || String(e) }), {
