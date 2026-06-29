@@ -43,39 +43,53 @@ async function fetchComTimeout(url: string, opts: RequestInit, ms = 25000): Prom
   }
 }
 
-async function buscarTransacoes(token: string, consumerKey: string, filtro: Filtro): Promise<any[]> {
+async function fetchPagina(token: string, consumerKey: string, filtro: Filtro, page: number): Promise<any[]> {
   const { ini, fim } = rangeMes(filtro.mes);
   const statusList = filtro.status && filtro.status.length ? filtro.status : [2, 6];
-  const todas: any[] = [];
-  let page = 1;
-  const maxPages = 20;
-  while (page <= maxPages) {
-    const params = new URLSearchParams();
-    params.set('end_date_min', ini);
-    params.set('end_date_max', fim);
-    statusList.forEach((s) => params.append('status[]', String(s)));
-    if (filtro.produto_codigo) params.set('product', filtro.produto_codigo);
-    params.set('page', String(page));
-    const url = `${API_BASE}/transactions?${params.toString()}`;
-    console.log(`[monetizze] GET page=${page}`);
-    const r = await fetchComTimeout(url, {
-      method: 'GET',
-      headers: {
-        'TOKEN': token,
-        'X_CONSUMER_KEY': consumerKey,
-        'Content-Type': 'application/json',
-      },
-    }, 25000);
-    const txt = await r.text();
-    if (!r.ok) throw new Error(`Monetizze /transactions falhou (${r.status}): ${txt.slice(0, 500)}`);
-    let data: any;
-    try { data = JSON.parse(txt); } catch { throw new Error(`Resposta inválida: ${txt.slice(0, 200)}`); }
-    const lista: any[] = Array.isArray(data) ? data : (data.dados || data.data || data.transactions || []);
-    console.log(`[monetizze] page=${page} itens=${lista.length}`);
-    if (!lista.length) break;
-    todas.push(...lista);
-    if (lista.length < 50) break;
-    page++;
+  const params = new URLSearchParams();
+  params.set('end_date_min', ini);
+  params.set('end_date_max', fim);
+  statusList.forEach((s) => params.append('status[]', String(s)));
+  if (filtro.produto_codigo) params.set('product', filtro.produto_codigo);
+  params.set('page', String(page));
+  const url = `${API_BASE}/transactions?${params.toString()}`;
+  const r = await fetchComTimeout(url, {
+    method: 'GET',
+    headers: { 'TOKEN': token, 'X_CONSUMER_KEY': consumerKey, 'Content-Type': 'application/json' },
+  }, 20000);
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`Monetizze /transactions falhou (${r.status}): ${txt.slice(0, 500)}`);
+  let data: any;
+  try { data = JSON.parse(txt); } catch { throw new Error(`Resposta inválida: ${txt.slice(0, 200)}`); }
+  const lista: any[] = Array.isArray(data) ? data : (data.dados || data.data || data.transactions || []);
+  return lista;
+}
+
+async function buscarTransacoes(token: string, consumerKey: string, filtro: Filtro): Promise<any[]> {
+  // Página 1 sequencial para descobrir se tem dados
+  const primeira = await fetchPagina(token, consumerKey, filtro, 1);
+  console.log(`[monetizze] page=1 itens=${primeira.length}`);
+  if (primeira.length < 100) return primeira;
+
+  const todas: any[] = [...primeira];
+  const concorrencia = 5;
+  const maxPages = 30;
+  let proxima = 2;
+  let acabou = false;
+
+  while (!acabou && proxima <= maxPages) {
+    const lote = [] as Promise<{ page: number; lista: any[] }>[];
+    for (let i = 0; i < concorrencia && proxima + i <= maxPages; i++) {
+      const p = proxima + i;
+      lote.push(fetchPagina(token, consumerKey, filtro, p).then((lista) => ({ page: p, lista })));
+    }
+    const resultados = await Promise.all(lote);
+    for (const { page, lista } of resultados) {
+      console.log(`[monetizze] page=${page} itens=${lista.length}`);
+      todas.push(...lista);
+      if (lista.length < 100) acabou = true;
+    }
+    proxima += concorrencia;
   }
   return todas;
 }
