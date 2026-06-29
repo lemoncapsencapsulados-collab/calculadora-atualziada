@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Loader2, Search, ShoppingBag, TrendingUp, Percent, UserCheck, Save, FileDown, Trash2, History } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Loader2, Search, ShoppingBag, TrendingUp, Percent, UserCheck, Save, FileDown, Trash2, History, KeyRound, Database, Calculator, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +50,48 @@ export function MonetizzeConsultaCard() {
   const [produtoNome, setProdutoNome] = useState('');
   const [produtoCodigo, setProdutoCodigo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [progresso, setProgresso] = useState(0);
+  const [etapa, setEtapa] = useState(0);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const etapas = [
+    { label: 'Autenticando na Monetizze', icon: KeyRound },
+    { label: 'Buscando vendas finalizadas', icon: Database },
+    { label: 'Filtrando por produto', icon: Search },
+    { label: 'Calculando comissões e totais', icon: Calculator },
+  ];
+
+  useEffect(() => () => {
+    if (progressTimer.current) clearInterval(progressTimer.current);
+  }, []);
+
+  const iniciarProgresso = () => {
+    setProgresso(5);
+    setEtapa(0);
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    progressTimer.current = setInterval(() => {
+      setProgresso((p) => {
+        const next = p + (p < 60 ? 4 : p < 85 ? 1.5 : 0.4);
+        const capped = Math.min(next, 92);
+        const novaEtapa = capped < 25 ? 0 : capped < 55 ? 1 : capped < 80 ? 2 : 3;
+        setEtapa(novaEtapa);
+        return capped;
+      });
+    }, 350);
+  };
+
+  const finalizarProgresso = () => {
+    if (progressTimer.current) {
+      clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+    setProgresso(100);
+    setEtapa(etapas.length - 1);
+    setTimeout(() => {
+      setProgresso(0);
+      setEtapa(0);
+    }, 600);
+  };
   const [data, setData] = useState<Resultado | null>(null);
   const [consultorId, setConsultorId] = useState<string>('');
   const [percentual, setPercentual] = useState<number>(1);
@@ -86,6 +130,7 @@ export function MonetizzeConsultaCard() {
       return;
     }
     setLoading(true);
+    iniciarProgresso();
     try {
       const { data: resp, error } = await supabase.functions.invoke('monetizze-consultar-vendas', {
         body: {
@@ -109,6 +154,7 @@ export function MonetizzeConsultaCard() {
         variant: 'destructive',
       });
     } finally {
+      finalizarProgresso();
       setLoading(false);
     }
   };
@@ -258,6 +304,48 @@ export function MonetizzeConsultaCard() {
               : <><Search className="h-4 w-4 mr-2" />Consultar Monetizze</>}
           </Button>
         </div>
+
+        {loading && (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="pt-5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-semibold">Consultando Monetizze…</span>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground">{Math.round(progresso)}%</span>
+              </div>
+              <Progress value={progresso} className="h-2" />
+              <ul className="space-y-2">
+                {etapas.map((e, i) => {
+                  const Icone = e.icon;
+                  const concluido = i < etapa || progresso >= 100;
+                  const ativo = i === etapa && progresso < 100;
+                  return (
+                    <li
+                      key={e.label}
+                      className={`flex items-center gap-2 text-xs transition-colors ${
+                        concluido ? 'text-emerald-600' : ativo ? 'text-primary font-medium' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {concluido ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : ativo ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Icone className="h-4 w-4 opacity-60" />
+                      )}
+                      <span>{e.label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-[11px] text-muted-foreground">
+                A consulta pode levar até 30 segundos quando o mês tem muitas transações. Não feche esta página.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {data && (
           <div className="space-y-4">
