@@ -69,6 +69,10 @@ async function buscarTransacoes(token: string, consumerKey: string, filtro: Filt
   // Página 1 sequencial para descobrir se tem dados
   const primeira = await fetchPagina(token, consumerKey, filtro, 1);
   console.log(`[monetizze] page=1 itens=${primeira.length}`);
+  if (primeira[0]) {
+    console.log('[monetizze] sample keys:', Object.keys(primeira[0]).join(','));
+    console.log('[monetizze] sample:', JSON.stringify(primeira[0]).slice(0, 1500));
+  }
   if (primeira.length < 100) return primeira;
 
   const todas: any[] = [...primeira];
