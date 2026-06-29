@@ -389,37 +389,7 @@ export function MonetizzeConsultaCard() {
               </div>
             )}
 
-            {data.itens.length > 0 && (
-              <div>
-                <div className="text-sm font-semibold mb-2">Vendas detalhadas</div>
-                <div className="overflow-x-auto max-h-[480px] overflow-y-auto border rounded">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Produto</TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-right">Comissão</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.itens.map((it, i) => (
-                        <TableRow key={`${it.codigo}-${i}`}>
-                          <TableCell className="font-mono text-xs">{it.codigo}</TableCell>
-                          <TableCell className="max-w-[260px] truncate" title={it.produto}>{it.produto}</TableCell>
-                          <TableCell className="max-w-[200px] truncate" title={it.cliente}>{it.cliente}</TableCell>
-                          <TableCell className="text-xs">{it.data_finalizacao || '—'}</TableCell>
-                          <TableCell className="text-right">{fmtBRL(it.valor)}</TableCell>
-                          <TableCell className="text-right">{fmtBRL(it.comissao)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            )}
+            {/* Vendas detalhadas ocultadas — exibimos apenas resumo financeiro e por produto. */}
           </div>
         )}
 
