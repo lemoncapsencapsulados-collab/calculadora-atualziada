@@ -16,9 +16,11 @@ async function gerarToken(consumerKey: string): Promise<string> {
   });
   const txt = await r.text();
   if (!r.ok) throw new Error(`Token Monetizze falhou (${r.status}): ${txt}`);
-  const data = JSON.parse(txt);
-  if (!data.TOKEN) throw new Error('Token Monetizze não retornado');
-  return data.TOKEN as string;
+  let data: any;
+  try { data = JSON.parse(txt); } catch { throw new Error(`Resposta /token inválida: ${txt.slice(0,200)}`); }
+  const token = data?.TOKEN || data?.token || data?.Token || data?.access_token;
+  if (!token) throw new Error(`Token Monetizze não retornado. Resposta: ${txt.slice(0,300)}`);
+  return String(token);
 }
 
 function rangeMes(mes: string): { ini: string; fim: string } {
