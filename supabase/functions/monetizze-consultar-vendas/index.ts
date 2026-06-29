@@ -125,6 +125,28 @@ function getProdutoNomesTodos(t: any): string[] {
       push(p?.planoNome);
     }
   }
+  // Order bumps
+  if (Array.isArray(t?.order_bump)) {
+    for (const p of t.order_bump) {
+      push(p?.nome);
+      push(p?.descricao);
+      push(p?.planoNome);
+      push(p?.produto?.nome);
+    }
+  }
+  if (Array.isArray(t?.venda_item_order_bump)) {
+    for (const p of t.venda_item_order_bump) {
+      push(p?.nome);
+      push(p?.descricao);
+      push(p?.planoNome);
+      push(p?.produto?.nome);
+    }
+  }
+  // Códigos de produto também são úteis para casar mesmo quando o nome muda
+  push(t?.produto?.codigo);
+  if (Array.isArray(t?.produtos)) {
+    for (const p of t.produtos) push(p?.produto);
+  }
   return nomes;
 }
 
@@ -230,6 +252,14 @@ Deno.serve(async (req) => {
     const filtradas = filtroNome
       ? transacoes.filter((t) => getProdutoNomesTodos(t).some((n) => normalizar(n).includes(filtroNome)))
       : transacoes;
+
+    if (filtroNome) {
+      const excluidas = transacoes.filter((t) => !getProdutoNomesTodos(t).some((n) => normalizar(n).includes(filtroNome)));
+      console.log(`[monetizze] excluídas pelo filtro nome=${excluidas.length}`);
+      excluidas.slice(0, 10).forEach((t, i) => {
+        console.log(`[monetizze] excluida[${i}] nomes=${JSON.stringify(getProdutoNomesTodos(t))} cod=${t?.produto?.codigo}`);
+      });
+    }
 
     const quantidade = filtradas.length;
     const faturamento = filtradas.reduce((s, t) => s + getValor(t), 0);
