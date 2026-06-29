@@ -115,12 +115,23 @@ function getValor(t: any): number {
 }
 
 function getComissao(t: any): number {
+  // Monetizze: o valor de comissão da conta consultada vem em venda.valorRecebido
+  const direto = t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
+  if (direto !== undefined && direto !== null && direto !== '') {
+    const n = Number(direto);
+    if (!isNaN(n)) return n;
+  }
+  // fallback: somar array de comissoes
+  if (Array.isArray(t?.comissoes)) {
+    const soma = t.comissoes.reduce((s: number, c: any) => s + (Number(c?.valor) || 0), 0);
+    if (soma > 0) return soma;
+  }
   const c = t?.venda?.comissao ?? t?.comissao ?? t?.commission ?? 0;
   return Number(c) || 0;
 }
 
 function getDataFinalizacao(t: any): string | null {
-  return t?.venda?.dataFinalizacao || t?.dataFinalizacao || t?.data_finalizacao || t?.end_date || null;
+  return t?.venda?.dataFinalizada || t?.venda?.dataFinalizacao || t?.dataFinalizacao || t?.data_finalizacao || t?.end_date || null;
 }
 
 function getCodigoVenda(t: any): string {
