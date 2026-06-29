@@ -7,7 +7,6 @@ interface Filtro {
   produto_nome?: string;
   produto_codigo?: string;
   status?: number[];
-  debug?: boolean;
 }
 
 async function gerarToken(consumerKey: string): Promise<string> {
@@ -145,8 +144,15 @@ function somaComissoes(arr: any, tipoPreferido = ''): number {
 }
 
 function getComissao(t: any): number {
-  // Monetizze: o painel de "Comissão" usa o item de comissão do papel da conta consultada
-  // (Produtor/Co-Produtor/Afiliado). `valorRecebido` pode vir líquido/arredondado.
+  // No relatório da Monetizze, o total "Comissão" bate com venda.valorRecebido.
+  const direto = t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
+  if (direto !== undefined && direto !== null && direto !== '') {
+    return parseMoney(direto);
+  }
+
+  const c = t?.venda?.comissao ?? t?.comissao ?? t?.commission;
+  if (c !== undefined && c !== null && c !== '') return parseMoney(c);
+
   const tipo = getTipoPostback(t);
   const somaTopo = somaComissoes(t?.comissoes, tipo);
   if (somaTopo > 0) return somaTopo;
@@ -154,10 +160,6 @@ function getComissao(t: any): number {
   const somaVenda = somaComissoes(t?.venda?.comissoes, tipo);
   if (somaVenda > 0) return somaVenda;
 
-  const direto = t?.venda?.comissao ?? t?.comissao ?? t?.commission ?? t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido;
-  if (direto !== undefined && direto !== null && direto !== '') {
-    return parseMoney(direto);
-  }
   return 0;
 }
 
@@ -193,7 +195,6 @@ Deno.serve(async (req) => {
       produto_nome: body.produto_nome,
       produto_codigo: body.produto_codigo,
       status: body.status,
-      debug: body.debug === true,
     };
     if (!filtro.mes || !/^\d{4}-\d{2}$/.test(filtro.mes)) {
       return new Response(JSON.stringify({ error: 'Parâmetro "mes" obrigatório no formato YYYY-MM' }), {
@@ -234,7 +235,7 @@ Deno.serve(async (req) => {
       comissao: getComissao(t),
     }));
 
-    const resposta: any = {
+    const resposta = {
       mes: filtro.mes,
       filtro_produto: filtro.produto_nome || null,
       total_retornado_api: transacoes.length,
@@ -244,33 +245,6 @@ Deno.serve(async (req) => {
       por_produto: Array.from(porProduto.values()).sort((a, b) => b.faturamento - a.faturamento),
       itens,
     };
-
-    if (filtro.debug) {
-      const sum = (fn: (t: any) => number) => Number(filtradas.reduce((s, t) => s + fn(t), 0).toFixed(2));
-      const byTipo = new Map<string, number>();
-      filtradas.forEach((t) => {
-        [...(Array.isArray(t?.comissoes) ? t.comissoes : []), ...(Array.isArray(t?.venda?.comissoes) ? t.venda.comissoes : [])]
-          .forEach((c: any) => {
-            const tipo = c?.tipo_comissao || c?.tipoComissao || c?.tipo || c?.descricao || '(sem tipo)';
-            byTipo.set(tipo, (byTipo.get(tipo) || 0) + parseMoney(c?.valor ?? c?.value ?? c?.amount));
-          });
-      });
-      resposta.debug = {
-        soma_valor_recebido: sum((t) => parseMoney(t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido)),
-        soma_comissao_por_tipo: Array.from(byTipo.entries()).map(([tipo, valor]) => ({ tipo, valor: Number(valor.toFixed(2)) })),
-        divergencias: filtradas
-          .map((t) => ({
-            codigo: getCodigoVenda(t),
-            produto: getProdutoNome(t),
-            valor_recebido: parseMoney(t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido),
-            comissao: getComissao(t),
-            diferenca: Number((getComissao(t) - parseMoney(t?.venda?.valorRecebido ?? t?.venda?.valor_recebido ?? t?.valorRecebido)).toFixed(2)),
-          }))
-          .filter((d) => Math.abs(d.diferenca) >= 0.01)
-          .sort((a, b) => Math.abs(b.diferenca) - Math.abs(a.diferenca))
-          .slice(0, 30),
-      };
-    }
 
     return new Response(JSON.stringify(resposta), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
