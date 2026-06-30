@@ -400,7 +400,10 @@ export default function Calculator() {
   }, [calculatedItems, calcularExcipiente]);
   const totalMP = useMemo(() => {
     const qtdTotal = tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 1;
-    const unidadesDose = tipoProduto === 'Solúvel' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1;
+    // Para Líquido, se unidadesPorDose vier vazia, assumir 1 mL por dose para que numDoses reflita o volume completo do pote
+    const unidadesDose = tipoProduto === 'Solúvel'
+      ? unidadesPorDoseEmMG
+      : (parseFloat(unidadesPorDose) || (tipoProduto === 'Líquido' ? 1 : 1));
 
     // Calcula número de doses e multiplica pelo custo unitário por dose
     const numDoses = qtdTotal / unidadesDose;
