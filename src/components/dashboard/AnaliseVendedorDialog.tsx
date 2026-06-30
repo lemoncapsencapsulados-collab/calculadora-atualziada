@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Download, Loader2, UserSearch, ChevronLeft, Info, RefreshCw, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
