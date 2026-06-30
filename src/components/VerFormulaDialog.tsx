@@ -6,7 +6,7 @@ import { Eye, Copy, Check, Edit, Download, Save, X, ClipboardList, Plus, Trash2 
 import { toast } from 'sonner';
 import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import html2canvas from 'html2canvas';
-import { formatCurrency } from '@/lib/unitConversion';
+import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 
 interface VerFormulaDialogProps {
   formula: Formula;
@@ -313,7 +313,7 @@ export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }:
                   ) : (
                     <>
                       <span className="font-medium text-gray-900">{item.descricao_snapshot}</span>
-                      <span className="font-semibold text-primary">{formatCurrency(item.custo_calculado)}</span>
+                      <span className="font-semibold text-primary">{formatCurrencyPrecise(item.custo_calculado)}</span>
                     </>
                   )}
                 </div>

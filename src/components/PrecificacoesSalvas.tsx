@@ -4,7 +4,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { usePrecificacoesPaginadas } from '@/hooks/usePrecificacoesPaginadas';
 import { ConfiguracaoCustos, MargemLucro } from '@/types/precificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
-import { formatCurrency } from '@/lib/unitConversion';
+import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -469,12 +469,12 @@ export default function PrecificacoesSalvas({
                       <span className="text-muted-foreground">
                         {item.nome_insumo_snapshot} ({item.qtd_informada} {item.unidade_informada})
                       </span>
-                      <span>{formatCurrency(item.custo_calculado)}</span>
+                      <span>{formatCurrencyPrecise(item.custo_calculado)}</span>
                     </div>
                   ))}
                   <div className="flex justify-between font-semibold pt-2 border-t">
                     <span>Total MP:</span>
-                    <span>{formatCurrency(formulaParaVer.total_mp)}</span>
+                    <span>{formatCurrencyPrecise(formulaParaVer.total_mp)}</span>
                   </div>
                 </div>
               </div>

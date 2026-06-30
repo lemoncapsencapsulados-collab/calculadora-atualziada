@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrency } from '@/lib/unitConversion';
+import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 import { supabase } from '@/integrations/supabase/client';
 import { arredondarReais } from '@/lib/utils';
 import { useFormulas } from '@/hooks/useFormulas';
@@ -514,12 +514,12 @@ export default function Precificacao() {
                                   <span className="text-muted-foreground">
                                     {item.nome_insumo_snapshot} ({item.qtd_informada} {item.unidade_informada})
                                   </span>
-                                  <span>{formatCurrency(item.custo_calculado)}</span>
+                                  <span>{formatCurrencyPrecise(item.custo_calculado)}</span>
                                 </div>
                               ))}
                               <div className="flex justify-between font-semibold pt-2 border-t">
                                 <span>Total MP:</span>
-                                <span>{formatCurrency(formula.total_mp)}</span>
+                                <span>{formatCurrencyPrecise(formula.total_mp)}</span>
                               </div>
                             </div>
                           </div>

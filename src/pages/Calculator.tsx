@@ -16,7 +16,7 @@ import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { useFormulas } from '@/hooks/useFormulas';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
-import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
+import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatCurrencyPrecise, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
@@ -400,7 +400,10 @@ export default function Calculator() {
   }, [calculatedItems, calcularExcipiente]);
   const totalMP = useMemo(() => {
     const qtdTotal = tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 1;
-    const unidadesDose = tipoProduto === 'Solúvel' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1;
+    // Para Líquido, se unidadesPorDose vier vazia, assumir 1 mL por dose para que numDoses reflita o volume completo do pote
+    const unidadesDose = tipoProduto === 'Solúvel'
+      ? unidadesPorDoseEmMG
+      : (parseFloat(unidadesPorDose) || (tipoProduto === 'Líquido' ? 1 : 1));
 
     // Calcula número de doses e multiplica pelo custo unitário por dose
     const numDoses = qtdTotal / unidadesDose;
@@ -1301,13 +1304,13 @@ export default function Calculator() {
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Por dose:</span>
                   <span className="font-medium">
-                    {formatCurrencyDetailed(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0))}
+                    {formatCurrencyPrecise(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0))}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Total ({Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses):</span>
                   <span className="font-medium">
-                    {formatCurrency(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0) * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
+                    {formatCurrencyPrecise(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0) * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
                   </span>
                 </div>
               </div>
@@ -1337,11 +1340,11 @@ export default function Calculator() {
                 <p className="text-xs font-bold text-foreground uppercase">💰 Total Matéria-Prima:</p>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Por dose:</span>
-                  <span className="font-semibold">{formatCurrencyDetailed(custoUnitarioMP)}</span>
+                  <span className="font-semibold">{formatCurrencyPrecise(custoUnitarioMP)}</span>
                 </div>
                 <div className="flex justify-between items-end">
                   <span className="text-xs text-muted-foreground">Total pote:</span>
-                  <p className="text-3xl font-bold text-primary">{formatCurrency(totalMP)}</p>
+                  <p className="text-3xl font-bold text-primary">{formatCurrencyPrecise(totalMP)}</p>
                 </div>
               </div>
             </div>
