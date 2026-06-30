@@ -25,6 +25,20 @@ export interface AnaliseVendedor {
 
 const TIPOS = ['Encapsulado', 'Líquido', 'Solúvel', 'Gummy'];
 
+function normalizarSegmento(raw: string): string {
+  const s = String(raw || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  if (!s) return 'Outro';
+  if (s.startsWith('encaps') || s.includes('capsul')) return 'Encapsulado';
+  if (s.startsWith('liquid')) return 'Líquido';
+  if (s.startsWith('solu')) return 'Solúvel';
+  if (s.startsWith('gumm') || s.startsWith('goma')) return 'Gummy';
+  return 'Outro';
+}
+
 function isVenda(o: any): boolean {
   const status = String(o.status || '').toLowerCase();
   return (
@@ -71,7 +85,7 @@ export async function carregarAnaliseVendedor(
     let potesDessaVenda = 0;
     for (const it of itens) {
       const qtd = Number(it.quantidade) || 0;
-      const segmento = String(it.segmento || 'Outro');
+      const segmento = normalizarSegmento(it.segmento);
       potesDessaVenda += qtd;
       totalPotes += qtd;
       if (potesPorTipo[segmento] != null) potesPorTipo[segmento] += qtd;
