@@ -1304,13 +1304,13 @@ export default function Calculator() {
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Por dose:</span>
                   <span className="font-medium">
-                    {formatCurrencyDetailed(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0))}
+                    {formatCurrencyPrecise(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0))}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Total ({Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1))} doses):</span>
                   <span className="font-medium">
-                    {formatCurrency(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0) * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
+                    {formatCurrencyPrecise(calculatedItems.reduce((sum, item) => sum + (item?.custo || 0), 0) * Math.floor((parseFloat(qtdCapsulas) || 0) / (parseFloat(unidadesPorDose) || 1)))}
                   </span>
                 </div>
               </div>
@@ -1340,11 +1340,11 @@ export default function Calculator() {
                 <p className="text-xs font-bold text-foreground uppercase">💰 Total Matéria-Prima:</p>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Por dose:</span>
-                  <span className="font-semibold">{formatCurrencyDetailed(custoUnitarioMP)}</span>
+                  <span className="font-semibold">{formatCurrencyPrecise(custoUnitarioMP)}</span>
                 </div>
                 <div className="flex justify-between items-end">
                   <span className="text-xs text-muted-foreground">Total pote:</span>
-                  <p className="text-3xl font-bold text-primary">{formatCurrency(totalMP)}</p>
+                  <p className="text-3xl font-bold text-primary">{formatCurrencyPrecise(totalMP)}</p>
                 </div>
               </div>
             </div>
