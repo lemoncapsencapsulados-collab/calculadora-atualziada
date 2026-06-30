@@ -17,6 +17,8 @@ export interface AnaliseVendedor {
   setupMaisVendido: string | null;
   valorMedioSetup: number;
   maiorValorSetup: number;
+  vendasPorSetup: Record<string, Array<{ pedidoId: string; numeroPedido: string | number | null; cliente: string; data: string; valor: number }>>;
+  avisosServicosMarca: Array<{ pedidoId: string; numeroPedido: string | number | null; cliente: string; motivo: string }>;
   // Funil
   qtdOrcamentos: number;
   taxaConversao: number; // 0..1
@@ -66,7 +68,7 @@ export async function carregarAnaliseVendedor(
   // 2) Pedidos do mês (vendas reais) — filtra pelo consultor dentro do snapshot
   const { data: pedData, error: pedError } = await supabase
     .from('pedidos')
-    .select('id, data_pedido, orcamento_id, orcamento_snapshot')
+    .select('id, numero_pedido, data_pedido, orcamento_id, orcamento_snapshot')
     .filter('orcamento_snapshot->>consultor_responsavel', 'eq', vendedor)
     .gte('data_pedido', inicio)
     .lte('data_pedido', fim);
@@ -76,18 +78,32 @@ export async function carregarAnaliseVendedor(
 
   // Para cada pedido, extrai o "snapshot de venda" (snapshot ou fallback no orçamento atual)
   const orcamentosPorId = new Map<string, any>(orcamentos.map((o) => [o.id, o]));
+  const avisosServicosMarca: AnaliseVendedor['avisosServicosMarca'] = [];
   const vendas = pedidos.map((p) => {
     const snap = p.orcamento_snapshot || {};
     const fallback = p.orcamento_id ? orcamentosPorId.get(p.orcamento_id) : null;
+    const snapServicos = Array.isArray(snap.servicos_marca) ? snap.servicos_marca : [];
+    const fbServicos = Array.isArray(fallback?.servicos_marca) ? fallback.servicos_marca : [];
+    const cliente = String(snap.cliente_nome || fallback?.cliente_nome || '—');
+    // Validação: snapshot vazio mas orçamento tem serviços de marca
+    if (snapServicos.length === 0 && fbServicos.length > 0) {
+      avisosServicosMarca.push({
+        pedidoId: p.id,
+        numeroPedido: p.numero_pedido,
+        cliente,
+        motivo: 'Snapshot do pedido sem serviços de marca; usados dados atuais do orçamento como fallback.',
+      });
+    }
     return {
+      pedidoId: p.id,
+      numeroPedido: p.numero_pedido,
+      cliente,
+      data: p.data_pedido,
       itens_producao:
         Array.isArray(snap.itens_producao) && snap.itens_producao.length > 0
           ? snap.itens_producao
           : fallback?.itens_producao || [],
-      servicos_marca:
-        Array.isArray(snap.servicos_marca) && snap.servicos_marca.length > 0
-          ? snap.servicos_marca
-          : fallback?.servicos_marca || [],
+      servicos_marca: snapServicos.length > 0 ? snapServicos : fbServicos,
       valor_total: Number(snap.valor_total) || Number(fallback?.valor_total) || 0,
     };
   });
@@ -120,6 +136,7 @@ export async function carregarAnaliseVendedor(
 
   // Setups (servicos_marca[] das vendas)
   const setupMap = new Map<string, { nome: string; quantidade: number; valorTotal: number }>();
+  const vendasPorSetup: AnaliseVendedor['vendasPorSetup'] = {};
   let maiorValorSetup = 0;
   let somaSetupValores = 0;
   let qtdSetup = 0;
@@ -132,6 +149,13 @@ export async function carregarAnaliseVendedor(
       ent.quantidade += 1;
       ent.valorTotal += valor;
       setupMap.set(nome, ent);
+      (vendasPorSetup[nome] ||= []).push({
+        pedidoId: v.pedidoId,
+        numeroPedido: v.numeroPedido,
+        cliente: v.cliente,
+        data: v.data,
+        valor,
+      });
       somaSetupValores += valor;
       qtdSetup += 1;
       if (valor > maiorValorSetup) maiorValorSetup = valor;
@@ -162,6 +186,8 @@ export async function carregarAnaliseVendedor(
     setupMaisVendido,
     valorMedioSetup,
     maiorValorSetup,
+    vendasPorSetup,
+    avisosServicosMarca,
     qtdOrcamentos,
     taxaConversao,
     valorEmNegociacao,
@@ -170,4 +196,65 @@ export async function carregarAnaliseVendedor(
 
 export function formatBRL(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function escapeCsv(v: unknown): string {
+  const s = v == null ? '' : String(v);
+  if (/[";,\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+export function gerarCSVAnalise(a: AnaliseVendedor): string {
+  const linhas: string[] = [];
+  const mesISO = `${a.mes.getFullYear()}-${String(a.mes.getMonth() + 1).padStart(2, '0')}`;
+  linhas.push(`Análise do Vendedor;${a.vendedor};Período;${mesISO}`);
+  linhas.push('');
+  linhas.push('=== Resumo ===');
+  linhas.push('Métrica;Valor');
+  const resumo: [string, string | number][] = [
+    ['Vendas realizadas', a.qtdVendas],
+    ['Orçamentos gerados', a.qtdOrcamentos],
+    ['Taxa de conversão', `${(a.taxaConversao * 100).toFixed(1)}%`],
+    ['Receita total', formatBRL(a.receitaTotal)],
+    ['Ticket médio', formatBRL(a.ticketMedio)],
+    ['Valor em negociação', formatBRL(a.valorEmNegociacao)],
+    ['Total de potes', a.totalPotes],
+    ['Maior volume em uma venda (potes)', a.maiorVolumePotesVenda],
+  ];
+  for (const [k, v] of resumo) linhas.push(`${escapeCsv(k)};${escapeCsv(v)}`);
+  linhas.push('');
+  linhas.push('=== Potes por tipo ===');
+  linhas.push('Tipo;Potes');
+  for (const [t, q] of Object.entries(a.potesPorTipo)) linhas.push(`${escapeCsv(t)};${q}`);
+  linhas.push('');
+  linhas.push('=== Setups vendidos ===');
+  linhas.push('Setup;Quantidade;Valor total');
+  for (const s of a.setupsVendidos) {
+    linhas.push(`${escapeCsv(s.nome)};${s.quantidade};${escapeCsv(formatBRL(s.valorTotal))}`);
+  }
+  linhas.push('');
+  linhas.push('=== Produtos vendidos ===');
+  linhas.push('Produto;Nº de vendas;Potes;Receita');
+  for (const p of a.produtosVendidos) {
+    linhas.push(`${escapeCsv(p.nome)};${p.vezes};${p.qtdPotes};${escapeCsv(formatBRL(p.receita))}`);
+  }
+  linhas.push('');
+  linhas.push('=== Pedidos por setup ===');
+  linhas.push('Setup;Pedido;Cliente;Data;Valor');
+  for (const [setup, vendas] of Object.entries(a.vendasPorSetup)) {
+    for (const v of vendas) {
+      linhas.push(
+        `${escapeCsv(setup)};${escapeCsv(v.numeroPedido ?? v.pedidoId)};${escapeCsv(v.cliente)};${escapeCsv(v.data?.slice(0, 10) || '')};${escapeCsv(formatBRL(v.valor))}`
+      );
+    }
+  }
+  if (a.avisosServicosMarca.length > 0) {
+    linhas.push('');
+    linhas.push('=== Avisos de Serviços de Marca ===');
+    linhas.push('Pedido;Cliente;Motivo');
+    for (const w of a.avisosServicosMarca) {
+      linhas.push(`${escapeCsv(w.numeroPedido ?? w.pedidoId)};${escapeCsv(w.cliente)};${escapeCsv(w.motivo)}`);
+    }
+  }
+  return '\uFEFF' + linhas.join('\n');
 }

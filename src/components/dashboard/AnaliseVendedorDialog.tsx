@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Loader2, UserSearch, ChevronLeft, Info } from 'lucide-react';
+import { Download, Loader2, UserSearch, ChevronLeft, Info, RefreshCw, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUsuarios } from '@/hooks/useUsuarios';
-import { carregarAnaliseVendedor, formatBRL, type AnaliseVendedor } from '@/lib/analiseVendedor';
+import { carregarAnaliseVendedor, formatBRL, gerarCSVAnalise, type AnaliseVendedor } from '@/lib/analiseVendedor';
 import { toast } from 'sonner';
 
 interface Props {
@@ -26,6 +26,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
   const [mesStr, setMesStr] = useState<string>(() => format(new Date(), 'yyyy-MM'));
   const [loading, setLoading] = useState(false);
   const [analise, setAnalise] = useState<AnaliseVendedor | null>(null);
+  const [setupExpandido, setSetupExpandido] = useState<string | null>(null);
 
   const mesData = useMemo(() => {
     const [y, m] = mesStr.split('-').map(Number);
@@ -44,17 +45,39 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     }
   }, [open]);
 
-  useEffect(() => {
+  const recalcular = (silent = false) => {
     if (!vendedor) return;
     setLoading(true);
+    setSetupExpandido(null);
     carregarAnaliseVendedor(vendedor, mesData)
-      .then(setAnalise)
+      .then((a) => {
+        setAnalise(a);
+        if (!silent) toast.success('Análise atualizada');
+      })
       .catch((e) => {
         console.error(e);
         toast.error('Erro ao carregar análise');
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!vendedor) return;
+    recalcular(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendedor, mesData]);
+
+  const exportarCSV = () => {
+    if (!analise) return;
+    const csv = gerarCSVAnalise(analise);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analise-${analise.vendedor.replace(/\s+/g, '_')}-${format(analise.mes, 'yyyy-MM')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const exportarPDF = () => {
     if (!analise) return;
@@ -170,9 +193,17 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                   className="w-[180px]"
                 />
               </div>
-              <Button size="sm" onClick={exportarPDF} disabled={!analise || loading}>
-                <Download className="w-4 h-4 mr-1" /> Baixar PDF
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => recalcular(false)} disabled={loading}>
+                  <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Recalcular
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportarCSV} disabled={!analise || loading}>
+                  <FileSpreadsheet className="w-4 h-4 mr-1" /> CSV
+                </Button>
+                <Button size="sm" onClick={exportarPDF} disabled={!analise || loading}>
+                  <Download className="w-4 h-4 mr-1" /> PDF
+                </Button>
+              </div>
             </div>
 
             <ScrollArea className="flex-1 min-h-0 pr-2">
@@ -182,6 +213,29 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                 </div>
               ) : (
                 <div className="space-y-4 pb-6">
+                  {analise.avisosServicosMarca.length > 0 && (
+                    <Card className="border-yellow-500/40 bg-yellow-500/5">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                          <AlertTriangle className="w-4 h-4" />
+                          Avisos de Serviços de Marca ({analise.avisosServicosMarca.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Pedidos cujo snapshot não persistiu os serviços de marca — usados dados atuais do orçamento como fallback. Reabra e salve o pedido para corrigir o snapshot.
+                        </p>
+                        <ul className="text-sm space-y-1 max-h-32 overflow-auto">
+                          {analise.avisosServicosMarca.map((w) => (
+                            <li key={w.pedidoId}>
+                              <span className="font-medium">#{w.numeroPedido ?? w.pedidoId.slice(0, 8)}</span> — {w.cliente}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <MetricCard label="Vendas" value={analise.qtdVendas} />
                     <MetricCard label="Orçamentos" value={analise.qtdOrcamentos} />
@@ -290,6 +344,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                           <table className="w-full text-sm">
                             <thead className="border-b">
                               <tr className="text-left">
+                                <th className="py-1 pr-2 w-6"></th>
                                 <th className="py-1 pr-2">Setup</th>
                                 <th className="py-1 pr-2">Qtd</th>
                                 <th className="py-1">Valor total</th>
@@ -297,11 +352,50 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                             </thead>
                             <tbody>
                               {analise.setupsVendidos.map((s) => (
-                                <tr key={s.nome} className="border-b last:border-0">
-                                  <td className="py-1 pr-2">{s.nome}</td>
-                                  <td className="py-1 pr-2">{s.quantidade}</td>
-                                  <td className="py-1">{formatBRL(s.valorTotal)}</td>
-                                </tr>
+                                <Fragment key={s.nome}>
+                                  <tr
+                                    className="border-b last:border-0 cursor-pointer hover:bg-muted/40"
+                                    onClick={() => setSetupExpandido(setupExpandido === s.nome ? null : s.nome)}
+                                  >
+                                    <td className="py-1 pr-2">
+                                      {setupExpandido === s.nome ? (
+                                        <ChevronDown className="w-4 h-4" />
+                                      ) : (
+                                        <ChevronRight className="w-4 h-4" />
+                                      )}
+                                    </td>
+                                    <td className="py-1 pr-2">{s.nome}</td>
+                                    <td className="py-1 pr-2">{s.quantidade}</td>
+                                    <td className="py-1">{formatBRL(s.valorTotal)}</td>
+                                  </tr>
+                                  {setupExpandido === s.nome && (
+                                    <tr className="bg-muted/20">
+                                      <td></td>
+                                      <td colSpan={3} className="py-2 pr-2">
+                                        <div className="text-xs font-medium text-muted-foreground mb-1">
+                                          Pedidos com este setup:
+                                        </div>
+                                        <ul className="text-xs space-y-1">
+                                          {(analise.vendasPorSetup[s.nome] || []).map((v, i) => (
+                                            <li key={`${v.pedidoId}-${i}`} className="flex justify-between gap-3">
+                                              <span>
+                                                <span className="font-mono">#{v.numeroPedido ?? v.pedidoId.slice(0, 8)}</span>
+                                                {' — '}
+                                                {v.cliente}
+                                                {v.data && (
+                                                  <span className="text-muted-foreground">
+                                                    {' · '}{format(new Date(v.data), 'dd/MM/yyyy')}
+                                                  </span>
+                                                )}
+                                              </span>
+                                              <span className="font-medium">{formatBRL(v.valor)}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Fragment>
                               ))}
                             </tbody>
                           </table>
