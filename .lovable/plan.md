@@ -1,23 +1,29 @@
-## Ajustes na Análise Apurada do Vendedor
+## Puxar setups vendidos a partir dos Pedidos
 
-### 1. Scroll do modal não rola até o fim
-**Arquivo:** `src/components/dashboard/AnaliseVendedorDialog.tsx`
-- O `ScrollArea` interno está dentro de outro `DialogContent` com `overflow-hidden`, e os cards finais (Setups) ficam cortados.
-- Ajustar: dar altura/min-height correta ao container flex, garantir `flex-1 min-h-0` no wrapper do ScrollArea, e adicionar `pb-6` no conteúdo para folga no final.
+### Diagnóstico
+- Hoje, a "Análise Apurada do Vendedor" lê `orcamentos.servicos_marca`. Vários orçamentos do Emmanuel já convertidos em pedido têm `servicos_marca = []` (ex.: ORC-177, ORC-174, ORC-168) — provavelmente porque o setup foi ajustado depois ou o orçamento antigo foi reaproveitado/editado.
+- Os pedidos correspondentes guardam `orcamento_snapshot` (jsonb) — quando o orçamento original tinha setup, ele está lá. Quando não tinha, o snapshot também vem vazio.
+- Hoje a tela de Pedidos não mostra explicitamente os setups vendidos de cada pedido (só aparece dentro do detalhamento via `DetalhesPedidoDialog`).
 
-### 2. Normalizar tipos de produto (Encapsulado vs Encapsulados)
-**Arquivo:** `src/lib/analiseVendedor.ts`
-- Hoje o `segmento` vem com variações ("Encapsulado", "Encapsulados", "Líquido", "Liquido", "Solúvel/Soluvel", "Gummy/Gomas").
-- Criar função `normalizarSegmento()` que mapeia tudo para 4 chaves canônicas: **Encapsulado**, **Líquido**, **Solúvel**, **Gummy**.
-- Resultado esperado no exemplo: `Encapsulado: 800`, `Líquido: 7156`, `Solúvel: 300`, `Gummy: 150` (sem duplicar). Remover a chave "Outro" se ficar vazia.
+### O que vou implementar
 
-### 3. Explicar/renomear coluna "Vezes"
-**Arquivo:** `src/components/dashboard/AnaliseVendedorDialog.tsx`
-- Hoje "Vezes" = número de linhas (itens) do produto somadas entre todas as vendas (ex.: Mounjax aparece 2x = vendido em 2 orçamentos distintos).
-- Renomear coluna para **"Nº de vendas"** com um ícone de tooltip explicando: *"Quantas vendas diferentes incluíram este produto"*.
-- Aplicar a mesma mudança no PDF (`Produto | Nº de vendas | Potes | Receita`).
+**1. Análise do vendedor passa a usar Pedidos como fonte de verdade das vendas**
+- `src/lib/analiseVendedor.ts`: além de orçamentos, carregar `pedidos` filtrando pelo consultor (via `orcamento_snapshot.consultor_responsavel` ou via JOIN no orçamento).
+- Para cada pedido do mês, ler `orcamento_snapshot.servicos_marca` e contabilizar setups (nome, quantidade, valor).
+- Itens de produção e potes continuam saindo dos pedidos (snapshot), garantindo que toda venda real entre na análise — mesmo se o orçamento foi editado depois.
+- Fallback: se um pedido não tiver snapshot, usar o orçamento vinculado.
 
-### Resultado
-- Modal rola até o fim mostrando o card "Setups vendidos".
-- Apenas 4 badges de tipo de produto, somando corretamente (Encapsulado: 800, não 0 + 800).
-- Coluna com nome claro e tooltip explicativo.
+**2. Garantir snapshot atualizado quando o orçamento é editado depois de virar pedido**
+- `src/hooks/useOrcamentos.ts` (mutation de update): se o orçamento já tem `pedido_id_gerado`, também atualizar o `orcamento_snapshot` do pedido vinculado com os novos `servicos_marca` e `itens_producao`. Assim qualquer ajuste no setup feito após a conversão flui para o pedido.
+
+**3. Mostrar setups vendidos na lista de Pedidos**
+- `src/pages/Pedidos.tsx`: adicionar uma coluna/linha "Setups" no card/linha de cada pedido, listando os `nome_plano` (badges) e o valor total de setup. Já existe a função que lê `snap.servicos_marca` — só falta exibi-la no resumo.
+- No `DetalhesPedidoDialog`, manter o detalhamento completo (já existe).
+
+**4. Backfill (uma vez)**
+- Migração leve via insert tool para preencher `pedidos.orcamento_snapshot` com os `servicos_marca` do orçamento original quando o snapshot estiver vazio mas o orçamento atual tiver setup. Isso recupera vendas antigas como as do Emmanuel.
+
+### Resultado esperado
+- Todos os setups que o Emmanuel vendeu aparecem na "Análise Apurada do Vendedor".
+- Cada pedido mostra na própria listagem quais setups foram vendidos.
+- Edições futuras de setup no orçamento sincronizam automaticamente para o pedido.
