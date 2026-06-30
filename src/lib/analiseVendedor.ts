@@ -39,16 +39,6 @@ function normalizarSegmento(raw: string): string {
   return 'Outro';
 }
 
-function isVenda(o: any): boolean {
-  const status = String(o.status || '').toLowerCase();
-  return (
-    status === 'pago' ||
-    status === 'convertido' ||
-    o.pedido_id_gerado != null ||
-    o.vhsys_liquidado_em != null
-  );
-}
-
 function isNegociacao(o: any): boolean {
   const status = String(o.status || '').toLowerCase();
   return status === 'rascunho' || status === 'enviado' || status === 'em_negociacao';
@@ -61,18 +51,46 @@ export async function carregarAnaliseVendedor(
   const inicio = startOfMonth(mes).toISOString();
   const fim = endOfMonth(mes).toISOString();
 
-  const { data, error } = await supabase
+  // 1) Orçamentos do mês (para funil + negociação)
+  const { data: orcData, error: orcError } = await supabase
     .from('orcamentos')
     .select('*')
     .eq('consultor_responsavel', vendedor)
     .gte('created_at', inicio)
     .lte('created_at', fim);
 
-  if (error) throw error;
-  const orcamentos = (data as any[]) || [];
-
-  const vendas = orcamentos.filter(isVenda);
+  if (orcError) throw orcError;
+  const orcamentos = (orcData as any[]) || [];
   const negociacao = orcamentos.filter(isNegociacao);
+
+  // 2) Pedidos do mês (vendas reais) — filtra pelo consultor dentro do snapshot
+  const { data: pedData, error: pedError } = await supabase
+    .from('pedidos')
+    .select('id, data_pedido, orcamento_id, orcamento_snapshot')
+    .filter('orcamento_snapshot->>consultor_responsavel', 'eq', vendedor)
+    .gte('data_pedido', inicio)
+    .lte('data_pedido', fim);
+
+  if (pedError) throw pedError;
+  const pedidos = (pedData as any[]) || [];
+
+  // Para cada pedido, extrai o "snapshot de venda" (snapshot ou fallback no orçamento atual)
+  const orcamentosPorId = new Map<string, any>(orcamentos.map((o) => [o.id, o]));
+  const vendas = pedidos.map((p) => {
+    const snap = p.orcamento_snapshot || {};
+    const fallback = p.orcamento_id ? orcamentosPorId.get(p.orcamento_id) : null;
+    return {
+      itens_producao:
+        Array.isArray(snap.itens_producao) && snap.itens_producao.length > 0
+          ? snap.itens_producao
+          : fallback?.itens_producao || [],
+      servicos_marca:
+        Array.isArray(snap.servicos_marca) && snap.servicos_marca.length > 0
+          ? snap.servicos_marca
+          : fallback?.servicos_marca || [],
+      valor_total: Number(snap.valor_total) || Number(fallback?.valor_total) || 0,
+    };
+  });
 
   // Produtos / potes
   const potesPorTipo: Record<string, number> = Object.fromEntries(TIPOS.map((t) => [t, 0]));
