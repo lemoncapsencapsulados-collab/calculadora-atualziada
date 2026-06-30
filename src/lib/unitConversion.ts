@@ -144,6 +144,34 @@ export function formatCurrency(value: number): string {
 export const formatCurrencyDetailed = formatCurrency;
 
 /**
+ * Format currency keeping extra precision when value is sub-cent.
+ * - |v| >= 0.01  → standard R$ x,xx
+ * - 0 < |v| < 0.01 → expand decimals (up to 20) so the value is visible
+ *   (shows first significant digit + 2 more, e.g. R$ 0,0000217)
+ * - 0 → R$ 0,00
+ */
+export function formatCurrencyPrecise(value: number, extraSignificant: number = 2): string {
+  if (!isFinite(value) || value === 0) return formatCurrency(value || 0);
+  const abs = Math.abs(value);
+  if (abs >= 0.01) return formatCurrency(value);
+
+  // Expand decimals: find position of first significant digit
+  const fixed = abs.toFixed(20); // "0.000021700000..."
+  const decPart = fixed.split('.')[1] || '';
+  let firstSig = -1;
+  for (let i = 0; i < decPart.length; i++) {
+    if (decPart[i] !== '0') { firstSig = i; break; }
+  }
+  if (firstSig === -1) return formatCurrency(0);
+  const decimals = Math.min(20, firstSig + 1 + extraSignificant);
+  // Trim trailing zeros but keep at least firstSig+1 digits
+  let out = abs.toFixed(decimals);
+  out = out.replace(/0+$/, '').replace(/\.$/, '');
+  const sign = value < 0 ? '-' : '';
+  return `${sign}R$ ${out.replace('.', ',')}`;
+}
+
+/**
  * Format unit for display
  */
 export function formatUnit(unit: UnitType): string {
