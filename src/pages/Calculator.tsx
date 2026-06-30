@@ -16,7 +16,7 @@ import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { useFormulas } from '@/hooks/useFormulas';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
-import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatUnit } from '@/lib/unitConversion';
+import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatCurrencyPrecise, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
