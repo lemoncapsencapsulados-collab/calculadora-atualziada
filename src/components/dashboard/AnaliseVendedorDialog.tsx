@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Loader2, UserSearch, ChevronLeft } from 'lucide-react';
+import { Download, Loader2, UserSearch, ChevronLeft, Info } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { carregarAnaliseVendedor, formatBRL, type AnaliseVendedor } from '@/lib/analiseVendedor';
 import { toast } from 'sonner';
@@ -86,7 +87,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     });
 
     autoTable(doc, {
-      head: [['Produto', 'Vezes', 'Potes', 'Receita']],
+      head: [['Produto', 'Nº de vendas', 'Potes', 'Receita']],
       body: analise.produtosVendidos.map((p) => [
         p.nome,
         String(p.vezes),
@@ -124,7 +125,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserSearch className="w-5 h-5" />
@@ -156,7 +157,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
             </div>
           </ScrollArea>
         ) : (
-          <div className="flex-1 overflow-hidden flex flex-col gap-3">
+          <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={() => setVendedor(null)}>
@@ -174,13 +175,13 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 pr-2">
+            <ScrollArea className="flex-1 min-h-0 pr-2">
               {loading || !analise ? (
                 <div className="flex items-center justify-center py-16 text-muted-foreground">
                   <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando análise...
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 pb-6">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <MetricCard label="Vendas" value={analise.qtdVendas} />
                     <MetricCard label="Orçamentos" value={analise.qtdOrcamentos} />
@@ -228,7 +229,21 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                             <thead className="border-b">
                               <tr className="text-left">
                                 <th className="py-1 pr-2">Produto</th>
-                                <th className="py-1 pr-2">Vezes</th>
+                                <th className="py-1 pr-2">
+                                  <span className="inline-flex items-center gap-1">
+                                    Nº de vendas
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="w-3 h-3 text-muted-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          Quantas vendas diferentes incluíram este produto
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </span>
+                                </th>
                                 <th className="py-1 pr-2">Potes</th>
                                 <th className="py-1">Receita</th>
                               </tr>
