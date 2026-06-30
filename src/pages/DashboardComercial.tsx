@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, UserSearch } from 'lucide-react';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { useDashboardComercial } from '@/hooks/useDashboardComercial';
 import { useRecompras } from '@/hooks/useRecompras';
@@ -12,6 +12,8 @@ import { DashboardInsights } from '@/components/dashboard/DashboardInsights';
 import { DashboardGraficos } from '@/components/dashboard/DashboardGraficos';
 import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/components/dashboard/DashboardOrcamentos';
 import { DashboardAlteracoesPagamento } from '@/components/dashboard/DashboardAlteracoesPagamento';
+import { AnaliseVendedorDialog } from '@/components/dashboard/AnaliseVendedorDialog';
+import { Button } from '@/components/ui/button';
 import type { DashboardFiltros } from '@/types/dashboard';
 
 export default function DashboardComercial() {
@@ -23,6 +25,7 @@ export default function DashboardComercial() {
     dataInicio: startOfMonth(hoje),
     dataFim: endOfMonth(hoje)
   });
+  const [analiseOpen, setAnaliseOpen] = useState(false);
 
   const {
     consultoresUnicos,
@@ -71,7 +74,13 @@ export default function DashboardComercial() {
             <p className="text-sm text-muted-foreground">Visão 360° das vendas e pipeline</p>
           </div>
         </div>
+        <Button onClick={() => setAnaliseOpen(true)} className="gap-2">
+          <UserSearch className="w-4 h-4" />
+          Análise Apurada do Vendedor
+        </Button>
       </div>
+
+      <AnaliseVendedorDialog open={analiseOpen} onOpenChange={setAnaliseOpen} />
 
       {/* Filtros */}
       <DashboardFiltrosComponent
