@@ -4,7 +4,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { usePrecificacoesPaginadas } from '@/hooks/usePrecificacoesPaginadas';
 import { ConfiguracaoCustos, MargemLucro } from '@/types/precificacao';
 import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
-import { formatCurrency } from '@/lib/unitConversion';
+import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
