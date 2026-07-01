@@ -782,6 +782,7 @@ function DetalheConsultorDialog({
     created_at: string;
   };
   const [monetizze, setMonetizze] = useState<MonetizzeRow[]>([]);
+  const [braip, setBraip] = useState<MonetizzeRow[]>([]);
 
   useEffect(() => {
     if (!consultor) { setMonetizze([]); return; }
@@ -816,6 +817,39 @@ function DetalheConsultorDialog({
     };
   }, [consultor, mes]);
 
+  useEffect(() => {
+    if (!consultor) { setBraip([]); return; }
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('braip_consultas_salvas' as any)
+        .select('id, filtro_produto_nome, quantidade_vendida, faturamento_total, comissao_total, percentual, valor_consultor, observacao, created_at')
+        .eq('consultor_nome', consultor)
+        .eq('mes', mes)
+        .order('created_at', { ascending: false });
+      if (ativo) setBraip(((data as any[]) || []) as MonetizzeRow[]);
+    };
+    carregar();
+
+    const channel = supabase
+      .channel(`braip-detalhe-${consultor}-${mes}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'braip_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (!row) return;
+          if (row.consultor_nome === consultor && row.mes === mes) carregar();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [consultor, mes]);
+
   const totMonetizze = useMemo(() => {
     return monetizze.reduce(
       (a, r) => {
@@ -828,6 +862,18 @@ function DetalheConsultorDialog({
     );
   }, [monetizze]);
 
+  const totBraip = useMemo(() => {
+    return braip.reduce(
+      (a, r) => {
+        a.faturamento += Number(r.faturamento_total) || 0;
+        a.comissao += Number(r.comissao_total) || 0;
+        a.receber += Number(r.valor_consultor) || 0;
+        return a;
+      },
+      { faturamento: 0, comissao: 0, receber: 0 },
+    );
+  }, [braip]);
+
   const totais = useMemo(() => {
     const base = parcelas.reduce(
       (a, p) => {
@@ -838,11 +884,11 @@ function DetalheConsultorDialog({
       },
       { pago: 0, aVencer: 0, inad: 0, recebido: 0 },
     );
-    // Monetizze conta como recebido/pago no mês
-    base.pago += totMonetizze.receber;
-    base.recebido += totMonetizze.faturamento;
+    // Monetizze + Braip contam como recebido/pago no mês
+    base.pago += totMonetizze.receber + totBraip.receber;
+    base.recebido += totMonetizze.faturamento + totBraip.faturamento;
     return base;
-  }, [parcelas, totMonetizze]);
+  }, [parcelas, totMonetizze, totBraip]);
 
   const pagas = parcelas.filter((p) => p.status === 'pago');
   const aVencer = parcelas.filter((p) => p.status === 'pendente');
