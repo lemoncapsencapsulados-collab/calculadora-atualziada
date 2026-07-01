@@ -896,6 +896,53 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     onClose();
   };
 
+  const handleEnviarFinanceiro = async () => {
+    if (!pdfBlob) {
+      toast.error('PDF não disponível para envio.');
+      return;
+    }
+    setEnviandoFinanceiro(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      const valorTotal = (orcamento as any).valor_total ?? (orcamento as any).total ?? 0;
+      const valorTotalFmt = typeof valorTotal === 'number'
+        ? valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : String(valorTotal || '');
+
+      const razaoSocial = tipoPessoa === 'pj' ? (dadosCliente.razao_social || '') : '';
+      const cnpj = tipoPessoa === 'pj' ? (dadosCliente.cnpj || '') : '';
+
+      const { data, error } = await supabase.functions.invoke('enviar-projeto-financeiro', {
+        body: {
+          pdfBase64: base64,
+          filename: `projeto-${orcamento.numero_orcamento || orcamento.id}.pdf`,
+          consultorNome: orcamento.consultor_responsavel || '',
+          razaoSocial,
+          cnpj,
+          cliente: orcamento.nome_cliente || '',
+          valorTotal: valorTotalFmt,
+          orcamentoId: orcamento.id,
+          orcamentoNumero: orcamento.numero_orcamento || '',
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setEnviadoFinanceiro(true);
+      toast.success('Projeto enviado ao Financeiro.');
+    } catch (err: any) {
+      console.error('Erro ao enviar ao Financeiro:', err);
+      toast.error('Erro ao enviar ao Financeiro: ' + (err?.message || 'desconhecido'));
+    } finally {
+      setEnviandoFinanceiro(false);
+    }
+  };
+
   // Cleanup URL on unmount
   useEffect(() => {
     return () => {
