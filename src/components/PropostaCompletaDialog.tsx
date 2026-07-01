@@ -843,6 +843,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       const blob = await generateOrcamentoPDFBlob(orcamentoAtualizado);
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
+      setPdfBlob(blob);
+      setEnviadoFinanceiro(false);
       setShowPreview(true);
 
       // Salvar PDF + dados no storage/tabela (substitui versão anterior)
