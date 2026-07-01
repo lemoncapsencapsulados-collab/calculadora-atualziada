@@ -64,6 +64,60 @@ export type Database = {
           },
         ]
       }
+      braip_consultas_salvas: {
+        Row: {
+          comissao_total: number
+          consultor_id: string
+          consultor_nome: string
+          created_at: string
+          faturamento_total: number
+          filtro_produto_codigo: string | null
+          filtro_produto_nome: string | null
+          id: string
+          mes: string
+          observacao: string | null
+          percentual: number
+          por_produto: Json
+          quantidade_vendida: number
+          updated_at: string
+          valor_consultor: number
+        }
+        Insert: {
+          comissao_total?: number
+          consultor_id: string
+          consultor_nome: string
+          created_at?: string
+          faturamento_total?: number
+          filtro_produto_codigo?: string | null
+          filtro_produto_nome?: string | null
+          id?: string
+          mes: string
+          observacao?: string | null
+          percentual?: number
+          por_produto?: Json
+          quantidade_vendida?: number
+          updated_at?: string
+          valor_consultor?: number
+        }
+        Update: {
+          comissao_total?: number
+          consultor_id?: string
+          consultor_nome?: string
+          created_at?: string
+          faturamento_total?: number
+          filtro_produto_codigo?: string | null
+          filtro_produto_nome?: string | null
+          id?: string
+          mes?: string
+          observacao?: string | null
+          percentual?: number
+          por_produto?: Json
+          quantidade_vendida?: number
+          updated_at?: string
+          valor_consultor?: number
+        }
+        Relationships: []
+      }
       clickup_rotulo_config: {
         Row: {
           assignee_ids: Json
