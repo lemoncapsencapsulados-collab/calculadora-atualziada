@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Loader2, UserSearch, ChevronLeft, Info, RefreshCw, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Download, Loader2, UserSearch, ChevronLeft, Info, RefreshCw, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { carregarAnaliseVendedor, formatBRL, gerarCSVAnalise, type AnaliseVendedor } from '@/lib/analiseVendedor';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   open: boolean;
@@ -64,6 +65,33 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (!vendedor) return;
     recalcular(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedor, mesData]);
+
+  // Realtime: refaz a análise quando uma consulta Monetizze deste consultor é
+  // salva/alterada/excluída no mês em exibição.
+  useEffect(() => {
+    if (!vendedor) return;
+    const mesStr = format(mesData, 'yyyy-MM');
+    const channel = supabase
+      .channel(`monetizze-consultas-${vendedor}-${mesStr}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'monetizze_consultas_salvas',
+          filter: `consultor_nome=eq.${vendedor}`,
+        },
+        (payload) => {
+          const row: any = payload.new || payload.old;
+          if (!row || row.mes === mesStr) recalcular(true);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendedor, mesData]);
 
