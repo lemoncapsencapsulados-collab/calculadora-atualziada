@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { FlaskConical, Shield, Lock, LockOpen, Info, Clock } from 'lucide-react';
+import { FlaskConical, Shield, Lock, LockOpen, CheckCircle2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/unitConversion';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { ItemProducao } from '@/types/orcamento';
@@ -114,8 +114,8 @@ export default function EstabilidadeAnvisaStep({
                 disabled={!edicaoLiberada || qtdEstab === 0}
               />
               {qtdEstab === 0 ? (
-                <p className="text-xs text-emerald-700">
-                  Todos os itens são do Catálogo Lemon — sem custo de teste de estabilidade.
+                <p className="text-xs text-emerald-700 font-medium">
+                  Fórmulas do Catálogo Lemon — isentas de teste de estabilidade.
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
@@ -151,21 +151,19 @@ export default function EstabilidadeAnvisaStep({
         </CardContent>
       </Card>
 
-      <Card className="bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40">
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold text-sm">
-            <Clock className="w-4 h-4" /> Prazos importantes
-          </div>
-          <ul className="text-sm text-amber-900/90 dark:text-amber-100/90 space-y-1 list-disc pl-5">
-            <li>O produto entra em <strong>teste de estabilidade após 10 dias úteis</strong> (prazo da equipe técnica para desenvolver a ficha técnica).</li>
-            <li>O <strong>prazo para começar a vender</strong> é de <strong>6 meses após o início do teste de estabilidade</strong>.</li>
-          </ul>
-          <p className="text-xs text-amber-700/80 dark:text-amber-300/80 flex items-start gap-1.5 pt-1">
-            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            Esta informação será incluída automaticamente na descrição do serviço no orçamento gerado.
-          </p>
-        </CardContent>
-      </Card>
+      {qtd > 0 && qtdEstab < qtd && (
+        <Card className="bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/40">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold text-sm">
+              <CheckCircle2 className="w-4 h-4" /> Fórmulas do Catálogo Lemon — sem custo de estabilidade
+            </div>
+            <p className="text-sm text-emerald-900/90 dark:text-emerald-100/90">
+              Produtos que usam fórmulas do Catálogo Lemon são <strong>isentos do teste de estabilidade</strong>.
+              Para esses itens, o único custo aplicado é a <strong>Notificação na Anvisa</strong> por produto.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <AdminPasswordDialog
         open={askPwd}

@@ -60,9 +60,6 @@ import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaSte
 
 const CUSTO_ESTABILIDADE_PADRAO = 4100;
 const CUSTO_ANVISA_PADRAO = 1750;
-const ESTABILIDADE_PRAZO_TEXTO =
-  'Prazo para início de vendas: 6 meses após o teste de estabilidade. ' +
-  'O produto entra em estabilidade após 10 dias úteis (desenvolvimento da ficha técnica pela equipe técnica).';
 
 // ── Setup cost types ──
 interface SetupItem {
@@ -476,8 +473,7 @@ export default function GerarOrcamentoDialog({
         extras.push({
           nome_plano: 'Teste de Estabilidade',
           descricao:
-            `${qtdEstab} produto(s) personalizado(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. Fórmulas do Catálogo Lemon são isentas. ` +
-            ESTABILIDADE_PRAZO_TEXTO,
+            `${qtdEstab} produto(s) personalizado(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. Fórmulas do Catálogo Lemon são isentas do teste de estabilidade.`,
           valor: totalEstab,
           entregaveis: [
             { nome: `Teste de estabilidade do produto (${qtdEstab}x)`, incluso: true, quantidade: qtdEstab },
