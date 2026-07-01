@@ -525,6 +525,8 @@ export function RelatorioComissoes() {
                 <TableHead className="text-right">Recebido</TableHead>
                 <TableHead className="text-right">Comissão paga</TableHead>
                 <TableHead className="text-right">Monetizze (mês)</TableHead>
+                <TableHead className="text-right">Braip (mês)</TableHead>
+                <TableHead className="text-right">Asaas (mês)</TableHead>
                 <TableHead className="text-right">Total a receber</TableHead>
                 <TableHead className="text-right">A vencer</TableHead>
                 <TableHead className="text-right">Inadimplente</TableHead>
@@ -534,7 +536,7 @@ export function RelatorioComissoes() {
             </TableHeader>
             <TableBody>
               {resumoPorConsultor.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
               ) : resumoPorConsultor.map((r) => (
                 <TableRow
                   key={r.consultor}
@@ -555,6 +557,18 @@ export function RelatorioComissoes() {
                     {fmtBRL(r.monetizzeReceber)}
                     {r.monetizzeQtd > 0 && (
                       <div className="text-[10px] text-muted-foreground font-normal">{r.monetizzeQtd} consulta(s)</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-orange-600 font-medium">
+                    {fmtBRL(((r as any).braipReceber || 0))}
+                    {((r as any).braipQtd || 0) > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal">{(r as any).braipQtd} consulta(s)</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-violet-600 font-medium">
+                    {fmtBRL(((r as any).asaasReceber || 0))}
+                    {((r as any).asaasQtd || 0) > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal">{(r as any).asaasQtd} conciliação(ões)</div>
                     )}
                   </TableCell>
                   <TableCell className="text-right font-bold">{fmtBRL(r.totalReceber)}</TableCell>
