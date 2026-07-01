@@ -654,6 +654,64 @@ function DetalheConsultorDialog({
   onClose: () => void;
   onAbrirPedido: (pedidoId: string) => void;
 }) {
+  type MonetizzeRow = {
+    id: string;
+    filtro_produto_nome: string | null;
+    quantidade_vendida: number;
+    faturamento_total: number;
+    comissao_total: number;
+    percentual: number;
+    valor_consultor: number;
+    observacao: string | null;
+    created_at: string;
+  };
+  const [monetizze, setMonetizze] = useState<MonetizzeRow[]>([]);
+
+  useEffect(() => {
+    if (!consultor) { setMonetizze([]); return; }
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('monetizze_consultas_salvas')
+        .select('id, filtro_produto_nome, quantidade_vendida, faturamento_total, comissao_total, percentual, valor_consultor, observacao, created_at')
+        .eq('consultor_nome', consultor)
+        .eq('mes', mes)
+        .order('created_at', { ascending: false });
+      if (ativo) setMonetizze((data || []) as MonetizzeRow[]);
+    };
+    carregar();
+
+    const channel = supabase
+      .channel(`monetizze-detalhe-${consultor}-${mes}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monetizze_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (!row) return;
+          if (row.consultor_nome === consultor && row.mes === mes) carregar();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [consultor, mes]);
+
+  const totMonetizze = useMemo(() => {
+    return monetizze.reduce(
+      (a, r) => {
+        a.faturamento += Number(r.faturamento_total) || 0;
+        a.comissao += Number(r.comissao_total) || 0;
+        a.receber += Number(r.valor_consultor) || 0;
+        return a;
+      },
+      { faturamento: 0, comissao: 0, receber: 0 },
+    );
+  }, [monetizze]);
+
   const totais = useMemo(() => {
     return parcelas.reduce(
       (a, p) => {
