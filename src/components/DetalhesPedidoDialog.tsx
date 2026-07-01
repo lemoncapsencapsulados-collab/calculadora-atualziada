@@ -359,7 +359,7 @@ const DetalhesPedidoDialog = ({
               <Section icon={Truck} title="Logística / Frete">
                 <div className="space-y-1 bg-muted/50 rounded-lg p-3">
                   <InfoRow label="Tipo de Envio" value={
-                    frete.detalhamento_envio.tipo === 'total_produtor' ? 'Todo para o Produtor' :
+                    frete.detalhamento_envio.tipo === 'total_produtor' ? 'Produção completa para o Produtor — logística Lemon Caps até o cliente final' :
                     frete.detalhamento_envio.tipo === 'total_lemoncaps' ? 'Via Lemon Caps' : 'Parcial'
                   } />
                   <InfoRow label="Descrição" value={frete.detalhamento_envio.descricao_parcial} />
