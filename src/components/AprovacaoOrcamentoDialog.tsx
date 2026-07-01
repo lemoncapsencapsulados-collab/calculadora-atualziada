@@ -413,37 +413,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
       });
     }
 
-    // Validar detalhes de produção por item
-    orcamento.itens_producao.forEach((item, idx) => {
-      const seg = (item.segmento || '').toLowerCase();
-      const d = detalhesProducao[idx] || {};
-
-      // All types need cor_pote and cor_tampa
-      const isEncapsulado = seg.includes('encapsulado');
-      const isGummy = seg.includes('gummy');
-      const isSoluvel = seg.includes('solúvel') || seg.includes('soluvel');
-      const isLiquido = seg.includes('líquido') || seg.includes('liquido');
-      const isKnown = isEncapsulado || isGummy || isSoluvel || isLiquido;
-
-      if (isKnown) {
-        if (!d.cor_tampa) camposFaltando.push(`Cor da Tampa (${item.nome_produto})`);
-        if (!d.cor_pote) camposFaltando.push(`Cor do Pote (${item.nome_produto})`);
-      }
-
-      // Gummy, Líquido, Solúvel need sabor and cor do conteúdo
-      if (isGummy) {
-        if (!d.sabor_gummy) camposFaltando.push(`Sabor (${item.nome_produto})`);
-        if (!d.cor_gummy) camposFaltando.push(`Cor do Conteúdo (${item.nome_produto})`);
-      } else if (isSoluvel) {
-        if (!d.sabor_soluvel) camposFaltando.push(`Sabor (${item.nome_produto})`);
-        if (!d.cor_soluvel) camposFaltando.push(`Cor do Conteúdo (${item.nome_produto})`);
-      } else if (isLiquido) {
-        if (!d.sabor_liquido) camposFaltando.push(`Sabor (${item.nome_produto})`);
-        if (!d.cor_liquido) camposFaltando.push(`Cor do Conteúdo (${item.nome_produto})`);
-      } else if (!isEncapsulado) {
-        if (!d.observacao_producao) camposFaltando.push(`Observação de Produção (${item.nome_produto})`);
-      }
-    });
+    // Detalhes de produção são opcionais — não validar.
 
     if (!dataPagamentoValida) {
       camposFaltando.push(dataPagamentoFutura ? 'Data de Pagamento (não pode ser futura)' : 'Data de Pagamento');
@@ -814,6 +784,12 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                           {isSearchingCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         </Button>
                       </div>
+                      {isSearchingCnpj && (
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Buscando dados do CNPJ...
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2 space-y-1">
                       <Label className="text-xs">Razão Social <span className="text-destructive">*</span></Label>
@@ -909,7 +885,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
             <CardHeader className="py-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Beaker className="w-4 h-4" />
-                2. Detalhes do Produto <span className="text-xs text-destructive font-normal">(obrigatório)</span>
+                2. Detalhes do Produto <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -940,7 +916,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                         return (
                           <>
                             <div className="space-y-1">
-                              <Label className="text-xs">Cor da Tampa <span className="text-destructive">*</span></Label>
+                              <Label className="text-xs">Cor da Tampa</Label>
                               <Select value={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
                                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                                 <SelectContent>
@@ -949,7 +925,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                               </Select>
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs">Cor do Pote <span className="text-destructive">*</span></Label>
+                              <Label className="text-xs">Cor do Pote</Label>
                               <Select value={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
                                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                                 <SelectContent>
@@ -964,7 +940,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       {isGummy && (
                         <>
                           <div className="space-y-1">
-                            <Label className="text-xs">Sabor <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Sabor</Label>
                             <Select value={d.sabor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_gummy', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -977,7 +953,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             </Select>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Cor do Conteúdo <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Cor do Conteúdo</Label>
                             <Select value={d.cor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -992,7 +968,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       {isSoluvel && (
                         <>
                           <div className="space-y-1">
-                            <Label className="text-xs">Sabor <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Sabor</Label>
                             <Select value={d.sabor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_soluvel', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -1004,7 +980,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             </Select>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Cor do Conteúdo <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Cor do Conteúdo</Label>
                             <Select value={d.cor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_soluvel', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -1019,7 +995,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       {isLiquido && (
                         <>
                           <div className="space-y-1">
-                            <Label className="text-xs">Sabor <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Sabor</Label>
                             <Select value={d.sabor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_liquido', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -1031,7 +1007,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                             </Select>
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Cor do Conteúdo <span className="text-destructive">*</span></Label>
+                            <Label className="text-xs">Cor do Conteúdo</Label>
                             <Select value={d.cor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_liquido', v)}>
                               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -1045,7 +1021,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       )}
                       {isOutro && (
                         <div className="col-span-2 space-y-1">
-                          <Label className="text-xs">Observação de Produção <span className="text-destructive">*</span></Label>
+                          <Label className="text-xs">Observação de Produção</Label>
                           <Textarea
                             value={d.observacao_producao || ''}
                             onChange={(e) => updateDetalhe(idx, 'observacao_producao', e.target.value)}
@@ -1117,7 +1093,9 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="total_produtor" id="aprov-produtor" />
-                    <Label htmlFor="aprov-produtor" className="font-normal cursor-pointer text-sm">Todo envio para o Produtor</Label>
+                      <Label htmlFor="aprov-produtor" className="font-normal cursor-pointer text-sm">
+                        Enviar produção completa para o Produtor, Lemon Caps fará a logística enviando para cliente final.
+                      </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="total_lemoncaps" id="aprov-lemoncaps" />
@@ -1143,28 +1121,10 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
 
                 {detalhamentoEnvio.tipo === 'total_produtor' && (
                   <p className="text-xs text-muted-foreground ml-6">
-                    Não será utilizada logística da LemonCaps para cliente final.
+                      Produção completa entregue ao Produtor; a Lemon Caps cuidará da logística até o cliente final.
                   </p>
                 )}
               </div>
-
-              <div className="space-y-3 pt-3 border-t">
-                <Label className="text-sm">Frete via Lemon Caps para cliente final?</Label>
-                <div className="flex gap-3">
-                  <Button type="button" variant={freteLemonCaps ? 'default' : 'outline'} size="sm" onClick={() => setFreteLemonCaps(true)}>Sim</Button>
-                  <Button type="button" variant={!freteLemonCaps ? 'default' : 'outline'} size="sm" onClick={() => setFreteLemonCaps(false)}>Não</Button>
-                </div>
-              </div>
-
-              {freteLemonCaps && (
-                <div className="space-y-3">
-                  <Label className="text-sm">Usar tabela tradicional de envio?</Label>
-                  <div className="flex gap-3">
-                    <Button type="button" variant={usaTabelaTradicional ? 'default' : 'outline'} size="sm" onClick={() => setUsaTabelaTradicional(true)}>Sim</Button>
-                    <Button type="button" variant={!usaTabelaTradicional ? 'default' : 'outline'} size="sm" onClick={() => setUsaTabelaTradicional(false)}>Não</Button>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
