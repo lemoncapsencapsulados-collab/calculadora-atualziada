@@ -388,16 +388,28 @@ export default function GerarOrcamentoDialog({
       const servicosProd = (orcamentoExistente.servicos_marca || []).filter(
         (s: any) => s?.setup_detalhes?.categoria === 'producao' || s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
       ) as any[];
+      let restoredEstab = false;
+      let restoredAnvisa = false;
       for (const sp of servicosProd) {
         const det = sp.setup_detalhes || {};
         if (det.tipo === 'estabilidade' && typeof det.custo_unit === 'number') {
           setCustoEstabilidadeUnit(det.custo_unit);
+          restoredEstab = true;
         } else if (det.tipo === 'anvisa' && typeof det.custo_unit === 'number') {
           setCustoAnvisaUnit(det.custo_unit);
+          restoredAnvisa = true;
         } else if (det.tipo === 'estabilidade_anvisa') {
           if (typeof det.custo_estabilidade_unit === 'number') setCustoEstabilidadeUnit(det.custo_estabilidade_unit);
           if (typeof det.custo_anvisa_unit === 'number') setCustoAnvisaUnit(det.custo_anvisa_unit);
+          restoredEstab = true;
+          restoredAnvisa = true;
         }
+      }
+      // Se o orçamento existente tem serviços de marca definidos, respeitar exatamente o que foi salvo.
+      // Se nunca foi salvo nenhum (array vazio), assumir ambos ativos (default).
+      if ((orcamentoExistente.servicos_marca || []).length > 0) {
+        setEstabilidadeAtiva(restoredEstab);
+        setAnvisaAtiva(restoredAnvisa);
       }
       // Restore setup
       const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
