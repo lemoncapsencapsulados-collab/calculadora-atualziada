@@ -167,12 +167,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // Forma de venda
   const [formaVenda, setFormaVenda] = useState<string>('sem_informacao');
 
-  // Frete
-  const [freteLemonCaps, setFreteLemonCaps] = useState<boolean>(true);
-  const [usaTabelaTradicional, setUsaTabelaTradicional] = useState<boolean>(true);
+  // Frete (simplificado — apenas 2 opções)
   const [detalhamentoEnvio, setDetalhamentoEnvio] = useState<DetalhamentoEnvio>({
     tipo: 'total_lemoncaps', descricao_parcial: '',
   });
+  const freteLemonCaps = detalhamentoEnvio.tipo === 'total_lemoncaps';
+  const usaTabelaTradicional = false;
 
   // Detalhes de produção por item
   const [detalhesProducao, setDetalhesProducao] = useState<Record<number, Record<string, string>>>({});
@@ -569,12 +569,17 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
       }
     }
-    if (orcamento.detalhamento_frete) {
-      setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
-      setUsaTabelaTradicional(orcamento.detalhamento_frete.usa_tabela_tradicional ?? true);
-      if (orcamento.detalhamento_frete.detalhamento_envio) {
-        setDetalhamentoEnvio(orcamento.detalhamento_frete.detalhamento_envio);
-      }
+    if (orcamento.detalhamento_frete?.detalhamento_envio) {
+      const t = orcamento.detalhamento_frete.detalhamento_envio.tipo;
+      setDetalhamentoEnvio({
+        tipo: t === 'total_produtor' ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
+    } else if (orcamento.detalhamento_frete) {
+      setDetalhamentoEnvio({
+        tipo: orcamento.detalhamento_frete.frete_lemon_caps === false ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
     }
     if (orcamento.condicoes_pagamento) {
       setCondicoesPagamento(orcamento.condicoes_pagamento);
@@ -603,12 +608,17 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
       if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
     }
-    if (r.detalhamento_frete) {
-      setFreteLemonCaps(r.detalhamento_frete.frete_lemon_caps ?? true);
-      setUsaTabelaTradicional(r.detalhamento_frete.usa_tabela_tradicional ?? true);
-      if (r.detalhamento_frete.detalhamento_envio) {
-        setDetalhamentoEnvio(r.detalhamento_frete.detalhamento_envio);
-      }
+    if (r.detalhamento_frete?.detalhamento_envio) {
+      const t = r.detalhamento_frete.detalhamento_envio.tipo;
+      setDetalhamentoEnvio({
+        tipo: t === 'total_produtor' ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
+    } else if (r.detalhamento_frete) {
+      setDetalhamentoEnvio({
+        tipo: r.detalhamento_frete.frete_lemon_caps === false ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
     }
     if (r.condicoes_pagamento) {
       setCondicoesPagamento(r.condicoes_pagamento);
@@ -647,12 +657,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     setFormaVenda(cliente.forma_venda || 'sem_informacao');
   };
 
-  // Auto-set frete when envio tipo changes
+  // Auto buscar CNPJ ao completar 14 dígitos (PJ)
   useEffect(() => {
-    if (detalhamentoEnvio.tipo === 'total_produtor') {
-      setFreteLemonCaps(false);
-    }
-  }, [detalhamentoEnvio.tipo]);
+    const nums = (dadosCliente.cnpj || '').replace(/\D/g, '');
+    if (tipoPessoa !== 'pj' || nums.length !== 14 || isSearchingCnpj) return;
+    handleBuscarCnpj();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dadosCliente.cnpj, tipoPessoa]);
 
   // Auto-select single-option production details
   useEffect(() => {
