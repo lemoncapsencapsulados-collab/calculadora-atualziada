@@ -476,8 +476,7 @@ export default function GerarOrcamentoDialog({
         extras.push({
           nome_plano: 'Teste de Estabilidade',
           descricao:
-            `${qtdEstab} produto(s) personalizado(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. Fórmulas do Catálogo Lemon são isentas. ` +
-            ESTABILIDADE_PRAZO_TEXTO,
+            `${qtdEstab} produto(s) personalizado(s) × ${formatCurrency(custoEstabilidadeUnit)} por produto. Fórmulas do Catálogo Lemon são isentas do teste de estabilidade.`,
           valor: totalEstab,
           entregaveis: [
             { nome: `Teste de estabilidade do produto (${qtdEstab}x)`, incluso: true, quantidade: qtdEstab },
