@@ -65,6 +65,57 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_eventos_log: {
+        Row: {
+          asaas_customer_id: string | null
+          asaas_installment_id: string | null
+          asaas_payment_id: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          event: string | null
+          id: string
+          mensagem: string | null
+          orcamento_id: string | null
+          payload: Json | null
+          pedido_id: string | null
+          resposta: Json | null
+          status: string
+          valor: number | null
+        }
+        Insert: {
+          asaas_customer_id?: string | null
+          asaas_installment_id?: string | null
+          asaas_payment_id?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          event?: string | null
+          id?: string
+          mensagem?: string | null
+          orcamento_id?: string | null
+          payload?: Json | null
+          pedido_id?: string | null
+          resposta?: Json | null
+          status?: string
+          valor?: number | null
+        }
+        Update: {
+          asaas_customer_id?: string | null
+          asaas_installment_id?: string | null
+          asaas_payment_id?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          event?: string | null
+          id?: string
+          mensagem?: string | null
+          orcamento_id?: string | null
+          payload?: Json | null
+          pedido_id?: string | null
+          resposta?: Json | null
+          status?: string
+          valor?: number | null
+        }
+        Relationships: []
+      }
       asaas_webhook_pendentes: {
         Row: {
           asaas_customer_id: string | null
