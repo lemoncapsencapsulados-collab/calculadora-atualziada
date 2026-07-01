@@ -544,7 +544,7 @@ export function AsaasConsultaCard() {
             )}
               </TabsContent>
               <TabsContent value="conciliacao" className="pt-3">
-                <AsaasConciliacaoPedidos itens={data.itens || []} />
+                <AsaasConciliacaoPedidos itens={data.itens || []} mes={data.mes} />
               </TabsContent>
             </Tabs>
           </div>
