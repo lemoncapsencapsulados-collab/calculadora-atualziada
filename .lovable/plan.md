@@ -1,26 +1,34 @@
+## Objetivo
+Mostrar detalhes completos de cada cobrança retornada pelo Asaas — incluindo parcela (nº/total), datas de vencimento, forma de pagamento amigável, descontos/juros/multa, número da fatura, links (fatura, boleto, comprovante) e informações de assinatura, seguindo o modelo do objeto `Payment` da API (docs.asaas.com).
 
-## O que muda
+## 1. Edge Function `asaas-consultar-vendas`
+Ampliar o mapeamento de `itens` para incluir todos os campos úteis do payload do Asaas:
+- `installment` (id do grupo de parcelamento), `installmentNumber`, `installmentCount` — para exibir "Parcela X/Y".
+  - Quando `installment` estiver presente e `installmentCount` não vier no objeto, buscar `/installments/{id}` (com cache por id) para obter total de parcelas.
+- `subscription` (assinatura recorrente).
+- `dueDate`, `originalDueDate`, `clientPaymentDate`, `confirmedDate`, `creditDate`.
+- `billingType` (mapeado para PT-BR: Boleto, Cartão, Pix, Transferência, etc.).
+- `discount.value`, `fine.value`, `interest.value` (quando existirem).
+- `invoiceNumber`, `invoiceUrl`, `bankSlipUrl`, `transactionReceiptUrl`, `nossoNumero`.
+- `externalReference`, `description`.
+- Nome do cliente (já feito) + email/cpfCnpj do cliente (adicionar ao cache de `/customers/{id}`).
+- Dados essenciais de cartão quando `billingType = CREDIT_CARD` (`creditCard.creditCardBrand`, `creditCardNumber` últimos 4).
 
-### 1. Remover o plano "FAÇA VOCÊ MESMO" do fluxo Novo Produtor
-- Desativar o registro `FAÇA VOCÊ MESMO` na tabela `setup_planos` (marcar `ativo = false`).
-- Ele deixa de aparecer no Passo 3 do "Novo Orçamento" (perfil Novo Produtor) — some o card do plano, os entregáveis e o preço (R$ 1.999,90).
-- Os outros três planos continuam: START, BRANDING e PREMIUM.
-- **Por que soft-delete e não `DELETE`:** orçamentos antigos que foram salvos com esse plano guardam a referência no snapshot. Desativar preserva o histórico sem quebrar nada; só some do formulário de novo orçamento.
+Manter compat: os campos antigos (`valor`, `liquido`, `forma`, etc.) continuam presentes.
 
-### 2. Remover a notificação "Prazos importantes" no Passo 4
-- No componente do Passo 4 (Estabilidade + Notificação Anvisa), apagar o card amarelo "Prazos importantes" que lista os prazos de 10 dias úteis e 6 meses.
-- Também remover a linha do texto de descrição do serviço (`ESTABILIDADE_PRAZO_TEXTO`) que hoje é anexada automaticamente na descrição do orçamento gerado, para que essa comunicação suma de ponta a ponta.
+## 2. UI — `AsaasConsultaCard.tsx`
+- Adicionar seção **"Detalhes das cobranças"** (colapsável) abaixo da tabela "Por cliente".
+- Tabela com colunas: Data pagto · Cliente · Descrição · Forma · Parcela (ex.: `3/12`) · Vencimento · Bruto · Líquido · Ações.
+- Coluna Ações: botões-ícone para abrir `invoiceUrl`, `bankSlipUrl` e `transactionReceiptUrl` em nova aba (quando existirem).
+- Ícone/badge indicando "Assinatura" quando `subscription` presente e "Parcelado" quando `installment` presente.
+- Linha expansível (`Collapsible`) por cobrança mostrando: Nº fatura, externalReference, nosso número, descontos/juros/multa, e-mail/CPF do cliente, bandeira/final do cartão.
+- Formatar `billingType` via helper (`labelFormaPagamento`).
 
-### 3. Deixar explícito que Fórmulas do Catálogo não têm custo de estabilidade
-- No Passo 4, substituir a mensagem atual (`Todos os itens são do Catálogo Lemon — sem custo de teste de estabilidade`) por um aviso mais destacado, em card verde, dizendo:
-  - "Fórmulas do Catálogo Lemon são isentas do teste de estabilidade."
-  - "Nesse caso, o único custo aplicado é a Notificação na Anvisa por produto."
-- Esse aviso aparece sempre que houver itens de catálogo no orçamento, mesmo quando também há fórmulas personalizadas (mostrando quais itens são isentos).
+## 3. PDF (opcional, leve)
+- Manter o PDF atual; adicionar tabela extra "Detalhes das cobranças" com colunas resumidas (Data · Cliente · Forma · Parcela · Bruto · Líquido) quando houver `itens`.
 
-## Detalhes técnicos
+## 4. Fora do escopo
+- Não alterar cálculo de comissão, salvar consulta, ou integração com `RelatorioComissoes`.
+- Não implementar emissão de NF (documentação apenas consultada) — apenas exibir `invoiceNumber` já existente.
 
-- Alteração de dados: `UPDATE public.setup_planos SET ativo = false WHERE nome = 'FAÇA VOCÊ MESMO';`
-- Frontend afetado:
-  - `src/components/orcamento/EstabilidadeAnvisaStep.tsx` — remover o card "Prazos importantes" (linhas 154–168) e reformular a mensagem de catálogo.
-  - `src/components/GerarOrcamentoDialog.tsx` — remover a constante `ESTABILIDADE_PRAZO_TEXTO` da descrição do serviço "Teste de Estabilidade" (linha ~479).
-- Não é necessário mudar a listagem de planos: ela já filtra por `ativo = true` via `setup_planos`.
+Sem migrations, sem novas secrets.
