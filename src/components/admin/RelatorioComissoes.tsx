@@ -167,16 +167,21 @@ export function RelatorioComissoes() {
       comissaoInadimplente: number;
       comissaoMesDesteFechamento: number; // pedidos fechados no mês
       comissaoMesParcelasAntigas: number;  // pedidos fechados em meses anteriores
+      monetizzeReceber: number;
+      monetizzeQtd: number;
+      totalReceber: number;
     };
     const m = new Map<string, R>();
+    const criar = (consultor: string): R => ({
+      consultor,
+      recebidoMes: 0, comissaoPaga: 0, comissaoAVencer: 0, comissaoInadimplente: 0,
+      comissaoMesDesteFechamento: 0, comissaoMesParcelasAntigas: 0,
+      monetizzeReceber: 0, monetizzeQtd: 0, totalReceber: 0,
+    });
     parcelasResumoConsultor.forEach((p) => {
       let r = m.get(p.consultor);
       if (!r) {
-        r = {
-          consultor: p.consultor,
-          recebidoMes: 0, comissaoPaga: 0, comissaoAVencer: 0, comissaoInadimplente: 0,
-          comissaoMesDesteFechamento: 0, comissaoMesParcelasAntigas: 0,
-        };
+        r = criar(p.consultor);
         m.set(p.consultor, r);
       }
       if (p.status === 'pago') {
@@ -191,8 +196,18 @@ export function RelatorioComissoes() {
       if (p.parcelaIndice === 0) r.comissaoMesDesteFechamento += p.comissao;
       else r.comissaoMesParcelasAntigas += p.comissao;
     });
-    return Array.from(m.values()).sort((a, b) => b.comissaoPaga - a.comissaoPaga);
-  }, [parcelasResumoConsultor]);
+    // Aplica Monetizze (mesmo criando o consultor se ele só existir via Monetizze)
+    Object.entries(monetizzePorConsultor).forEach(([consultor, v]) => {
+      if (consultorFiltro !== 'todos' && consultor !== consultorFiltro) return;
+      let r = m.get(consultor);
+      if (!r) { r = criar(consultor); m.set(consultor, r); }
+      r.monetizzeReceber += v.receber;
+      r.monetizzeQtd += v.qtd;
+    });
+    // Total a receber = comissão paga + Monetizze
+    m.forEach((r) => { r.totalReceber = r.comissaoPaga + r.monetizzeReceber; });
+    return Array.from(m.values()).sort((a, b) => b.totalReceber - a.totalReceber);
+  }, [parcelasResumoConsultor, monetizzePorConsultor, consultorFiltro]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
