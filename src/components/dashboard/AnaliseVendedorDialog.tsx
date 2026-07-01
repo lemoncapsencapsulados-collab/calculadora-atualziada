@@ -95,6 +95,33 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendedor, mesData]);
 
+  // Realtime: refaz a análise quando uma consulta Braip deste consultor é
+  // salva/alterada/excluída no mês em exibição.
+  useEffect(() => {
+    if (!vendedor) return;
+    const mesStrLocal = format(mesData, 'yyyy-MM');
+    const channel = supabase
+      .channel(`braip-consultas-${vendedor}-${mesStrLocal}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'braip_consultas_salvas',
+          filter: `consultor_nome=eq.${vendedor}`,
+        },
+        (payload) => {
+          const row: any = payload.new || payload.old;
+          if (!row || row.mes === mesStrLocal) recalcular(true);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedor, mesData]);
+
   const exportarCSV = () => {
     if (!analise) return;
     const csv = gerarCSVAnalise(analise);
@@ -481,6 +508,65 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                                     <td className="py-1 pr-2">{formatBRL(c.comissaoTotal)}</td>
                                     <td className="py-1 pr-2">{c.percentual}%</td>
                                     <td className="py-1 font-semibold text-emerald-600">{formatBRL(c.valorConsultor)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-orange-500/40 bg-orange-500/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-orange-600" />
+                        Comissão Braip (consultas salvas)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {analise.braipConsultas.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Nenhuma consulta Braip salva para este consultor no mês. Vá em Painel Administrador → Comissionamento → Consultar Braip e salve vinculado a {analise.vendedor}.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Consultas salvas</p>
+                              <p className="font-semibold">{analise.braipConsultas.length}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Comissão real (bruta)</p>
+                              <p className="font-semibold">{formatBRL(analise.braipComissaoBruta)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Total a receber</p>
+                              <p className="font-bold text-orange-600">{formatBRL(analise.braipTotalReceber)}</p>
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="border-b">
+                                <tr className="text-left">
+                                  <th className="py-1 pr-2">Data</th>
+                                  <th className="py-1 pr-2">Filtro</th>
+                                  <th className="py-1 pr-2">Vendas</th>
+                                  <th className="py-1 pr-2">Comissão real</th>
+                                  <th className="py-1 pr-2">%</th>
+                                  <th className="py-1">A receber</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {analise.braipConsultas.map((c) => (
+                                  <tr key={c.id} className="border-b last:border-0">
+                                    <td className="py-1 pr-2">{format(new Date(c.createdAt), 'dd/MM/yyyy')}</td>
+                                    <td className="py-1 pr-2">{c.filtroProduto || '—'}</td>
+                                    <td className="py-1 pr-2">{c.quantidadeVendida}</td>
+                                    <td className="py-1 pr-2">{formatBRL(c.comissaoTotal)}</td>
+                                    <td className="py-1 pr-2">{c.percentual}%</td>
+                                    <td className="py-1 font-semibold text-orange-600">{formatBRL(c.valorConsultor)}</td>
                                   </tr>
                                 ))}
                               </tbody>
