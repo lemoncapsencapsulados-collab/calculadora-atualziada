@@ -1339,13 +1339,18 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2 space-y-1">
-                      <Label className="text-xs">CNPJ</Label>
+                      <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
                       <div className="flex gap-2">
                         <Input value={dadosCliente.cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
                         <Button type="button" variant="outline" size="sm" onClick={handleBuscarCnpj} disabled={isSearchingCnpj || !dadosCliente.cnpj}>
                           {isSearchingCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         </Button>
                       </div>
+                      {isSearchingCnpj && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Buscando dados do CNPJ...
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2 space-y-1">
                       <Label className="text-xs">Razão Social</Label>
