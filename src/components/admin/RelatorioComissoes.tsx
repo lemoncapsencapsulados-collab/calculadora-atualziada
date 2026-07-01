@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle, CheckSquare } from 'lucide-react';
@@ -19,6 +19,7 @@ import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExc
 import { MonetizzeConsultaCard } from '@/components/admin/MonetizzeConsultaCard';
 import { Pedido } from '@/types/formula';
 import { arredondarReais } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const fmtBRL = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -653,6 +654,64 @@ function DetalheConsultorDialog({
   onClose: () => void;
   onAbrirPedido: (pedidoId: string) => void;
 }) {
+  type MonetizzeRow = {
+    id: string;
+    filtro_produto_nome: string | null;
+    quantidade_vendida: number;
+    faturamento_total: number;
+    comissao_total: number;
+    percentual: number;
+    valor_consultor: number;
+    observacao: string | null;
+    created_at: string;
+  };
+  const [monetizze, setMonetizze] = useState<MonetizzeRow[]>([]);
+
+  useEffect(() => {
+    if (!consultor) { setMonetizze([]); return; }
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('monetizze_consultas_salvas')
+        .select('id, filtro_produto_nome, quantidade_vendida, faturamento_total, comissao_total, percentual, valor_consultor, observacao, created_at')
+        .eq('consultor_nome', consultor)
+        .eq('mes', mes)
+        .order('created_at', { ascending: false });
+      if (ativo) setMonetizze((data || []) as MonetizzeRow[]);
+    };
+    carregar();
+
+    const channel = supabase
+      .channel(`monetizze-detalhe-${consultor}-${mes}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monetizze_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (!row) return;
+          if (row.consultor_nome === consultor && row.mes === mes) carregar();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [consultor, mes]);
+
+  const totMonetizze = useMemo(() => {
+    return monetizze.reduce(
+      (a, r) => {
+        a.faturamento += Number(r.faturamento_total) || 0;
+        a.comissao += Number(r.comissao_total) || 0;
+        a.receber += Number(r.valor_consultor) || 0;
+        return a;
+      },
+      { faturamento: 0, comissao: 0, receber: 0 },
+    );
+  }, [monetizze]);
+
   const totais = useMemo(() => {
     return parcelas.reduce(
       (a, p) => {
@@ -787,6 +846,50 @@ function DetalheConsultorDialog({
             <Download className="h-4 w-4 mr-2" /> Exportar CSV
           </Button>
         </div>
+
+        {monetizze.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-sm font-semibold">Comissão Monetizze — consultas salvas ({monetizze.length})</div>
+                <div className="text-xs text-muted-foreground">
+                  Atualiza automaticamente ao salvar uma nova consulta para este consultor no mês.
+                </div>
+              </div>
+              <div className="flex gap-4 text-xs">
+                <div><span className="text-muted-foreground">Faturamento: </span><span className="font-semibold">{fmtBRL(totMonetizze.faturamento)}</span></div>
+                <div><span className="text-muted-foreground">Comissão bruta: </span><span className="font-semibold">{fmtBRL(totMonetizze.comissao)}</span></div>
+                <div><span className="text-muted-foreground">A receber: </span><span className="font-semibold text-emerald-600">{fmtBRL(totMonetizze.receber)}</span></div>
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Salvo em</TableHead>
+                  <TableHead>Produto (filtro)</TableHead>
+                  <TableHead className="text-right">Vendas</TableHead>
+                  <TableHead className="text-right">Faturamento</TableHead>
+                  <TableHead className="text-right">Comissão bruta</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-right">A receber</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {monetizze.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                    <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
+                    <TableCell className="text-right">{r.quantidade_vendida}</TableCell>
+                    <TableCell className="text-right">{fmtBRL(Number(r.faturamento_total))}</TableCell>
+                    <TableCell className="text-right">{fmtBRL(Number(r.comissao_total))}</TableCell>
+                    <TableCell className="text-right">{Number(r.percentual).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(Number(r.valor_consultor))}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
 
         {parcelas.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm">
