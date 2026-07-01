@@ -41,6 +41,7 @@ async function fetchPagina(token: string, filtro: Filtro, page: number): Promise
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
+      'User-Agent': 'Mozilla/5.0 (compatible; LemonCaps/1.0; +https://calculadora.lemoncaps.com.br)',
     },
   }, 25000);
   const txt = await r.text();
