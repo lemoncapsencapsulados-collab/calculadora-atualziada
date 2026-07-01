@@ -213,7 +213,11 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
                   <TableHead>Cliente (Asaas)</TableHead>
                   <TableHead>Orçamento(s)</TableHead>
                   <TableHead>Consultor</TableHead>
+                  <TableHead>Forma</TableHead>
                   <TableHead className="text-right">Parcelas</TableHead>
+                  <TableHead>1º pagto</TableHead>
+                  <TableHead>Último pagto</TableHead>
+                  <TableHead>Próx. venc.</TableHead>
                   <TableHead className="text-right">Bruto pago</TableHead>
                   <TableHead className="text-right">Líquido</TableHead>
                 </TableRow>
@@ -244,10 +248,14 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
                       )}
                     </TableCell>
                     <TableCell className="text-xs">{l.consultor}</TableCell>
+                    <TableCell className="text-xs">{l.formas.join(', ') || '—'}</TableCell>
                     <TableCell className="text-right text-xs whitespace-nowrap">
                       <span className="font-semibold">{l.qtdPagas}</span>
                       {l.totalParcelas ? <span className="text-muted-foreground"> / {l.totalParcelas}</span> : ''}
                     </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(l.primeiroPagto)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(l.ultimoPagto)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{fmtDate(l.proximoVencimento)}</TableCell>
                     <TableCell className="text-right text-xs whitespace-nowrap">{fmtBRL(l.brutoPago)}</TableCell>
                     <TableCell className="text-right text-xs whitespace-nowrap font-medium">{fmtBRL(l.liquidoPago)}</TableCell>
                   </TableRow>
