@@ -1589,6 +1589,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                     </div>
                   </div>
                 </CardContent>
+                )}
               </Card>
             );
           })()}
