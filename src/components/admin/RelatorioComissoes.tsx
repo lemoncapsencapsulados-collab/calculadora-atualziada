@@ -159,6 +159,43 @@ export function RelatorioComissoes() {
     };
   }, [mesResumoConsultor]);
 
+  useEffect(() => {
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('asaas_consultas_salvas' as any)
+        .select('consultor_nome, valor_consultor')
+        .eq('mes', mesResumoConsultor);
+      if (!ativo) return;
+      const map: Record<string, { receber: number; qtd: number }> = {};
+      ((data as any[]) || []).forEach((r) => {
+        const nome = r.consultor_nome || '';
+        if (!nome) return;
+        const ent = map[nome] || { receber: 0, qtd: 0 };
+        ent.receber += Number(r.valor_consultor) || 0;
+        ent.qtd += 1;
+        map[nome] = ent;
+      });
+      setAsaasPorConsultor(map);
+    };
+    carregar();
+    const channel = supabase
+      .channel(`asaas-resumo-${mesResumoConsultor}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'asaas_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (row && row.mes === mesResumoConsultor) carregar();
+        },
+      )
+      .subscribe();
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [mesResumoConsultor]);
+
   // Deriva todas as parcelas-comissão
   const todasParcelas = useMemo(() => {
     const out: ItemComissao[] = [];
