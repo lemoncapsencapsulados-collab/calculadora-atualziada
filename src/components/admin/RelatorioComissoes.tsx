@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Download, Eye, Pencil, AlertTriangle, CheckCircle2, Clock, Trash2, XCircle, CheckSquare } from 'lucide-react';
@@ -19,6 +19,7 @@ import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExc
 import { MonetizzeConsultaCard } from '@/components/admin/MonetizzeConsultaCard';
 import { Pedido } from '@/types/formula';
 import { arredondarReais } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const fmtBRL = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
