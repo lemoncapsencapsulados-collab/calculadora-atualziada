@@ -17,6 +17,7 @@ import { derivarComissoes, aplicarStatusPago, ItemComissao, StatusParcelaComissa
 import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog';
 import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoDialog';
 import { MonetizzeConsultaCard } from '@/components/admin/MonetizzeConsultaCard';
+import { BraipConsultaCard } from '@/components/admin/BraipConsultaCard';
 import { Pedido } from '@/types/formula';
 import { arredondarReais } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,6 +81,7 @@ export function RelatorioComissoes() {
 
   // Monetizze — total a receber por consultor no mês do resumo
   const [monetizzePorConsultor, setMonetizzePorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
+  const [braipPorConsultor, setBraipPorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
 
   useEffect(() => {
     let ativo = true;
@@ -106,6 +108,43 @@ export function RelatorioComissoes() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'monetizze_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (row && row.mes === mesResumoConsultor) carregar();
+        },
+      )
+      .subscribe();
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [mesResumoConsultor]);
+
+  useEffect(() => {
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('braip_consultas_salvas' as any)
+        .select('consultor_nome, valor_consultor')
+        .eq('mes', mesResumoConsultor);
+      if (!ativo) return;
+      const map: Record<string, { receber: number; qtd: number }> = {};
+      ((data as any[]) || []).forEach((r) => {
+        const nome = r.consultor_nome || '';
+        if (!nome) return;
+        const ent = map[nome] || { receber: 0, qtd: 0 };
+        ent.receber += Number(r.valor_consultor) || 0;
+        ent.qtd += 1;
+        map[nome] = ent;
+      });
+      setBraipPorConsultor(map);
+    };
+    carregar();
+    const channel = supabase
+      .channel(`braip-resumo-${mesResumoConsultor}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'braip_consultas_salvas' },
         (payload) => {
           const row = (payload.new || payload.old) as any;
           if (row && row.mes === mesResumoConsultor) carregar();
@@ -204,10 +243,20 @@ export function RelatorioComissoes() {
       r.monetizzeReceber += v.receber;
       r.monetizzeQtd += v.qtd;
     });
-    // Total a receber = comissão paga + Monetizze
-    m.forEach((r) => { r.totalReceber = r.comissaoPaga + r.monetizzeReceber; });
+    // Aplica Braip (mesma lógica)
+    Object.entries(braipPorConsultor).forEach(([consultor, v]) => {
+      if (consultorFiltro !== 'todos' && consultor !== consultorFiltro) return;
+      let r = m.get(consultor);
+      if (!r) { r = criar(consultor); m.set(consultor, r); }
+      (r as any).braipReceber = ((r as any).braipReceber || 0) + v.receber;
+      (r as any).braipQtd = ((r as any).braipQtd || 0) + v.qtd;
+    });
+    // Total a receber = comissão paga + Monetizze + Braip
+    m.forEach((r) => {
+      r.totalReceber = r.comissaoPaga + r.monetizzeReceber + ((r as any).braipReceber || 0);
+    });
     return Array.from(m.values()).sort((a, b) => b.totalReceber - a.totalReceber);
-  }, [parcelasResumoConsultor, monetizzePorConsultor, consultorFiltro]);
+  }, [parcelasResumoConsultor, monetizzePorConsultor, braipPorConsultor, consultorFiltro]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
@@ -323,6 +372,9 @@ export function RelatorioComissoes() {
     <div className="space-y-6">
       {/* Monetizze — faturamento real */}
       <MonetizzeConsultaCard />
+
+      {/* Braip — faturamento real */}
+      <BraipConsultaCard />
 
       {/* Filtros */}
       <Card>
