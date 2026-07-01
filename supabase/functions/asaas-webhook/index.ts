@@ -19,10 +19,15 @@ import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
 const WEBHOOK_TOKEN = Deno.env.get("ASAAS_WEBHOOK_TOKEN")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ASAAS_API_KEY = Deno.env.get("ASAAS_API_KEY") || "";
 const N8N_URL = "https://n8n.lemoncaps.com.br/webhook/request-order";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+const authClient = createClient(SUPABASE_URL, ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
@@ -223,8 +228,13 @@ Deno.serve(async (req) => {
   if (authHeader.startsWith("Bearer ")) {
     try {
       const jwt = authHeader.slice(7);
-      const { data } = await supabase.auth.getClaims(jwt);
-      if (data?.claims?.sub) authBypass = true;
+      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+      if (!claimsError && claimsData?.claims?.sub) {
+        authBypass = true;
+      } else {
+        const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
+        if (!userError && userData?.user?.id) authBypass = true;
+      }
     } catch { /* ignore */ }
   }
 
