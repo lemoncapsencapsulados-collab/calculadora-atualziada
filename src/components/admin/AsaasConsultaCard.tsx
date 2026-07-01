@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Loader2, Search, ShoppingBag, TrendingUp, Percent, UserCheck, Save, FileDown, Trash2, History, KeyRound, Database, Calculator, CheckCircle2, ExternalLink, FileText, Receipt, ChevronDown, ChevronRight, Layers, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -446,8 +446,8 @@ export function AsaasConsultaCard() {
                             ? `${it.installment_numero ?? '?'}/${it.installment_total ?? '?'}`
                             : '—';
                           return (
-                            <>
-                              <TableRow key={it.id} className="cursor-pointer" onClick={() => setExpandidas((s) => ({ ...s, [it.id]: !s[it.id] }))}>
+                            <Fragment key={it.id}>
+                              <TableRow className="cursor-pointer" onClick={() => setExpandidas((s) => ({ ...s, [it.id]: !s[it.id] }))}>
                                 <TableCell>
                                   {aberto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                 </TableCell>
@@ -494,7 +494,7 @@ export function AsaasConsultaCard() {
                                 </TableCell>
                               </TableRow>
                               {aberto && (
-                                <TableRow key={`${it.id}-det`} className="bg-muted/40">
+                                <TableRow className="bg-muted/40">
                                   <TableCell></TableCell>
                                   <TableCell colSpan={9}>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs py-2">
@@ -525,7 +525,7 @@ export function AsaasConsultaCard() {
                                   </TableCell>
                                 </TableRow>
                               )}
-                            </>
+                            </Fragment>
                           );
                         })}
                       </TableBody>
