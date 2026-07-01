@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { FlaskConical, Shield, Lock, LockOpen, CheckCircle2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { FlaskConical, Shield, Lock, LockOpen, CheckCircle2, Info } from 'lucide-react';
 import { formatCurrency } from '@/lib/unitConversion';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { ItemProducao } from '@/types/orcamento';
@@ -21,6 +22,10 @@ interface Props {
   onChangeAnvisa: (v: number) => void;
   edicaoLiberada: boolean;
   onLiberarEdicao: () => void;
+  estabilidadeAtiva: boolean;
+  anvisaAtiva: boolean;
+  onToggleEstabilidade: (v: boolean) => void;
+  onToggleAnvisa: (v: boolean) => void;
 }
 
 export default function EstabilidadeAnvisaStep({
@@ -34,13 +39,17 @@ export default function EstabilidadeAnvisaStep({
   onChangeAnvisa,
   edicaoLiberada,
   onLiberarEdicao,
+  estabilidadeAtiva,
+  anvisaAtiva,
+  onToggleEstabilidade,
+  onToggleAnvisa,
 }: Props) {
   const [askPwd, setAskPwd] = useState(false);
   const qtd = itensProducao.length;
-  const qtdEstab = (itensEstabilidade ?? itensProducao).length;
-  const qtdAnvisa = (itensAnvisa ?? itensProducao).length;
-  const totalEstab = custoEstabilidadeUnit * qtdEstab;
-  const totalAnvisa = custoAnvisaUnit * qtdAnvisa;
+  const qtdEstab = estabilidadeAtiva ? (itensEstabilidade ?? itensProducao).length : 0;
+  const qtdAnvisa = anvisaAtiva ? (itensAnvisa ?? itensProducao).length : 0;
+  const totalEstab = estabilidadeAtiva ? custoEstabilidadeUnit * qtdEstab : 0;
+  const totalAnvisa = anvisaAtiva ? custoAnvisaUnit * qtdAnvisa : 0;
   const total = totalEstab + totalAnvisa;
 
   return (
@@ -52,7 +61,7 @@ export default function EstabilidadeAnvisaStep({
             Estabilidade + Notificação Anvisa
           </h3>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Custos obrigatórios aplicados por produto/fórmula. Embutidos no valor total do orçamento.
+            Serviços <strong>opcionais</strong>. Ative apenas os que farão parte deste orçamento — cada um é discriminado no PDF.
           </p>
         </div>
         {edicaoLiberada ? (
@@ -66,85 +75,162 @@ export default function EstabilidadeAnvisaStep({
         )}
       </div>
 
+      {/* Lista de produtos considerados */}
       <Card className="border-primary/20">
-        <CardContent className="p-4 space-y-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              Itens contabilizados ({qtd})
-            </p>
-            {qtd === 0 ? (
-              <p className="text-sm text-muted-foreground italic">Nenhum produto no Passo 2.</p>
-            ) : (
-              <ul className="text-sm space-y-1">
-                {itensProducao.map((it, i) => {
-                  const cat = isItemCatalogo ? isItemCatalogo(it) : false;
-                  return (
-                    <li key={i} className="flex justify-between items-center gap-2">
-                      <span>• {it.nome_produto}</span>
-                      <span className="flex items-center gap-2">
-                        {cat ? (
-                          <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
-                            Catálogo — isento de estabilidade
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">Personalizada</Badge>
-                        )}
-                        <span className="text-muted-foreground">{it.segmento}</span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+        <CardContent className="p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Produtos deste orçamento ({qtd})
+          </p>
+          {qtd === 0 ? (
+            <p className="text-sm text-muted-foreground italic">Nenhum produto no Passo 2.</p>
+          ) : (
+            <ul className="text-sm space-y-1">
+              {itensProducao.map((it, i) => {
+                const cat = isItemCatalogo ? isItemCatalogo(it) : false;
+                return (
+                  <li key={i} className="flex justify-between items-center gap-2">
+                    <span>• {it.nome_produto}</span>
+                    <span className="flex items-center gap-2">
+                      {cat ? (
+                        <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
+                          Catálogo — isento de estabilidade
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Personalizada</Badge>
+                      )}
+                      <span className="text-muted-foreground">{it.segmento}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-          <Separator />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Bloco Teste de Estabilidade */}
+        <Card className={estabilidadeAtiva ? 'border-primary/30' : 'border-muted opacity-80'}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                  <FlaskConical className="w-4 h-4 text-primary" /> Teste de Estabilidade
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Aplica somente a produtos com fórmula personalizada.
+                </p>
+              </div>
+              <Switch
+                checked={estabilidadeAtiva}
+                onCheckedChange={onToggleEstabilidade}
+                aria-label="Ativar Teste de Estabilidade"
+              />
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm">
-                <FlaskConical className="w-4 h-4" /> Teste de estabilidade (por produto personalizado)
-              </Label>
+              <Label className="text-xs text-muted-foreground">Custo por produto personalizado</Label>
               <Input
                 type="number"
                 step="0.01"
                 min={0}
                 value={custoEstabilidadeUnit}
                 onChange={(e) => onChangeEstabilidade(parseFloat(e.target.value) || 0)}
-                disabled={!edicaoLiberada || qtdEstab === 0}
+                disabled={!edicaoLiberada || !estabilidadeAtiva}
               />
-              {qtdEstab === 0 ? (
-                <p className="text-xs text-emerald-700 font-medium">
-                  Fórmulas do Catálogo Lemon — isentas de teste de estabilidade.
+            </div>
+
+            <Separator />
+
+            {!estabilidadeAtiva ? (
+              <p className="text-xs text-muted-foreground italic flex items-center gap-1">
+                <Info className="w-3.5 h-3.5" /> Desativado — não será incluído no orçamento.
+              </p>
+            ) : qtdEstab === 0 ? (
+              <p className="text-xs text-emerald-700 font-medium">
+                Fórmulas do Catálogo Lemon — isentas de teste de estabilidade.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {qtdEstab} produto(s) × {formatCurrency(custoEstabilidadeUnit)}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between bg-primary/5 rounded-md px-3 py-2">
+              <span className="text-xs font-medium">Subtotal</span>
+              <span className="text-base font-bold text-primary">{formatCurrency(totalEstab)}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bloco Notificação Anvisa */}
+        <Card className={anvisaAtiva ? 'border-primary/30' : 'border-muted opacity-80'}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <Label className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Shield className="w-4 h-4 text-primary" /> Notificação Anvisa
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Aplica a todos os produtos do orçamento.
                 </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  {qtdEstab} produto(s) personalizado(s) × {formatCurrency(custoEstabilidadeUnit)} = <span className="font-medium">{formatCurrency(totalEstab)}</span>
-                </p>
-              )}
+              </div>
+              <Switch
+                checked={anvisaAtiva}
+                onCheckedChange={onToggleAnvisa}
+                aria-label="Ativar Notificação Anvisa"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5 text-sm">
-                <Shield className="w-4 h-4" /> Notificação Anvisa (por produto)
-              </Label>
+              <Label className="text-xs text-muted-foreground">Custo por produto</Label>
               <Input
                 type="number"
                 step="0.01"
                 min={0}
                 value={custoAnvisaUnit}
                 onChange={(e) => onChangeAnvisa(parseFloat(e.target.value) || 0)}
-                disabled={!edicaoLiberada}
+                disabled={!edicaoLiberada || !anvisaAtiva}
               />
-              <p className="text-xs text-muted-foreground">
-                {qtdAnvisa} produto(s) × {formatCurrency(custoAnvisaUnit)} = <span className="font-medium">{formatCurrency(totalAnvisa)}</span>
-              </p>
             </div>
+
+            <Separator />
+
+            {!anvisaAtiva ? (
+              <p className="text-xs text-muted-foreground italic flex items-center gap-1">
+                <Info className="w-3.5 h-3.5" /> Desativado — não será incluído no orçamento.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {qtdAnvisa} produto(s) × {formatCurrency(custoAnvisaUnit)}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between bg-primary/5 rounded-md px-3 py-2">
+              <span className="text-xs font-medium">Subtotal</span>
+              <span className="text-base font-bold text-primary">{formatCurrency(totalAnvisa)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Total geral discriminado */}
+      <Card className="bg-primary/5 border-primary/20">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Teste de Estabilidade</span>
+            <span className={estabilidadeAtiva ? 'font-medium' : 'text-muted-foreground line-through'}>
+              {formatCurrency(totalEstab)}
+            </span>
           </div>
-
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Notificação Anvisa</span>
+            <span className={anvisaAtiva ? 'font-medium' : 'text-muted-foreground line-through'}>
+              {formatCurrency(totalAnvisa)}
+            </span>
+          </div>
           <Separator />
-
-          <div className="flex items-center justify-between bg-primary/5 rounded-lg px-4 py-3">
+          <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Total a embutir no orçamento</span>
             <span className="text-xl font-bold text-primary">{formatCurrency(total)}</span>
           </div>
