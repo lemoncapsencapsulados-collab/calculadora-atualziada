@@ -1411,12 +1411,15 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 ? 'Envio pela Lemon Caps ao cliente final'
                 : 'Parcial';
             return (
-              <Card className="sticky top-0 z-10 border-primary/40 shadow-sm bg-background/95 backdrop-blur">
-                <CardHeader className="py-3">
+              <Card className="border-primary/40 shadow-sm">
+                <CardHeader className="py-3 cursor-pointer" onClick={() => setResumoAberto(v => !v)}>
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <CardTitle className="text-base flex items-center gap-2">
                       <FileCheck className="w-4 h-4 text-primary" />
                       Resumo do Orçamento em Tempo Real
+                      <span className="text-xs text-muted-foreground font-normal">
+                        ({resumoAberto ? 'clique para recolher' : 'clique para expandir'})
+                      </span>
                     </CardTitle>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-semibold">Nº {orcamento.numero_orcamento}</span>
@@ -1432,6 +1435,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                     </div>
                   </div>
                 </CardHeader>
+                {resumoAberto && (
                 <CardContent className="pt-0 space-y-3 text-sm">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Cliente */}
