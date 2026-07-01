@@ -549,6 +549,38 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   );
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
 
+  // Pendências dinâmicas para habilitar o botão "Enviar contrato para Financeiro"
+  const camposPendentes = useMemo(() => {
+    const pendencias: string[] = [];
+    if (tipoPessoa === 'pj') {
+      const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) pendencias.push('CNPJ do cliente (14 dígitos)');
+      if (!dadosCliente.razao_social?.trim()) pendencias.push('Razão Social');
+      if (!dadosCliente.endereco_cnpj?.trim()) pendencias.push('Endereço do CNPJ');
+      if (!dadosCliente.cep_cnpj?.trim()) pendencias.push('CEP');
+      if (!dadosCliente.cidade?.trim()) pendencias.push('Cidade');
+      if (!dadosCliente.estado?.trim()) pendencias.push('Estado');
+      if (!dadosCliente.email?.trim()) pendencias.push('Email do contratante');
+      if (!responsavelPJ.nome?.trim()) pendencias.push('Nome do responsável (PJ)');
+      const cpfResp = (responsavelPJ.cpf || '').replace(/\D/g, '');
+      if (cpfResp.length !== 11) pendencias.push('CPF do responsável (PJ)');
+    } else {
+      const pf = pessoasFisicas[0];
+      if (!pf?.nome?.trim()) pendencias.push('Nome do contratante (PF)');
+      const cpfPf = (pf?.cpf || '').replace(/\D/g, '');
+      if (cpfPf.length !== 11) pendencias.push('CPF do contratante (PF)');
+      if (!pf?.email?.trim()) pendencias.push('Email do contratante');
+      if (!pf?.endereco?.trim()) pendencias.push('Endereço do contratante');
+    }
+    if (!detalhamentoEnvio.tipo) pendencias.push('Selecionar opção de frete');
+    const errosPg = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
+    if (errosPg.length > 0) pendencias.push('Condições de pagamento válidas');
+    if (!orcamento.itens_producao || orcamento.itens_producao.length === 0) {
+      pendencias.push('Ao menos um item de produção');
+    }
+    return pendencias;
+  }, [tipoPessoa, dadosCliente, responsavelPJ, pessoasFisicas, detalhamentoEnvio, condicoesPagamento, orcamento.valor_total, orcamento.itens_producao]);
+
   // Pre-load client from orcamento.cliente_id
   useEffect(() => {
     if (orcamento.cliente_id && !clienteSelecionado) {
