@@ -1,37 +1,38 @@
-## Ajustes no fluxo "Confirmar Pagamento" e "Detalhamento de Frete"
+## Alterações no popup "Resumo para Contrato" (Orçamentos)
 
-### 1. Popup de aprovação para "Pago" — `src/components/AprovacaoOrcamentoDialog.tsx`
+### 1. Renomear para "Projeto para Contrato"
+Substituir todos os rótulos visíveis do fluxo:
+- `src/components/PropostaCompletaDialog.tsx`: `DialogTitle` (linha 1289), `DialogTitle` do preview (1185), botão "Gerar Resumo para Contrato" (1723) e mensagem introdutória (1294).
+- `src/pages/Orcamentos.tsx`: botão "Resumo para Contrato" (506) e "Ver Resumo do Contrato" (510).
+- `src/components/OrcamentoKanbanView.tsx`: tooltips (161 e 170).
+Mantém as chaves internas / nomes de tabela (`resumos_contrato`, `useResumoContrato`) — só muda texto de UI.
 
-**CNPJ obrigatório + auto-preenchimento**
-- A busca automática por CNPJ (via BrasilAPI) já dispara quando são digitados 14 dígitos. Vou apenas reforçar UX:
-  - Marcar o campo CNPJ visualmente como obrigatório (asterisco) na seção PJ.
-  - Manter validação já existente (`CNPJ` e `CNPJ inválido` em `camposFaltando`) — nenhuma mudança de regra necessária, apenas garantir que o auto-fill preenche Razão Social, Endereço, CEP, Cidade e Estado imediatamente ao completar 14 dígitos.
-  - Adicionar feedback visual (spinner) enquanto `isSearchingCnpj` está ativo.
+### 2. CNPJ obrigatório + auto-preenchimento
+Em `PropostaCompletaDialog.tsx` (bloco "1. Informações do Cliente", `tipoPessoa === 'pj'`):
+- Marcar o label "CNPJ" com `*` vermelho.
+- Adicionar validação em `handleGenerateProposta`: se PJ e CNPJ vazio/ inválido → `toast.error` e abortar antes de gravar.
+- Auto-fill já existe (useEffect que chama BrasilAPI quando `cnpj` tem 14 dígitos, linha ~692). Vou reforçar mostrando um indicador visual "Buscando dados do CNPJ..." enquanto `isSearchingCnpj` estiver ativo, para dar feedback ao usuário conforme digita.
 
-**Detalhamento de produção deixa de ser obrigatório**
-- Remover do bloco de validação (`handleConfirmAprovacao`) todas as entradas em `camposFaltando` referentes a: `Cor da Tampa`, `Cor do Pote`, `Sabor`, `Cor do Conteúdo` e `Observação de Produção`.
-- Os campos continuam existindo no formulário para preenchimento opcional; o que for preenchido continua sendo salvo em `itens_producao[i].detalhes_producao`.
+### 3. Detalhamento de Frete simplificado
+Reescrever o Card "4. Detalhamento de Frete" (linhas 1611–1685) para conter **apenas** um `RadioGroup` com duas opções:
+- `total_produtor` → "Envio Total dos Potes para o Produtor (CNPJ)"
+- `total_lemoncaps` → "Envios da Lemon Caps para o cliente final (CPF)"
 
-### 2. Detalhamento de Frete — `src/components/DetalhamentoFreteDialog.tsx` e mesma seção dentro de `AprovacaoOrcamentoDialog.tsx`
+Remover:
+- Opção "Envio Parcial" e o textarea `descricao_parcial`.
+- Pergunta "Frete via Lemon Caps para cliente final?" e os botões Sim/Não (`freteLemonCaps`).
+- Pergunta "Usar tabela tradicional de envio?" e alternativas (`usaTabelaTradicional`).
 
-**Nova opção padronizada de logística**
-- Substituir a lista atual de rádios ("Todo envio para o Produtor", "Toda logística via Lemon Caps", "Envio Parcial") por três opções com textos revisados. A opção principal que o cliente pediu passa a ser exatamente:
-  - "Enviar produção completa para o Produtor, Lemon Caps fará a logística enviando para cliente final."
-- Manter também as opções "Toda logística via Lemon Caps" e "Envio Parcial" (com descrição livre) para não quebrar históricos existentes. O texto novo será exibido como a opção principal/recomendada.
+Ajustes de estado/persistência:
+- Remover os useStates `freteLemonCaps` e `usaTabelaTradicional` (e restauração deles em `useEffect`).
+- Ao montar `DetalhamentoFrete` para salvar (em `handleGenerateProposta` e `handleDownload`), fixar `frete_lemon_caps` como `detalhamentoEnvio.tipo === 'total_lemoncaps'` e `usa_tabela_tradicional = false`, preservando compatibilidade com o schema existente.
+- `descricao_parcial` sempre `''`.
 
-**Remover "usar tabela tradicional de envio"**
-- Excluir o bloco de rádios `Usar tabela tradicional de envio?` e o Card que renderiza a `TABELA_FRETE`.
-- Remover o estado `usaTabelaTradicional`, o rádio "Frete com a Lemon Caps fazendo direto para o cliente final?" e todos os controles de "Planos de Envio Personalizados" (o card com Selects de `tipo_produto`, `plano`, `valor` e a lista de `planosCustomizados`).
-- Ao salvar `DetalhamentoFrete`, gravar `usa_tabela_tradicional: false` e `planos_customizados: []` para preservar compatibilidade com o tipo.
-- Mesma limpeza dentro do `AprovacaoOrcamentoDialog.tsx` (bloco "Detalhamento de Frete").
+### 4. Condições de Pagamento — detalhamento no envio
+As condições (método, número de parcelas e vencimentos) já são gravadas em `orcamento.condicoes_pagamento` e renderizadas no PDF via `renderCondicoesPagamento` (`src/lib/orcamentoGenerator.ts` linha 831). Vou:
+- Confirmar que o PDF do "Projeto para Contrato" (gerado por `generateOrcamentoPDFBlob`) já lista método + cada parcela + vencimento. Se algum campo não estiver aparecendo, ajustar `renderCondicoesPagamento` para incluir explicitamente: forma de pagamento, quantidade de parcelas, valor de cada parcela e data de vencimento correspondente.
+- Nenhuma mudança em backend/webhook — o snapshot já leva `condicoes_pagamento` completo para Pedidos e ZapSign.
 
-### 3. Condições de Pagamento seguem para "Pedidos"
-
-Análise: `condicoes_pagamento` já é gravada em `orcamentos` no `handleConfirmAprovacao` (linha 507) e copiada para o `orcamento_snapshot` do pedido em `createPedidoFromOrcamento` (`src/hooks/usePedidos.ts`). O `DetalhesPedidoDialog.tsx` já lê `snap.condicoes_pagamento`.
-
-- Verificar visualmente que o `DetalhesPedidoDialog.tsx` exibe todos os detalhes (método principal, parcelas Pix/Boleto, cartões, datas, valores, status pago) usando `formatarPagamentoResumo`/`HistoricoPagamentoLista`. Se algum campo estiver oculto (ex.: datas de vencimento por parcela), acrescentar a exibição para garantir que "todas as informações detalhadas solicitadas nessa etapa" apareçam no Pedido.
-
-### Arquivos afetados
-- `src/components/AprovacaoOrcamentoDialog.tsx` (validação, UI CNPJ, bloco frete)
-- `src/components/DetalhamentoFreteDialog.tsx` (remoção de tabela tradicional + planos customizados, novo texto)
-- `src/components/DetalhesPedidoDialog.tsx` (revisar/complementar exibição das condições de pagamento)
+### Fora de escopo
+- Nada de mudanças em edge functions, tabelas ou fluxo de aprovação/pago.
+- Chaves internas (`total_produtor`, `total_lemoncaps`, `frete_lemon_caps`, `usa_tabela_tradicional`) permanecem para não quebrar registros antigos.

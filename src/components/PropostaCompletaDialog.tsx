@@ -167,12 +167,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // Forma de venda
   const [formaVenda, setFormaVenda] = useState<string>('sem_informacao');
 
-  // Frete
-  const [freteLemonCaps, setFreteLemonCaps] = useState<boolean>(true);
-  const [usaTabelaTradicional, setUsaTabelaTradicional] = useState<boolean>(true);
+  // Frete (simplificado — apenas 2 opções)
   const [detalhamentoEnvio, setDetalhamentoEnvio] = useState<DetalhamentoEnvio>({
     tipo: 'total_lemoncaps', descricao_parcial: '',
   });
+  const freteLemonCaps = detalhamentoEnvio.tipo === 'total_lemoncaps';
+  const usaTabelaTradicional = false;
 
   // Detalhes de produção por item
   const [detalhesProducao, setDetalhesProducao] = useState<Record<number, Record<string, string>>>({});
@@ -569,12 +569,17 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
       }
     }
-    if (orcamento.detalhamento_frete) {
-      setFreteLemonCaps(orcamento.detalhamento_frete.frete_lemon_caps ?? true);
-      setUsaTabelaTradicional(orcamento.detalhamento_frete.usa_tabela_tradicional ?? true);
-      if (orcamento.detalhamento_frete.detalhamento_envio) {
-        setDetalhamentoEnvio(orcamento.detalhamento_frete.detalhamento_envio);
-      }
+    if (orcamento.detalhamento_frete?.detalhamento_envio) {
+      const t = orcamento.detalhamento_frete.detalhamento_envio.tipo;
+      setDetalhamentoEnvio({
+        tipo: t === 'total_produtor' ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
+    } else if (orcamento.detalhamento_frete) {
+      setDetalhamentoEnvio({
+        tipo: orcamento.detalhamento_frete.frete_lemon_caps === false ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
     }
     if (orcamento.condicoes_pagamento) {
       setCondicoesPagamento(orcamento.condicoes_pagamento);
@@ -603,12 +608,17 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       if (dc.responsavel_pj) setResponsavelPJ(dc.responsavel_pj);
       if (dc.pessoas_fisicas && dc.pessoas_fisicas.length > 0) setPessoasFisicas(dc.pessoas_fisicas);
     }
-    if (r.detalhamento_frete) {
-      setFreteLemonCaps(r.detalhamento_frete.frete_lemon_caps ?? true);
-      setUsaTabelaTradicional(r.detalhamento_frete.usa_tabela_tradicional ?? true);
-      if (r.detalhamento_frete.detalhamento_envio) {
-        setDetalhamentoEnvio(r.detalhamento_frete.detalhamento_envio);
-      }
+    if (r.detalhamento_frete?.detalhamento_envio) {
+      const t = r.detalhamento_frete.detalhamento_envio.tipo;
+      setDetalhamentoEnvio({
+        tipo: t === 'total_produtor' ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
+    } else if (r.detalhamento_frete) {
+      setDetalhamentoEnvio({
+        tipo: r.detalhamento_frete.frete_lemon_caps === false ? 'total_produtor' : 'total_lemoncaps',
+        descricao_parcial: '',
+      });
     }
     if (r.condicoes_pagamento) {
       setCondicoesPagamento(r.condicoes_pagamento);
@@ -647,12 +657,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     setFormaVenda(cliente.forma_venda || 'sem_informacao');
   };
 
-  // Auto-set frete when envio tipo changes
+  // Auto buscar CNPJ ao completar 14 dígitos (PJ)
   useEffect(() => {
-    if (detalhamentoEnvio.tipo === 'total_produtor') {
-      setFreteLemonCaps(false);
-    }
-  }, [detalhamentoEnvio.tipo]);
+    const nums = (dadosCliente.cnpj || '').replace(/\D/g, '');
+    if (tipoPessoa !== 'pj' || nums.length !== 14 || isSearchingCnpj) return;
+    handleBuscarCnpj();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dadosCliente.cnpj, tipoPessoa]);
 
   // Auto-select single-option production details
   useEffect(() => {
@@ -718,6 +729,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   };
 
   const handleGenerateProposta = async () => {
+    // CNPJ obrigatório para PJ
+    if (tipoPessoa === 'pj') {
+      const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) {
+        toast.error('CNPJ é obrigatório e deve conter 14 dígitos.');
+        return;
+      }
+    }
     // Validar condições de pagamento
     const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
     if (erros.length > 0) {
@@ -1182,7 +1201,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         <Dialog open onOpenChange={() => onClose()}>
           <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>Preview do Resumo para Contrato</DialogTitle>
+              <DialogTitle>Preview do Projeto para Contrato</DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0">
               <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
@@ -1286,12 +1305,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Resumo para Contrato — {orcamento.nome_cliente}</DialogTitle>
+          <DialogTitle>Projeto para Contrato — {orcamento.nome_cliente}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
-            Preencha as informações abaixo para gerar o resumo para contrato. Os dados serão salvos no orçamento.
+            Preencha as informações abaixo para gerar o projeto para contrato. Os dados serão salvos no orçamento.
           </p>
 
           {/* 1. Informações do Cliente */}
@@ -1328,13 +1347,18 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2 space-y-1">
-                      <Label className="text-xs">CNPJ</Label>
+                      <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
                       <div className="flex gap-2">
                         <Input value={dadosCliente.cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, cnpj: e.target.value }))} placeholder="00.000.000/0000-00" className="flex-1" />
                         <Button type="button" variant="outline" size="sm" onClick={handleBuscarCnpj} disabled={isSearchingCnpj || !dadosCliente.cnpj}>
                           {isSearchingCnpj ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         </Button>
                       </div>
+                      {isSearchingCnpj && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Buscando dados do CNPJ...
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2 space-y-1">
                       <Label className="text-xs">Razão Social</Label>
@@ -1623,64 +1647,27 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                   Como será feita a logística?
                 </Label>
                 <RadioGroup
-                  value={detalhamentoEnvio.tipo}
-                  onValueChange={(value) => setDetalhamentoEnvio(prev => ({
-                    ...prev,
+                  value={detalhamentoEnvio.tipo === 'total_produtor' ? 'total_produtor' : 'total_lemoncaps'}
+                  onValueChange={(value) => setDetalhamentoEnvio({
                     tipo: value as DetalhamentoEnvio['tipo'],
-                    descricao_parcial: value !== 'parcial' ? '' : prev.descricao_parcial,
-                  }))}
+                    descricao_parcial: '',
+                  })}
                   className="space-y-2"
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="total_produtor" id="resumo-produtor" />
-                    <Label htmlFor="resumo-produtor" className="font-normal cursor-pointer text-sm">Todo envio para o Produtor</Label>
+                    <Label htmlFor="resumo-produtor" className="font-normal cursor-pointer text-sm">
+                      Envio Total dos Potes para o Produtor (CNPJ)
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="total_lemoncaps" id="resumo-lemoncaps" />
-                    <Label htmlFor="resumo-lemoncaps" className="font-normal cursor-pointer text-sm">Toda logística via Lemon Caps</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="parcial" id="resumo-parcial" />
-                    <Label htmlFor="resumo-parcial" className="font-normal cursor-pointer text-sm">Envio Parcial</Label>
+                    <Label htmlFor="resumo-lemoncaps" className="font-normal cursor-pointer text-sm">
+                      Envios da Lemon Caps para o cliente final (CPF)
+                    </Label>
                   </div>
                 </RadioGroup>
-
-                {detalhamentoEnvio.tipo === 'parcial' && (
-                  <div className="ml-6 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Descreva a divisão:</Label>
-                    <Textarea
-                      value={detalhamentoEnvio.descricao_parcial || ''}
-                      onChange={(e) => setDetalhamentoEnvio(prev => ({ ...prev, descricao_parcial: e.target.value }))}
-                      placeholder="Ex: 50 potes para produtor, 100 potes logística Lemon Caps"
-                      rows={2}
-                    />
-                  </div>
-                )}
-
-                {detalhamentoEnvio.tipo === 'total_produtor' && (
-                  <p className="text-xs text-muted-foreground ml-6">
-                    Não será utilizada logística da LemonCaps para cliente final.
-                  </p>
-                )}
               </div>
-
-              <div className="space-y-3 pt-3 border-t">
-                <Label className="text-sm">Frete via Lemon Caps para cliente final?</Label>
-                <div className="flex gap-3">
-                  <Button type="button" variant={freteLemonCaps ? 'default' : 'outline'} size="sm" onClick={() => setFreteLemonCaps(true)}>Sim</Button>
-                  <Button type="button" variant={!freteLemonCaps ? 'default' : 'outline'} size="sm" onClick={() => setFreteLemonCaps(false)}>Não</Button>
-                </div>
-              </div>
-
-              {freteLemonCaps && (
-                <div className="space-y-3">
-                  <Label className="text-sm">Usar tabela tradicional de envio?</Label>
-                  <div className="flex gap-3">
-                    <Button type="button" variant={usaTabelaTradicional ? 'default' : 'outline'} size="sm" onClick={() => setUsaTabelaTradicional(true)}>Sim</Button>
-                    <Button type="button" variant={!usaTabelaTradicional ? 'default' : 'outline'} size="sm" onClick={() => setUsaTabelaTradicional(false)}>Não</Button>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
@@ -1720,7 +1707,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
             ) : (
-              'Gerar Resumo para Contrato'
+              'Gerar Projeto para Contrato'
             )}
           </Button>
         </DialogFooter>

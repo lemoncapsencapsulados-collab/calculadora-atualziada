@@ -158,7 +158,7 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                               <FileCheck className="w-3.5 h-3.5" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Resumo para Contrato</TooltipContent>
+                          <TooltipContent>Projeto para Contrato</TooltipContent>
                         </Tooltip>
                         {resumosExistentes?.has(o.id) && onVerResumoContrato && (
                           <Tooltip>
@@ -167,7 +167,7 @@ export default function OrcamentoKanbanView({ orcamentos, onEdit, onDelete, onPr
                                 <FileSignature className="w-3.5 h-3.5" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Ver Resumo do Contrato</TooltipContent>
+                            <TooltipContent>Ver Projeto do Contrato</TooltipContent>
                           </Tooltip>
                         )}
                         <Tooltip>
