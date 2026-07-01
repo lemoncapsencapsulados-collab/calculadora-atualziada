@@ -729,6 +729,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   };
 
   const handleGenerateProposta = async () => {
+    // CNPJ obrigatório para PJ
+    if (tipoPessoa === 'pj') {
+      const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) {
+        toast.error('CNPJ é obrigatório e deve conter 14 dígitos.');
+        return;
+      }
+    }
     // Validar condições de pagamento
     const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
     if (erros.length > 0) {
