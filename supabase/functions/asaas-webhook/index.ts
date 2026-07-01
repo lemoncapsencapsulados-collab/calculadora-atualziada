@@ -216,7 +216,19 @@ Deno.serve(async (req) => {
     req.headers.get("asaas-access-token") ||
     req.headers.get("x-asaas-token") ||
     url.searchParams.get("token");
-  if (!WEBHOOK_TOKEN || tokenHeader !== WEBHOOK_TOKEN) {
+
+  // Bypass do token quando a chamada vem de um usuário autenticado (teste manual pela UI)
+  let authBypass = false;
+  const authHeader = req.headers.get("Authorization") || "";
+  if (authHeader.startsWith("Bearer ")) {
+    try {
+      const jwt = authHeader.slice(7);
+      const { data } = await supabase.auth.getClaims(jwt);
+      if (data?.claims?.sub) authBypass = true;
+    } catch { /* ignore */ }
+  }
+
+  if (!authBypass && (!WEBHOOK_TOKEN || tokenHeader !== WEBHOOK_TOKEN)) {
     await log({ status: "erro", mensagem: "Token inválido", payload: null });
     return new Response(JSON.stringify({ error: "Não autorizado" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
