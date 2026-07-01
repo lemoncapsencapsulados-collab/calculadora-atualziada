@@ -1707,7 +1707,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
             ) : (
-              'Gerar Projeto para Contrato'
+              'Enviar contrato para Financeiro'
             )}
           </Button>
         </DialogFooter>
