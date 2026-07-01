@@ -1259,34 +1259,25 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
               <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowPreview(false)}>Voltar</Button>
-              <Button
-                variant="outline"
-                onClick={handleCadastrarVhSys}
-                disabled={vhsysLoading}
-              >
-                {vhsysLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <UserPlus className="w-4 h-4 mr-2" />
-                )}
-                {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
-              </Button>
-              <Button onClick={handleDownload}>
+              <Button variant="outline" onClick={handleDownload}>
                 <Download className="w-4 h-4 mr-2" />
-                Baixar PDF
+                Baixar Documento
+              </Button>
+              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={enviandoFinanceiro}>
+                Voltar e editar documento
               </Button>
               <Button
-                variant="outline"
-                onClick={abrirZapSignDialog}
-                disabled={zapSignLoading}
+                onClick={handleEnviarFinanceiro}
+                disabled={enviandoFinanceiro || enviadoFinanceiro}
+                className={enviadoFinanceiro ? 'bg-green-600 hover:bg-green-600 text-white' : ''}
               >
-                {zapSignLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {enviandoFinanceiro ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
+                ) : enviadoFinanceiro ? (
+                  'Enviado'
                 ) : (
-                  <FileSignature className="w-4 h-4 mr-2" />
+                  'Enviar Documento'
                 )}
-                {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
               </Button>
             </DialogFooter>
           </DialogContent>
