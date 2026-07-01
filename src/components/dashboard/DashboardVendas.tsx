@@ -4,6 +4,7 @@ import { Trophy, Users, TrendingUp, Package, AlertCircle, Warehouse, Zap } from 
 import type { MetricaConsultor, ProdutoVendido, MixVendas } from '@/types/dashboard';
 import { formatCurrency } from '@/lib/unitConversion';
 import { Progress } from '@/components/ui/progress';
+import { useUsuarios } from '@/hooks/useUsuarios';
 
 interface VendaPorTipo {
   consultor: string;
@@ -27,13 +28,17 @@ interface DashboardVendasProps {
 }
 
 export function DashboardVendas({ rankingConsultores, produtosMaisVendidos, mixVendas, consultoresUnicos, vendasPorTipo = [], clientesPorModelo = [] }: DashboardVendasProps) {
+  const { data: usuariosAtivos = [] } = useUsuarios(true);
+  const ativosSet = new Set(usuariosAtivos.map((u) => u.nome.trim().toLowerCase()));
 
   // Merge ranking with all consultants, adding zeros for those without sales
   const rankingCompleto = (() => {
+    // Consultores com vendas no período: sempre aparecem (mesmo se não cadastrados)
     const comVendas = [...rankingConsultores].sort((a, b) => b.faturamento - a.faturamento);
     const nomesComVendas = new Set(comVendas.map(c => c.consultor));
+    // Consultores sem vendas: só se estiverem cadastrados e ativos em Admin › Consultores
     const semVendas: MetricaConsultor[] = consultoresUnicos
-      .filter(nome => !nomesComVendas.has(nome))
+      .filter(nome => !nomesComVendas.has(nome) && ativosSet.has(nome.trim().toLowerCase()))
       .map(nome => ({ consultor: nome, vendas: 0, faturamento: 0, ticketMedio: 0, clientesUnicos: 0 }));
     return [...comVendas, ...semVendas];
   })();
