@@ -78,6 +78,46 @@ export function RelatorioComissoes() {
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
   const [consultorDetalhe, setConsultorDetalhe] = useState<string | null>(null);
 
+  // Monetizze — total a receber por consultor no mês do resumo
+  const [monetizzePorConsultor, setMonetizzePorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
+
+  useEffect(() => {
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('monetizze_consultas_salvas')
+        .select('consultor_nome, valor_consultor')
+        .eq('mes', mesResumoConsultor);
+      if (!ativo) return;
+      const map: Record<string, { receber: number; qtd: number }> = {};
+      ((data as any[]) || []).forEach((r) => {
+        const nome = r.consultor_nome || '';
+        if (!nome) return;
+        const ent = map[nome] || { receber: 0, qtd: 0 };
+        ent.receber += Number(r.valor_consultor) || 0;
+        ent.qtd += 1;
+        map[nome] = ent;
+      });
+      setMonetizzePorConsultor(map);
+    };
+    carregar();
+    const channel = supabase
+      .channel(`monetizze-resumo-${mesResumoConsultor}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monetizze_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (row && row.mes === mesResumoConsultor) carregar();
+        },
+      )
+      .subscribe();
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [mesResumoConsultor]);
+
   // Deriva todas as parcelas-comissão
   const todasParcelas = useMemo(() => {
     const out: ItemComissao[] = [];
@@ -127,16 +167,21 @@ export function RelatorioComissoes() {
       comissaoInadimplente: number;
       comissaoMesDesteFechamento: number; // pedidos fechados no mês
       comissaoMesParcelasAntigas: number;  // pedidos fechados em meses anteriores
+      monetizzeReceber: number;
+      monetizzeQtd: number;
+      totalReceber: number;
     };
     const m = new Map<string, R>();
+    const criar = (consultor: string): R => ({
+      consultor,
+      recebidoMes: 0, comissaoPaga: 0, comissaoAVencer: 0, comissaoInadimplente: 0,
+      comissaoMesDesteFechamento: 0, comissaoMesParcelasAntigas: 0,
+      monetizzeReceber: 0, monetizzeQtd: 0, totalReceber: 0,
+    });
     parcelasResumoConsultor.forEach((p) => {
       let r = m.get(p.consultor);
       if (!r) {
-        r = {
-          consultor: p.consultor,
-          recebidoMes: 0, comissaoPaga: 0, comissaoAVencer: 0, comissaoInadimplente: 0,
-          comissaoMesDesteFechamento: 0, comissaoMesParcelasAntigas: 0,
-        };
+        r = criar(p.consultor);
         m.set(p.consultor, r);
       }
       if (p.status === 'pago') {
@@ -151,8 +196,18 @@ export function RelatorioComissoes() {
       if (p.parcelaIndice === 0) r.comissaoMesDesteFechamento += p.comissao;
       else r.comissaoMesParcelasAntigas += p.comissao;
     });
-    return Array.from(m.values()).sort((a, b) => b.comissaoPaga - a.comissaoPaga);
-  }, [parcelasResumoConsultor]);
+    // Aplica Monetizze (mesmo criando o consultor se ele só existir via Monetizze)
+    Object.entries(monetizzePorConsultor).forEach(([consultor, v]) => {
+      if (consultorFiltro !== 'todos' && consultor !== consultorFiltro) return;
+      let r = m.get(consultor);
+      if (!r) { r = criar(consultor); m.set(consultor, r); }
+      r.monetizzeReceber += v.receber;
+      r.monetizzeQtd += v.qtd;
+    });
+    // Total a receber = comissão paga + Monetizze
+    m.forEach((r) => { r.totalReceber = r.comissaoPaga + r.monetizzeReceber; });
+    return Array.from(m.values()).sort((a, b) => b.totalReceber - a.totalReceber);
+  }, [parcelasResumoConsultor, monetizzePorConsultor, consultorFiltro]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
@@ -367,6 +422,8 @@ export function RelatorioComissoes() {
                 <TableHead>Consultor</TableHead>
                 <TableHead className="text-right">Recebido</TableHead>
                 <TableHead className="text-right">Comissão paga</TableHead>
+                <TableHead className="text-right">Monetizze (mês)</TableHead>
+                <TableHead className="text-right">Total a receber</TableHead>
                 <TableHead className="text-right">A vencer</TableHead>
                 <TableHead className="text-right">Inadimplente</TableHead>
                 <TableHead className="text-right">Deste mês</TableHead>
@@ -375,7 +432,7 @@ export function RelatorioComissoes() {
             </TableHeader>
             <TableBody>
               {resumoPorConsultor.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
               ) : resumoPorConsultor.map((r) => (
                 <TableRow
                   key={r.consultor}
@@ -392,6 +449,13 @@ export function RelatorioComissoes() {
                   <TableCell className="font-medium underline-offset-4 hover:underline">{r.consultor}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.recebidoMes)}</TableCell>
                   <TableCell className="text-right text-emerald-600 font-semibold">{fmtBRL(r.comissaoPaga)}</TableCell>
+                  <TableCell className="text-right text-sky-600 font-medium">
+                    {fmtBRL(r.monetizzeReceber)}
+                    {r.monetizzeQtd > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal">{r.monetizzeQtd} consulta(s)</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-bold">{fmtBRL(r.totalReceber)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.comissaoAVencer)}</TableCell>
                   <TableCell className="text-right text-destructive">{fmtBRL(r.comissaoInadimplente)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.comissaoMesDesteFechamento)}</TableCell>
