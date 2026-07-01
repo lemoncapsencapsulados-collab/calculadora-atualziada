@@ -78,6 +78,46 @@ export function RelatorioComissoes() {
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
   const [consultorDetalhe, setConsultorDetalhe] = useState<string | null>(null);
 
+  // Monetizze — total a receber por consultor no mês do resumo
+  const [monetizzePorConsultor, setMonetizzePorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
+
+  useEffect(() => {
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('monetizze_consultas_salvas')
+        .select('consultor_nome, valor_consultor')
+        .eq('mes', mesResumoConsultor);
+      if (!ativo) return;
+      const map: Record<string, { receber: number; qtd: number }> = {};
+      ((data as any[]) || []).forEach((r) => {
+        const nome = r.consultor_nome || '';
+        if (!nome) return;
+        const ent = map[nome] || { receber: 0, qtd: 0 };
+        ent.receber += Number(r.valor_consultor) || 0;
+        ent.qtd += 1;
+        map[nome] = ent;
+      });
+      setMonetizzePorConsultor(map);
+    };
+    carregar();
+    const channel = supabase
+      .channel(`monetizze-resumo-${mesResumoConsultor}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'monetizze_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (row && row.mes === mesResumoConsultor) carregar();
+        },
+      )
+      .subscribe();
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [mesResumoConsultor]);
+
   // Deriva todas as parcelas-comissão
   const todasParcelas = useMemo(() => {
     const out: ItemComissao[] = [];
