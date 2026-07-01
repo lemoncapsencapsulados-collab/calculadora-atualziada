@@ -411,6 +411,129 @@ export function AsaasConsultaCard() {
                 </div>
               </div>
             )}
+
+            {data.itens && data.itens.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Detalhes das cobranças ({data.itens.length})
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setMostrarDetalhes((v) => !v)}>
+                    {mostrarDetalhes ? 'Ocultar' : 'Mostrar'}
+                  </Button>
+                </div>
+                {mostrarDetalhes && (
+                  <div className="overflow-x-auto border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-8"></TableHead>
+                          <TableHead>Data pagto</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Forma</TableHead>
+                          <TableHead>Parcela</TableHead>
+                          <TableHead>Vencimento</TableHead>
+                          <TableHead className="text-right">Bruto</TableHead>
+                          <TableHead className="text-right">Líquido</TableHead>
+                          <TableHead className="text-right">Links</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {data.itens.map((it) => {
+                          const aberto = !!expandidas[it.id];
+                          const parcela = it.installment_id
+                            ? `${it.installment_numero ?? '?'}/${it.installment_total ?? '?'}`
+                            : '—';
+                          return (
+                            <>
+                              <TableRow key={it.id} className="cursor-pointer" onClick={() => setExpandidas((s) => ({ ...s, [it.id]: !s[it.id] }))}>
+                                <TableCell>
+                                  {aberto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                </TableCell>
+                                <TableCell className="text-xs whitespace-nowrap">{fmtDate(it.data_pagamento)}</TableCell>
+                                <TableCell className="text-xs max-w-[200px] truncate" title={it.cliente}>{it.cliente || '—'}</TableCell>
+                                <TableCell className="text-xs max-w-[240px] truncate" title={it.descricao}>{it.descricao || '—'}</TableCell>
+                                <TableCell className="text-xs">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span>{it.forma_label || it.forma}</span>
+                                    {it.installment_id && (
+                                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                                        <Layers className="h-3 w-3" /> Parcelado
+                                      </Badge>
+                                    )}
+                                    {it.subscription_id && (
+                                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                                        <Repeat className="h-3 w-3" /> Assinatura
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-xs whitespace-nowrap">{parcela}</TableCell>
+                                <TableCell className="text-xs whitespace-nowrap">{fmtDate(it.vencimento)}</TableCell>
+                                <TableCell className="text-right text-xs whitespace-nowrap">{fmtBRL(it.valor)}</TableCell>
+                                <TableCell className="text-right text-xs whitespace-nowrap font-medium">{fmtBRL(it.liquido)}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                    {it.invoice_url && (
+                                      <a href={it.invoice_url} target="_blank" rel="noreferrer" title="Fatura">
+                                        <Button size="sm" variant="ghost"><ExternalLink className="h-3.5 w-3.5" /></Button>
+                                      </a>
+                                    )}
+                                    {it.bank_slip_url && (
+                                      <a href={it.bank_slip_url} target="_blank" rel="noreferrer" title="Boleto">
+                                        <Button size="sm" variant="ghost"><FileText className="h-3.5 w-3.5" /></Button>
+                                      </a>
+                                    )}
+                                    {it.transaction_receipt_url && (
+                                      <a href={it.transaction_receipt_url} target="_blank" rel="noreferrer" title="Comprovante">
+                                        <Button size="sm" variant="ghost"><Receipt className="h-3.5 w-3.5" /></Button>
+                                      </a>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                              {aberto && (
+                                <TableRow key={`${it.id}-det`} className="bg-muted/40">
+                                  <TableCell></TableCell>
+                                  <TableCell colSpan={9}>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs py-2">
+                                      <div><span className="text-muted-foreground">ID cobrança:</span> <span className="font-mono">{it.id}</span></div>
+                                      <div><span className="text-muted-foreground">Status:</span> {it.status}</div>
+                                      <div><span className="text-muted-foreground">Nº fatura:</span> {it.invoice_number || '—'}</div>
+                                      <div><span className="text-muted-foreground">Nosso número:</span> {it.nosso_numero || '—'}</div>
+                                      <div><span className="text-muted-foreground">Vencimento original:</span> {fmtDate(it.vencimento_original)}</div>
+                                      <div><span className="text-muted-foreground">Pago pelo cliente:</span> {fmtDate(it.data_pagamento_cliente)}</div>
+                                      <div><span className="text-muted-foreground">Confirmado:</span> {fmtDate(it.data_confirmacao)}</div>
+                                      <div><span className="text-muted-foreground">Crédito na conta:</span> {fmtDate(it.data_credito)}</div>
+                                      <div><span className="text-muted-foreground">Desconto:</span> {fmtBRL(it.desconto || 0)}</div>
+                                      <div><span className="text-muted-foreground">Multa:</span> {fmtBRL(it.multa || 0)}</div>
+                                      <div><span className="text-muted-foreground">Juros:</span> {fmtBRL(it.juros || 0)}</div>
+                                      <div><span className="text-muted-foreground">Ref. externa:</span> {it.external_reference || '—'}</div>
+                                      <div><span className="text-muted-foreground">E-mail cliente:</span> {it.cliente_email || '—'}</div>
+                                      <div><span className="text-muted-foreground">CPF/CNPJ:</span> {it.cliente_cpf_cnpj || '—'}</div>
+                                      {it.cartao_bandeira && (
+                                        <div><span className="text-muted-foreground">Cartão:</span> {it.cartao_bandeira} •••• {it.cartao_final}</div>
+                                      )}
+                                      {it.installment_id && (
+                                        <div><span className="text-muted-foreground">ID parcelamento:</span> <span className="font-mono">{it.installment_id}</span></div>
+                                      )}
+                                      {it.subscription_id && (
+                                        <div><span className="text-muted-foreground">ID assinatura:</span> <span className="font-mono">{it.subscription_id}</span></div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
