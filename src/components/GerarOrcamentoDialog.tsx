@@ -453,8 +453,9 @@ export default function GerarOrcamentoDialog({
 
   // Cálculos
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
-  // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon)
-  const aplicaEstabilidade = !isRevendaLemon && itensProducao.length > 0;
+  // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon) — cada um opcional
+  const aplicaEstabilidade = estabilidadeAtiva && !isRevendaLemon && itensProducao.length > 0;
+  const aplicaAnvisa = anvisaAtiva && !isRevendaLemon && itensProducao.length > 0;
   const isCatalogo = (cliente: string) =>
     cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
   // Item é "catálogo" quando vem de uma precificação cujo cliente é Catálogo Lemon
@@ -468,7 +469,7 @@ export default function GerarOrcamentoDialog({
   const itensEstabilidade = aplicaEstabilidade
     ? itensProducao.filter((it) => !itemEhCatalogo(it))
     : [];
-  const itensAnvisa = aplicaEstabilidade ? itensProducao : [];
+  const itensAnvisa = aplicaAnvisa ? itensProducao : [];
   const totalEstabilidadeAnvisa =
     custoEstabilidadeUnit * itensEstabilidade.length +
     custoAnvisaUnit * itensAnvisa.length;
@@ -478,12 +479,12 @@ export default function GerarOrcamentoDialog({
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
     const extras: ServicoMarca[] = [];
-    if (aplicaEstabilidade) {
+    {
       const qtdEstab = itensEstabilidade.length;
       const qtdAnvisa = itensAnvisa.length;
       const totalEstab = custoEstabilidadeUnit * qtdEstab;
       const totalAnvisa = custoAnvisaUnit * qtdAnvisa;
-      if (totalEstab > 0) {
+      if (aplicaEstabilidade && totalEstab > 0) {
         extras.push({
           nome_plano: 'Teste de Estabilidade',
           descricao:
@@ -500,7 +501,7 @@ export default function GerarOrcamentoDialog({
           },
         } as any);
       }
-      if (totalAnvisa > 0) {
+      if (aplicaAnvisa && totalAnvisa > 0) {
         extras.push({
           nome_plano: 'Notificação Anvisa do Produto',
           descricao: `${qtdAnvisa} produto(s) × ${formatCurrency(custoAnvisaUnit)} por produto.`,
