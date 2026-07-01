@@ -162,6 +162,8 @@ export default function GerarOrcamentoDialog({
   const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
   const [custoAnvisaUnit, setCustoAnvisaUnit] = useState<number>(CUSTO_ANVISA_PADRAO);
   const [estabilidadeEdicaoLiberada, setEstabilidadeEdicaoLiberada] = useState(false);
+  const [estabilidadeAtiva, setEstabilidadeAtiva] = useState<boolean>(true);
+  const [anvisaAtiva, setAnvisaAtiva] = useState<boolean>(true);
 
   // Estado para liberação de margem mínima com senha
   const [senhaMargemOrcDialog, setSenhaMargemOrcDialog] = useState(false);
