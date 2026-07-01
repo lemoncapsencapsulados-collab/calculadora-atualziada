@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ChevronDown, ChevronRight, RefreshCw, Info } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, Info, Send } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -42,6 +43,39 @@ function AsaasLogsContent() {
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
+  const [jsonInput, setJsonInput] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [ultimaResposta, setUltimaResposta] = useState<any>(null);
+
+  const enviarJson = async () => {
+    if (!jsonInput.trim()) {
+      toast.error('Cole um JSON antes de enviar');
+      return;
+    }
+    let payload: any;
+    try {
+      payload = JSON.parse(jsonInput);
+    } catch (e: any) {
+      toast.error('JSON inválido: ' + e.message);
+      return;
+    }
+    setEnviando(true);
+    setUltimaResposta(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('asaas-webhook', {
+        body: payload,
+      });
+      if (error) throw error;
+      setUltimaResposta(data);
+      toast.success('Webhook processado');
+      carregar();
+    } catch (e: any) {
+      setUltimaResposta({ erro: e.message });
+      toast.error('Falha: ' + e.message);
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -92,6 +126,40 @@ function AsaasLogsContent() {
           </p>
         </AlertDescription>
       </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Testar webhook manualmente</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Cole aqui um JSON de evento do Asaas (ex.: <code>PAYMENT_RECEIVED</code>) e envie para a edge function <code>asaas-webhook</code>. Útil para reprocessar eventos ou simular pagamentos.
+          </p>
+          <Textarea
+            value={jsonInput}
+            onChange={(e) => setJsonInput(e.target.value)}
+            placeholder='{\n  "event": "PAYMENT_RECEIVED",\n  "payment": {\n    "id": "pay_xxx",\n    "value": 100.00,\n    "customer": "cus_xxx",\n    "status": "RECEIVED"\n  }\n}'
+            className="font-mono text-xs min-h-[200px]"
+          />
+          <div className="flex gap-2 items-center">
+            <Button onClick={enviarJson} disabled={enviando}>
+              <Send className={`w-4 h-4 mr-2 ${enviando ? 'animate-pulse' : ''}`} />
+              {enviando ? 'Enviando...' : 'Enviar para webhook'}
+            </Button>
+            <Button variant="ghost" onClick={() => { setJsonInput(''); setUltimaResposta(null); }} disabled={enviando}>
+              Limpar
+            </Button>
+          </div>
+          {ultimaResposta && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Resposta</p>
+              <pre className="text-[10px] whitespace-pre-wrap break-all bg-muted rounded p-2 max-h-60 overflow-auto">
+                {JSON.stringify(ultimaResposta, null, 2)}
+              </pre>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
