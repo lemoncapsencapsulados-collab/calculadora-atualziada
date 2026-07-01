@@ -1013,20 +1013,20 @@ function DetalheConsultorDialog({
           </Button>
         </div>
 
-        {parcelas.length === 0 && monetizze.length === 0 ? (
+        {parcelas.length === 0 && monetizze.length === 0 && braip.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm">
             Sem parcelas no período para este consultor.
           </div>
         ) : (
           <div className="space-y-6">
-            {(pagas.length > 0 || monetizze.length > 0) && (
+            {(pagas.length > 0 || monetizze.length > 0 || braip.length > 0) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">
-                    Pagas no mês <span className="text-muted-foreground font-normal">({pagas.length + monetizze.length})</span>
+                    Pagas no mês <span className="text-muted-foreground font-normal">({pagas.length + monetizze.length + braip.length})</span>
                   </div>
                   <div className="text-sm font-semibold text-emerald-600">
-                    Subtotal: {fmtBRL(pagas.reduce((s, p) => s + p.comissao, 0) + totMonetizze.receber)}
+                    Subtotal: {fmtBRL(pagas.reduce((s, p) => s + p.comissao, 0) + totMonetizze.receber + totBraip.receber)}
                   </div>
                 </div>
                 {pagas.length > 0 && (
