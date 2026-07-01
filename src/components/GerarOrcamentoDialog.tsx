@@ -1875,6 +1875,10 @@ export default function GerarOrcamentoDialog({
               onChangeAnvisa={setCustoAnvisaUnit}
               edicaoLiberada={estabilidadeEdicaoLiberada}
               onLiberarEdicao={() => setEstabilidadeEdicaoLiberada(true)}
+              estabilidadeAtiva={estabilidadeAtiva}
+              anvisaAtiva={anvisaAtiva}
+              onToggleEstabilidade={setEstabilidadeAtiva}
+              onToggleAnvisa={setAnvisaAtiva}
             />
           )}
 
