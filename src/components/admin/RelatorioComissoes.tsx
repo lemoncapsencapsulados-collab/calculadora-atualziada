@@ -422,6 +422,8 @@ export function RelatorioComissoes() {
                 <TableHead>Consultor</TableHead>
                 <TableHead className="text-right">Recebido</TableHead>
                 <TableHead className="text-right">Comissão paga</TableHead>
+                <TableHead className="text-right">Monetizze (mês)</TableHead>
+                <TableHead className="text-right">Total a receber</TableHead>
                 <TableHead className="text-right">A vencer</TableHead>
                 <TableHead className="text-right">Inadimplente</TableHead>
                 <TableHead className="text-right">Deste mês</TableHead>
@@ -430,7 +432,7 @@ export function RelatorioComissoes() {
             </TableHeader>
             <TableBody>
               {resumoPorConsultor.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
               ) : resumoPorConsultor.map((r) => (
                 <TableRow
                   key={r.consultor}
@@ -447,6 +449,13 @@ export function RelatorioComissoes() {
                   <TableCell className="font-medium underline-offset-4 hover:underline">{r.consultor}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.recebidoMes)}</TableCell>
                   <TableCell className="text-right text-emerald-600 font-semibold">{fmtBRL(r.comissaoPaga)}</TableCell>
+                  <TableCell className="text-right text-sky-600 font-medium">
+                    {fmtBRL(r.monetizzeReceber)}
+                    {r.monetizzeQtd > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal">{r.monetizzeQtd} consulta(s)</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-bold">{fmtBRL(r.totalReceber)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.comissaoAVencer)}</TableCell>
                   <TableCell className="text-right text-destructive">{fmtBRL(r.comissaoInadimplente)}</TableCell>
                   <TableCell className="text-right">{fmtBRL(r.comissaoMesDesteFechamento)}</TableCell>
