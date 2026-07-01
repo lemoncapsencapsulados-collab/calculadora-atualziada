@@ -141,6 +141,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const { data: resumoSalvo, isLoading: loadingResumo } = useResumoContrato(orcamento.id);
   const salvarResumoMutation = useSalvarResumoContrato();
   const [viewMode, setViewMode] = useState<'editar' | 'visualizar'>(modo);
+  const [resumoAberto, setResumoAberto] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
