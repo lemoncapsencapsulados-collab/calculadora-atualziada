@@ -777,7 +777,7 @@ function DetalheConsultorDialog({
   }, [monetizze]);
 
   const totais = useMemo(() => {
-    return parcelas.reduce(
+    const base = parcelas.reduce(
       (a, p) => {
         if (p.status === 'pago') { a.pago += p.comissao; a.recebido += p.valorBruto; }
         else if (p.status === 'vencido') a.inad += p.comissao;
@@ -786,7 +786,11 @@ function DetalheConsultorDialog({
       },
       { pago: 0, aVencer: 0, inad: 0, recebido: 0 },
     );
-  }, [parcelas]);
+    // Monetizze conta como recebido/pago no mês
+    base.pago += totMonetizze.receber;
+    base.recebido += totMonetizze.faturamento;
+    return base;
+  }, [parcelas, totMonetizze]);
 
   const pagas = parcelas.filter((p) => p.status === 'pago');
   const aVencer = parcelas.filter((p) => p.status === 'pendente');
@@ -911,57 +915,102 @@ function DetalheConsultorDialog({
           </Button>
         </div>
 
-        {monetizze.length > 0 && (
-          <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <div className="text-sm font-semibold">Comissão Monetizze — consultas salvas ({monetizze.length})</div>
-                <div className="text-xs text-muted-foreground">
-                  Atualiza automaticamente ao salvar uma nova consulta para este consultor no mês.
-                </div>
-              </div>
-              <div className="flex gap-4 text-xs">
-                <div><span className="text-muted-foreground">Faturamento: </span><span className="font-semibold">{fmtBRL(totMonetizze.faturamento)}</span></div>
-                <div><span className="text-muted-foreground">Comissão bruta: </span><span className="font-semibold">{fmtBRL(totMonetizze.comissao)}</span></div>
-                <div><span className="text-muted-foreground">A receber: </span><span className="font-semibold text-emerald-600">{fmtBRL(totMonetizze.receber)}</span></div>
-              </div>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Salvo em</TableHead>
-                  <TableHead>Produto (filtro)</TableHead>
-                  <TableHead className="text-right">Vendas</TableHead>
-                  <TableHead className="text-right">Faturamento</TableHead>
-                  <TableHead className="text-right">Comissão bruta</TableHead>
-                  <TableHead className="text-right">%</TableHead>
-                  <TableHead className="text-right">A receber</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {monetizze.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
-                    <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
-                    <TableCell className="text-right">{r.quantidade_vendida}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(Number(r.faturamento_total))}</TableCell>
-                    <TableCell className="text-right">{fmtBRL(Number(r.comissao_total))}</TableCell>
-                    <TableCell className="text-right">{Number(r.percentual).toFixed(2)}%</TableCell>
-                    <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(Number(r.valor_consultor))}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-
-        {parcelas.length === 0 ? (
+        {parcelas.length === 0 && monetizze.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm">
             Sem parcelas no período para este consultor.
           </div>
         ) : (
           <div className="space-y-6">
-            {renderGrupo('Pagas no mês', pagas, 'pago')}
+            {(pagas.length > 0 || monetizze.length > 0) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold">
+                    Pagas no mês <span className="text-muted-foreground font-normal">({pagas.length + monetizze.length})</span>
+                  </div>
+                  <div className="text-sm font-semibold text-emerald-600">
+                    Subtotal: {fmtBRL(pagas.reduce((s, p) => s + p.comissao, 0) + totMonetizze.receber)}
+                  </div>
+                </div>
+                {pagas.length > 0 && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Pedido</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Parcela</TableHead>
+                        <TableHead>Vencimento</TableHead>
+                        <TableHead>Pagamento</TableHead>
+                        <TableHead className="text-right">Bruto</TableHead>
+                        <TableHead className="text-right">Líquido</TableHead>
+                        <TableHead className="text-right">%</TableHead>
+                        <TableHead className="text-right">Comissão</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagas.map((p, i) => (
+                        <TableRow
+                          key={`${p.pedidoId}-${p.parcelaIndice}-${i}`}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => onAbrirPedido(p.pedidoId)}
+                        >
+                          <TableCell className="font-medium">{p.numeroPedido}</TableCell>
+                          <TableCell className="max-w-[180px] truncate" title={p.clienteNome}>{p.clienteNome}</TableCell>
+                          <TableCell className="text-xs">{p.tipoVenda === 'recompra' ? 'Recompra (1%)' : 'Nova (5%)'}</TableCell>
+                          <TableCell className="text-xs">{p.descricaoParcela}</TableCell>
+                          <TableCell>{fmtDate(p.dataVencimento)}</TableCell>
+                          <TableCell>{fmtDate(p.dataPagamento)}</TableCell>
+                          <TableCell className="text-right">{fmtBRL(p.valorBruto)}</TableCell>
+                          <TableCell className="text-right">{fmtBRL(p.valorLiquido)}</TableCell>
+                          <TableCell className="text-right">{(p.percentual * 100).toFixed(0)}%</TableCell>
+                          <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(p.comissao)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                {monetizze.length > 0 && (
+                  <div className="rounded-md border bg-sky-50/40 dark:bg-sky-950/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="text-xs font-semibold text-sky-700 dark:text-sky-300">
+                        Monetizze — consultas salvas ({monetizze.length})
+                      </div>
+                      <div className="flex gap-4 text-[11px]">
+                        <div><span className="text-muted-foreground">Faturamento: </span><span className="font-semibold">{fmtBRL(totMonetizze.faturamento)}</span></div>
+                        <div><span className="text-muted-foreground">Comissão bruta: </span><span className="font-semibold">{fmtBRL(totMonetizze.comissao)}</span></div>
+                        <div><span className="text-muted-foreground">A receber: </span><span className="font-semibold text-emerald-600">{fmtBRL(totMonetizze.receber)}</span></div>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Salvo em</TableHead>
+                          <TableHead>Produto (filtro)</TableHead>
+                          <TableHead className="text-right">Vendas</TableHead>
+                          <TableHead className="text-right">Faturamento</TableHead>
+                          <TableHead className="text-right">Comissão bruta</TableHead>
+                          <TableHead className="text-right">%</TableHead>
+                          <TableHead className="text-right">A receber</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {monetizze.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                            <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
+                            <TableCell className="text-right">{r.quantidade_vendida}</TableCell>
+                            <TableCell className="text-right">{fmtBRL(Number(r.faturamento_total))}</TableCell>
+                            <TableCell className="text-right">{fmtBRL(Number(r.comissao_total))}</TableCell>
+                            <TableCell className="text-right">{Number(r.percentual).toFixed(2)}%</TableCell>
+                            <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(Number(r.valor_consultor))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
             {renderGrupo('A vencer no mês', aVencer, 'pendente')}
             {renderGrupo('Inadimplentes no mês', inadimplentes, 'vencido')}
             {renderGrupo('Sem data definida', semData, 'neutro')}
