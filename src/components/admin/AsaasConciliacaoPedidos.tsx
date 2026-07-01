@@ -1,10 +1,15 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState, Fragment } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertCircle, Users, ClipboardList, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { CheckCircle2, AlertCircle, Users, ClipboardList, Loader2, ChevronDown, ChevronRight, Save, ExternalLink, Receipt, FileText } from 'lucide-react';
+import { useUsuarios } from '@/hooks/useUsuarios';
+import { useToast } from '@/hooks/use-toast';
 
 interface ItemCobranca {
   id: string;
@@ -19,10 +24,19 @@ interface ItemCobranca {
   forma_label?: string;
   forma?: string;
   descricao?: string;
+  status?: string;
+  invoice_url?: string | null;
+  bank_slip_url?: string | null;
+  transaction_receipt_url?: string | null;
+  invoice_number?: string | null;
+  nosso_numero?: string | null;
+  cliente_email?: string | null;
+  cliente_cpf_cnpj?: string | null;
 }
 
 interface Props {
   itens: ItemCobranca[];
+  mes: string;
 }
 
 const fmtBRL = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -37,7 +51,26 @@ function normalize(s: string) {
   return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export function AsaasConciliacaoPedidos({ itens }: Props) {
+export function AsaasConciliacaoPedidos({ itens, mes }: Props) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: usuarios = [] } = useUsuarios(true);
+  const [expandidas, setExpandidas] = useState<Record<string, boolean>>({});
+  const [percentual, setPercentual] = useState<number>(1);
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
+
+  const { data: jaConciliadas = [] } = useQuery({
+    queryKey: ['asaas-conciliadas', mes],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('asaas_consultas_salvas' as any)
+        .select('id, mes, filtro_cliente, consultor_id, consultor_nome, valor_consultor, liquido_total')
+        .eq('mes', mes);
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
   const { data: orcamentos = [], isLoading } = useQuery({
     queryKey: ['orcamentos-conciliacao-asaas'],
     queryFn: async () => {
@@ -151,8 +184,63 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
 
   const semMatch = conciliacao.linhas.filter((l) => !l.match).length;
 
+  const conciliarCliente = async (linha: typeof conciliacao.linhas[number]) => {
+    if (!linha.match) {
+      toast({ title: 'Sem orçamento vinculado', description: 'Não é possível conciliar sem orçamento correspondente.', variant: 'destructive' });
+      return;
+    }
+    const consultorNorm = normalize(linha.consultor);
+    const usuario = usuarios.find((u) => normalize(u.nome) === consultorNorm);
+    if (!usuario) {
+      toast({ title: 'Consultor não cadastrado', description: `Cadastre "${linha.consultor}" em Consultores antes de conciliar.`, variant: 'destructive' });
+      return;
+    }
+    setSalvandoId(linha.cliente);
+    try {
+      const payload = {
+        consultor_id: usuario.id,
+        consultor_nome: usuario.nome,
+        mes,
+        filtro_cliente: linha.cliente,
+        quantidade_recebida: linha.qtdPagas,
+        faturamento_total: linha.brutoPago,
+        liquido_total: linha.liquidoPago,
+        percentual,
+        valor_consultor: (linha.liquidoPago * (percentual || 0)) / 100,
+        por_cliente: [{ nome: linha.cliente, quantidade: linha.qtdPagas, faturamento: linha.brutoPago, liquido: linha.liquidoPago }],
+        observacao: `Conciliação Asaas × ${linha.orcamentos.map((o: any) => o.numero_orcamento).join(', ')}`,
+      };
+      const { error } = await supabase.from('asaas_consultas_salvas' as any).insert(payload);
+      if (error) throw error;
+      toast({ title: 'Pedido conciliado', description: `${linha.cliente} → ${usuario.nome} · ${fmtBRL(payload.valor_consultor)}` });
+      queryClient.invalidateQueries({ queryKey: ['asaas-conciliadas'] });
+      queryClient.invalidateQueries({ queryKey: ['asaas-consultas-salvas'] });
+    } catch (e: any) {
+      toast({ title: 'Erro ao conciliar', description: e?.message || String(e), variant: 'destructive' });
+    } finally {
+      setSalvandoId(null);
+    }
+  };
+
+  const jaConciliada = (nome: string) => jaConciliadas.some((c) => (c.filtro_cliente || '').toLowerCase() === nome.toLowerCase());
+
   return (
     <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">% comissão do consultor</Label>
+              <Input type="number" step="0.01" min={0} value={percentual}
+                onChange={(e) => setPercentual(parseFloat(e.target.value) || 0)} className="w-32" />
+            </div>
+            <p className="text-xs text-muted-foreground flex-1">
+              Ao clicar em <strong>Conciliar</strong>, o valor pago é registrado como comissão do consultor vinculado ao orçamento (aparece em Comissionamento e no Dashboard do vendedor).
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-emerald-500/30 bg-emerald-500/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -209,6 +297,7 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Cliente (Asaas)</TableHead>
                   <TableHead>Orçamento(s)</TableHead>
@@ -220,14 +309,28 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
                   <TableHead>Próx. venc.</TableHead>
                   <TableHead className="text-right">Bruto pago</TableHead>
                   <TableHead className="text-right">Líquido</TableHead>
+                  <TableHead className="text-right">Ação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {conciliacao.linhas.map((l, idx) => (
-                  <TableRow key={idx}>
+                {conciliacao.linhas.map((l, idx) => {
+                  const aberto = !!expandidas[l.cliente];
+                  const conciliado = jaConciliada(l.cliente);
+                  return (
+                  <Fragment key={idx}>
+                  <TableRow>
+                    <TableCell>
+                      <button onClick={() => setExpandidas((s) => ({ ...s, [l.cliente]: !s[l.cliente] }))} className="p-0">
+                        {aberto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </button>
+                    </TableCell>
                     <TableCell>
                       {l.match ? (
-                        <Badge className="bg-emerald-600 hover:bg-emerald-600 gap-1"><CheckCircle2 className="h-3 w-3" /> Pago</Badge>
+                        conciliado ? (
+                          <Badge className="bg-blue-600 hover:bg-blue-600 gap-1"><CheckCircle2 className="h-3 w-3" /> Conciliado</Badge>
+                        ) : (
+                          <Badge className="bg-emerald-600 hover:bg-emerald-600 gap-1"><CheckCircle2 className="h-3 w-3" /> Pago</Badge>
+                        )
                       ) : (
                         <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/40"><AlertCircle className="h-3 w-3" /> Sem orçamento</Badge>
                       )}
@@ -258,8 +361,73 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
                     <TableCell className="text-xs whitespace-nowrap">{fmtDate(l.proximoVencimento)}</TableCell>
                     <TableCell className="text-right text-xs whitespace-nowrap">{fmtBRL(l.brutoPago)}</TableCell>
                     <TableCell className="text-right text-xs whitespace-nowrap font-medium">{fmtBRL(l.liquidoPago)}</TableCell>
+                    <TableCell className="text-right">
+                      {l.match && !conciliado && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={salvandoId === l.cliente}
+                          onClick={() => conciliarCliente(l)}>
+                          {salvandoId === l.cliente ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                          Conciliar
+                        </Button>
+                      )}
+                      {conciliado && <span className="text-[10px] text-blue-600">Já conciliado</span>}
+                    </TableCell>
                   </TableRow>
-                ))}
+                  {aberto && (
+                    <TableRow className="bg-muted/30">
+                      <TableCell></TableCell>
+                      <TableCell colSpan={12}>
+                        <div className="py-2 space-y-2">
+                          {(l.itens[0]?.cliente_email || l.itens[0]?.cliente_cpf_cnpj) && (
+                            <div className="flex flex-wrap gap-4 text-[11px] text-muted-foreground">
+                              {l.itens[0]?.cliente_email && <span>E-mail: <strong>{l.itens[0].cliente_email}</strong></span>}
+                              {l.itens[0]?.cliente_cpf_cnpj && <span>CPF/CNPJ: <strong>{l.itens[0].cliente_cpf_cnpj}</strong></span>}
+                            </div>
+                          )}
+                          <div className="text-[11px] font-semibold text-muted-foreground uppercase">Pagamentos ({l.itens.length})</div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-[10px]">Data</TableHead>
+                                <TableHead className="text-[10px]">Vencimento</TableHead>
+                                <TableHead className="text-[10px]">Descrição</TableHead>
+                                <TableHead className="text-[10px]">Forma</TableHead>
+                                <TableHead className="text-[10px]">Parcela</TableHead>
+                                <TableHead className="text-[10px]">Nº fatura</TableHead>
+                                <TableHead className="text-[10px] text-right">Bruto</TableHead>
+                                <TableHead className="text-[10px] text-right">Líquido</TableHead>
+                                <TableHead className="text-[10px] text-right">Links</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {l.itens.map((it) => (
+                                <TableRow key={it.id}>
+                                  <TableCell className="text-[11px] whitespace-nowrap">{fmtDate(it.data_pagamento)}</TableCell>
+                                  <TableCell className="text-[11px] whitespace-nowrap">{fmtDate(it.vencimento)}</TableCell>
+                                  <TableCell className="text-[11px] max-w-[240px] truncate" title={it.descricao}>{it.descricao || '—'}</TableCell>
+                                  <TableCell className="text-[11px]">{it.forma_label || it.forma}</TableCell>
+                                  <TableCell className="text-[11px] whitespace-nowrap">
+                                    {it.installment_id ? `${it.installment_numero ?? '?'}/${it.installment_total ?? '?'}` : '—'}
+                                  </TableCell>
+                                  <TableCell className="text-[11px]">{it.invoice_number || '—'}</TableCell>
+                                  <TableCell className="text-[11px] text-right whitespace-nowrap">{fmtBRL(it.valor)}</TableCell>
+                                  <TableCell className="text-[11px] text-right whitespace-nowrap font-medium">{fmtBRL(it.liquido)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      {it.invoice_url && <a href={it.invoice_url} target="_blank" rel="noreferrer" title="Fatura"><Button size="sm" variant="ghost" className="h-6 w-6 p-0"><ExternalLink className="h-3 w-3" /></Button></a>}
+                                      {it.bank_slip_url && <a href={it.bank_slip_url} target="_blank" rel="noreferrer" title="Boleto"><Button size="sm" variant="ghost" className="h-6 w-6 p-0"><FileText className="h-3 w-3" /></Button></a>}
+                                      {it.transaction_receipt_url && <a href={it.transaction_receipt_url} target="_blank" rel="noreferrer" title="Comprovante"><Button size="sm" variant="ghost" className="h-6 w-6 p-0"><Receipt className="h-3 w-3" /></Button></a>}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </Fragment>
+                );})}
               </TableBody>
             </Table>
           </div>
