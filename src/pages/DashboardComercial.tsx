@@ -13,6 +13,7 @@ import { DashboardGraficos } from '@/components/dashboard/DashboardGraficos';
 import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/components/dashboard/DashboardOrcamentos';
 import { DashboardAlteracoesPagamento } from '@/components/dashboard/DashboardAlteracoesPagamento';
 import { AnaliseVendedorDialog } from '@/components/dashboard/AnaliseVendedorDialog';
+import { DashboardComissoesExternas } from '@/components/dashboard/DashboardComissoesExternas';
 import { Button } from '@/components/ui/button';
 import type { DashboardFiltros } from '@/types/dashboard';
 
@@ -91,6 +92,9 @@ export default function DashboardComercial() {
 
       {/* KPIs */}
       <DashboardKPIs kpis={kpis} isLoading={isLoading} />
+
+      {/* Comissões Externas (Monetizze + Braip) */}
+      <DashboardComissoesExternas filtros={filtros} />
 
       {/* Vendas e Ranking */}
       <DashboardVendas
