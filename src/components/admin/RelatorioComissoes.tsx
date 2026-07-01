@@ -83,6 +83,7 @@ export function RelatorioComissoes() {
   // Monetizze — total a receber por consultor no mês do resumo
   const [monetizzePorConsultor, setMonetizzePorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
   const [braipPorConsultor, setBraipPorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
+  const [asaasPorConsultor, setAsaasPorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
 
   useEffect(() => {
     let ativo = true;
@@ -146,6 +147,43 @@ export function RelatorioComissoes() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'braip_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (row && row.mes === mesResumoConsultor) carregar();
+        },
+      )
+      .subscribe();
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [mesResumoConsultor]);
+
+  useEffect(() => {
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('asaas_consultas_salvas' as any)
+        .select('consultor_nome, valor_consultor')
+        .eq('mes', mesResumoConsultor);
+      if (!ativo) return;
+      const map: Record<string, { receber: number; qtd: number }> = {};
+      ((data as any[]) || []).forEach((r) => {
+        const nome = r.consultor_nome || '';
+        if (!nome) return;
+        const ent = map[nome] || { receber: 0, qtd: 0 };
+        ent.receber += Number(r.valor_consultor) || 0;
+        ent.qtd += 1;
+        map[nome] = ent;
+      });
+      setAsaasPorConsultor(map);
+    };
+    carregar();
+    const channel = supabase
+      .channel(`asaas-resumo-${mesResumoConsultor}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'asaas_consultas_salvas' },
         (payload) => {
           const row = (payload.new || payload.old) as any;
           if (row && row.mes === mesResumoConsultor) carregar();
@@ -252,12 +290,20 @@ export function RelatorioComissoes() {
       (r as any).braipReceber = ((r as any).braipReceber || 0) + v.receber;
       (r as any).braipQtd = ((r as any).braipQtd || 0) + v.qtd;
     });
-    // Total a receber = comissão paga + Monetizze + Braip
+    // Aplica Asaas (mesma lógica)
+    Object.entries(asaasPorConsultor).forEach(([consultor, v]) => {
+      if (consultorFiltro !== 'todos' && consultor !== consultorFiltro) return;
+      let r = m.get(consultor);
+      if (!r) { r = criar(consultor); m.set(consultor, r); }
+      (r as any).asaasReceber = ((r as any).asaasReceber || 0) + v.receber;
+      (r as any).asaasQtd = ((r as any).asaasQtd || 0) + v.qtd;
+    });
+    // Total a receber = comissão paga + Monetizze + Braip + Asaas
     m.forEach((r) => {
-      r.totalReceber = r.comissaoPaga + r.monetizzeReceber + ((r as any).braipReceber || 0);
+      r.totalReceber = r.comissaoPaga + r.monetizzeReceber + ((r as any).braipReceber || 0) + ((r as any).asaasReceber || 0);
     });
     return Array.from(m.values()).sort((a, b) => b.totalReceber - a.totalReceber);
-  }, [parcelasResumoConsultor, monetizzePorConsultor, braipPorConsultor, consultorFiltro]);
+  }, [parcelasResumoConsultor, monetizzePorConsultor, braipPorConsultor, asaasPorConsultor, consultorFiltro]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
@@ -479,6 +525,8 @@ export function RelatorioComissoes() {
                 <TableHead className="text-right">Recebido</TableHead>
                 <TableHead className="text-right">Comissão paga</TableHead>
                 <TableHead className="text-right">Monetizze (mês)</TableHead>
+                <TableHead className="text-right">Braip (mês)</TableHead>
+                <TableHead className="text-right">Asaas (mês)</TableHead>
                 <TableHead className="text-right">Total a receber</TableHead>
                 <TableHead className="text-right">A vencer</TableHead>
                 <TableHead className="text-right">Inadimplente</TableHead>
@@ -488,7 +536,7 @@ export function RelatorioComissoes() {
             </TableHeader>
             <TableBody>
               {resumoPorConsultor.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">Sem movimentação no período</TableCell></TableRow>
               ) : resumoPorConsultor.map((r) => (
                 <TableRow
                   key={r.consultor}
@@ -509,6 +557,18 @@ export function RelatorioComissoes() {
                     {fmtBRL(r.monetizzeReceber)}
                     {r.monetizzeQtd > 0 && (
                       <div className="text-[10px] text-muted-foreground font-normal">{r.monetizzeQtd} consulta(s)</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-orange-600 font-medium">
+                    {fmtBRL(((r as any).braipReceber || 0))}
+                    {((r as any).braipQtd || 0) > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal">{(r as any).braipQtd} consulta(s)</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-violet-600 font-medium">
+                    {fmtBRL(((r as any).asaasReceber || 0))}
+                    {((r as any).asaasQtd || 0) > 0 && (
+                      <div className="text-[10px] text-muted-foreground font-normal">{(r as any).asaasQtd} conciliação(ões)</div>
                     )}
                   </TableCell>
                   <TableCell className="text-right font-bold">{fmtBRL(r.totalReceber)}</TableCell>
