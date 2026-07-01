@@ -503,11 +503,11 @@ export default function Orcamentos() {
                                 <FileText className="w-4 h-4 mr-2" />Gerar PDF
                               </Button>
                               <Button variant="default" size="sm" className="flex-1 lg:flex-initial" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
-                                <FileCheck className="w-4 h-4 mr-2" />Resumo para Contrato
+                                <FileCheck className="w-4 h-4 mr-2" />Projeto para Contrato
                               </Button>
                               {resumosExistentes?.has(orcamento.id) && (
                                 <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setVerResumoContrato(orcamento)}>
-                                  <FileSignature className="w-4 h-4 mr-2" />Ver Resumo do Contrato
+                                  <FileSignature className="w-4 h-4 mr-2" />Ver Projeto do Contrato
                                 </Button>
                               )}
                               <Button variant="destructive" size="sm" className="flex-1 lg:flex-initial" onClick={() => setDeletandoId(orcamento.id)}>
