@@ -30,6 +30,30 @@ const onlyDigits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 const norm = (s: string) =>
   String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 
+async function log(entry: {
+  event?: string; status: string; mensagem?: string; payload?: any; resposta?: any;
+  asaas_payment_id?: string | null; asaas_installment_id?: string | null;
+  asaas_customer_id?: string | null; cpf_cnpj?: string | null;
+  valor?: number | null; orcamento_id?: string | null; pedido_id?: string | null;
+}) {
+  try {
+    await supabase.from("asaas_eventos_log").insert({
+      event: entry.event || null,
+      status: entry.status,
+      mensagem: entry.mensagem || null,
+      payload: entry.payload || null,
+      resposta: entry.resposta || null,
+      asaas_payment_id: entry.asaas_payment_id || null,
+      asaas_installment_id: entry.asaas_installment_id || null,
+      asaas_customer_id: entry.asaas_customer_id || null,
+      cpf_cnpj: entry.cpf_cnpj || null,
+      valor: entry.valor ?? null,
+      orcamento_id: entry.orcamento_id || null,
+      pedido_id: entry.pedido_id || null,
+    });
+  } catch { /* ignore */ }
+}
+
 const RECEIVED_EVENTS = new Set([
   "PAYMENT_RECEIVED",
   "PAYMENT_CONFIRMED",
@@ -193,6 +217,7 @@ Deno.serve(async (req) => {
     req.headers.get("x-asaas-token") ||
     url.searchParams.get("token");
   if (!WEBHOOK_TOKEN || tokenHeader !== WEBHOOK_TOKEN) {
+    await log({ status: "erro", mensagem: "Token inválido", payload: null });
     return new Response(JSON.stringify({ error: "Não autorizado" }), {
       status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -206,6 +231,12 @@ Deno.serve(async (req) => {
 
   // Só age em eventos de recebimento
   if (!RECEIVED_EVENTS.has(event)) {
+    await log({
+      event, status: "ignorado",
+      mensagem: `Evento ignorado: ${event || "sem evento"}`,
+      payload, asaas_payment_id: pay?.id || null,
+      valor: Number(pay?.value) || null,
+    });
     return new Response(JSON.stringify({ ok: true, ignored: event || "sem evento" }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -223,6 +254,12 @@ Deno.serve(async (req) => {
         payload, cpf_cnpj: cpfCnpj || null, valor: Number(pay?.value) || null,
         asaas_payment_id: pay?.id || null, asaas_customer_id: customerId || null,
         motivo: motivo || "Sem orçamento correspondente",
+      });
+      await log({
+        event, status: "pendente", mensagem: motivo || "Sem orçamento correspondente",
+        payload, cpf_cnpj: cpfCnpj, valor: Number(pay?.value) || null,
+        asaas_payment_id: pay?.id || null, asaas_installment_id: pay?.installment || null,
+        asaas_customer_id: customerId || null,
       });
       return new Response(JSON.stringify({ ok: true, status: "pendente", motivo }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -266,6 +303,13 @@ Deno.serve(async (req) => {
 
     // Se contrato não assinado, aguarda
     if (orc.status_contrato !== "assinado") {
+      await log({
+        event, status: "aguardando_contrato",
+        mensagem: `Pagamento registrado, aguardando contrato assinado. Total pago: ${totalPago}/${totalOrc}`,
+        payload, cpf_cnpj: cpfCnpj, valor: valorPago,
+        asaas_payment_id: pay?.id || null, asaas_installment_id: pay?.installment || null,
+        asaas_customer_id: customerId || null, orcamento_id: orc.id,
+      });
       return new Response(JSON.stringify({
         ok: true, status: "aguardando_contrato",
         orcamento_id: orc.id, total_pago: totalPago, valor_total: totalOrc, quitado,
@@ -274,6 +318,13 @@ Deno.serve(async (req) => {
 
     // Só move para pedidos + status=pago quando quitado
     if (!quitado) {
+      await log({
+        event, status: "parcial",
+        mensagem: `Parcial: ${totalPago}/${totalOrc}`,
+        payload, cpf_cnpj: cpfCnpj, valor: valorPago,
+        asaas_payment_id: pay?.id || null, asaas_installment_id: pay?.installment || null,
+        asaas_customer_id: customerId || null, orcamento_id: orc.id,
+      });
       return new Response(JSON.stringify({
         ok: true, status: "parcial", orcamento_id: orc.id,
         total_pago: totalPago, valor_total: totalOrc,
@@ -288,6 +339,13 @@ Deno.serve(async (req) => {
       }).eq("id", orc.id);
     }
 
+    await log({
+      event, status: "sucesso",
+      mensagem: `Orçamento quitado. Pedido ${pedidoId} criado/atualizado.`,
+      payload, cpf_cnpj: cpfCnpj, valor: valorPago,
+      asaas_payment_id: pay?.id || null, asaas_installment_id: pay?.installment || null,
+      asaas_customer_id: customerId || null, orcamento_id: orc.id, pedido_id: pedidoId,
+    });
     return new Response(JSON.stringify({
       ok: true, status: "sucesso", orcamento_id: orc.id, pedido_id: pedidoId,
       consultor: orc.consultor_responsavel || null, total_pago: totalPago,
@@ -297,6 +355,12 @@ Deno.serve(async (req) => {
       payload, cpf_cnpj: cpfCnpj || null, valor: Number(pay?.value) || null,
       asaas_payment_id: pay?.id || null, asaas_customer_id: customerId || null,
       motivo: `Erro: ${(e as Error).message}`,
+    });
+    await log({
+      event, status: "erro", mensagem: (e as Error).message,
+      payload, cpf_cnpj: cpfCnpj, valor: Number(pay?.value) || null,
+      asaas_payment_id: pay?.id || null, asaas_installment_id: pay?.installment || null,
+      asaas_customer_id: customerId || null,
     });
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
