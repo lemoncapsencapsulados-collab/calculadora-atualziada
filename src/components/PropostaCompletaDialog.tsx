@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
@@ -548,6 +548,38 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     orcamento.condicoes_pagamento || {}
   );
   const [errosPagamento, setErrosPagamento] = useState<string[]>([]);
+
+  // Pendências dinâmicas para habilitar o botão "Enviar contrato para Financeiro"
+  const camposPendentes = useMemo(() => {
+    const pendencias: string[] = [];
+    if (tipoPessoa === 'pj') {
+      const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) pendencias.push('CNPJ do cliente (14 dígitos)');
+      if (!dadosCliente.razao_social?.trim()) pendencias.push('Razão Social');
+      if (!dadosCliente.endereco_cnpj?.trim()) pendencias.push('Endereço do CNPJ');
+      if (!dadosCliente.cep_cnpj?.trim()) pendencias.push('CEP');
+      if (!dadosCliente.cidade?.trim()) pendencias.push('Cidade');
+      if (!dadosCliente.estado?.trim()) pendencias.push('Estado');
+      if (!dadosCliente.email?.trim()) pendencias.push('Email do contratante');
+      if (!responsavelPJ.nome?.trim()) pendencias.push('Nome do responsável (PJ)');
+      const cpfResp = (responsavelPJ.cpf || '').replace(/\D/g, '');
+      if (cpfResp.length !== 11) pendencias.push('CPF do responsável (PJ)');
+    } else {
+      const pf = pessoasFisicas[0];
+      if (!pf?.nome?.trim()) pendencias.push('Nome do contratante (PF)');
+      const cpfPf = (pf?.cpf || '').replace(/\D/g, '');
+      if (cpfPf.length !== 11) pendencias.push('CPF do contratante (PF)');
+      if (!pf?.email?.trim()) pendencias.push('Email do contratante');
+      if (!pf?.endereco?.trim()) pendencias.push('Endereço do contratante');
+    }
+    if (!detalhamentoEnvio.tipo) pendencias.push('Selecionar opção de frete');
+    const errosPg = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
+    if (errosPg.length > 0) pendencias.push('Condições de pagamento válidas');
+    if (!orcamento.itens_producao || orcamento.itens_producao.length === 0) {
+      pendencias.push('Ao menos um item de produção');
+    }
+    return pendencias;
+  }, [tipoPessoa, dadosCliente, responsavelPJ, pessoasFisicas, detalhamentoEnvio, condicoesPagamento, orcamento.valor_total, orcamento.itens_producao]);
 
   // Pre-load client from orcamento.cliente_id
   useEffect(() => {
@@ -1744,11 +1776,30 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           </Card>
         </div>
 
+        {camposPendentes.length > 0 && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <p className="font-semibold mb-1">
+                Preencha {camposPendentes.length} campo{camposPendentes.length > 1 ? 's' : ''} obrigatório{camposPendentes.length > 1 ? 's' : ''} antes de enviar:
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-sm">
+                {camposPendentes.map((c, i) => (<li key={i}>{c}</li>))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleGenerateProposta} disabled={isSubmitting}>
+          <Button
+            onClick={handleGenerateProposta}
+            disabled={isSubmitting || camposPendentes.length > 0}
+            title={camposPendentes.length > 0 ? `Preencha ${camposPendentes.length} campo(s) obrigatório(s)` : undefined}
+          >
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
+            ) : camposPendentes.length > 0 ? (
+              `Enviar contrato para Financeiro (${camposPendentes.length} pendente${camposPendentes.length > 1 ? 's' : ''})`
             ) : (
               'Enviar contrato para Financeiro'
             )}
