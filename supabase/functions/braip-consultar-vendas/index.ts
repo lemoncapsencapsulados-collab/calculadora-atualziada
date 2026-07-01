@@ -29,14 +29,12 @@ async function fetchComTimeout(url: string, opts: RequestInit, ms = 25000): Prom
 async function fetchPagina(token: string, filtro: Filtro, page: number): Promise<any[]> {
   const { ini, fim } = rangeMes(filtro.mes);
   const params = new URLSearchParams();
-  // Usamos data de pagamento para filtrar as vendas aprovadas do mês
-  params.set('trans_payment_date_min', ini);
-  params.set('trans_payment_date_max', fim);
+  // Usa data de criação da venda (date_min/date_max funcionam com o WAF da Braip).
+  // O filtro de "aprovadas" é feito em código pelo trans_status_code.
+  params.set('date_min', ini);
+  params.set('date_max', fim);
   params.set('page', String(page));
   if (filtro.produto_codigo) params.set('product_key', filtro.produto_codigo);
-  const statusCodes = filtro.status_codes && filtro.status_codes.length ? filtro.status_codes : [2, 9];
-  // status como array: status[]=2&status[]=9
-  for (const s of statusCodes) params.append('status[]', String(s));
   const url = `${API_BASE}/vendas?${params.toString()}`;
   const r = await fetchComTimeout(url, {
     method: 'GET',
