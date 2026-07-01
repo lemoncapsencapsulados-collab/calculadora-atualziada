@@ -162,6 +162,8 @@ export default function GerarOrcamentoDialog({
   const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
   const [custoAnvisaUnit, setCustoAnvisaUnit] = useState<number>(CUSTO_ANVISA_PADRAO);
   const [estabilidadeEdicaoLiberada, setEstabilidadeEdicaoLiberada] = useState(false);
+  const [estabilidadeAtiva, setEstabilidadeAtiva] = useState<boolean>(true);
+  const [anvisaAtiva, setAnvisaAtiva] = useState<boolean>(true);
 
   // Estado para liberação de margem mínima com senha
   const [senhaMargemOrcDialog, setSenhaMargemOrcDialog] = useState(false);
@@ -386,16 +388,28 @@ export default function GerarOrcamentoDialog({
       const servicosProd = (orcamentoExistente.servicos_marca || []).filter(
         (s: any) => s?.setup_detalhes?.categoria === 'producao' || s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
       ) as any[];
+      let restoredEstab = false;
+      let restoredAnvisa = false;
       for (const sp of servicosProd) {
         const det = sp.setup_detalhes || {};
         if (det.tipo === 'estabilidade' && typeof det.custo_unit === 'number') {
           setCustoEstabilidadeUnit(det.custo_unit);
+          restoredEstab = true;
         } else if (det.tipo === 'anvisa' && typeof det.custo_unit === 'number') {
           setCustoAnvisaUnit(det.custo_unit);
+          restoredAnvisa = true;
         } else if (det.tipo === 'estabilidade_anvisa') {
           if (typeof det.custo_estabilidade_unit === 'number') setCustoEstabilidadeUnit(det.custo_estabilidade_unit);
           if (typeof det.custo_anvisa_unit === 'number') setCustoAnvisaUnit(det.custo_anvisa_unit);
+          restoredEstab = true;
+          restoredAnvisa = true;
         }
+      }
+      // Se o orçamento existente tem serviços de marca definidos, respeitar exatamente o que foi salvo.
+      // Se nunca foi salvo nenhum (array vazio), assumir ambos ativos (default).
+      if ((orcamentoExistente.servicos_marca || []).length > 0) {
+        setEstabilidadeAtiva(restoredEstab);
+        setAnvisaAtiva(restoredAnvisa);
       }
       // Restore setup
       const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
@@ -439,8 +453,9 @@ export default function GerarOrcamentoDialog({
 
   // Cálculos
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
-  // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon)
-  const aplicaEstabilidade = !isRevendaLemon && itensProducao.length > 0;
+  // Custos de Estabilidade + Anvisa (não entram para Revenda Lemon) — cada um opcional
+  const aplicaEstabilidade = estabilidadeAtiva && !isRevendaLemon && itensProducao.length > 0;
+  const aplicaAnvisa = anvisaAtiva && !isRevendaLemon && itensProducao.length > 0;
   const isCatalogo = (cliente: string) =>
     cliente.toLowerCase().includes('catálogo') || cliente.toLowerCase().includes('catalogo');
   // Item é "catálogo" quando vem de uma precificação cujo cliente é Catálogo Lemon
@@ -454,7 +469,7 @@ export default function GerarOrcamentoDialog({
   const itensEstabilidade = aplicaEstabilidade
     ? itensProducao.filter((it) => !itemEhCatalogo(it))
     : [];
-  const itensAnvisa = aplicaEstabilidade ? itensProducao : [];
+  const itensAnvisa = aplicaAnvisa ? itensProducao : [];
   const totalEstabilidadeAnvisa =
     custoEstabilidadeUnit * itensEstabilidade.length +
     custoAnvisaUnit * itensAnvisa.length;
@@ -464,12 +479,12 @@ export default function GerarOrcamentoDialog({
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
     const extras: ServicoMarca[] = [];
-    if (aplicaEstabilidade) {
+    {
       const qtdEstab = itensEstabilidade.length;
       const qtdAnvisa = itensAnvisa.length;
       const totalEstab = custoEstabilidadeUnit * qtdEstab;
       const totalAnvisa = custoAnvisaUnit * qtdAnvisa;
-      if (totalEstab > 0) {
+      if (aplicaEstabilidade && totalEstab > 0) {
         extras.push({
           nome_plano: 'Teste de Estabilidade',
           descricao:
@@ -486,7 +501,7 @@ export default function GerarOrcamentoDialog({
           },
         } as any);
       }
-      if (totalAnvisa > 0) {
+      if (aplicaAnvisa && totalAnvisa > 0) {
         extras.push({
           nome_plano: 'Notificação Anvisa do Produto',
           descricao: `${qtdAnvisa} produto(s) × ${formatCurrency(custoAnvisaUnit)} por produto.`,
@@ -1860,6 +1875,10 @@ export default function GerarOrcamentoDialog({
               onChangeAnvisa={setCustoAnvisaUnit}
               edicaoLiberada={estabilidadeEdicaoLiberada}
               onLiberarEdicao={() => setEstabilidadeEdicaoLiberada(true)}
+              estabilidadeAtiva={estabilidadeAtiva}
+              anvisaAtiva={anvisaAtiva}
+              onToggleEstabilidade={setEstabilidadeAtiva}
+              onToggleAnvisa={setAnvisaAtiva}
             />
           )}
 
