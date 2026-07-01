@@ -847,6 +847,50 @@ function DetalheConsultorDialog({
           </Button>
         </div>
 
+        {monetizze.length > 0 && (
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="text-sm font-semibold">Comissão Monetizze — consultas salvas ({monetizze.length})</div>
+                <div className="text-xs text-muted-foreground">
+                  Atualiza automaticamente ao salvar uma nova consulta para este consultor no mês.
+                </div>
+              </div>
+              <div className="flex gap-4 text-xs">
+                <div><span className="text-muted-foreground">Faturamento: </span><span className="font-semibold">{fmtBRL(totMonetizze.faturamento)}</span></div>
+                <div><span className="text-muted-foreground">Comissão bruta: </span><span className="font-semibold">{fmtBRL(totMonetizze.comissao)}</span></div>
+                <div><span className="text-muted-foreground">A receber: </span><span className="font-semibold text-emerald-600">{fmtBRL(totMonetizze.receber)}</span></div>
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Salvo em</TableHead>
+                  <TableHead>Produto (filtro)</TableHead>
+                  <TableHead className="text-right">Vendas</TableHead>
+                  <TableHead className="text-right">Faturamento</TableHead>
+                  <TableHead className="text-right">Comissão bruta</TableHead>
+                  <TableHead className="text-right">%</TableHead>
+                  <TableHead className="text-right">A receber</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {monetizze.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                    <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
+                    <TableCell className="text-right">{r.quantidade_vendida}</TableCell>
+                    <TableCell className="text-right">{fmtBRL(Number(r.faturamento_total))}</TableCell>
+                    <TableCell className="text-right">{fmtBRL(Number(r.comissao_total))}</TableCell>
+                    <TableCell className="text-right">{Number(r.percentual).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(Number(r.valor_consultor))}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
         {parcelas.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm">
             Sem parcelas no período para este consultor.
