@@ -41,8 +41,6 @@ async function fetchPagina(token: string, filtro: Filtro, page: number): Promise
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
     },
   }, 25000);
   const txt = await r.text();
@@ -67,7 +65,7 @@ async function buscarTransacoes(token: string, filtro: Filtro): Promise<any[]> {
 
   const todas = [...primeira];
   const maxPages = 40;
-  const concorrencia = 4;
+  const concorrencia = 2;
   let proxima = 2;
   let acabou = false;
   while (!acabou && proxima <= maxPages) {
