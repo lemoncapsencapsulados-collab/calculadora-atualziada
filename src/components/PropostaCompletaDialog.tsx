@@ -1639,64 +1639,27 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                   Como será feita a logística?
                 </Label>
                 <RadioGroup
-                  value={detalhamentoEnvio.tipo}
-                  onValueChange={(value) => setDetalhamentoEnvio(prev => ({
-                    ...prev,
+                  value={detalhamentoEnvio.tipo === 'total_produtor' ? 'total_produtor' : 'total_lemoncaps'}
+                  onValueChange={(value) => setDetalhamentoEnvio({
                     tipo: value as DetalhamentoEnvio['tipo'],
-                    descricao_parcial: value !== 'parcial' ? '' : prev.descricao_parcial,
-                  }))}
+                    descricao_parcial: '',
+                  })}
                   className="space-y-2"
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="total_produtor" id="resumo-produtor" />
-                    <Label htmlFor="resumo-produtor" className="font-normal cursor-pointer text-sm">Todo envio para o Produtor</Label>
+                    <Label htmlFor="resumo-produtor" className="font-normal cursor-pointer text-sm">
+                      Envio Total dos Potes para o Produtor (CNPJ)
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="total_lemoncaps" id="resumo-lemoncaps" />
-                    <Label htmlFor="resumo-lemoncaps" className="font-normal cursor-pointer text-sm">Toda logística via Lemon Caps</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="parcial" id="resumo-parcial" />
-                    <Label htmlFor="resumo-parcial" className="font-normal cursor-pointer text-sm">Envio Parcial</Label>
+                    <Label htmlFor="resumo-lemoncaps" className="font-normal cursor-pointer text-sm">
+                      Envios da Lemon Caps para o cliente final (CPF)
+                    </Label>
                   </div>
                 </RadioGroup>
-
-                {detalhamentoEnvio.tipo === 'parcial' && (
-                  <div className="ml-6 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Descreva a divisão:</Label>
-                    <Textarea
-                      value={detalhamentoEnvio.descricao_parcial || ''}
-                      onChange={(e) => setDetalhamentoEnvio(prev => ({ ...prev, descricao_parcial: e.target.value }))}
-                      placeholder="Ex: 50 potes para produtor, 100 potes logística Lemon Caps"
-                      rows={2}
-                    />
-                  </div>
-                )}
-
-                {detalhamentoEnvio.tipo === 'total_produtor' && (
-                  <p className="text-xs text-muted-foreground ml-6">
-                    Não será utilizada logística da LemonCaps para cliente final.
-                  </p>
-                )}
               </div>
-
-              <div className="space-y-3 pt-3 border-t">
-                <Label className="text-sm">Frete via Lemon Caps para cliente final?</Label>
-                <div className="flex gap-3">
-                  <Button type="button" variant={freteLemonCaps ? 'default' : 'outline'} size="sm" onClick={() => setFreteLemonCaps(true)}>Sim</Button>
-                  <Button type="button" variant={!freteLemonCaps ? 'default' : 'outline'} size="sm" onClick={() => setFreteLemonCaps(false)}>Não</Button>
-                </div>
-              </div>
-
-              {freteLemonCaps && (
-                <div className="space-y-3">
-                  <Label className="text-sm">Usar tabela tradicional de envio?</Label>
-                  <div className="flex gap-3">
-                    <Button type="button" variant={usaTabelaTradicional ? 'default' : 'outline'} size="sm" onClick={() => setUsaTabelaTradicional(true)}>Sim</Button>
-                    <Button type="button" variant={!usaTabelaTradicional ? 'default' : 'outline'} size="sm" onClick={() => setUsaTabelaTradicional(false)}>Não</Button>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
 
