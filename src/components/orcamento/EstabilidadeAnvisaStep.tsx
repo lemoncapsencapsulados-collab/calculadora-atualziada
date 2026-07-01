@@ -237,7 +237,7 @@ export default function EstabilidadeAnvisaStep({
         </CardContent>
       </Card>
 
-      {qtd > 0 && qtdEstab < qtd && (
+      {estabilidadeAtiva && qtd > 0 && qtdEstab < qtd && (
         <Card className="bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-900/40">
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold text-sm">
