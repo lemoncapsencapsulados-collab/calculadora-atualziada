@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, Search, ShoppingBag, TrendingUp, Percent, UserCheck, Save, FileDown, Trash2, History, KeyRound, Database, Calculator, CheckCircle2 } from 'lucide-react';
+import { Loader2, Search, ShoppingBag, TrendingUp, Percent, UserCheck, Save, FileDown, Trash2, History, KeyRound, Database, Calculator, CheckCircle2, ExternalLink, FileText, Receipt, ChevronDown, ChevronRight, Layers, Repeat } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUsuarios } from '@/hooks/useUsuarios';
@@ -17,12 +18,52 @@ import autoTable from 'jspdf-autotable';
 const fmtBRL = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const fmtDate = (s?: string | null) => {
+  if (!s) return '—';
+  const d = new Date(s + (s.length === 10 ? 'T00:00:00' : ''));
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleDateString('pt-BR');
+};
+
 const mesAtual = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
 interface PorCliente { nome: string; quantidade: number; faturamento: number; liquido: number }
+interface ItemCobranca {
+  id: string;
+  cliente: string;
+  cliente_email?: string | null;
+  cliente_cpf_cnpj?: string | null;
+  descricao: string;
+  forma: string;
+  forma_label?: string;
+  data_pagamento: string | null;
+  data_credito?: string | null;
+  data_confirmacao?: string | null;
+  data_pagamento_cliente?: string | null;
+  vencimento?: string | null;
+  vencimento_original?: string | null;
+  valor: number;
+  liquido: number;
+  desconto?: number;
+  multa?: number;
+  juros?: number;
+  status: string;
+  installment_id?: string | null;
+  installment_numero?: number | null;
+  installment_total?: number | null;
+  subscription_id?: string | null;
+  invoice_number?: string | null;
+  invoice_url?: string | null;
+  bank_slip_url?: string | null;
+  transaction_receipt_url?: string | null;
+  nosso_numero?: string | null;
+  external_reference?: string | null;
+  cartao_bandeira?: string | null;
+  cartao_final?: string | null;
+}
 interface Resultado {
   mes: string;
   filtro_cliente: string | null;
@@ -31,7 +72,7 @@ interface Resultado {
   faturamento_total: number;
   liquido_total: number;
   por_cliente: PorCliente[];
-  itens: Array<{ id: string; cliente: string; descricao: string; forma: string; data_pagamento: string | null; valor: number; liquido: number; status: string }>;
+  itens: ItemCobranca[];
 }
 
 export function AsaasConsultaCard() {
@@ -42,6 +83,8 @@ export function AsaasConsultaCard() {
   const [loading, setLoading] = useState(false);
   const [progresso, setProgresso] = useState(0);
   const [etapa, setEtapa] = useState(0);
+  const [mostrarDetalhes, setMostrarDetalhes] = useState(true);
+  const [expandidas, setExpandidas] = useState<Record<string, boolean>>({});
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const etapas = [
