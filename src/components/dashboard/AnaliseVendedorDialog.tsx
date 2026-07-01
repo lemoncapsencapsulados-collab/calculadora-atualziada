@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, Loader2, UserSearch, ChevronLeft, Info, RefreshCw, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
+import { Download, Loader2, UserSearch, ChevronLeft, Info, RefreshCw, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronRight, TrendingUp, Users } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUsuarios } from '@/hooks/useUsuarios';
-import { carregarAnaliseVendedor, formatBRL, gerarCSVAnalise, type AnaliseVendedor } from '@/lib/analiseVendedor';
+import { carregarAnaliseVendedor, carregarAnaliseTimeVendas, formatBRL, gerarCSVAnalise, TIME_VENDAS_ID, TIME_VENDAS_LABEL, type AnaliseVendedor } from '@/lib/analiseVendedor';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -50,7 +50,11 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     if (!vendedor) return;
     setLoading(true);
     setSetupExpandido(null);
-    carregarAnaliseVendedor(vendedor, mesData)
+    const promise =
+      vendedor === TIME_VENDAS_ID
+        ? carregarAnaliseTimeVendas(mesData, consultores.map((c) => c.nome))
+        : carregarAnaliseVendedor(vendedor, mesData);
+    promise
       .then((a) => {
         setAnalise(a);
         if (!silent) toast.success('Análise atualizada');
@@ -81,7 +85,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
           event: '*',
           schema: 'public',
           table: 'monetizze_consultas_salvas',
-          filter: `consultor_nome=eq.${vendedor}`,
+          ...(vendedor === TIME_VENDAS_ID ? {} : { filter: `consultor_nome=eq.${vendedor}` }),
         },
         (payload) => {
           const row: any = payload.new || payload.old;
@@ -108,7 +112,7 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
           event: '*',
           schema: 'public',
           table: 'braip_consultas_salvas',
-          filter: `consultor_nome=eq.${vendedor}`,
+          ...(vendedor === TIME_VENDAS_ID ? {} : { filter: `consultor_nome=eq.${vendedor}` }),
         },
         (payload) => {
           const row: any = payload.new || payload.old;
@@ -206,8 +210,10 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
       <DialogContent className="max-w-5xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <UserSearch className="w-5 h-5" />
-            {vendedor ? `Análise Apurada — ${vendedor}` : 'Escolha o vendedor para análise'}
+            {vendedor === TIME_VENDAS_ID ? <Users className="w-5 h-5" /> : <UserSearch className="w-5 h-5" />}
+            {vendedor
+              ? `Análise Apurada — ${vendedor === TIME_VENDAS_ID ? TIME_VENDAS_LABEL : vendedor}`
+              : 'Escolha o vendedor para análise'}
           </DialogTitle>
         </DialogHeader>
 
@@ -233,6 +239,20 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                 </Button>
               ))}
             </div>
+            {consultores.length > 0 && (
+              <Button
+                className="mt-4 w-full h-auto py-3 gap-2"
+                onClick={() => setVendedor(TIME_VENDAS_ID)}
+              >
+                <Users className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="font-medium">Time de Vendas — Análise Geral do Mês</div>
+                  <div className="text-xs opacity-80">
+                    Soma de todos os {consultores.length} consultores ativos
+                  </div>
+                </div>
+              </Button>
+            )}
           </ScrollArea>
         ) : (
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-3">

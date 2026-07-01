@@ -279,6 +279,108 @@ export function formatBRL(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+export const TIME_VENDAS_ID = '__TIME_VENDAS__';
+export const TIME_VENDAS_LABEL = 'Time de Vendas';
+
+export async function carregarAnaliseTimeVendas(
+  mes: Date,
+  vendedores: string[]
+): Promise<AnaliseVendedor> {
+  const partes = await Promise.all(vendedores.map((v) => carregarAnaliseVendedor(v, mes)));
+
+  const potesPorTipo: Record<string, number> = {};
+  const produtosMap = new Map<string, { nome: string; qtdPotes: number; receita: number; vezes: number }>();
+  const setupMap = new Map<string, { nome: string; quantidade: number; valorTotal: number }>();
+  const vendasPorSetup: AnaliseVendedor['vendasPorSetup'] = {};
+  const avisos: AnaliseVendedor['avisosServicosMarca'] = [];
+  const monetizzeConsultas: AnaliseVendedor['monetizzeConsultas'] = [];
+  const braipConsultas: AnaliseVendedor['braipConsultas'] = [];
+
+  let qtdVendas = 0;
+  let receitaTotal = 0;
+  let totalPotes = 0;
+  let maiorVolumePotesVenda = 0;
+  let qtdOrcamentos = 0;
+  let valorEmNegociacao = 0;
+  let monetizzeTotalReceber = 0;
+  let monetizzeComissaoBruta = 0;
+  let braipTotalReceber = 0;
+  let braipComissaoBruta = 0;
+  let somaSetupValores = 0;
+  let qtdSetup = 0;
+  let maiorValorSetup = 0;
+
+  for (const a of partes) {
+    qtdVendas += a.qtdVendas;
+    receitaTotal += a.receitaTotal;
+    totalPotes += a.totalPotes;
+    if (a.maiorVolumePotesVenda > maiorVolumePotesVenda) maiorVolumePotesVenda = a.maiorVolumePotesVenda;
+    qtdOrcamentos += a.qtdOrcamentos;
+    valorEmNegociacao += a.valorEmNegociacao;
+    monetizzeTotalReceber += a.monetizzeTotalReceber;
+    monetizzeComissaoBruta += a.monetizzeComissaoBruta;
+    braipTotalReceber += a.braipTotalReceber;
+    braipComissaoBruta += a.braipComissaoBruta;
+
+    for (const [t, q] of Object.entries(a.potesPorTipo)) {
+      potesPorTipo[t] = (potesPorTipo[t] || 0) + q;
+    }
+    for (const p of a.produtosVendidos) {
+      const ent = produtosMap.get(p.nome) || { nome: p.nome, qtdPotes: 0, receita: 0, vezes: 0 };
+      ent.qtdPotes += p.qtdPotes;
+      ent.receita += p.receita;
+      ent.vezes += p.vezes;
+      produtosMap.set(p.nome, ent);
+    }
+    for (const s of a.setupsVendidos) {
+      const ent = setupMap.get(s.nome) || { nome: s.nome, quantidade: 0, valorTotal: 0 };
+      ent.quantidade += s.quantidade;
+      ent.valorTotal += s.valorTotal;
+      setupMap.set(s.nome, ent);
+      somaSetupValores += s.valorTotal;
+      qtdSetup += s.quantidade;
+    }
+    for (const [setup, arr] of Object.entries(a.vendasPorSetup)) {
+      (vendasPorSetup[setup] ||= []).push(...arr);
+      for (const v of arr) {
+        if (v.valor > maiorValorSetup) maiorValorSetup = v.valor;
+      }
+    }
+    avisos.push(...a.avisosServicosMarca);
+    monetizzeConsultas.push(...a.monetizzeConsultas);
+    braipConsultas.push(...a.braipConsultas);
+  }
+
+  const setupsVendidos = Array.from(setupMap.values()).sort((a, b) => b.quantidade - a.quantidade);
+
+  return {
+    vendedor: TIME_VENDAS_LABEL,
+    mes,
+    qtdVendas,
+    receitaTotal,
+    ticketMedio: qtdVendas > 0 ? receitaTotal / qtdVendas : 0,
+    totalPotes,
+    potesPorTipo,
+    maiorVolumePotesVenda,
+    produtosVendidos: Array.from(produtosMap.values()).sort((a, b) => b.qtdPotes - a.qtdPotes),
+    setupsVendidos,
+    setupMaisVendido: setupsVendidos[0]?.nome || null,
+    valorMedioSetup: qtdSetup > 0 ? somaSetupValores / qtdSetup : 0,
+    maiorValorSetup,
+    vendasPorSetup,
+    avisosServicosMarca: avisos,
+    qtdOrcamentos,
+    taxaConversao: qtdOrcamentos > 0 ? qtdVendas / qtdOrcamentos : 0,
+    valorEmNegociacao,
+    monetizzeConsultas,
+    monetizzeTotalReceber,
+    monetizzeComissaoBruta,
+    braipConsultas,
+    braipTotalReceber,
+    braipComissaoBruta,
+  };
+}
+
 function escapeCsv(v: unknown): string {
   const s = v == null ? '' : String(v);
   if (/[";,\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
