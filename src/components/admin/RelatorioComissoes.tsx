@@ -782,6 +782,7 @@ function DetalheConsultorDialog({
     created_at: string;
   };
   const [monetizze, setMonetizze] = useState<MonetizzeRow[]>([]);
+  const [braip, setBraip] = useState<MonetizzeRow[]>([]);
 
   useEffect(() => {
     if (!consultor) { setMonetizze([]); return; }
@@ -816,6 +817,39 @@ function DetalheConsultorDialog({
     };
   }, [consultor, mes]);
 
+  useEffect(() => {
+    if (!consultor) { setBraip([]); return; }
+    let ativo = true;
+    const carregar = async () => {
+      const { data } = await supabase
+        .from('braip_consultas_salvas' as any)
+        .select('id, filtro_produto_nome, quantidade_vendida, faturamento_total, comissao_total, percentual, valor_consultor, observacao, created_at')
+        .eq('consultor_nome', consultor)
+        .eq('mes', mes)
+        .order('created_at', { ascending: false });
+      if (ativo) setBraip(((data as any[]) || []) as MonetizzeRow[]);
+    };
+    carregar();
+
+    const channel = supabase
+      .channel(`braip-detalhe-${consultor}-${mes}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'braip_consultas_salvas' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (!row) return;
+          if (row.consultor_nome === consultor && row.mes === mes) carregar();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      ativo = false;
+      supabase.removeChannel(channel);
+    };
+  }, [consultor, mes]);
+
   const totMonetizze = useMemo(() => {
     return monetizze.reduce(
       (a, r) => {
@@ -828,6 +862,18 @@ function DetalheConsultorDialog({
     );
   }, [monetizze]);
 
+  const totBraip = useMemo(() => {
+    return braip.reduce(
+      (a, r) => {
+        a.faturamento += Number(r.faturamento_total) || 0;
+        a.comissao += Number(r.comissao_total) || 0;
+        a.receber += Number(r.valor_consultor) || 0;
+        return a;
+      },
+      { faturamento: 0, comissao: 0, receber: 0 },
+    );
+  }, [braip]);
+
   const totais = useMemo(() => {
     const base = parcelas.reduce(
       (a, p) => {
@@ -838,11 +884,11 @@ function DetalheConsultorDialog({
       },
       { pago: 0, aVencer: 0, inad: 0, recebido: 0 },
     );
-    // Monetizze conta como recebido/pago no mês
-    base.pago += totMonetizze.receber;
-    base.recebido += totMonetizze.faturamento;
+    // Monetizze + Braip contam como recebido/pago no mês
+    base.pago += totMonetizze.receber + totBraip.receber;
+    base.recebido += totMonetizze.faturamento + totBraip.faturamento;
     return base;
-  }, [parcelas, totMonetizze]);
+  }, [parcelas, totMonetizze, totBraip]);
 
   const pagas = parcelas.filter((p) => p.status === 'pago');
   const aVencer = parcelas.filter((p) => p.status === 'pendente');
@@ -967,20 +1013,20 @@ function DetalheConsultorDialog({
           </Button>
         </div>
 
-        {parcelas.length === 0 && monetizze.length === 0 ? (
+        {parcelas.length === 0 && monetizze.length === 0 && braip.length === 0 ? (
           <div className="text-center text-muted-foreground py-8 text-sm">
             Sem parcelas no período para este consultor.
           </div>
         ) : (
           <div className="space-y-6">
-            {(pagas.length > 0 || monetizze.length > 0) && (
+            {(pagas.length > 0 || monetizze.length > 0 || braip.length > 0) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold">
-                    Pagas no mês <span className="text-muted-foreground font-normal">({pagas.length + monetizze.length})</span>
+                    Pagas no mês <span className="text-muted-foreground font-normal">({pagas.length + monetizze.length + braip.length})</span>
                   </div>
                   <div className="text-sm font-semibold text-emerald-600">
-                    Subtotal: {fmtBRL(pagas.reduce((s, p) => s + p.comissao, 0) + totMonetizze.receber)}
+                    Subtotal: {fmtBRL(pagas.reduce((s, p) => s + p.comissao, 0) + totMonetizze.receber + totBraip.receber)}
                   </div>
                 </div>
                 {pagas.length > 0 && (
@@ -1047,6 +1093,46 @@ function DetalheConsultorDialog({
                       </TableHeader>
                       <TableBody>
                         {monetizze.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                            <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
+                            <TableCell className="text-right">{r.quantidade_vendida}</TableCell>
+                            <TableCell className="text-right">{fmtBRL(Number(r.faturamento_total))}</TableCell>
+                            <TableCell className="text-right">{fmtBRL(Number(r.comissao_total))}</TableCell>
+                            <TableCell className="text-right">{Number(r.percentual).toFixed(2)}%</TableCell>
+                            <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(Number(r.valor_consultor))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                {braip.length > 0 && (
+                  <div className="rounded-md border bg-orange-50/40 dark:bg-orange-950/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        Braip — consultas salvas ({braip.length})
+                      </div>
+                      <div className="flex gap-4 text-[11px]">
+                        <div><span className="text-muted-foreground">Faturamento: </span><span className="font-semibold">{fmtBRL(totBraip.faturamento)}</span></div>
+                        <div><span className="text-muted-foreground">Comissão bruta: </span><span className="font-semibold">{fmtBRL(totBraip.comissao)}</span></div>
+                        <div><span className="text-muted-foreground">A receber: </span><span className="font-semibold text-emerald-600">{fmtBRL(totBraip.receber)}</span></div>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Salvo em</TableHead>
+                          <TableHead>Produto (filtro)</TableHead>
+                          <TableHead className="text-right">Vendas</TableHead>
+                          <TableHead className="text-right">Faturamento</TableHead>
+                          <TableHead className="text-right">Comissão bruta</TableHead>
+                          <TableHead className="text-right">%</TableHead>
+                          <TableHead className="text-right">A receber</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {braip.map((r) => (
                           <TableRow key={r.id}>
                             <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
                             <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
