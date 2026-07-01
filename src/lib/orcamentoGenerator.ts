@@ -848,6 +848,27 @@ function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number
     const metodo = condicoes.metodo_principal;
     const JUROS: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09 };
 
+    const formatDateBR = (iso?: string) => {
+      if (!iso) return '';
+      const [y, m, d] = iso.split('-');
+      return d && m && y ? `${d}/${m}/${y}` : iso;
+    };
+    const metodoLabel: Record<string, string> = {
+      pix_boleto: 'PIX / Boleto',
+      cartao_credito: 'Cartão de Crédito',
+      misto: 'Misto (PIX/Boleto + Cartão)',
+    };
+    if (metodo && metodoLabel[metodo]) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFontSize(LAYOUT.fontSize.body);
+      doc.text('Método:', LAYOUT.margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textDark);
+      doc.text(metodoLabel[metodo], LAYOUT.margin + labelWidth, yPos);
+      yPos += LAYOUT.lineHeight + 2;
+    }
+
     const renderPixBoleto = (parcelas: any[], label: string) => {
       doc.setFillColor(...COLORS.lightGray);
       const height = 10 + parcelas.length * LAYOUT.lineHeight;
@@ -862,7 +883,8 @@ function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number
       parcelas.forEach((p: any, i: number) => {
         const val = p.tipo_valor === 'percentual' ? orcamento.valor_total * p.valor / 100 : p.valor;
         const pctLabel = p.tipo_valor === 'percentual' ? ` (${p.valor}%)` : '';
-        doc.text(`Parcela ${i + 1}: ${formatCurrency(val)}${pctLabel}`, LAYOUT.margin + 5, yPos);
+        const vencLabel = p.data_vencimento ? ` — vence ${formatDateBR(p.data_vencimento)}` : '';
+        doc.text(`Parcela ${i + 1}: ${formatCurrency(val)}${pctLabel}${vencLabel}`, LAYOUT.margin + 5, yPos);
         yPos += LAYOUT.lineHeight;
       });
       yPos += 4;
@@ -886,7 +908,8 @@ function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number
         const vp = total / c.parcelas;
         const pctLabel = c.tipo_valor === 'percentual' ? ` (${c.valor}%)` : '';
         const jurosLabel = taxa > 0 ? ` +${(taxa * 100).toFixed(0)}% juros` : '';
-        doc.text(`Cartão ${i + 1}: ${c.parcelas}x de ${formatCurrency(vp)}${pctLabel}${jurosLabel}`, LAYOUT.margin + 5, yPos);
+        const vencLabel = c.data_primeira_parcela ? ` — 1ª em ${formatDateBR(c.data_primeira_parcela)}` : '';
+        doc.text(`Cartão ${i + 1}: ${c.parcelas}x de ${formatCurrency(vp)}${pctLabel}${jurosLabel}${vencLabel}`, LAYOUT.margin + 5, yPos);
         yPos += LAYOUT.lineHeight;
       });
       yPos += 4;
