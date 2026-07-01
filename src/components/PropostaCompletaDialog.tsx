@@ -1193,7 +1193,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         <Dialog open onOpenChange={() => onClose()}>
           <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>Preview do Resumo para Contrato</DialogTitle>
+              <DialogTitle>Preview do Projeto para Contrato</DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0">
               <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
@@ -1297,12 +1297,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     <Dialog open onOpenChange={() => onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Resumo para Contrato — {orcamento.nome_cliente}</DialogTitle>
+          <DialogTitle>Projeto para Contrato — {orcamento.nome_cliente}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
-            Preencha as informações abaixo para gerar o resumo para contrato. Os dados serão salvos no orçamento.
+            Preencha as informações abaixo para gerar o projeto para contrato. Os dados serão salvos no orçamento.
           </p>
 
           {/* 1. Informações do Cliente */}
@@ -1731,7 +1731,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
             ) : (
-              'Gerar Resumo para Contrato'
+              'Gerar Projeto para Contrato'
             )}
           </Button>
         </DialogFooter>
