@@ -290,12 +290,20 @@ export function RelatorioComissoes() {
       (r as any).braipReceber = ((r as any).braipReceber || 0) + v.receber;
       (r as any).braipQtd = ((r as any).braipQtd || 0) + v.qtd;
     });
-    // Total a receber = comissão paga + Monetizze + Braip
+    // Aplica Asaas (mesma lógica)
+    Object.entries(asaasPorConsultor).forEach(([consultor, v]) => {
+      if (consultorFiltro !== 'todos' && consultor !== consultorFiltro) return;
+      let r = m.get(consultor);
+      if (!r) { r = criar(consultor); m.set(consultor, r); }
+      (r as any).asaasReceber = ((r as any).asaasReceber || 0) + v.receber;
+      (r as any).asaasQtd = ((r as any).asaasQtd || 0) + v.qtd;
+    });
+    // Total a receber = comissão paga + Monetizze + Braip + Asaas
     m.forEach((r) => {
-      r.totalReceber = r.comissaoPaga + r.monetizzeReceber + ((r as any).braipReceber || 0);
+      r.totalReceber = r.comissaoPaga + r.monetizzeReceber + ((r as any).braipReceber || 0) + ((r as any).asaasReceber || 0);
     });
     return Array.from(m.values()).sort((a, b) => b.totalReceber - a.totalReceber);
-  }, [parcelasResumoConsultor, monetizzePorConsultor, braipPorConsultor, consultorFiltro]);
+  }, [parcelasResumoConsultor, monetizzePorConsultor, braipPorConsultor, asaasPorConsultor, consultorFiltro]);
 
   // Agrupa por pedido para a tabela
   const linhasPedido = useMemo(() => {
