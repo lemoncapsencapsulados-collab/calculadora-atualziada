@@ -38,6 +38,21 @@ export interface AnaliseVendedor {
   }>;
   monetizzeTotalReceber: number;
   monetizzeComissaoBruta: number;
+  // Braip (comissão real do consultor)
+  braipConsultas: Array<{
+    id: string;
+    createdAt: string;
+    mes: string;
+    filtroProduto: string | null;
+    quantidadeVendida: number;
+    faturamentoTotal: number;
+    comissaoTotal: number;
+    percentual: number;
+    valorConsultor: number;
+    observacao: string | null;
+  }>;
+  braipTotalReceber: number;
+  braipComissaoBruta: number;
 }
 
 const TIPOS = ['Encapsulado', 'Líquido', 'Solúvel', 'Gummy'];
@@ -210,6 +225,28 @@ export async function carregarAnaliseVendedor(
   const monetizzeTotalReceber = monetizzeConsultas.reduce((s, c) => s + c.valorConsultor, 0);
   const monetizzeComissaoBruta = monetizzeConsultas.reduce((s, c) => s + c.comissaoTotal, 0);
 
+  // 4) Braip — consultas salvas vinculadas a este consultor (pelo nome) no mês
+  const { data: brpData } = await supabase
+    .from('braip_consultas_salvas' as any)
+    .select('*')
+    .eq('consultor_nome', vendedor)
+    .eq('mes', mesStr)
+    .order('created_at', { ascending: false });
+  const braipConsultas = ((brpData as any[]) || []).map((r) => ({
+    id: r.id,
+    createdAt: r.created_at,
+    mes: r.mes,
+    filtroProduto: r.filtro_produto_nome || r.filtro_produto_codigo || null,
+    quantidadeVendida: Number(r.quantidade_vendida) || 0,
+    faturamentoTotal: Number(r.faturamento_total) || 0,
+    comissaoTotal: Number(r.comissao_total) || 0,
+    percentual: Number(r.percentual) || 0,
+    valorConsultor: Number(r.valor_consultor) || 0,
+    observacao: r.observacao || null,
+  }));
+  const braipTotalReceber = braipConsultas.reduce((s, c) => s + c.valorConsultor, 0);
+  const braipComissaoBruta = braipConsultas.reduce((s, c) => s + c.comissaoTotal, 0);
+
   return {
     vendedor,
     mes,
@@ -232,6 +269,9 @@ export async function carregarAnaliseVendedor(
     monetizzeConsultas,
     monetizzeTotalReceber,
     monetizzeComissaoBruta,
+    braipConsultas,
+    braipTotalReceber,
+    braipComissaoBruta,
   };
 }
 
