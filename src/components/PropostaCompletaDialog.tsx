@@ -1776,11 +1776,30 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           </Card>
         </div>
 
+        {camposPendentes.length > 0 && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <p className="font-semibold mb-1">
+                Preencha {camposPendentes.length} campo{camposPendentes.length > 1 ? 's' : ''} obrigatório{camposPendentes.length > 1 ? 's' : ''} antes de enviar:
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-sm">
+                {camposPendentes.map((c, i) => (<li key={i}>{c}</li>))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
         <DialogFooter className="gap-2 sm:gap-0">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleGenerateProposta} disabled={isSubmitting}>
+          <Button
+            onClick={handleGenerateProposta}
+            disabled={isSubmitting || camposPendentes.length > 0}
+            title={camposPendentes.length > 0 ? `Preencha ${camposPendentes.length} campo(s) obrigatório(s)` : undefined}
+          >
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
+            ) : camposPendentes.length > 0 ? (
+              `Enviar contrato para Financeiro (${camposPendentes.length} pendente${camposPendentes.length > 1 ? 's' : ''})`
             ) : (
               'Enviar contrato para Financeiro'
             )}
