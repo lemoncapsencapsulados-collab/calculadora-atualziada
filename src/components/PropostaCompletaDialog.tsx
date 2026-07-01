@@ -146,6 +146,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [enviandoFinanceiro, setEnviandoFinanceiro] = useState(false);
+  const [enviadoFinanceiro, setEnviadoFinanceiro] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
   // Tipo pessoa
@@ -840,6 +843,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       const blob = await generateOrcamentoPDFBlob(orcamentoAtualizado);
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
+      setPdfBlob(blob);
+      setEnviadoFinanceiro(false);
       setShowPreview(true);
 
       // Salvar PDF + dados no storage/tabela (substitui versão anterior)
@@ -889,6 +894,53 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     };
     await generateOrcamentoPDF(orcamentoAtualizado);
     onClose();
+  };
+
+  const handleEnviarFinanceiro = async () => {
+    if (!pdfBlob) {
+      toast.error('PDF não disponível para envio.');
+      return;
+    }
+    setEnviandoFinanceiro(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      const valorTotal = (orcamento as any).valor_total ?? (orcamento as any).total ?? 0;
+      const valorTotalFmt = typeof valorTotal === 'number'
+        ? valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        : String(valorTotal || '');
+
+      const razaoSocial = tipoPessoa === 'pj' ? (dadosCliente.razao_social || '') : '';
+      const cnpj = tipoPessoa === 'pj' ? (dadosCliente.cnpj || '') : '';
+
+      const { data, error } = await supabase.functions.invoke('enviar-projeto-financeiro', {
+        body: {
+          pdfBase64: base64,
+          filename: `projeto-${orcamento.numero_orcamento || orcamento.id}.pdf`,
+          consultorNome: orcamento.consultor_responsavel || '',
+          razaoSocial,
+          cnpj,
+          cliente: orcamento.nome_cliente || '',
+          valorTotal: valorTotalFmt,
+          orcamentoId: orcamento.id,
+          orcamentoNumero: orcamento.numero_orcamento || '',
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setEnviadoFinanceiro(true);
+      toast.success('Projeto enviado ao Financeiro.');
+    } catch (err: any) {
+      console.error('Erro ao enviar ao Financeiro:', err);
+      toast.error('Erro ao enviar ao Financeiro: ' + (err?.message || 'desconhecido'));
+    } finally {
+      setEnviandoFinanceiro(false);
+    }
   };
 
   // Cleanup URL on unmount
@@ -1207,34 +1259,25 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
               <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowPreview(false)}>Voltar</Button>
-              <Button
-                variant="outline"
-                onClick={handleCadastrarVhSys}
-                disabled={vhsysLoading}
-              >
-                {vhsysLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <UserPlus className="w-4 h-4 mr-2" />
-                )}
-                {vhsysLoading ? 'Cadastrando...' : 'Cadastrar Cliente no VhSys'}
-              </Button>
-              <Button onClick={handleDownload}>
+              <Button variant="outline" onClick={handleDownload}>
                 <Download className="w-4 h-4 mr-2" />
-                Baixar PDF
+                Baixar Documento
+              </Button>
+              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={enviandoFinanceiro}>
+                Voltar e editar documento
               </Button>
               <Button
-                variant="outline"
-                onClick={abrirZapSignDialog}
-                disabled={zapSignLoading}
+                onClick={handleEnviarFinanceiro}
+                disabled={enviandoFinanceiro || enviadoFinanceiro}
+                className={enviadoFinanceiro ? 'bg-green-600 hover:bg-green-600 text-white' : ''}
               >
-                {zapSignLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {enviandoFinanceiro ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
+                ) : enviadoFinanceiro ? (
+                  'Enviado'
                 ) : (
-                  <FileSignature className="w-4 h-4 mr-2" />
+                  'Enviar Documento'
                 )}
-                {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1707,7 +1750,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             {isSubmitting ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
             ) : (
-              'Gerar Projeto para Contrato'
+              'Enviar contrato para Financeiro'
             )}
           </Button>
         </DialogFooter>
