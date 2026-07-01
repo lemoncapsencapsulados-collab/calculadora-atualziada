@@ -6,7 +6,7 @@ interface Filtro {
   mes: string; // YYYY-MM
   produto_nome?: string;
   produto_codigo?: string;
-  status?: string[]; // ex: ['approved','paid']
+  status_codes?: number[]; // ex: [2] = Pagamento Aprovado
 }
 
 function rangeMes(mes: string): { ini: string; fim: string } {
@@ -29,6 +29,8 @@ async function fetchComTimeout(url: string, opts: RequestInit, ms = 25000): Prom
 async function fetchPagina(token: string, filtro: Filtro, page: number): Promise<any[]> {
   const { ini, fim } = rangeMes(filtro.mes);
   const params = new URLSearchParams();
+  // Usa data de criação da venda (date_min/date_max funcionam com o WAF da Braip).
+  // O filtro de "aprovadas" é feito em código pelo trans_status_code.
   params.set('date_min', ini);
   params.set('date_max', fim);
   params.set('page', String(page));
@@ -45,6 +47,7 @@ async function fetchPagina(token: string, filtro: Filtro, page: number): Promise
   if (!r.ok) throw new Error(`Braip /vendas falhou (${r.status}): ${txt.slice(0, 500)}`);
   let data: any;
   try { data = JSON.parse(txt); } catch { throw new Error(`Resposta inválida: ${txt.slice(0, 200)}`); }
+  // Formato paginado: { current_page, data: [...], last_page, ... }
   const lista: any[] =
     Array.isArray(data) ? data :
     (data?.data || data?.vendas || data?.transactions || data?.items || []);
@@ -58,11 +61,11 @@ async function buscarTransacoes(token: string, filtro: Filtro): Promise<any[]> {
     console.log('[braip] keys:', Object.keys(primeira[0]).join(','));
     console.log('[braip] sample:', JSON.stringify(primeira[0]).slice(0, 1500));
   }
-  if (primeira.length < 50) return primeira;
+  if (primeira.length < 100) return primeira;
 
   const todas = [...primeira];
   const maxPages = 40;
-  const concorrencia = 4;
+  const concorrencia = 2;
   let proxima = 2;
   let acabou = false;
   while (!acabou && proxima <= maxPages) {
@@ -82,14 +85,11 @@ async function buscarTransacoes(token: string, filtro: Filtro): Promise<any[]> {
   return todas;
 }
 
-function parseMoney(v: any): number {
+// Valores da Braip vêm em centavos como string ("19700" = R$ 197,00)
+function parseCents(v: any): number {
   if (v === undefined || v === null || v === '') return 0;
-  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-  const raw = String(v).trim();
-  if (!raw) return 0;
-  const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
-  const n = Number(normalized);
-  return Number.isFinite(n) ? n : 0;
+  const n = typeof v === 'number' ? v : Number(String(v).trim());
+  return Number.isFinite(n) ? n / 100 : 0;
 }
 
 function normalizar(s: string): string {
@@ -100,76 +100,71 @@ function normalizar(s: string): string {
     .trim();
 }
 
-function getStatus(t: any): string {
-  return String(t?.status?.descricao || t?.status?.nome || t?.status || t?.situacao || '').toLowerCase();
+function getStatusCode(t: any): number {
+  const c = t?.trans_status_code;
+  const n = typeof c === 'number' ? c : Number(c);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function ehAprovada(t: any): boolean {
-  const s = normalizar(getStatus(t));
-  return (
-    s.includes('aprov') ||
-    s.includes('paid') ||
-    s.includes('pago') ||
-    s.includes('complet') ||
-    s.includes('finaliz')
-  );
+  // 2 = Pagamento Aprovado, 9 = Parcialmente Pago
+  const code = getStatusCode(t);
+  if (code === 2 || code === 9) return true;
+  const s = normalizar(String(t?.trans_status || ''));
+  return s.includes('aprov') || s === 'pago' || s.includes('parcial');
 }
 
 function getProdutoNome(t: any): string {
-  return (
-    t?.produto?.nome ||
-    t?.produto?.titulo ||
-    t?.product?.name ||
-    t?.product_name ||
-    t?.nome_produto ||
-    t?.oferta?.nome ||
-    ''
-  );
+  return t?.product_name || t?.plan_name || '';
 }
 
 function getProdutoNomesTodos(t: any): string[] {
   const push = (v: any, arr: string[]) => { if (v) arr.push(String(v)); };
   const out: string[] = [];
-  push(t?.produto?.nome, out);
-  push(t?.produto?.titulo, out);
-  push(t?.produto?.codigo, out);
-  push(t?.produto?.key, out);
-  push(t?.product?.name, out);
   push(t?.product_name, out);
-  push(t?.nome_produto, out);
-  push(t?.oferta?.nome, out);
-  push(t?.oferta?.codigo, out);
-  if (Array.isArray(t?.produtos)) for (const p of t.produtos) { push(p?.nome, out); push(p?.codigo, out); }
-  if (Array.isArray(t?.itens)) for (const p of t.itens) { push(p?.nome, out); push(p?.produto?.nome, out); }
+  push(t?.product_key, out);
+  push(t?.plan_name, out);
+  push(t?.plan_key, out);
+  if (Array.isArray(t?.trans_items)) {
+    for (const p of t.trans_items) {
+      push(p?.plan_name, out);
+      push(p?.plan_key, out);
+      push(p?.product_key, out);
+    }
+  }
   return out;
 }
 
 function getValor(t: any): number {
-  const v = t?.valor_total ?? t?.valor ?? t?.venda?.valor ?? t?.amount ?? t?.total ?? 0;
-  return parseMoney(v);
+  // Preferimos o valor líquido de produto (trans_value), fallback total (com frete)
+  const v = t?.trans_value ?? t?.trans_total_value ?? 0;
+  return parseCents(v);
 }
 
 function getComissao(t: any): number {
-  const v =
-    t?.valor_comissao ??
-    t?.comissao ??
-    t?.valor_comissionado ??
-    t?.commission ??
-    t?.participacao?.valor ??
-    0;
-  return parseMoney(v);
+  // A resposta traz commissions[]: soma tudo que NÃO é taxa da Braip/Sistema
+  const lista: any[] = Array.isArray(t?.commissions) ? t.commissions : [];
+  if (!lista.length) return 0;
+  let soma = 0;
+  for (const c of lista) {
+    const tipo = normalizar(String(c?.type || ''));
+    const nome = normalizar(String(c?.name || ''));
+    if (tipo === 'sistema' || nome === 'braip') continue;
+    soma += parseCents(c?.value);
+  }
+  return soma;
 }
 
 function getCliente(t: any): string {
-  return t?.cliente?.nome || t?.comprador?.nome || t?.customer?.name || t?.buyer?.name || '';
+  return t?.client_name || '';
 }
 
 function getCodigo(t: any): string {
-  return String(t?.codigo || t?.transaction_key || t?.transaction || t?.id || '');
+  return String(t?.trans_key || '');
 }
 
 function getData(t: any): string | null {
-  return t?.data_finalizacao || t?.data_pagamento || t?.paid_at || t?.data || t?.created_at || null;
+  return t?.trans_payment_date || t?.trans_updatedate || t?.trans_createdate || null;
 }
 
 Deno.serve(async (req) => {
