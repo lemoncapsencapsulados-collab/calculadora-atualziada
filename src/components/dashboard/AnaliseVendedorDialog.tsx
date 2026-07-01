@@ -431,6 +431,65 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                       )}
                     </CardContent>
                   </Card>
+
+                  <Card className="border-emerald-500/40 bg-emerald-500/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        Comissão Monetizze (consultas salvas)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {analise.monetizzeConsultas.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Nenhuma consulta Monetizze salva para este consultor no mês. Vá em Painel Administrador → Comissionamento → Consultar Monetizze e salve vinculado a {analise.vendedor}.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Consultas salvas</p>
+                              <p className="font-semibold">{analise.monetizzeConsultas.length}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Comissão real (bruta)</p>
+                              <p className="font-semibold">{formatBRL(analise.monetizzeComissaoBruta)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Total a receber</p>
+                              <p className="font-bold text-emerald-600">{formatBRL(analise.monetizzeTotalReceber)}</p>
+                            </div>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="border-b">
+                                <tr className="text-left">
+                                  <th className="py-1 pr-2">Data</th>
+                                  <th className="py-1 pr-2">Filtro</th>
+                                  <th className="py-1 pr-2">Vendas</th>
+                                  <th className="py-1 pr-2">Comissão real</th>
+                                  <th className="py-1 pr-2">%</th>
+                                  <th className="py-1">A receber</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {analise.monetizzeConsultas.map((c) => (
+                                  <tr key={c.id} className="border-b last:border-0">
+                                    <td className="py-1 pr-2">{format(new Date(c.createdAt), 'dd/MM/yyyy')}</td>
+                                    <td className="py-1 pr-2">{c.filtroProduto || '—'}</td>
+                                    <td className="py-1 pr-2">{c.quantidadeVendida}</td>
+                                    <td className="py-1 pr-2">{formatBRL(c.comissaoTotal)}</td>
+                                    <td className="py-1 pr-2">{c.percentual}%</td>
+                                    <td className="py-1 font-semibold text-emerald-600">{formatBRL(c.valorConsultor)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
               )}
             </ScrollArea>
