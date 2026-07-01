@@ -14,6 +14,8 @@ import { useUsuarios } from '@/hooks/useUsuarios';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AsaasConciliacaoPedidos } from './AsaasConciliacaoPedidos';
 
 const fmtBRL = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
