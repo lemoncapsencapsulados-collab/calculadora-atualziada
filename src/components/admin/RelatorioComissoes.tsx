@@ -18,6 +18,7 @@ import AlterarPagamentoDialog from '@/components/pedidos/AlterarPagamentoDialog'
 import { ConfirmarExclusaoPedidoDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoDialog';
 import { MonetizzeConsultaCard } from '@/components/admin/MonetizzeConsultaCard';
 import { BraipConsultaCard } from '@/components/admin/BraipConsultaCard';
+import { AsaasConsultaCard } from '@/components/admin/AsaasConsultaCard';
 import { Pedido } from '@/types/formula';
 import { arredondarReais } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -375,6 +376,9 @@ export function RelatorioComissoes() {
 
       {/* Braip — faturamento real */}
       <BraipConsultaCard />
+
+      {/* Asaas — cobranças pagas */}
+      <AsaasConsultaCard />
 
       {/* Filtros */}
       <Card>

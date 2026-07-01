@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      asaas_consultas_salvas: {
+        Row: {
+          consultor_id: string
+          consultor_nome: string
+          created_at: string
+          faturamento_total: number
+          filtro_cliente: string | null
+          id: string
+          liquido_total: number
+          mes: string
+          observacao: string | null
+          percentual: number
+          por_cliente: Json
+          quantidade_recebida: number
+          updated_at: string
+          valor_consultor: number
+        }
+        Insert: {
+          consultor_id: string
+          consultor_nome: string
+          created_at?: string
+          faturamento_total?: number
+          filtro_cliente?: string | null
+          id?: string
+          liquido_total?: number
+          mes: string
+          observacao?: string | null
+          percentual?: number
+          por_cliente?: Json
+          quantidade_recebida?: number
+          updated_at?: string
+          valor_consultor?: number
+        }
+        Update: {
+          consultor_id?: string
+          consultor_nome?: string
+          created_at?: string
+          faturamento_total?: number
+          filtro_cliente?: string | null
+          id?: string
+          liquido_total?: number
+          mes?: string
+          observacao?: string | null
+          percentual?: number
+          por_cliente?: Json
+          quantidade_recebida?: number
+          updated_at?: string
+          valor_consultor?: number
+        }
+        Relationships: []
+      }
       asaas_webhook_pendentes: {
         Row: {
           asaas_customer_id: string | null
