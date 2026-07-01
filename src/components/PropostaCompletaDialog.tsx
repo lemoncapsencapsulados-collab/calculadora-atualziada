@@ -146,6 +146,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [enviandoFinanceiro, setEnviandoFinanceiro] = useState(false);
+  const [enviadoFinanceiro, setEnviadoFinanceiro] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
   // Tipo pessoa
