@@ -1107,6 +1107,46 @@ function DetalheConsultorDialog({
                     </Table>
                   </div>
                 )}
+                {braip.length > 0 && (
+                  <div className="rounded-md border bg-orange-50/40 dark:bg-orange-950/10 p-3 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="text-xs font-semibold text-orange-700 dark:text-orange-300">
+                        Braip — consultas salvas ({braip.length})
+                      </div>
+                      <div className="flex gap-4 text-[11px]">
+                        <div><span className="text-muted-foreground">Faturamento: </span><span className="font-semibold">{fmtBRL(totBraip.faturamento)}</span></div>
+                        <div><span className="text-muted-foreground">Comissão bruta: </span><span className="font-semibold">{fmtBRL(totBraip.comissao)}</span></div>
+                        <div><span className="text-muted-foreground">A receber: </span><span className="font-semibold text-emerald-600">{fmtBRL(totBraip.receber)}</span></div>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Salvo em</TableHead>
+                          <TableHead>Produto (filtro)</TableHead>
+                          <TableHead className="text-right">Vendas</TableHead>
+                          <TableHead className="text-right">Faturamento</TableHead>
+                          <TableHead className="text-right">Comissão bruta</TableHead>
+                          <TableHead className="text-right">%</TableHead>
+                          <TableHead className="text-right">A receber</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {braip.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-xs">{format(new Date(r.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</TableCell>
+                            <TableCell className="text-xs">{r.filtro_produto_nome || 'Todos'}</TableCell>
+                            <TableCell className="text-right">{r.quantidade_vendida}</TableCell>
+                            <TableCell className="text-right">{fmtBRL(Number(r.faturamento_total))}</TableCell>
+                            <TableCell className="text-right">{fmtBRL(Number(r.comissao_total))}</TableCell>
+                            <TableCell className="text-right">{Number(r.percentual).toFixed(2)}%</TableCell>
+                            <TableCell className="text-right font-semibold text-emerald-600">{fmtBRL(Number(r.valor_consultor))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </div>
             )}
             {renderGrupo('A vencer no mês', aVencer, 'pendente')}
