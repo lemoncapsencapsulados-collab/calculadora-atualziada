@@ -14,6 +14,8 @@ import { useUsuarios } from '@/hooks/useUsuarios';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AsaasConciliacaoPedidos } from './AsaasConciliacaoPedidos';
 
 const fmtBRL = (v: number) =>
   (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -384,6 +386,12 @@ export function AsaasConsultaCard() {
               </Card>
             </div>
 
+            <Tabs defaultValue="resumo" className="w-full">
+              <TabsList>
+                <TabsTrigger value="resumo">Resumo & detalhes</TabsTrigger>
+                <TabsTrigger value="conciliacao">Conciliação com orçamentos</TabsTrigger>
+              </TabsList>
+              <TabsContent value="resumo" className="space-y-4 pt-3">
             {data.por_cliente.length > 0 && (
               <div>
                 <div className="text-sm font-semibold mb-2">Por cliente</div>
@@ -534,6 +542,11 @@ export function AsaasConsultaCard() {
                 )}
               </div>
             )}
+              </TabsContent>
+              <TabsContent value="conciliacao" className="pt-3">
+                <AsaasConciliacaoPedidos itens={data.itens || []} />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 
