@@ -1388,6 +1388,207 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             Preencha as informações abaixo para gerar o projeto para contrato. Os dados serão salvos no orçamento.
           </p>
 
+          {/* Resumo em tempo real — reflete tudo que já foi preenchido */}
+          {(() => {
+            const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+            const dash = (v?: string | number | null) => (v === undefined || v === null || v === '' ? <span className="text-muted-foreground italic">—</span> : String(v));
+            const obf = (n: string) => (n.toLowerCase().includes('amido') && n.toLowerCase().includes('milho')) ? 'Excipiente' : n;
+            const modeloPod = orcamento.itens_producao?.some(i => i.modelo_negocio === 'print_on_demand');
+            const subtotalProd = orcamento.itens_producao?.reduce((s, i) => s + (i.subtotal || 0), 0) || 0;
+            const subtotalServ = orcamento.servicos_marca?.reduce((s, sv) => s + (sv.valor || 0), 0) || 0;
+            const total = subtotalProd + subtotalServ;
+            const errosPg = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
+            const cp = condicoesPagamento || {};
+            const metodoLabel = cp.metodo_principal === 'pix_boleto' ? 'Pix / Boleto'
+              : cp.metodo_principal === 'cartao_credito' ? 'Cartão de Crédito'
+              : cp.metodo_principal === 'misto' ? 'Misto (Pix/Boleto + Cartão)'
+              : null;
+            const pixParcelas = cp.metodo_principal === 'misto' ? cp.misto_parcelas_pix_boleto : cp.parcelas_pix_boleto;
+            const cartoes = cp.metodo_principal === 'misto' ? cp.misto_cartoes : cp.cartoes;
+            const freteLabel = detalhamentoEnvio.tipo === 'total_produtor'
+              ? 'Envio total ao Produtor (CNPJ)'
+              : detalhamentoEnvio.tipo === 'total_lemoncaps'
+                ? 'Envio pela Lemon Caps ao cliente final'
+                : 'Parcial';
+            return (
+              <Card className="sticky top-0 z-10 border-primary/40 shadow-sm bg-background/95 backdrop-blur">
+                <CardHeader className="py-3">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-primary" />
+                      Resumo do Orçamento em Tempo Real
+                    </CardTitle>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-semibold">Nº {orcamento.numero_orcamento}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold">
+                        {orcamento.tipo_orcamento === 'recompra' ? 'Produtor Experiente / Recompra' : 'Novo Produtor'}
+                      </span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${modeloPod ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'}`}>
+                        {modeloPod ? 'Print on Demand' : 'Pedido sob Estoque'}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-semibold">
+                        Consultor: {orcamento.consultor_responsavel || '—'}
+                      </span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Cliente */}
+                    <div className="rounded-md border p-2.5 space-y-1">
+                      <p className="text-[11px] font-semibold uppercase text-muted-foreground">Cliente ({tipoPessoa === 'pj' ? 'PJ' : 'PF'})</p>
+                      {tipoPessoa === 'pj' ? (
+                        <div className="space-y-0.5 text-xs">
+                          <p><span className="text-muted-foreground">Razão Social:</span> {dash(dadosCliente.razao_social)}</p>
+                          <p><span className="text-muted-foreground">CNPJ:</span> {dash(dadosCliente.cnpj)}</p>
+                          {(dadosCliente.inscricao_estadual || dadosCliente.inscricao_municipal) && (
+                            <p><span className="text-muted-foreground">IE/IM:</span> {dadosCliente.inscricao_estadual || '—'} / {dadosCliente.inscricao_municipal || '—'}</p>
+                          )}
+                          <p><span className="text-muted-foreground">Endereço:</span> {dash([dadosCliente.endereco_cnpj, dadosCliente.cep_cnpj, dadosCliente.cidade && `${dadosCliente.cidade}/${dadosCliente.estado || ''}`].filter(Boolean).join(' · '))}</p>
+                          <p><span className="text-muted-foreground">Email:</span> {dash(dadosCliente.email)}</p>
+                          <p><span className="text-muted-foreground">Telefone:</span> {dash(dadosCliente.telefone)}</p>
+                          <p><span className="text-muted-foreground">Responsável:</span> {dash(responsavelPJ.nome)} {responsavelPJ.cpf ? `(CPF ${responsavelPJ.cpf})` : ''}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-0.5 text-xs">
+                          {pessoasFisicas.map((pf, i) => (
+                            <div key={i} className={i > 0 ? 'pt-1 mt-1 border-t' : ''}>
+                              <p><span className="text-muted-foreground">Nome:</span> {dash(pf.nome)}</p>
+                              <p><span className="text-muted-foreground">CPF:</span> {dash(pf.cpf)} {pf.rg ? `· RG ${pf.rg}` : ''}</p>
+                              <p><span className="text-muted-foreground">Endereço:</span> {dash([pf.endereco, pf.cep, pf.cidade].filter(Boolean).join(' · '))}</p>
+                              <p><span className="text-muted-foreground">Email:</span> {dash(pf.email)} · <span className="text-muted-foreground">Tel:</span> {dash(pf.telefone)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Frete + Pagamento */}
+                    <div className="space-y-2">
+                      <div className="rounded-md border p-2.5 space-y-1">
+                        <p className="text-[11px] font-semibold uppercase text-muted-foreground">Frete</p>
+                        <p className="text-xs">{freteLabel}</p>
+                        {detalhamentoEnvio.descricao_parcial && (
+                          <p className="text-[11px] text-muted-foreground">{detalhamentoEnvio.descricao_parcial}</p>
+                        )}
+                      </div>
+                      <div className="rounded-md border p-2.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-semibold uppercase text-muted-foreground">Pagamento</p>
+                          {errosPg.length === 0 && metodoLabel ? (
+                            <span className="text-[10px] text-emerald-600 font-semibold">✓ válido</span>
+                          ) : (
+                            <span className="text-[10px] text-amber-600 font-semibold">⚠ incompleto</span>
+                          )}
+                        </div>
+                        <p className="text-xs"><span className="text-muted-foreground">Método:</span> {metodoLabel || <span className="italic text-muted-foreground">não definido</span>}</p>
+                        {pixParcelas && pixParcelas.length > 0 && (
+                          <div className="text-[11px] space-y-0.5">
+                            <p className="text-muted-foreground">Pix/Boleto — {pixParcelas.length}x</p>
+                            {pixParcelas.map((p, i) => (
+                              <p key={i}>· {p.tipo_valor === 'percentual' ? `${p.valor}%` : fmt(p.valor)} {p.data_vencimento ? `— venc. ${new Date(p.data_vencimento + 'T00:00').toLocaleDateString('pt-BR')}` : ''}</p>
+                            ))}
+                          </div>
+                        )}
+                        {cartoes && cartoes.length > 0 && (
+                          <div className="text-[11px] space-y-0.5">
+                            <p className="text-muted-foreground">Cartão de Crédito</p>
+                            {cartoes.map((c, i) => (
+                              <p key={i}>· {c.tipo_valor === 'percentual' ? `${c.valor}%` : fmt(c.valor)} em {c.parcelas}x {c.data_primeira_parcela ? `— 1ª ${new Date(c.data_primeira_parcela + 'T00:00').toLocaleDateString('pt-BR')}` : ''}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Produtos */}
+                  <div className="rounded-md border p-2.5">
+                    <p className="text-[11px] font-semibold uppercase text-muted-foreground mb-1.5">Produtos / Fórmulas</p>
+                    {(!orcamento.itens_producao || orcamento.itens_producao.length === 0) ? (
+                      <p className="text-xs italic text-muted-foreground">Nenhum item</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {orcamento.itens_producao.map((it, idx) => {
+                          const det = detalhesProducao[idx] || {};
+                          const detTxt = Object.entries(det).filter(([, v]) => v).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · ');
+                          return (
+                            <div key={idx} className="text-xs border-l-2 border-primary/40 pl-2">
+                              <div className="flex items-start justify-between gap-2 flex-wrap">
+                                <div>
+                                  <span className="font-semibold">{it.nome_produto}</span>
+                                  {it.segmento && <span className="text-muted-foreground"> · {it.segmento}</span>}
+                                  {it.modelo_negocio === 'print_on_demand' && (
+                                    <span className="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold">POD</span>
+                                  )}
+                                </div>
+                                <div className="text-right whitespace-nowrap">
+                                  <span className="text-muted-foreground">{it.quantidade} × {fmt(it.preco_unitario)}</span>
+                                  <span className="ml-2 font-semibold">{fmt(it.subtotal)}</span>
+                                </div>
+                              </div>
+                              {it.insumos_formula && it.insumos_formula.length > 0 && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  Fórmula: {it.insumos_formula.map(i => `${obf(i.nome)} ${i.quantidade}${i.unidade}`).join(' · ')}
+                                </p>
+                              )}
+                              {detTxt && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Produção: {detTxt}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Serviços de marca / Setup / Entregáveis */}
+                  {orcamento.servicos_marca && orcamento.servicos_marca.length > 0 && (
+                    <div className="rounded-md border p-2.5">
+                      <p className="text-[11px] font-semibold uppercase text-muted-foreground mb-1.5">Setup e Serviços de Marca</p>
+                      <div className="space-y-1.5">
+                        {orcamento.servicos_marca.map((sv, i) => (
+                          <div key={i} className="text-xs border-l-2 border-emerald-500/40 pl-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold">{sv.nome_plano}</span>
+                              <span className="font-semibold">{fmt(sv.valor)}</span>
+                            </div>
+                            {sv.descricao && <p className="text-[10px] text-muted-foreground">{sv.descricao}</p>}
+                            {sv.entregaveis && sv.entregaveis.length > 0 && (
+                              <ul className="text-[10px] text-muted-foreground mt-0.5 grid grid-cols-2 gap-x-2">
+                                {sv.entregaveis.filter(e => e.incluso).map((e, k) => (
+                                  <li key={k}>✓ {e.nome} × {e.quantidade}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Totais */}
+                  <div className="rounded-md border p-2.5 bg-muted/40">
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground">Subtotal Produção</p>
+                        <p className="font-semibold">{fmt(subtotalProd)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase text-muted-foreground">Subtotal Serviços</p>
+                        <p className="font-semibold">{fmt(subtotalServ)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase text-muted-foreground">Valor Total</p>
+                        <p className="font-bold text-base text-primary">{fmt(total)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* 1. Informações do Cliente */}
           <Card>
             <CardHeader className="py-3">
