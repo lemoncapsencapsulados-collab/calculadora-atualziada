@@ -95,6 +95,33 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendedor, mesData]);
 
+  // Realtime: refaz a análise quando uma consulta Braip deste consultor é
+  // salva/alterada/excluída no mês em exibição.
+  useEffect(() => {
+    if (!vendedor) return;
+    const mesStrLocal = format(mesData, 'yyyy-MM');
+    const channel = supabase
+      .channel(`braip-consultas-${vendedor}-${mesStrLocal}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'braip_consultas_salvas',
+          filter: `consultor_nome=eq.${vendedor}`,
+        },
+        (payload) => {
+          const row: any = payload.new || payload.old;
+          if (!row || row.mes === mesStrLocal) recalcular(true);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendedor, mesData]);
+
   const exportarCSV = () => {
     if (!analise) return;
     const csv = gerarCSVAnalise(analise);
