@@ -83,6 +83,7 @@ export function RelatorioComissoes() {
   // Monetizze — total a receber por consultor no mês do resumo
   const [monetizzePorConsultor, setMonetizzePorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
   const [braipPorConsultor, setBraipPorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
+  const [asaasPorConsultor, setAsaasPorConsultor] = useState<Record<string, { receber: number; qtd: number }>>({});
 
   useEffect(() => {
     let ativo = true;
