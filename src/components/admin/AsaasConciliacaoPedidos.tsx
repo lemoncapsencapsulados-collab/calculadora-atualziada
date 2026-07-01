@@ -15,6 +15,10 @@ interface ItemCobranca {
   installment_numero?: number | null;
   installment_total?: number | null;
   data_pagamento: string | null;
+  vencimento?: string | null;
+  forma_label?: string;
+  forma?: string;
+  descricao?: string;
 }
 
 interface Props {
@@ -22,6 +26,12 @@ interface Props {
 }
 
 const fmtBRL = (v: number) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtDate = (s?: string | null) => {
+  if (!s) return '—';
+  const d = new Date(s + (s.length === 10 ? 'T00:00:00' : ''));
+  if (isNaN(d.getTime())) return s;
+  return d.toLocaleDateString('pt-BR');
+};
 
 function normalize(s: string) {
   return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -71,6 +81,11 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
       brutoPago: number;
       liquidoPago: number;
       match: boolean;
+      primeiroPagto: string | null;
+      ultimoPagto: string | null;
+      proximoVencimento: string | null;
+      formas: string[];
+      itens: ItemCobranca[];
     };
 
     const linhas: Linha[] = [];
@@ -82,6 +97,13 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
       // total esperado de parcelas: prioriza o do orçamento (asaas_parcelas_total), senão o retornado pela API
       const totalOrc = orcs.find((o) => o.asaas_parcelas_total)?.asaas_parcelas_total || null;
       const totalApi = grupo.itens.find((i) => i.installment_total)?.installment_total || null;
+      const datasPagto = grupo.itens.map((i) => i.data_pagamento).filter(Boolean) as string[];
+      datasPagto.sort();
+      const vencs = grupo.itens.map((i) => i.vencimento).filter(Boolean) as string[];
+      vencs.sort();
+      const hoje = new Date().toISOString().slice(0, 10);
+      const proxVenc = vencs.find((v) => v >= hoje) || null;
+      const formas = Array.from(new Set(grupo.itens.map((i) => i.forma_label || i.forma || '').filter(Boolean)));
       linhas.push({
         cliente: grupo.nome,
         consultor,
@@ -91,6 +113,11 @@ export function AsaasConciliacaoPedidos({ itens }: Props) {
         brutoPago: bruto,
         liquidoPago: liquido,
         match: orcs.length > 0,
+        primeiroPagto: datasPagto[0] || null,
+        ultimoPagto: datasPagto[datasPagto.length - 1] || null,
+        proximoVencimento: proxVenc,
+        formas,
+        itens: grupo.itens,
       });
     }
     linhas.sort((a, b) => Number(b.match) - Number(a.match) || b.liquidoPago - a.liquidoPago);
