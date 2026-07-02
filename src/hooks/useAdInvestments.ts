@@ -13,6 +13,7 @@ export interface AdInvestmentConsultor {
 
 export interface AdInvestment {
   id: string;
+  nome_campanha: string;
   canal: string;
   data_inicio: string;
   data_fim: string;
@@ -26,6 +27,7 @@ export interface AdInvestment {
 
 export interface AdInvestmentInput {
   id?: string;
+  nome_campanha: string;
   canal: string;
   data_inicio: string;
   data_fim: string;
@@ -76,6 +78,7 @@ export function useAdInvestments() {
   const salvar = useMutation({
     mutationFn: async (input: AdInvestmentInput) => {
       const payload = {
+        nome_campanha: input.nome_campanha,
         canal: input.canal,
         data_inicio: input.data_inicio,
         data_fim: input.data_fim,

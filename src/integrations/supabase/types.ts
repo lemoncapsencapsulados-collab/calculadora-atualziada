@@ -71,6 +71,7 @@ export type Database = {
           data_inicio: string
           id: string
           investimento_total: number
+          nome_campanha: string
           objetivo_campanha: string
           observacoes: string | null
           updated_at: string
@@ -83,6 +84,7 @@ export type Database = {
           data_inicio: string
           id?: string
           investimento_total: number
+          nome_campanha?: string
           objetivo_campanha: string
           observacoes?: string | null
           updated_at?: string
@@ -95,6 +97,7 @@ export type Database = {
           data_inicio?: string
           id?: string
           investimento_total?: number
+          nome_campanha?: string
           objetivo_campanha?: string
           observacoes?: string | null
           updated_at?: string
