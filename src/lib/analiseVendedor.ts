@@ -12,6 +12,12 @@ export interface AnaliseVendedor {
   potesPorTipo: Record<string, number>;
   maiorVolumePotesVenda: number;
   produtosVendidos: Array<{ nome: string; qtdPotes: number; receita: number; vezes: number }>;
+  // Recompras vs Novo Produtor
+  qtdVendasRecompras: number;
+  qtdVendasNovosProdutores: number;
+  receitaRecompras: number;
+  receitaNovosProdutores: number;
+  taxaConversaoNovoProdutor: number; // 0..1
   // Setups
   setupsVendidos: Array<{ nome: string; quantidade: number; valorTotal: number }>;
   setupMaisVendido: string | null;
@@ -129,6 +135,7 @@ export async function carregarAnaliseVendedor(
       numeroPedido: p.numero_pedido,
       cliente,
       data: p.data_pedido,
+      tipo_orcamento: String(snap.tipo_orcamento || fallback?.tipo_orcamento || ''),
       itens_producao:
         Array.isArray(snap.itens_producao) && snap.itens_producao.length > 0
           ? snap.itens_producao
@@ -202,6 +209,14 @@ export async function carregarAnaliseVendedor(
   const taxaConversao = qtdOrcamentos > 0 ? qtdVendas / qtdOrcamentos : 0;
   const valorEmNegociacao = negociacao.reduce((acc, v) => acc + (Number(v.valor_total) || 0), 0);
 
+  // Split recompras vs novos produtores
+  const vendasRecompras = vendas.filter((v) => v.tipo_orcamento === 'recompra' || v.tipo_orcamento === 'recompra_pod');
+  const qtdVendasRecompras = vendasRecompras.length;
+  const receitaRecompras = vendasRecompras.reduce((s, v) => s + (Number(v.valor_total) || 0), 0);
+  const qtdVendasNovosProdutores = qtdVendas - qtdVendasRecompras;
+  const receitaNovosProdutores = receitaTotal - receitaRecompras;
+  const taxaConversaoNovoProdutor = qtdOrcamentos > 0 ? qtdVendasNovosProdutores / qtdOrcamentos : 0;
+
   // 3) Monetizze — consultas salvas vinculadas a este consultor (pelo nome) no mês
   const mesStr = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`;
   const { data: mtzData } = await supabase
@@ -257,6 +272,11 @@ export async function carregarAnaliseVendedor(
     potesPorTipo,
     maiorVolumePotesVenda,
     produtosVendidos: Array.from(produtosMap.values()).sort((a, b) => b.qtdPotes - a.qtdPotes),
+    qtdVendasRecompras,
+    qtdVendasNovosProdutores,
+    receitaRecompras,
+    receitaNovosProdutores,
+    taxaConversaoNovoProdutor,
     setupsVendidos,
     setupMaisVendido,
     valorMedioSetup,
