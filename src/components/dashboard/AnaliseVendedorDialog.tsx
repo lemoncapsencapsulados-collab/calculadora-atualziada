@@ -15,6 +15,9 @@ import { useUsuarios } from '@/hooks/useUsuarios';
 import { carregarAnaliseVendedor, carregarAnaliseTimeVendas, formatBRL, gerarCSVAnalise, TIME_VENDAS_ID, TIME_VENDAS_LABEL, type AnaliseVendedor } from '@/lib/analiseVendedor';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { startOfMonth, endOfMonth } from 'date-fns';
+import { calcularCPL } from '@/lib/anuncios';
 
 interface Props {
   open: boolean;
@@ -38,6 +41,39 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     () => usuarios.filter((u) => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)),
     [usuarios]
   );
+
+  // Leads pagos + investimento em anúncios do vendedor no mês (funil topo)
+  const { data: anuncios } = useQuery({
+    queryKey: ['analise-anuncios', vendedor, mesStr],
+    enabled: !!vendedor,
+    queryFn: async () => {
+      const di = startOfMonth(mesData).toISOString().slice(0, 10);
+      const df = endOfMonth(mesData).toISOString().slice(0, 10);
+      const { data: invs } = await supabase
+        .from('ad_investments' as any)
+        .select('id, data_inicio, data_fim')
+        .lte('data_inicio', df)
+        .gte('data_fim', di);
+      const ids = ((invs as any[]) || []).map((i) => i.id);
+      if (ids.length === 0) return { leads: 0, invest: 0 };
+      const { data: rows } = await supabase
+        .from('ad_investment_consultores' as any)
+        .select('leads_recebidos, investimento_direcionado, consultor_nome_snapshot')
+        .in('ad_investment_id', ids);
+      let leads = 0;
+      let invest = 0;
+      const alvo = vendedor === TIME_VENDAS_ID
+        ? new Set(consultores.map((c) => c.nome.trim().toLowerCase()))
+        : new Set([String(vendedor || '').trim().toLowerCase()]);
+      for (const r of (rows as any[]) || []) {
+        const nome = String(r.consultor_nome_snapshot || '').trim().toLowerCase();
+        if (!alvo.has(nome)) continue;
+        leads += Number(r.leads_recebidos) || 0;
+        invest += Number(r.investimento_direcionado) || 0;
+      }
+      return { leads, invest };
+    },
+  });
 
   useEffect(() => {
     if (!open) {
@@ -310,6 +346,64 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* Funil Completo: Leads → Orçamentos → Vendas */}
+                  {(() => {
+                    const leads = anuncios?.leads || 0;
+                    const invest = anuncios?.invest || 0;
+                    const orc = analise.qtdOrcamentos;
+                    const vend = analise.qtdVendas;
+                    const max = Math.max(leads, orc, vend, 1);
+                    const bar = (label: string, value: number, color: string) => (
+                      <div className="flex items-center gap-2">
+                        <div className="w-28 text-xs text-muted-foreground">{label}</div>
+                        <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
+                          <div
+                            className={`h-full ${color} flex items-center justify-end px-2 text-[11px] text-white font-semibold`}
+                            style={{ width: `${Math.max((value / max) * 100, 4)}%` }}
+                          >
+                            {value}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                    const tLO = leads > 0 ? (orc / leads) * 100 : 0;
+                    const tOV = orc > 0 ? (vend / orc) * 100 : 0;
+                    const tLV = leads > 0 ? (vend / leads) * 100 : 0;
+                    return (
+                      <Card className="border-primary/40 bg-primary/5">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4" /> Funil Completo — Captação até Conversão
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {leads === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Sem leads registrados em Investimento em Anúncios para este vendedor no mês. Cadastre em Investimento em Anúncios para ver o funil completo.
+                            </p>
+                          )}
+                          <div className="space-y-1.5">
+                            {bar('Leads', leads, 'bg-blue-500')}
+                            {bar('Orçamentos', orc, 'bg-amber-500')}
+                            {bar('Vendas', vend, 'bg-emerald-500')}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                            <MetricCard label="Lead→Orç" value={`${tLO.toFixed(1)}%`} />
+                            <MetricCard label="Orç→Venda" value={`${tOV.toFixed(1)}%`} />
+                            <MetricCard label="Lead→Venda" value={`${tLV.toFixed(1)}%`} />
+                            <MetricCard label="Custo/Orçamento" value={formatBRL(orc > 0 ? invest / orc : 0)} />
+                            <MetricCard label="Custo/Venda (CAC)" value={formatBRL(vend > 0 ? invest / vend : 0)} />
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                            <MetricCard label="Investimento em Anúncios" value={formatBRL(invest)} />
+                            <MetricCard label="Leads Pagos" value={leads} />
+                            <MetricCard label="CPL" value={formatBRL(calcularCPL(invest, leads))} />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <MetricCard label="Vendas" value={analise.qtdVendas} />
