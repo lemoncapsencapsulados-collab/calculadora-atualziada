@@ -395,6 +395,27 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                             <MetricCard label="Custo/Orçamento" value={formatBRL(orc > 0 ? invest / orc : 0)} />
                             <MetricCard label="Custo/Venda (CAC)" value={formatBRL(vend > 0 ? invest / vend : 0)} />
                           </div>
+                          {(() => {
+                            const convTotal = analise.taxaConversao * 100;
+                            const convNovo = analise.taxaConversaoNovoProdutor * 100;
+                            const roi = invest > 0 ? ((analise.receitaTotal - invest) / invest) * 100 : null;
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                <MetricCard
+                                  label={`Conv. Total (c/ recompra) — ${analise.qtdVendas}/${analise.qtdOrcamentos}`}
+                                  value={`${convTotal.toFixed(1)}%`}
+                                />
+                                <MetricCard
+                                  label={`Conv. Novo Produtor — ${analise.qtdVendasNovosProdutores}/${analise.qtdOrcamentos}`}
+                                  value={`${convNovo.toFixed(1)}%`}
+                                />
+                                <MetricCard
+                                  label="ROI da operação"
+                                  value={roi === null ? '—' : `${roi.toFixed(1)}%`}
+                                />
+                              </div>
+                            );
+                          })()}
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
                             <MetricCard label="Investimento em Anúncios" value={formatBRL(invest)} />
                             <MetricCard label="Leads Pagos" value={leads} />
