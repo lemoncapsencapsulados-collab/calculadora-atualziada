@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { calcularCPL, formatBRL } from '@/lib/anuncios';
@@ -34,6 +34,13 @@ export function DashboardFunilAnuncios({ filtros, rankingConsultores, orcamentos
   const di = filtros.dataInicio.toISOString().slice(0, 10);
   const df = filtros.dataFim.toISOString().slice(0, 10);
 
+  // Período anterior: mesma duração deslocada para trás.
+  const durMs = Math.max(1, filtros.dataFim.getTime() - filtros.dataInicio.getTime());
+  const prevInicio = new Date(filtros.dataInicio.getTime() - durMs - 1);
+  const prevFim = new Date(filtros.dataInicio.getTime() - 1);
+  const pdi = prevInicio.toISOString().slice(0, 10);
+  const pdf = prevFim.toISOString().slice(0, 10);
+
   const { data: anuncios } = useQuery({
     queryKey: ['dashboard-anuncios', di, df, filtros.consultor],
     queryFn: async () => {
@@ -59,6 +66,63 @@ export function DashboardFunilAnuncios({ filtros, rankingConsultores, orcamentos
         map.set(key, cur);
       }
       return Array.from(map.values());
+    },
+  });
+
+  // Comparativo do período anterior — leads/invest + orçamentos + vendas
+  const { data: anteriores } = useQuery({
+    queryKey: ['dashboard-anuncios-prev', pdi, pdf, filtros.consultor],
+    queryFn: async () => {
+      const consultorAlvo = filtros.consultor?.trim().toLowerCase() || null;
+      // 1) Anúncios período anterior
+      const { data: invs } = await supabase
+        .from('ad_investments' as any)
+        .select('id, data_inicio, data_fim')
+        .lte('data_inicio', pdf)
+        .gte('data_fim', pdi);
+      const ids = ((invs as any[]) || []).map((i) => i.id);
+      let leads = 0;
+      let invest = 0;
+      if (ids.length > 0) {
+        const { data: rows } = await supabase
+          .from('ad_investment_consultores' as any)
+          .select('leads_recebidos, investimento_direcionado, consultor_nome_snapshot')
+          .in('ad_investment_id', ids);
+        for (const r of (rows as any[]) || []) {
+          const nome = String(r.consultor_nome_snapshot || '').trim().toLowerCase();
+          if (consultorAlvo && nome !== consultorAlvo) continue;
+          leads += Number(r.leads_recebidos) || 0;
+          invest += Number(r.investimento_direcionado) || 0;
+        }
+      }
+      // 2) Orçamentos + Vendas período anterior
+      const [orcRes, pedRes] = await Promise.all([
+        supabase.from('orcamentos').select('consultor_responsavel').gte('created_at', prevInicio.toISOString()).lte('created_at', prevFim.toISOString()),
+        supabase.from('pedidos').select('orcamento_snapshot, data_pedido').gte('data_pedido', prevInicio.toISOString()).lte('data_pedido', prevFim.toISOString()),
+      ]);
+      let orcamentos = 0;
+      (orcRes.data || []).forEach((o: any) => {
+        const n = (o.consultor_responsavel || '').trim().toLowerCase();
+        if (!n) return;
+        if (consultorAlvo && n !== consultorAlvo) return;
+        orcamentos += 1;
+      });
+      let vendas = 0;
+      (pedRes.data || []).forEach((p: any) => {
+        const n = (p.orcamento_snapshot?.consultor_responsavel || '').trim().toLowerCase();
+        if (!n) return;
+        if (consultorAlvo && n !== consultorAlvo) return;
+        vendas += 1;
+      });
+      return {
+        leads,
+        invest,
+        orcamentos,
+        vendas,
+        cpl: calcularCPL(invest, leads),
+        custoOrc: orcamentos > 0 ? invest / orcamentos : 0,
+        taxaOV: orcamentos > 0 ? (vendas / orcamentos) * 100 : 0,
+      };
     },
   });
 
@@ -131,6 +195,9 @@ export function DashboardFunilAnuncios({ filtros, rankingConsultores, orcamentos
     };
   }, [linhas]);
 
+  const periodoAtualLabel = `${filtros.dataInicio.toLocaleDateString('pt-BR')} a ${filtros.dataFim.toLocaleDateString('pt-BR')}`;
+  const periodoAnteriorLabel = `${prevInicio.toLocaleDateString('pt-BR')} a ${prevFim.toLocaleDateString('pt-BR')}`;
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -139,6 +206,38 @@ export function DashboardFunilAnuncios({ filtros, rankingConsultores, orcamentos
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Comparativo período atual vs anterior */}
+        <div className="border rounded-md p-3 bg-muted/30">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <h3 className="font-semibold text-sm">Comparativo — período anterior</h3>
+            <div className="text-[11px] text-muted-foreground">
+              Atual: {periodoAtualLabel} · Anterior: {periodoAnteriorLabel}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <CompareStat
+              label="CPL"
+              atual={geral.cpl}
+              anterior={anteriores?.cpl ?? 0}
+              format={formatBRL}
+              menorMelhor
+            />
+            <CompareStat
+              label="Custo por Orçamento"
+              atual={geral.custoOrc}
+              anterior={anteriores?.custoOrc ?? 0}
+              format={formatBRL}
+              menorMelhor
+            />
+            <CompareStat
+              label="Taxa de Conversão (Orç→Venda)"
+              atual={geral.taxaOV}
+              anterior={anteriores?.taxaOV ?? 0}
+              format={(v) => `${v.toFixed(1)}%`}
+            />
+          </div>
+        </div>
+
         {/* Geral */}
         <div className="border rounded-md p-3 bg-primary/5">
           <div className="flex items-center justify-between mb-2">
