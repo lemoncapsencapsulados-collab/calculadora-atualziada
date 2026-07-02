@@ -322,6 +322,8 @@ export async function carregarAnaliseTimeVendas(
   let maiorVolumePotesVenda = 0;
   let qtdOrcamentos = 0;
   let valorEmNegociacao = 0;
+  let qtdVendasRecompras = 0;
+  let receitaRecompras = 0;
   let monetizzeTotalReceber = 0;
   let monetizzeComissaoBruta = 0;
   let braipTotalReceber = 0;
@@ -337,6 +339,8 @@ export async function carregarAnaliseTimeVendas(
     if (a.maiorVolumePotesVenda > maiorVolumePotesVenda) maiorVolumePotesVenda = a.maiorVolumePotesVenda;
     qtdOrcamentos += a.qtdOrcamentos;
     valorEmNegociacao += a.valorEmNegociacao;
+    qtdVendasRecompras += a.qtdVendasRecompras;
+    receitaRecompras += a.receitaRecompras;
     monetizzeTotalReceber += a.monetizzeTotalReceber;
     monetizzeComissaoBruta += a.monetizzeComissaoBruta;
     braipTotalReceber += a.braipTotalReceber;
@@ -383,6 +387,11 @@ export async function carregarAnaliseTimeVendas(
     potesPorTipo,
     maiorVolumePotesVenda,
     produtosVendidos: Array.from(produtosMap.values()).sort((a, b) => b.qtdPotes - a.qtdPotes),
+    qtdVendasRecompras,
+    qtdVendasNovosProdutores: qtdVendas - qtdVendasRecompras,
+    receitaRecompras,
+    receitaNovosProdutores: receitaTotal - receitaRecompras,
+    taxaConversaoNovoProdutor: qtdOrcamentos > 0 ? (qtdVendas - qtdVendasRecompras) / qtdOrcamentos : 0,
     setupsVendidos,
     setupMaisVendido: setupsVendidos[0]?.nome || null,
     valorMedioSetup: qtdSetup > 0 ? somaSetupValores / qtdSetup : 0,
