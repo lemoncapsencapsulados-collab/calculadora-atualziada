@@ -281,6 +281,12 @@ export default function InvestimentoAnuncios() {
             </SelectContent>
           </Select>
           <Button onClick={abrirNovo}><Plus className="w-4 h-4 mr-1" /> Novo Registro</Button>
+          <Button variant="outline" onClick={exportarCSV} disabled={registrosFiltrados.length === 0}>
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> CSV
+          </Button>
+          <Button variant="outline" onClick={exportarPDF} disabled={registrosFiltrados.length === 0}>
+            <Download className="w-4 h-4 mr-1" /> PDF
+          </Button>
         </div>
       </div>
 
