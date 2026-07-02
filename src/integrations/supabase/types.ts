@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_investment_consultores: {
+        Row: {
+          ad_investment_id: string
+          consultor_id: string | null
+          consultor_nome_snapshot: string
+          created_at: string
+          id: string
+          investimento_direcionado: number
+          leads_recebidos: number
+          updated_at: string
+        }
+        Insert: {
+          ad_investment_id: string
+          consultor_id?: string | null
+          consultor_nome_snapshot: string
+          created_at?: string
+          id?: string
+          investimento_direcionado?: number
+          leads_recebidos?: number
+          updated_at?: string
+        }
+        Update: {
+          ad_investment_id?: string
+          consultor_id?: string | null
+          consultor_nome_snapshot?: string
+          created_at?: string
+          id?: string
+          investimento_direcionado?: number
+          leads_recebidos?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_investment_consultores_ad_investment_id_fkey"
+            columns: ["ad_investment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_investments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_investment_consultores_consultor_id_fkey"
+            columns: ["consultor_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_investments: {
+        Row: {
+          canal: string
+          created_at: string
+          created_by: string | null
+          data_fim: string
+          data_inicio: string
+          id: string
+          investimento_total: number
+          objetivo_campanha: string
+          observacoes: string | null
+          updated_at: string
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          created_by?: string | null
+          data_fim: string
+          data_inicio: string
+          id?: string
+          investimento_total: number
+          objetivo_campanha: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          created_by?: string | null
+          data_fim?: string
+          data_inicio?: string
+          id?: string
+          investimento_total?: number
+          objetivo_campanha?: string
+          observacoes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       asaas_consultas_salvas: {
         Row: {
           consultor_id: string
