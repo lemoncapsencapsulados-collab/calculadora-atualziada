@@ -4,6 +4,9 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatarCondicoesPagamento } from './formatarPagamento';
+import { derivarRecebimentos, Recebimento } from './recebimentos';
+import { derivarComissoes, ItemComissao } from './comissoes';
+import { Pedido } from '@/types/formula';
 
 interface PedidoReport {
   id?: string;
@@ -354,15 +357,108 @@ const headers = [
   'Valor Total Setup',
   'Custo Total Pedido',
   'Abrir Pedido',
+  'Método Principal',
+  'Nº de Parcelas',
+  'Data 1ª Parcela',
+  'Data Última Parcela',
+  'Data Pagamento (aprovação)',
+  'Valor Bruto (com juros)',
+  'Valor Líquido (base comissão)',
+  'Já Recebido',
+  'A Receber',
+  'Status Pagamento',
 ];
 
 const COL = {
   numero: 0, cliente: 1, cnpj: 2, consultor: 3, tipo: 4,
   modalidade: 5, produto: 6, qtd: 7, precoUnit: 8,
   totalProducao: 9, totalSetup: 10, custoTotal: 11, link: 12,
+  metodo: 13, numParcelas: 14, dataPrim: 15, dataUlt: 16,
+  dataAprov: 17, valorBruto: 18, valorLiquido: 19,
+  jaRecebido: 20, aReceber: 21, statusPagto: 22,
 };
-const MONEY_COLS = [COL.precoUnit, COL.totalProducao, COL.totalSetup, COL.custoTotal];
+const MONEY_COLS = [
+  COL.precoUnit, COL.totalProducao, COL.totalSetup, COL.custoTotal,
+  COL.valorBruto, COL.valorLiquido, COL.jaRecebido, COL.aReceber,
+];
+const DATE_COLS = [COL.dataPrim, COL.dataUlt, COL.dataAprov];
 const BRL_FMT = 'R$ #,##0.00;[Red]-R$ #,##0.00';
+const DATE_FMT = 'dd/mm/yyyy';
+
+// ===== Helpers de pagamento =====
+
+const METODO_LABELS: Record<string, string> = {
+  pix_boleto: 'Pix / Boleto',
+  cartao_credito: 'Cartão de Crédito',
+  misto: 'Misto (Pix/Boleto + Cartão)',
+};
+const metodoLabel = (metodoPrincipal?: string): string =>
+  metodoPrincipal ? (METODO_LABELS[metodoPrincipal] || metodoPrincipal) : 'Pagamento único';
+
+const STATUS_PARCELA_LABELS: Record<string, string> = {
+  pago: 'Pago',
+  pendente: 'Pendente',
+  vencido: 'Vencido',
+  sem_data: 'Sem data',
+  futuro: 'Futuro',
+};
+
+const parseISO = (s: string | null | undefined): Date | null => {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const monthKey = (s: string | null | undefined): string => {
+  const d = parseISO(s);
+  return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : '';
+};
+
+interface PagamentoResumo {
+  metodo: string;
+  numParcelas: number;
+  dataPrim: Date | null;
+  dataUlt: Date | null;
+  dataAprov: Date | null;
+  valorBruto: number;
+  valorLiquido: number;
+  jaRecebido: number;
+  aReceber: number;
+  statusPagto: string;
+  recebimentos: Recebimento[];
+  comissoes: ItemComissao[];
+}
+
+const buildPagamentoResumo = (pedido: PedidoReport): PagamentoResumo => {
+  const snap: any = pedido.orcamento_snapshot || {};
+  const cond: any = snap.condicoes_pagamento;
+  const rec = derivarRecebimentos(pedido as unknown as Pedido);
+  const com = derivarComissoes(pedido as unknown as Pedido);
+
+  const datasVenc = rec.map(r => parseISO(r.data)).filter((d): d is Date => !!d);
+  datasVenc.sort((a, b) => a.getTime() - b.getTime());
+
+  const valorBruto = rec.reduce((s, r) => s + (r.valor || 0), 0);
+  const valorLiquido = com.reduce((s, c) => s + (c.valorLiquido || 0), 0);
+  const jaRecebido = rec.reduce((s, r) => s + (r.status === 'pago' ? r.valor : 0), 0);
+  const aReceber = Math.max(0, valorBruto - jaRecebido);
+
+  const pagos = rec.filter(r => r.status === 'pago').length;
+  const statusPagto =
+    rec.length === 0 ? '-' :
+    pagos === 0 ? 'Em aberto' :
+    pagos >= rec.length ? 'Quitado' : 'Parcial';
+
+  return {
+    metodo: metodoLabel(cond?.metodo_principal),
+    numParcelas: rec.length,
+    dataPrim: datasVenc[0] || null,
+    dataUlt: datasVenc[datasVenc.length - 1] || null,
+    dataAprov: parseISO(snap.data_pagamento || null),
+    valorBruto, valorLiquido, jaRecebido, aReceber, statusPagto,
+    recebimentos: rec, comissoes: com,
+  };
+};
 
 type BuiltRow = {
   cells: any[];
@@ -403,6 +499,19 @@ const buildRows = (pedidos: PedidoReport[]) => {
     resumo[COL.totalSetup] = data.subtotalSetup || 0;
     resumo[COL.custoTotal] = custoTotalPedido;
     resumo[COL.link] = link ? 'Abrir' : '';
+
+    const pg = buildPagamentoResumo(pedido);
+    resumo[COL.metodo] = pg.metodo;
+    resumo[COL.numParcelas] = pg.numParcelas || '';
+    resumo[COL.dataPrim] = pg.dataPrim || '';
+    resumo[COL.dataUlt] = pg.dataUlt || '';
+    resumo[COL.dataAprov] = pg.dataAprov || '';
+    resumo[COL.valorBruto] = pg.valorBruto || 0;
+    resumo[COL.valorLiquido] = pg.valorLiquido || 0;
+    resumo[COL.jaRecebido] = pg.jaRecebido || 0;
+    resumo[COL.aReceber] = pg.aReceber || 0;
+    resumo[COL.statusPagto] = pg.statusPagto;
+
     rows.push({ cells: resumo, level: 0, link });
 
     // Linhas filhas com produtos (nível 1)
@@ -451,6 +560,8 @@ const buildSheetWithFiltros = (
     { wch: 14 }, { wch: 30 }, { wch: 18 }, { wch: 22 }, { wch: 14 },
     { wch: 18 }, { wch: 36 }, { wch: 12 }, { wch: 16 }, { wch: 18 },
     { wch: 18 }, { wch: 20 }, { wch: 14 },
+    { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 20 },
+    { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
   ];
 
   // Outline (agrupamento) — produtos colapsáveis sob a linha-resumo
@@ -483,12 +594,322 @@ const buildSheetWithFiltros = (
         cell.z = BRL_FMT;
       }
     });
+    DATE_COLS.forEach(C => {
+      const addr = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[addr];
+      if (cell && cell.v instanceof Date) {
+        cell.t = 'd';
+        cell.z = DATE_FMT;
+      }
+    });
   }
 
   // Freeze do cabeçalho
   ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 } as any;
 
+  // AutoFilter no cabeçalho
+  const lastCol = XLSX.utils.encode_col(headers.length - 1);
+  const firstDataRow = headerRowIdx + 1;
+  const lastRow = range.e.r + 1;
+  ws['!autofilter'] = { ref: `A${firstDataRow}:${lastCol}${lastRow}` } as any;
+
   return ws;
+};
+
+// ===== Aba: Parcelas =====
+
+const PARCELAS_HEADERS = [
+  'Nº Pedido', 'Cliente', 'CNPJ/CPF', 'Consultor', 'Tipo', 'Método',
+  'Descrição da Parcela', 'Parcela nº', 'Total de Parcelas',
+  'Data Vencimento', 'Mês/Ano Vencimento', 'Data Pagamento', 'Mês/Ano Pagamento',
+  'Status', 'Valor Bruto', 'Valor Líquido', '% Comissão',
+  'Comissão da Parcela', 'Comissão Devida (pago)',
+];
+
+interface ParcelaRow {
+  numeroPedido: string; cliente: string; doc: string; consultor: string;
+  tipo: string; metodo: string; descricao: string; parcelaNum: number; total: number;
+  dataVenc: Date | null; mesVenc: string; dataPag: Date | null; mesPag: string;
+  status: string; valorBruto: number; valorLiquido: number;
+  percentual: number; comissao: number; comissaoDevida: number;
+}
+
+const buildParcelasRows = (pedidos: PedidoReport[]): ParcelaRow[] => {
+  const out: ParcelaRow[] = [];
+  pedidos.forEach(pedido => {
+    const data = extractData(pedido);
+    if (!data) return;
+    const pg = buildPagamentoResumo(pedido);
+    const total = pg.recebimentos.length;
+    pg.recebimentos.forEach((r, idx) => {
+      const c = pg.comissoes.find(cc => cc.parcelaIndice === r.indice) || pg.comissoes[idx];
+      const pago = r.status === 'pago';
+      out.push({
+        numeroPedido: data.numeroPedido,
+        cliente: data.nomeCliente,
+        doc: data.cnpj || (c?.clienteDoc || ''),
+        consultor: data.consultor,
+        tipo: data.tipoOrcamento,
+        metodo: pg.metodo,
+        descricao: r.descricao,
+        parcelaNum: idx + 1,
+        total,
+        dataVenc: parseISO(r.data),
+        mesVenc: monthKey(r.data),
+        dataPag: pago ? parseISO(c?.dataPagamento || r.data) : null,
+        mesPag: pago ? monthKey(c?.dataPagamento || r.data) : '',
+        status: STATUS_PARCELA_LABELS[r.status] || r.status,
+        valorBruto: r.valor,
+        valorLiquido: c?.valorLiquido || 0,
+        percentual: c?.percentual || 0,
+        comissao: c?.comissao || 0,
+        comissaoDevida: pago ? (c?.comissao || 0) : 0,
+      });
+    });
+  });
+  return out;
+};
+
+const buildParcelasSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
+  const rows = buildParcelasRows(pedidos);
+  const aoa: any[][] = [PARCELAS_HEADERS];
+  rows.forEach(r => {
+    aoa.push([
+      r.numeroPedido, r.cliente, r.doc, r.consultor, r.tipo, r.metodo,
+      r.descricao, r.parcelaNum, r.total,
+      r.dataVenc || '', r.mesVenc, r.dataPag || '', r.mesPag,
+      r.status, r.valorBruto, r.valorLiquido,
+      r.percentual, r.comissao, r.comissaoDevida,
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 30 }, { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 26 },
+    { wch: 36 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 20 },
+  ];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  const moneyCols = [14, 15, 17, 18];
+  const dateCols = [9, 11];
+  const pctCols = [16];
+  for (let R = 1; R <= range.e.r; R++) {
+    moneyCols.forEach(C => {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && typeof cell.v === 'number') { cell.t = 'n'; cell.z = BRL_FMT; }
+    });
+    dateCols.forEach(C => {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && cell.v instanceof Date) { cell.t = 'd'; cell.z = DATE_FMT; }
+    });
+    pctCols.forEach(C => {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && typeof cell.v === 'number') { cell.t = 'n'; cell.z = '0.00%'; }
+    });
+  }
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 } as any;
+  const lastCol = XLSX.utils.encode_col(PARCELAS_HEADERS.length - 1);
+  ws['!autofilter'] = { ref: `A1:${lastCol}${range.e.r + 1}` } as any;
+  return ws;
+};
+
+// ===== Aba: Entradas por Mês =====
+
+const buildEntradasMesSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
+  const parcelas = buildParcelasRows(pedidos);
+  // Agrupamento: chave = mes + status + metodo
+  const map = new Map<string, { mes: string; status: string; metodo: string; qtd: number; bruto: number; liquido: number }>();
+  parcelas.forEach(p => {
+    const isRec = p.status === 'Pago';
+    const mes = isRec ? p.mesPag : p.mesVenc;
+    if (!mes) return;
+    const status = isRec ? 'Recebido' : 'Pendente';
+    const key = `${mes}||${status}||${p.metodo}`;
+    const cur = map.get(key) || { mes, status, metodo: p.metodo, qtd: 0, bruto: 0, liquido: 0 };
+    cur.qtd += 1;
+    cur.bruto += p.valorBruto;
+    cur.liquido += p.valorLiquido;
+    map.set(key, cur);
+  });
+  const rows = Array.from(map.values()).sort((a, b) =>
+    a.mes.localeCompare(b.mes) || a.status.localeCompare(b.status) || a.metodo.localeCompare(b.metodo)
+  );
+  const headers2 = ['Mês/Ano', 'Status', 'Método', 'Nº Parcelas', 'Valor Bruto', 'Valor Líquido'];
+  const aoa: any[][] = [headers2];
+  rows.forEach(r => aoa.push([r.mes, r.status, r.metodo, r.qtd, r.bruto, r.liquido]));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 12 }, { wch: 18 }, { wch: 18 }];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let R = 1; R <= range.e.r; R++) {
+    [4, 5].forEach(C => {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && typeof cell.v === 'number') { cell.t = 'n'; cell.z = BRL_FMT; }
+    });
+  }
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 } as any;
+  const lastCol = XLSX.utils.encode_col(headers2.length - 1);
+  ws['!autofilter'] = { ref: `A1:${lastCol}${range.e.r + 1}` } as any;
+  return ws;
+};
+
+// ===== Aba: Comissões por Consultor / Mês =====
+
+const buildComissoesMesSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
+  const parcelas = buildParcelasRows(pedidos).filter(p => p.status === 'Pago');
+  const map = new Map<string, { consultor: string; mes: string; qtd: number; liquido: number; nova: number; recompra: number; total: number }>();
+  parcelas.forEach(p => {
+    const consultor = p.consultor || '— Sem consultor —';
+    const key = `${consultor}||${p.mesPag}`;
+    const cur = map.get(key) || { consultor, mes: p.mesPag, qtd: 0, liquido: 0, nova: 0, recompra: 0, total: 0 };
+    cur.qtd += 1;
+    cur.liquido += p.valorLiquido;
+    if (p.tipo === 'Recompra') cur.recompra += p.comissao;
+    else cur.nova += p.comissao;
+    cur.total += p.comissao;
+    map.set(key, cur);
+  });
+  const rows = Array.from(map.values()).sort((a, b) =>
+    a.consultor.localeCompare(b.consultor) || a.mes.localeCompare(b.mes)
+  );
+  const headers2 = ['Consultor', 'Mês/Ano Pagamento', 'Nº Parcelas Pagas', 'Valor Líquido Recebido', 'Comissão Nova Venda (5%)', 'Comissão Recompra (1%)', 'Comissão Total'];
+  const aoa: any[][] = [headers2];
+  rows.forEach(r => aoa.push([r.consultor, r.mes, r.qtd, r.liquido, r.nova, r.recompra, r.total]));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 18 }];
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let R = 1; R <= range.e.r; R++) {
+    [3, 4, 5, 6].forEach(C => {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && typeof cell.v === 'number') { cell.t = 'n'; cell.z = BRL_FMT; }
+    });
+  }
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 } as any;
+  const lastCol = XLSX.utils.encode_col(headers2.length - 1);
+  ws['!autofilter'] = { ref: `A1:${lastCol}${range.e.r + 1}` } as any;
+  return ws;
+};
+
+// ===== Aba: Detalhamento por Pedido =====
+
+const buildDetalhamentoSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
+  const aoa: any[][] = [];
+  const merges: XLSX.Range[] = [];
+  const boldRows: number[] = [];
+
+  const push = (row: any[]) => { aoa.push(row); return aoa.length - 1; };
+  const pushBold = (row: any[]) => { const i = push(row); boldRows.push(i); return i; };
+
+  pedidos.forEach((pedido, idx) => {
+    const data = extractData(pedido);
+    if (!data) return;
+    const pg = buildPagamentoResumo(pedido);
+
+    if (idx > 0) push([]);
+    const titleIdx = pushBold([`PEDIDO ${data.numeroPedido}`]);
+    merges.push({ s: { r: titleIdx, c: 0 }, e: { r: titleIdx, c: 6 } });
+
+    push(['Orçamento', data.numeroOrcamento, '', 'Tipo', data.tipoOrcamento]);
+    push(['Data Pedido', fmtDate(data.dataPedido), '', 'Data Pagamento', data.dataPagamento ? fmtDate(data.dataPagamento) : '-']);
+    push(['Consultor', data.consultor || '-']);
+    push([]);
+    pushBold(['Cliente']);
+    push(['Nome', data.nomeCliente]);
+    if (data.cnpj) push(['CNPJ/CPF', data.cnpj]);
+    if (data.email) push(['Email', data.email]);
+    if (data.telefone) push(['Telefone', data.telefone]);
+    if (data.cidadeEstado) push(['Cidade/UF', data.cidadeEstado]);
+
+    if (data.itens.length > 0) {
+      push([]);
+      pushBold(['Produtos']);
+      push(['Produto', 'Tipo', 'Modelo', 'Qtd', 'Preço Unit.', 'Subtotal']);
+      data.itens.forEach(i => push([i.nomeProduto, i.tipoProduto, i.modeloCompra, i.quantidade, i.precoUnitario, i.subtotal]));
+    }
+
+    if (data.servicos.length > 0) {
+      push([]);
+      pushBold(['Serviços de Marca']);
+      push(['Serviço', 'Valor']);
+      data.servicos.forEach((s: any) => push([s.nome_plano || '', s.valor || 0]));
+    }
+
+    push([]);
+    pushBold(['Resumo Financeiro']);
+    if (data.subtotalSetup > 0) push(['Orç. Setup (Serviços de Marca)', data.subtotalSetup]);
+    if (data.subtotalProducao > 0) push(['Orç. Produção', data.subtotalProducao]);
+    push(['Orç. Total', data.valorTotal]);
+    push(['Valor Bruto (com juros)', pg.valorBruto]);
+    push(['Valor Líquido (base comissão)', pg.valorLiquido]);
+    push(['Já Recebido', pg.jaRecebido]);
+    push(['A Receber', pg.aReceber]);
+    push(['Status Pagamento', pg.statusPagto]);
+    push(['Método', pg.metodo]);
+
+    if (pg.recebimentos.length > 0) {
+      push([]);
+      pushBold(['Parcelas / Recebimentos']);
+      push(['Descrição', 'Vencimento', 'Data Pagamento', 'Status', 'Valor Bruto', 'Valor Líquido', 'Comissão']);
+      pg.recebimentos.forEach((r, i) => {
+        const c = pg.comissoes.find(cc => cc.parcelaIndice === r.indice) || pg.comissoes[i];
+        push([
+          r.descricao,
+          parseISO(r.data) || '',
+          r.status === 'pago' ? (parseISO(c?.dataPagamento || r.data) || '') : '',
+          STATUS_PARCELA_LABELS[r.status] || r.status,
+          r.valor,
+          c?.valorLiquido || 0,
+          c?.comissao || 0,
+        ]);
+      });
+    }
+
+    if (data.frete) { push([]); pushBold(['Logística / Frete']); push([data.frete]); }
+
+    if (data.acompanhamento) {
+      const a = data.acompanhamento;
+      push([]);
+      pushBold(['Acompanhamento de Processos']);
+      push(['Criação de Marca', acompStatusLabel(a.criacao_marca)]);
+      push(['Produção', acompStatusLabel(a.producao)]);
+      push(['Integração Logística', acompStatusLabel(a.integracao_logistica)]);
+      push(['Página de Venda', acompStatusLabel(a.pagina_venda)]);
+      push(['Envio do Produto', acompStatusLabel(a.envio_produto)]);
+      if (a.satisfacao_nota != null) push(['Satisfação', `${a.satisfacao_nota}/10${a.satisfacao_observacoes ? ` — ${a.satisfacao_observacoes}` : ''}`]);
+    }
+
+    if (data.observacoes) { push([]); pushBold(['Observações']); push([data.observacoes]); }
+
+    push([]); push([]); // separador
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{ wch: 34 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+  ws['!merges'] = merges;
+
+  // Formatar datas e números automaticamente
+  const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  for (let R = 0; R <= range.e.r; R++) {
+    for (let C = 0; C <= range.e.c; C++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (!cell) continue;
+      if (cell.v instanceof Date) { cell.t = 'd'; cell.z = DATE_FMT; }
+      else if (typeof cell.v === 'number' && C >= 3) { cell.t = 'n'; cell.z = BRL_FMT; }
+    }
+  }
+  // Bold nas linhas de título
+  boldRows.forEach(R => {
+    for (let C = 0; C <= 6; C++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell) cell.s = { font: { bold: true } };
+    }
+  });
+  return ws;
+};
+
+const appendAllSheets = (wb: XLSX.WorkBook, pedidos: PedidoReport[]) => {
+  XLSX.utils.book_append_sheet(wb, buildParcelasSheet(pedidos), 'Parcelas');
+  XLSX.utils.book_append_sheet(wb, buildEntradasMesSheet(pedidos), 'Entradas por Mês');
+  XLSX.utils.book_append_sheet(wb, buildComissoesMesSheet(pedidos), 'Comissões por Consultor-Mês');
+  XLSX.utils.book_append_sheet(wb, buildDetalhamentoSheet(pedidos), 'Detalhamento por Pedido');
 };
 
 export const gerarRelatorioPedidoExcel = (pedido: PedidoReport) => {
@@ -496,6 +917,7 @@ export const gerarRelatorioPedidoExcel = (pedido: PedidoReport) => {
   const ws = buildSheetWithFiltros(built, undefined, 1);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pedido');
+  appendAllSheets(wb, [pedido]);
   const data = extractData(pedido);
   XLSX.writeFile(wb, `Relatorio_${data?.numeroPedido || 'pedido'}.xlsx`);
 };
@@ -505,5 +927,6 @@ export const gerarRelatorioPedidosGeralExcel = (pedidos: PedidoReport[], filtros
   const ws = buildSheetWithFiltros(built, filtros, pedidos.length);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
+  appendAllSheets(wb, pedidos);
   XLSX.writeFile(wb, `Relatorio_Pedidos_Geral${buildFilenameSuffix(filtros)}.xlsx`);
 };
