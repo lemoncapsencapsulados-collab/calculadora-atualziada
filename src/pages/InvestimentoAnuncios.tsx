@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, Megaphone, ChevronDown, ChevronRight, FileSpreadsheet, Download } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,29 +27,45 @@ function intersectaPeriodo(ini: string, fim: string, di: Date, df: Date): boolea
 export default function InvestimentoAnuncios() {
   const [mesStr, setMesStr] = useState(() => format(new Date(), 'yyyy-MM'));
   const [canalFiltro, setCanalFiltro] = useState<string>('todos');
+  const [consultorFiltro, setConsultorFiltro] = useState<string>('todos');
+  const [modoData, setModoData] = useState<'mes' | 'custom'>('mes');
+  const [dataInicioCustom, setDataInicioCustom] = useState<string>(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [dataFimCustom, setDataFimCustom] = useState<string>(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<AdInvestment | null>(null);
   const [funilAberto, setFunilAberto] = useState(true);
 
   const [ano, mes] = mesStr.split('-').map(Number);
-  const periodoIni = startOfMonth(new Date(ano, mes - 1, 1));
-  const periodoFim = endOfMonth(new Date(ano, mes - 1, 1));
+  const periodoIni = modoData === 'mes'
+    ? startOfMonth(new Date(ano, mes - 1, 1))
+    : parseISO(`${dataInicioCustom}T00:00:00`);
+  const periodoFim = modoData === 'mes'
+    ? endOfMonth(new Date(ano, mes - 1, 1))
+    : parseISO(`${dataFimCustom}T23:59:59`);
 
   const { data: registros = [], excluir, isLoading } = useAdInvestments();
   const { data: consultores = [] } = useUsuarios(true);
 
+  const consultorAlvo = consultorFiltro === 'todos' ? null : consultorFiltro.trim().toLowerCase();
+
   const registrosFiltrados = useMemo(() => {
     return registros.filter((r) => {
       if (canalFiltro !== 'todos' && r.canal !== canalFiltro) return false;
-      return intersectaPeriodo(r.data_inicio, r.data_fim, periodoIni, periodoFim);
+      if (!intersectaPeriodo(r.data_inicio, r.data_fim, periodoIni, periodoFim)) return false;
+      if (consultorAlvo) {
+        const temConsultor = r.consultores.some((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === consultorAlvo);
+        if (!temConsultor) return false;
+      }
+      return true;
     });
-  }, [registros, canalFiltro, periodoIni, periodoFim]);
+  }, [registros, canalFiltro, periodoIni, periodoFim, consultorAlvo]);
 
-  // Agregado por consultor no período filtrado
+  // Agregado por consultor no período filtrado (respeita filtro de consultor)
   const leadsInvestPorConsultor = useMemo(() => {
     const map = new Map<string, { leads: number; invest: number; nome: string }>();
     for (const r of registrosFiltrados) {
       for (const c of r.consultores) {
+        if (consultorAlvo && (c.consultor_nome_snapshot || '').trim().toLowerCase() !== consultorAlvo) continue;
         const key = (c.consultor_id || `snap:${c.consultor_nome_snapshot}`).toLowerCase();
         const cur = map.get(key) || { leads: 0, invest: 0, nome: c.consultor_nome_snapshot };
         cur.leads += c.leads_recebidos;
@@ -57,15 +74,19 @@ export default function InvestimentoAnuncios() {
       }
     }
     return map;
-  }, [registrosFiltrados]);
+  }, [registrosFiltrados, consultorAlvo]);
 
-  const totalInvestido = registrosFiltrados.reduce((s, r) => s + r.investimento_total, 0);
+  // Total investido: se houver filtro por consultor, soma apenas as linhas daquele consultor;
+  // caso contrário, soma investimento_total das campanhas.
+  const totalInvestido = consultorAlvo
+    ? Array.from(leadsInvestPorConsultor.values()).reduce((s, v) => s + v.invest, 0)
+    : registrosFiltrados.reduce((s, r) => s + r.investimento_total, 0);
   const totalLeads = Array.from(leadsInvestPorConsultor.values()).reduce((s, v) => s + v.leads, 0);
   const cplMedio = calcularCPL(totalInvestido, totalLeads);
 
-  // Orçamentos e Vendas no período
+  // Orçamentos e Vendas no período (respeitando consultor filtrado)
   const { data: metricasVendas } = useQuery({
-    queryKey: ['anuncios-metricas', mesStr],
+    queryKey: ['anuncios-metricas', periodoIni.toISOString(), periodoFim.toISOString(), consultorAlvo],
     queryFn: async () => {
       const ini = periodoIni.toISOString();
       const fim = periodoFim.toISOString();
@@ -77,12 +98,14 @@ export default function InvestimentoAnuncios() {
       (orcRes.data || []).forEach((o: any) => {
         const n = (o.consultor_responsavel || '').trim();
         if (!n) return;
+        if (consultorAlvo && n.toLowerCase() !== consultorAlvo) return;
         orc.set(n.toLowerCase(), (orc.get(n.toLowerCase()) || 0) + 1);
       });
       const ven = new Map<string, number>();
       (pedRes.data || []).forEach((p: any) => {
         const n = (p.orcamento_snapshot?.consultor_responsavel || '').trim();
         if (!n) return;
+        if (consultorAlvo && n.toLowerCase() !== consultorAlvo) return;
         ven.set(n.toLowerCase(), (ven.get(n.toLowerCase()) || 0) + 1);
       });
       return { orc, ven };
@@ -96,7 +119,10 @@ export default function InvestimentoAnuncios() {
 
   const funil = useMemo(() => {
     const nomes = new Set<string>();
-    consultores.forEach((c) => nomes.add(c.nome));
+    consultores.forEach((c) => {
+      if (consultorAlvo && c.nome.trim().toLowerCase() !== consultorAlvo) return;
+      nomes.add(c.nome);
+    });
     leadsInvestPorConsultor.forEach((v) => nomes.add(v.nome));
     return Array.from(nomes)
       .map((nome) => {
@@ -124,14 +150,58 @@ export default function InvestimentoAnuncios() {
       })
       .filter((f) => f.leads > 0 || f.orcamentos > 0 || f.vendas > 0)
       .sort((a, b) => b.vendas - a.vendas || b.orcamentos - a.orcamentos || b.leads - a.leads);
-  }, [consultores, leadsInvestPorConsultor, metricasVendas]);
+  }, [consultores, leadsInvestPorConsultor, metricasVendas, consultorAlvo]);
 
-  // Exportação
+  // Exportação — respeita mês/período customizado, canal e consultor
   const periodoLabel = `${format(periodoIni, 'dd/MM/yyyy')} a ${format(periodoFim, 'dd/MM/yyyy')}`;
+  const filtroLabel = [
+    `Canal: ${canalFiltro === 'todos' ? 'Todos' : labelCanal(canalFiltro)}`,
+    `Consultor: ${consultorFiltro === 'todos' ? 'Todos' : consultorFiltro}`,
+  ].join(' · ');
+  const nomeArquivo = `investimento-anuncios_${format(periodoIni, 'yyyy-MM-dd')}_a_${format(periodoFim, 'yyyy-MM-dd')}${consultorAlvo ? `_${consultorFiltro.replace(/\s+/g, '_')}` : ''}${canalFiltro !== 'todos' ? `_${canalFiltro}` : ''}`;
   const consultoresPeriodo = useMemo(() => {
     return Array.from(leadsInvestPorConsultor.values())
       .sort((a, b) => b.invest - a.invest);
   }, [leadsInvestPorConsultor]);
+
+  // Estrutura tabular reutilizada por CSV e XLSX
+  const dadosExport = useMemo(() => {
+    const kpis = [
+      ['Total Investido', 'Total de Leads', 'CPL Médio', 'CAC (Custo por Venda)', 'Total de Vendas'],
+      [formatBRL(totalInvestido), totalLeads, formatBRL(cplMedio), formatBRL(cac), totalVendas],
+    ];
+    const painel = [
+      ['Consultor', 'Leads', 'Investimento', 'CPL'],
+      ...consultoresPeriodo.map((c) => [c.nome, c.leads, formatBRL(c.invest), formatBRL(calcularCPL(c.invest, c.leads))]),
+      ['TOTAL', totalLeads, formatBRL(totalInvestido), formatBRL(cplMedio)],
+    ];
+    const campanhas = [
+      ['Período', 'Campanha', 'Canal', 'Objetivo', 'Investido', 'Leads', 'CPL', 'Consultores'],
+      ...registrosFiltrados.map((r) => {
+        const linhasConsultor = consultorAlvo
+          ? r.consultores.filter((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === consultorAlvo)
+          : r.consultores;
+        const leads = linhasConsultor.reduce((s, c) => s + c.leads_recebidos, 0);
+        const invest = consultorAlvo
+          ? linhasConsultor.reduce((s, c) => s + c.investimento_direcionado, 0)
+          : r.investimento_total;
+        const detalhe = linhasConsultor
+          .map((c) => `${c.consultor_nome_snapshot}: ${c.leads_recebidos}L / ${formatBRL(c.investimento_direcionado)}`)
+          .join(' | ');
+        return [
+          `${r.data_inicio.split('-').reverse().join('/')} - ${r.data_fim.split('-').reverse().join('/')}`,
+          r.nome_campanha || '—',
+          labelCanal(r.canal),
+          labelObjetivo(r.objetivo_campanha),
+          formatBRL(invest),
+          leads,
+          formatBRL(calcularCPL(invest, leads)),
+          detalhe,
+        ];
+      }),
+    ];
+    return { kpis, painel, campanhas };
+  }, [totalInvestido, totalLeads, cplMedio, cac, totalVendas, consultoresPeriodo, registrosFiltrados, consultorAlvo]);
 
   const exportarCSV = () => {
     const linhas: string[] = [];
@@ -140,56 +210,88 @@ export default function InvestimentoAnuncios() {
       return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
     };
     linhas.push(`Investimento em Anúncios — Período: ${periodoLabel}`);
+    linhas.push(filtroLabel);
     linhas.push('');
     linhas.push('KPIs Gerais');
-    linhas.push(['Total Investido', 'Total de Leads', 'CPL Médio', 'CAC (Custo por Venda)', 'Total de Vendas'].join(','));
-    linhas.push([formatBRL(totalInvestido), totalLeads, formatBRL(cplMedio), formatBRL(cac), totalVendas].map(esc).join(','));
+    dadosExport.kpis.forEach((row) => linhas.push(row.map(esc).join(',')));
     linhas.push('');
     linhas.push('Painel Geral por Consultor');
-    linhas.push(['Consultor', 'Leads', 'Investimento', 'CPL'].join(','));
-    consultoresPeriodo.forEach((c) => {
-      linhas.push([c.nome, c.leads, formatBRL(c.invest), formatBRL(calcularCPL(c.invest, c.leads))].map(esc).join(','));
-    });
-    linhas.push(['TOTAL', totalLeads, formatBRL(totalInvestido), formatBRL(cplMedio)].map(esc).join(','));
+    dadosExport.painel.forEach((row) => linhas.push(row.map(esc).join(',')));
     linhas.push('');
     linhas.push('Registros de Campanha');
-    linhas.push(['Período', 'Campanha', 'Canal', 'Objetivo', 'Investido', 'Leads', 'CPL', 'Consultores'].join(','));
-    registrosFiltrados.forEach((r) => {
-      const leads = r.consultores.reduce((s, c) => s + c.leads_recebidos, 0);
-      const detalhe = r.consultores
-        .map((c) => `${c.consultor_nome_snapshot}: ${c.leads_recebidos}L / ${formatBRL(c.investimento_direcionado)}`)
-        .join(' | ');
-      linhas.push([
-        `${r.data_inicio.split('-').reverse().join('/')} - ${r.data_fim.split('-').reverse().join('/')}`,
-        r.nome_campanha || '—',
-        labelCanal(r.canal),
-        labelObjetivo(r.objetivo_campanha),
-        formatBRL(r.investimento_total),
-        leads,
-        formatBRL(calcularCPL(r.investimento_total, leads)),
-        detalhe,
-      ].map(esc).join(','));
-    });
+    dadosExport.campanhas.forEach((row) => linhas.push(row.map(esc).join(',')));
     const blob = new Blob([`\uFEFF${linhas.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `investimento-anuncios-${mesStr}.csv`;
+    a.download = `${nomeArquivo}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  const exportarXLSX = () => {
+    const wb = XLSX.utils.book_new();
+    const cabecalho = [
+      ['Investimento em Anúncios'],
+      [`Período: ${periodoLabel}`],
+      [filtroLabel],
+      [],
+    ];
+    // KPIs sheet
+    const wsKpis = XLSX.utils.aoa_to_sheet([...cabecalho, ['KPIs Gerais'], ...dadosExport.kpis]);
+    XLSX.utils.book_append_sheet(wb, wsKpis, 'KPIs');
+    // Painel sheet
+    const wsPainel = XLSX.utils.aoa_to_sheet([...cabecalho, ['Painel Geral por Consultor'], ...dadosExport.painel]);
+    XLSX.utils.book_append_sheet(wb, wsPainel, 'Painel Geral');
+    // Campanhas sheet (mesma estrutura de colunas do CSV)
+    const wsCamp = XLSX.utils.aoa_to_sheet([...cabecalho, ['Registros de Campanha'], ...dadosExport.campanhas]);
+    XLSX.utils.book_append_sheet(wb, wsCamp, 'Campanhas');
+    XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
+  };
+
   const exportarPDF = () => {
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('Investimento em Anúncios', 14, 18);
-    doc.setFontSize(10);
-    doc.text(`Período: ${periodoLabel}`, 14, 25);
-    doc.text(`Canal: ${canalFiltro === 'todos' ? 'Todos' : labelCanal(canalFiltro)}`, 14, 30);
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const marginX = 14;
 
+    const drawHeader = () => {
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 0, pageW, 22, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Investimento em Anúncios', marginX, 14);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Período: ${periodoLabel}`, pageW - marginX, 10, { align: 'right' });
+      doc.text(filtroLabel, pageW - marginX, 16, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+    };
+    const drawFooter = () => {
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(120, 120, 120);
+        doc.text(
+          `Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`,
+          marginX,
+          pageH - 8
+        );
+        doc.text(`Página ${i} de ${pageCount}`, pageW - marginX, pageH - 8, { align: 'right' });
+      }
+    };
+
+    drawHeader();
+
+    // KPIs
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('KPIs Gerais', marginX, 32);
     autoTable(doc, {
       startY: 36,
-      head: [['KPIs', 'Valor']],
+      head: [['Indicador', 'Valor']],
       body: [
         ['Total Investido', formatBRL(totalInvestido)],
         ['Total de Leads', String(totalLeads)],
@@ -197,9 +299,20 @@ export default function InvestimentoAnuncios() {
         ['Total de Vendas', String(totalVendas)],
         ['CAC (Custo por Venda)', formatBRL(cac)],
       ],
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, halign: 'left' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      styles: { fontSize: 10, cellPadding: 3 },
+      margin: { left: marginX, right: marginX },
     });
 
+    // Painel Geral por Consultor
+    let afterY = (doc as any).lastAutoTable.finalY + 8;
+    if (afterY > pageH - 40) { doc.addPage(); drawHeader(); afterY = 32; }
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Painel Geral por Consultor', marginX, afterY);
     autoTable(doc, {
+      startY: afterY + 4,
       head: [['Consultor', 'Leads', 'Investimento', 'CPL']],
       body: [
         ...consultoresPeriodo.map((c) => [
@@ -210,37 +323,52 @@ export default function InvestimentoAnuncios() {
         ]),
         ['TOTAL GERAL', String(totalLeads), formatBRL(totalInvestido), formatBRL(cplMedio)],
       ],
+      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      styles: { fontSize: 10, cellPadding: 3 },
+      margin: { left: marginX, right: marginX },
       didParseCell: (data) => {
         if (data.section === 'body' && data.row.index === consultoresPeriodo.length) {
           data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [230, 230, 230];
+          data.cell.styles.fillColor = [220, 230, 250];
         }
       },
     });
 
+    // Campanhas
+    afterY = (doc as any).lastAutoTable.finalY + 8;
+    if (afterY > pageH - 40) { doc.addPage(); drawHeader(); afterY = 32; }
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Registros de Campanha', marginX, afterY);
     autoTable(doc, {
-      head: [['Período', 'Campanha', 'Canal', 'Invest.', 'Leads', 'CPL']],
+      startY: afterY + 4,
+      head: [['Período', 'Campanha', 'Canal', 'Objetivo', 'Invest.', 'Leads', 'CPL']],
       body: registrosFiltrados.map((r) => {
-        const leads = r.consultores.reduce((s, c) => s + c.leads_recebidos, 0);
+        const linhas = consultorAlvo
+          ? r.consultores.filter((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === consultorAlvo)
+          : r.consultores;
+        const leads = linhas.reduce((s, c) => s + c.leads_recebidos, 0);
+        const invest = consultorAlvo ? linhas.reduce((s, c) => s + c.investimento_direcionado, 0) : r.investimento_total;
         return [
-          `${r.data_inicio.split('-').reverse().join('/')}-${r.data_fim.split('-').reverse().join('/')}`,
+          `${r.data_inicio.split('-').reverse().join('/')} - ${r.data_fim.split('-').reverse().join('/')}`,
           r.nome_campanha || '—',
           labelCanal(r.canal),
-          formatBRL(r.investimento_total),
+          labelObjetivo(r.objetivo_campanha),
+          formatBRL(invest),
           String(leads),
-          formatBRL(calcularCPL(r.investimento_total, leads)),
+          formatBRL(calcularCPL(invest, leads)),
         ];
       }),
-      styles: { fontSize: 8 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      margin: { left: marginX, right: marginX },
+      showHead: 'everyPage',
     });
 
-    doc.setFontSize(8);
-    doc.text(
-      `Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`,
-      14,
-      doc.internal.pageSize.getHeight() - 8
-    );
-    doc.save(`investimento-anuncios-${mesStr}.pdf`);
+    drawFooter();
+    doc.save(`${nomeArquivo}.pdf`);
   };
 
   const abrirNovo = () => {
@@ -265,12 +393,37 @@ export default function InvestimentoAnuncios() {
           <h1 className="text-2xl font-bold">Investimento em Anúncios</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Input
-            type="month"
-            value={mesStr}
-            onChange={(e) => setMesStr(e.target.value)}
-            className="w-[180px]"
-          />
+          <Select value={modoData} onValueChange={(v) => setModoData(v as 'mes' | 'custom')}>
+            <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mes">Por mês</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+          {modoData === 'mes' ? (
+            <Input
+              type="month"
+              value={mesStr}
+              onChange={(e) => setMesStr(e.target.value)}
+              className="w-[180px]"
+            />
+          ) : (
+            <>
+              <Input
+                type="date"
+                value={dataInicioCustom}
+                onChange={(e) => setDataInicioCustom(e.target.value)}
+                className="w-[160px]"
+              />
+              <span className="text-xs text-muted-foreground">até</span>
+              <Input
+                type="date"
+                value={dataFimCustom}
+                onChange={(e) => setDataFimCustom(e.target.value)}
+                className="w-[160px]"
+              />
+            </>
+          )}
           <Select value={canalFiltro} onValueChange={setCanalFiltro}>
             <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -280,9 +433,21 @@ export default function InvestimentoAnuncios() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={consultorFiltro} onValueChange={setConsultorFiltro}>
+            <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os consultores</SelectItem>
+              {consultores.map((c) => (
+                <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button onClick={abrirNovo}><Plus className="w-4 h-4 mr-1" /> Novo Registro</Button>
           <Button variant="outline" onClick={exportarCSV} disabled={registrosFiltrados.length === 0}>
             <FileSpreadsheet className="w-4 h-4 mr-1" /> CSV
+          </Button>
+          <Button variant="outline" onClick={exportarXLSX} disabled={registrosFiltrados.length === 0}>
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
           </Button>
           <Button variant="outline" onClick={exportarPDF} disabled={registrosFiltrados.length === 0}>
             <Download className="w-4 h-4 mr-1" /> PDF
