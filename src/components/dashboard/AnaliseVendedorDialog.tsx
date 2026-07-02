@@ -15,6 +15,9 @@ import { useUsuarios } from '@/hooks/useUsuarios';
 import { carregarAnaliseVendedor, carregarAnaliseTimeVendas, formatBRL, gerarCSVAnalise, TIME_VENDAS_ID, TIME_VENDAS_LABEL, type AnaliseVendedor } from '@/lib/analiseVendedor';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { startOfMonth, endOfMonth } from 'date-fns';
+import { calcularCPL } from '@/lib/anuncios';
 
 interface Props {
   open: boolean;
@@ -38,6 +41,39 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     () => usuarios.filter((u) => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)),
     [usuarios]
   );
+
+  // Leads pagos + investimento em anúncios do vendedor no mês (funil topo)
+  const { data: anuncios } = useQuery({
+    queryKey: ['analise-anuncios', vendedor, mesStr],
+    enabled: !!vendedor,
+    queryFn: async () => {
+      const di = startOfMonth(mesData).toISOString().slice(0, 10);
+      const df = endOfMonth(mesData).toISOString().slice(0, 10);
+      const { data: invs } = await supabase
+        .from('ad_investments' as any)
+        .select('id, data_inicio, data_fim')
+        .lte('data_inicio', df)
+        .gte('data_fim', di);
+      const ids = ((invs as any[]) || []).map((i) => i.id);
+      if (ids.length === 0) return { leads: 0, invest: 0 };
+      const { data: rows } = await supabase
+        .from('ad_investment_consultores' as any)
+        .select('leads_recebidos, investimento_direcionado, consultor_nome_snapshot')
+        .in('ad_investment_id', ids);
+      let leads = 0;
+      let invest = 0;
+      const alvo = vendedor === TIME_VENDAS_ID
+        ? new Set(consultores.map((c) => c.nome.trim().toLowerCase()))
+        : new Set([String(vendedor || '').trim().toLowerCase()]);
+      for (const r of (rows as any[]) || []) {
+        const nome = String(r.consultor_nome_snapshot || '').trim().toLowerCase();
+        if (!alvo.has(nome)) continue;
+        leads += Number(r.leads_recebidos) || 0;
+        invest += Number(r.investimento_direcionado) || 0;
+      }
+      return { leads, invest };
+    },
+  });
 
   useEffect(() => {
     if (!open) {
