@@ -426,7 +426,12 @@ export function gerarCSVAnalise(a: AnaliseVendedor): string {
   const resumo: [string, string | number][] = [
     ['Vendas realizadas', a.qtdVendas],
     ['Orçamentos gerados', a.qtdOrcamentos],
-    ['Taxa de conversão', `${(a.taxaConversao * 100).toFixed(1)}%`],
+    ['Taxa de conversão (com recompras)', `${(a.taxaConversao * 100).toFixed(1)}%`],
+    ['Taxa de conversão (novos produtores)', `${(a.taxaConversaoNovoProdutor * 100).toFixed(1)}%`],
+    ['Vendas de recompras', a.qtdVendasRecompras],
+    ['Receita de recompras', formatBRL(a.receitaRecompras)],
+    ['Vendas Novo Produtor', a.qtdVendasNovosProdutores],
+    ['Receita Novo Produtor', formatBRL(a.receitaNovosProdutores)],
     ['Receita total', formatBRL(a.receitaTotal)],
     ['Ticket médio', formatBRL(a.ticketMedio)],
     ['Valor em negociação', formatBRL(a.valorEmNegociacao)],
