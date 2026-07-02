@@ -178,6 +178,8 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     if (!analise) return;
     const doc = new jsPDF();
     const mesLabel = format(analise.mes, "MMMM 'de' yyyy", { locale: ptBR });
+    const invest = anuncios?.invest || 0;
+    const roi = invest > 0 ? ((analise.receitaTotal - invest) / invest) * 100 : null;
     doc.setFontSize(16);
     doc.text('Análise Apurada do Vendedor', 14, 18);
     doc.setFontSize(11);
@@ -190,7 +192,12 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
       body: [
         ['Vendas realizadas', String(analise.qtdVendas)],
         ['Orçamentos gerados', String(analise.qtdOrcamentos)],
-        ['Taxa de conversão', `${(analise.taxaConversao * 100).toFixed(1)}%`],
+        ['Conversão total (c/ recompras)', `${(analise.taxaConversao * 100).toFixed(1)}%`],
+        ['Conversão Novo Produtor', `${(analise.taxaConversaoNovoProdutor * 100).toFixed(1)}%`],
+        ['Vendas de recompras', `${analise.qtdVendasRecompras} (${formatBRL(analise.receitaRecompras)})`],
+        ['Vendas Novo Produtor', `${analise.qtdVendasNovosProdutores} (${formatBRL(analise.receitaNovosProdutores)})`],
+        ['Investimento em anúncios', formatBRL(invest)],
+        ['ROI da operação', roi === null ? '—' : `${roi.toFixed(1)}%`],
         ['Receita total (vendas)', formatBRL(analise.receitaTotal)],
         ['Ticket médio', formatBRL(analise.ticketMedio)],
         ['Valor em negociação', formatBRL(analise.valorEmNegociacao)],
@@ -395,6 +402,27 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
                             <MetricCard label="Custo/Orçamento" value={formatBRL(orc > 0 ? invest / orc : 0)} />
                             <MetricCard label="Custo/Venda (CAC)" value={formatBRL(vend > 0 ? invest / vend : 0)} />
                           </div>
+                          {(() => {
+                            const convTotal = analise.taxaConversao * 100;
+                            const convNovo = analise.taxaConversaoNovoProdutor * 100;
+                            const roi = invest > 0 ? ((analise.receitaTotal - invest) / invest) * 100 : null;
+                            return (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                                <MetricCard
+                                  label={`Conv. Total (c/ recompra) — ${analise.qtdVendas}/${analise.qtdOrcamentos}`}
+                                  value={`${convTotal.toFixed(1)}%`}
+                                />
+                                <MetricCard
+                                  label={`Conv. Novo Produtor — ${analise.qtdVendasNovosProdutores}/${analise.qtdOrcamentos}`}
+                                  value={`${convNovo.toFixed(1)}%`}
+                                />
+                                <MetricCard
+                                  label="ROI da operação"
+                                  value={roi === null ? '—' : `${roi.toFixed(1)}%`}
+                                />
+                              </div>
+                            );
+                          })()}
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
                             <MetricCard label="Investimento em Anúncios" value={formatBRL(invest)} />
                             <MetricCard label="Leads Pagos" value={leads} />

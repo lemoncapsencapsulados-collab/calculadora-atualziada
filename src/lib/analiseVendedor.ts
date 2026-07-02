@@ -12,6 +12,12 @@ export interface AnaliseVendedor {
   potesPorTipo: Record<string, number>;
   maiorVolumePotesVenda: number;
   produtosVendidos: Array<{ nome: string; qtdPotes: number; receita: number; vezes: number }>;
+  // Recompras vs Novo Produtor
+  qtdVendasRecompras: number;
+  qtdVendasNovosProdutores: number;
+  receitaRecompras: number;
+  receitaNovosProdutores: number;
+  taxaConversaoNovoProdutor: number; // 0..1
   // Setups
   setupsVendidos: Array<{ nome: string; quantidade: number; valorTotal: number }>;
   setupMaisVendido: string | null;
@@ -129,6 +135,7 @@ export async function carregarAnaliseVendedor(
       numeroPedido: p.numero_pedido,
       cliente,
       data: p.data_pedido,
+      tipo_orcamento: String(snap.tipo_orcamento || fallback?.tipo_orcamento || ''),
       itens_producao:
         Array.isArray(snap.itens_producao) && snap.itens_producao.length > 0
           ? snap.itens_producao
@@ -202,6 +209,14 @@ export async function carregarAnaliseVendedor(
   const taxaConversao = qtdOrcamentos > 0 ? qtdVendas / qtdOrcamentos : 0;
   const valorEmNegociacao = negociacao.reduce((acc, v) => acc + (Number(v.valor_total) || 0), 0);
 
+  // Split recompras vs novos produtores
+  const vendasRecompras = vendas.filter((v) => v.tipo_orcamento === 'recompra' || v.tipo_orcamento === 'recompra_pod');
+  const qtdVendasRecompras = vendasRecompras.length;
+  const receitaRecompras = vendasRecompras.reduce((s, v) => s + (Number(v.valor_total) || 0), 0);
+  const qtdVendasNovosProdutores = qtdVendas - qtdVendasRecompras;
+  const receitaNovosProdutores = receitaTotal - receitaRecompras;
+  const taxaConversaoNovoProdutor = qtdOrcamentos > 0 ? qtdVendasNovosProdutores / qtdOrcamentos : 0;
+
   // 3) Monetizze — consultas salvas vinculadas a este consultor (pelo nome) no mês
   const mesStr = `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}`;
   const { data: mtzData } = await supabase
@@ -257,6 +272,11 @@ export async function carregarAnaliseVendedor(
     potesPorTipo,
     maiorVolumePotesVenda,
     produtosVendidos: Array.from(produtosMap.values()).sort((a, b) => b.qtdPotes - a.qtdPotes),
+    qtdVendasRecompras,
+    qtdVendasNovosProdutores,
+    receitaRecompras,
+    receitaNovosProdutores,
+    taxaConversaoNovoProdutor,
     setupsVendidos,
     setupMaisVendido,
     valorMedioSetup,
@@ -302,6 +322,8 @@ export async function carregarAnaliseTimeVendas(
   let maiorVolumePotesVenda = 0;
   let qtdOrcamentos = 0;
   let valorEmNegociacao = 0;
+  let qtdVendasRecompras = 0;
+  let receitaRecompras = 0;
   let monetizzeTotalReceber = 0;
   let monetizzeComissaoBruta = 0;
   let braipTotalReceber = 0;
@@ -317,6 +339,8 @@ export async function carregarAnaliseTimeVendas(
     if (a.maiorVolumePotesVenda > maiorVolumePotesVenda) maiorVolumePotesVenda = a.maiorVolumePotesVenda;
     qtdOrcamentos += a.qtdOrcamentos;
     valorEmNegociacao += a.valorEmNegociacao;
+    qtdVendasRecompras += a.qtdVendasRecompras;
+    receitaRecompras += a.receitaRecompras;
     monetizzeTotalReceber += a.monetizzeTotalReceber;
     monetizzeComissaoBruta += a.monetizzeComissaoBruta;
     braipTotalReceber += a.braipTotalReceber;
@@ -363,6 +387,11 @@ export async function carregarAnaliseTimeVendas(
     potesPorTipo,
     maiorVolumePotesVenda,
     produtosVendidos: Array.from(produtosMap.values()).sort((a, b) => b.qtdPotes - a.qtdPotes),
+    qtdVendasRecompras,
+    qtdVendasNovosProdutores: qtdVendas - qtdVendasRecompras,
+    receitaRecompras,
+    receitaNovosProdutores: receitaTotal - receitaRecompras,
+    taxaConversaoNovoProdutor: qtdOrcamentos > 0 ? (qtdVendas - qtdVendasRecompras) / qtdOrcamentos : 0,
     setupsVendidos,
     setupMaisVendido: setupsVendidos[0]?.nome || null,
     valorMedioSetup: qtdSetup > 0 ? somaSetupValores / qtdSetup : 0,
@@ -397,7 +426,12 @@ export function gerarCSVAnalise(a: AnaliseVendedor): string {
   const resumo: [string, string | number][] = [
     ['Vendas realizadas', a.qtdVendas],
     ['Orçamentos gerados', a.qtdOrcamentos],
-    ['Taxa de conversão', `${(a.taxaConversao * 100).toFixed(1)}%`],
+    ['Taxa de conversão (com recompras)', `${(a.taxaConversao * 100).toFixed(1)}%`],
+    ['Taxa de conversão (novos produtores)', `${(a.taxaConversaoNovoProdutor * 100).toFixed(1)}%`],
+    ['Vendas de recompras', a.qtdVendasRecompras],
+    ['Receita de recompras', formatBRL(a.receitaRecompras)],
+    ['Vendas Novo Produtor', a.qtdVendasNovosProdutores],
+    ['Receita Novo Produtor', formatBRL(a.receitaNovosProdutores)],
     ['Receita total', formatBRL(a.receitaTotal)],
     ['Ticket médio', formatBRL(a.ticketMedio)],
     ['Valor em negociação', formatBRL(a.valorEmNegociacao)],
