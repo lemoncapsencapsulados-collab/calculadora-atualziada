@@ -1,90 +1,49 @@
-
 ## Objetivo
-Adicionar uma seção completa de **Investimento em Anúncios** (topo de funil / tráfego pago) e cruzar esses dados com as métricas de vendas já existentes, alimentando o funil completo dentro da "Análise Apurada do Vendedor" no Dashboard.
+Reestruturar o dialog "Novo registro de investimento" e a página de Investimento em Anúncios para trabalhar no modelo **Campanha → Consultores**, com um **Painel Geral** acumulado (baseado no filtro de data da página) exibido acima da tabela "Dados por Campanha".
 
-## 1. Backend (Lovable Cloud) — 2 tabelas novas
+## Mudanças
 
-`public.ad_investments`
-- `canal` (text, ex: `meta_ads_whatsapp`)
-- `data_inicio` (date), `data_fim` (date)
-- `investimento_total` (numeric(15,2))
-- `objetivo_campanha` (text, enum-like: mensagem_consultor, direct_instagram, view_video, engajamento_video, visitas_perfil, novos_seguidores)
-- `observacoes` (text, nullable)
-- id, created_at, updated_at, created_by (nullable)
+### 1. Dialog `RegistroInvestimentoDialog.tsx`
+Reorganizar o formulário em duas seções:
 
-`public.ad_investment_consultores`
-- `ad_investment_id` (uuid FK → ad_investments, on delete cascade)
-- `consultor_id` (uuid FK → usuarios)
-- `consultor_nome_snapshot` (text) — preserva o nome caso o consultor seja desativado/renomeado
-- `leads_recebidos` (int, default 0)
-- `investimento_direcionado` (numeric(15,2), default 0)
-- id, created_at, updated_at
-- unique (ad_investment_id, consultor_id)
+**a) Cabeçalho da Campanha**
+- Novo campo obrigatório: **Nome da Campanha** (texto livre).
+- Manter: Canal de Vendas, Objetivo, Data de início, Data de fim.
+- Remover campo "Investimento Total" fixo — o total passa a ser **calculado** pela soma das linhas de consultores da campanha (exibido como readonly).
 
-RLS: seguir padrão das outras tabelas do projeto (acesso a `authenticated`, GRANTs completos). CPL e taxas **nunca** persistidos — sempre calculados no frontend.
+**b) Bloco "Dados por Campanha" (renomeia "Distribuição por Consultor")**
+Tabela editável com linhas dinâmicas. Cada linha:
+- Consultor (dropdown com consultores ativos)
+- Leads recebidos
+- Investimento (R$)
+- Botão remover linha
+- Botão "+ Adicionar consultor" abaixo da tabela
 
-## 2. Nova rota `/investimento-anuncios`
+Rodapé da tabela: Totais da campanha (leads, investimento, CPL da campanha).
+Remove-se o alerta de "valor distribuído ultrapassa total" (não faz mais sentido — o total é derivado).
 
-Adicionar em `src/App.tsx` + link em `src/components/Navigation.tsx` (ícone `Megaphone` do lucide, label "Anúncios").
+**c) Painel Geral (novo, acima de "Dados por Campanha")**
+Card compacto mostrando, **para o período do filtro de data da página** (não da campanha em edição), agregado de TODAS as campanhas salvas + linhas ainda não salvas da campanha atual em edição:
+- Linha por consultor: nome, leads acumulados, investimento acumulado, CPL.
+- Linha "Total Geral" no final.
+- Atualiza em tempo real conforme o usuário digita novas linhas no bloco de campanha.
 
-Página `src/pages/InvestimentoAnuncios.tsx` com:
+### 2. Banco de dados
+Adicionar coluna `nome_campanha text not null default ''` em `ad_investments` via migração. Campo `investimento_total` continua existindo mas passa a ser recalculado (soma das linhas) no momento do save.
 
-**a) 4 KPIs no topo** (filtrados por período selecionado no topo da página):
-- Total Investido | Total de Leads | CPL Médio | CAC (Investimento ÷ Vendas do período — vendas via `carregarAnaliseVendedor`/pedidos)
+### 3. Página `InvestimentoAnuncios.tsx`
+- Adicionar coluna "Campanha" na tabela de Registros de Investimento.
+- Passar o período do filtro (mês selecionado) para o dialog, para alimentar o Painel Geral.
+- KPIs no topo permanecem (Total Investido, Leads, CPL, CAC) — já são agregados do período.
 
-**b) Tabela de registros**: Período · Canal · Objetivo · Total Investido · Total de Leads · CPL Médio · Ações (editar/excluir)
-- Ordenada por `data_inicio` desc, filtros por mês/ano e canal.
-
-**c) Card expansível "Funil Completo por Consultor"**
-- Para cada consultor ativo, cruza:
-  - Leads (soma `leads_recebidos` dos registros no período)
-  - Orçamentos gerados (query `orcamentos` por `consultor_responsavel` no período — mesma lógica de `analiseVendedor.ts`)
-  - Vendas realizadas (query `pedidos` via `orcamento_snapshot->>consultor_responsavel` — mesma lógica)
-- Exibe funil horizontal (barras decrescentes) + taxas Lead→Orç, Orç→Venda, Lead→Venda + CPL + Custo por Venda.
-
-## 3. Modal "Novo Registro / Editar Registro"
-
-Componente `src/components/anuncios/RegistroInvestimentoDialog.tsx`:
-- Canal (Select) — só "Meta Ads → WhatsApp" hoje, arquitetura pronta para novos (constante `CANAIS_VENDAS`)
-- Período (2 inputs `date` + resumo "X dias")
-- Investimento Total (input monetário BRL, > 0)
-- Objetivo (Select com as 6 opções)
-- Distribuição por Consultor: lista automática via `useUsuarios(true)`; para edição, mescla com consultores desativados que já estão no registro (mostrados com badge "inativo"). Cada linha: leads (int) + investimento direcionado (BRL).
-- Validação em tempo real da soma: mostra "R$ X ainda não distribuídos" (verde) ou "⚠ ultrapassa em R$ Y" (vermelho, bloqueia save).
-- Totalizadores: Total de Leads, Total Distribuído, CPL geral.
-- Observações (textarea).
-
-## 4. Integração com o Dashboard (Análise do Vendedor)
-
-Estender `src/lib/analiseVendedor.ts` para carregar Leads do consultor no mês (nova função `carregarLeadsPagosConsultor(consultorId, consultorNome, mes)`) — soma `leads_recebidos` + `investimento_direcionado` dos registros que interceptam o mês, ponderando por dias no mês quando necessário (implementação simples: soma cheia dos registros cujo `data_inicio` cai no mês).
-
-Adicionar ao tipo `AnaliseVendedor`:
-- `leadsPagos: number`
-- `investimentoAnuncios: number`
-- `cpl: number` (invest ÷ leads)
-- `custoPorOrcamento: number` (invest ÷ qtdOrcamentos)
-- `custoPorVenda: number` (invest ÷ qtdVendas)
-- `taxaLeadOrcamento: number`, `taxaLeadVenda: number`
-
-Atualizar `AnaliseVendedorDialog.tsx`:
-- Novo card "Funil Completo" no topo (Leads → Orçamentos → Vendas com barras + taxas)
-- Novos MetricCards: Leads Pagos, Investimento, CPL, Custo por Orçamento, Custo por Venda
-- Refletir no CSV/PDF exportados
-- Realtime: subscribe em `ad_investments` e `ad_investment_consultores` do mês.
-
-## 5. Regras de integração
-- Lista de consultores no formulário = `useUsuarios(true)` (ativos), reativo automaticamente.
-- Consultores desativados **permanecem** nos registros históricos (via `consultor_nome_snapshot` + FK preservada), mas não aparecem em novos.
-- `consultor_id` é o mesmo do Admin (`usuarios.id`), garantindo o join.
-- CPL/taxas sempre recalculados, nunca gravados.
+### 4. Hook `useAdInvestments.ts`
+Incluir `nome_campanha` no payload de insert/update e no tipo `AdInvestment` / `AdInvestmentInput`.
 
 ## Detalhes técnicos
-- Novo hook `src/hooks/useAdInvestments.ts` com queries + mutations (create/update/delete) e invalidations do React Query.
-- Constantes em `src/lib/anuncios.ts`: `CANAIS_VENDAS`, `OBJETIVOS_CAMPANHA`, helpers `calcularCPL`, `calcularFunil`.
-- Formatação monetária: reaproveitar `formatBRL` de `analiseVendedor.ts`.
-- Componente de funil horizontal: implementação simples com `div` + `bg-primary` proporcional (sem lib nova).
-- Nenhuma alteração em pedidos/orçamentos existentes — só leitura para cruzar dados.
+- Painel Geral: recebe via props os registros já carregados do período + o array `consultores` em edição no dialog. Faz merge in-memory (não requer nova query).
+- Validação: exigir pelo menos 1 linha de consultor com investimento > 0 e nome da campanha preenchido para habilitar "Salvar".
+- CPL por consultor no Painel Geral = investimento_acumulado / leads_acumulados (0 se leads = 0).
 
-## Fora do escopo
-- Importação automática do Meta Ads (só entrada manual por enquanto).
-- Alocação automática de leads por dia (usa período informado como bloco).
+## Fora de escopo
+- Campo autocomplete de nome de campanha (fica texto livre).
+- Alterações no card "Funil por Consultor" da página e no dialog "Análise do Vendedor" — continuam usando os agregados já existentes.
