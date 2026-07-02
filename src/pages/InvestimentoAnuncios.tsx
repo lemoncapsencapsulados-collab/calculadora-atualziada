@@ -237,6 +237,7 @@ export default function InvestimentoAnuncios() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Período</TableHead>
+                  <TableHead>Campanha</TableHead>
                   <TableHead>Canal</TableHead>
                   <TableHead>Objetivo</TableHead>
                   <TableHead>Investido</TableHead>
@@ -253,6 +254,7 @@ export default function InvestimentoAnuncios() {
                       <TableCell className="text-sm">
                         {r.data_inicio.split('-').reverse().join('/')} - {r.data_fim.split('-').reverse().join('/')}
                       </TableCell>
+                      <TableCell className="text-sm font-medium">{r.nome_campanha || '—'}</TableCell>
                       <TableCell><Badge variant="secondary">{labelCanal(r.canal)}</Badge></TableCell>
                       <TableCell className="text-sm">{labelObjetivo(r.objetivo_campanha)}</TableCell>
                       <TableCell>{formatBRL(r.investimento_total)}</TableCell>
@@ -277,7 +279,13 @@ export default function InvestimentoAnuncios() {
         </CardContent>
       </Card>
 
-      <RegistroInvestimentoDialog open={dialogOpen} onOpenChange={setDialogOpen} registro={editando} />
+      <RegistroInvestimentoDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        registro={editando}
+        registrosPeriodo={registrosFiltrados}
+        periodoLabel={format(periodoIni, 'MM/yyyy')}
+      />
     </div>
   );
 }
