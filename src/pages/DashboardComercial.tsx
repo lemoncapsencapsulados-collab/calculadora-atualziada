@@ -14,6 +14,7 @@ import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/componen
 import { DashboardAlteracoesPagamento } from '@/components/dashboard/DashboardAlteracoesPagamento';
 import { AnaliseVendedorDialog } from '@/components/dashboard/AnaliseVendedorDialog';
 import { DashboardComissoesExternas } from '@/components/dashboard/DashboardComissoesExternas';
+import { DashboardFunilAnuncios } from '@/components/dashboard/DashboardFunilAnuncios';
 import { Button } from '@/components/ui/button';
 import type { DashboardFiltros } from '@/types/dashboard';
 
@@ -95,6 +96,13 @@ export default function DashboardComercial() {
 
       {/* Comissões Externas (Monetizze + Braip) */}
       <DashboardComissoesExternas filtros={filtros} />
+
+      {/* Funil de Anúncios (Leads → Orçamentos → Vendas) */}
+      <DashboardFunilAnuncios
+        filtros={filtros}
+        rankingConsultores={rankingConsultores}
+        orcamentosPorConsultorStatus={orcamentosPorConsultorStatus}
+      />
 
       {/* Vendas e Ranking */}
       <DashboardVendas
