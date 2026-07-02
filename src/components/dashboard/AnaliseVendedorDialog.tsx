@@ -178,6 +178,8 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
     if (!analise) return;
     const doc = new jsPDF();
     const mesLabel = format(analise.mes, "MMMM 'de' yyyy", { locale: ptBR });
+    const invest = anuncios?.invest || 0;
+    const roi = invest > 0 ? ((analise.receitaTotal - invest) / invest) * 100 : null;
     doc.setFontSize(16);
     doc.text('Análise Apurada do Vendedor', 14, 18);
     doc.setFontSize(11);
@@ -190,7 +192,12 @@ export function AnaliseVendedorDialog({ open, onOpenChange }: Props) {
       body: [
         ['Vendas realizadas', String(analise.qtdVendas)],
         ['Orçamentos gerados', String(analise.qtdOrcamentos)],
-        ['Taxa de conversão', `${(analise.taxaConversao * 100).toFixed(1)}%`],
+        ['Conversão total (c/ recompras)', `${(analise.taxaConversao * 100).toFixed(1)}%`],
+        ['Conversão Novo Produtor', `${(analise.taxaConversaoNovoProdutor * 100).toFixed(1)}%`],
+        ['Vendas de recompras', `${analise.qtdVendasRecompras} (${formatBRL(analise.receitaRecompras)})`],
+        ['Vendas Novo Produtor', `${analise.qtdVendasNovosProdutores} (${formatBRL(analise.receitaNovosProdutores)})`],
+        ['Investimento em anúncios', formatBRL(invest)],
+        ['ROI da operação', roi === null ? '—' : `${roi.toFixed(1)}%`],
         ['Receita total (vendas)', formatBRL(analise.receitaTotal)],
         ['Ticket médio', formatBRL(analise.ticketMedio)],
         ['Valor em negociação', formatBRL(analise.valorEmNegociacao)],
