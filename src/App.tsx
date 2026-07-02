@@ -20,6 +20,7 @@ import ConfiguracaoContratos from "./pages/ConfiguracaoContratos";
 import VhsysLogs from "./pages/VhsysLogs";
 import AsaasLogs from "./pages/AsaasLogs";
 import EmailLogs from "./pages/EmailLogs";
+import InvestimentoAnuncios from "./pages/InvestimentoAnuncios";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -97,6 +98,7 @@ const AppContent = () => {
           <Route path="/vhsys-logs" element={<VhsysLogs />} />
           <Route path="/asaas-logs" element={<AsaasLogs />} />
           <Route path="/email-logs" element={<EmailLogs />} />
+          <Route path="/investimento-anuncios" element={<InvestimentoAnuncios />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
