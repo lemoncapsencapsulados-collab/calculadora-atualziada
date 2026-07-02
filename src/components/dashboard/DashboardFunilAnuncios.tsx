@@ -321,3 +321,40 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+function CompareStat({
+  label,
+  atual,
+  anterior,
+  format,
+  menorMelhor,
+}: {
+  label: string;
+  atual: number;
+  anterior: number;
+  format: (v: number) => string;
+  menorMelhor?: boolean;
+}) {
+  const delta = atual - anterior;
+  const pct = anterior !== 0 ? (delta / anterior) * 100 : atual !== 0 ? 100 : 0;
+  const semAnterior = anterior === 0 && atual === 0;
+  // "Positivo" (verde) = melhora — se menorMelhor, delta negativo é melhora.
+  const melhora = menorMelhor ? delta < 0 : delta > 0;
+  const cor = semAnterior ? 'text-muted-foreground' : melhora ? 'text-emerald-600' : delta === 0 ? 'text-muted-foreground' : 'text-red-600';
+  const Icon = semAnterior || delta === 0 ? Minus : melhora ? ArrowUpRight : ArrowDownRight;
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="mt-1 flex items-baseline justify-between gap-2">
+        <span className="text-lg font-bold">{format(atual)}</span>
+        <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${cor}`}>
+          <Icon className="w-3 h-3" />
+          {semAnterior ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`}
+        </span>
+      </div>
+      <div className="text-[11px] text-muted-foreground mt-0.5">
+        anterior: {format(anterior)}
+      </div>
+    </div>
+  );
+}
