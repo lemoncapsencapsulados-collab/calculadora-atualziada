@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Megaphone, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Megaphone, ChevronDown, ChevronRight, FileSpreadsheet, Download } from 'lucide-react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -122,6 +125,123 @@ export default function InvestimentoAnuncios() {
       .filter((f) => f.leads > 0 || f.orcamentos > 0 || f.vendas > 0)
       .sort((a, b) => b.vendas - a.vendas || b.orcamentos - a.orcamentos || b.leads - a.leads);
   }, [consultores, leadsInvestPorConsultor, metricasVendas]);
+
+  // Exportação
+  const periodoLabel = `${format(periodoIni, 'dd/MM/yyyy')} a ${format(periodoFim, 'dd/MM/yyyy')}`;
+  const consultoresPeriodo = useMemo(() => {
+    return Array.from(leadsInvestPorConsultor.values())
+      .sort((a, b) => b.invest - a.invest);
+  }, [leadsInvestPorConsultor]);
+
+  const exportarCSV = () => {
+    const linhas: string[] = [];
+    const esc = (v: any) => {
+      const s = String(v ?? '');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    linhas.push(`Investimento em Anúncios — Período: ${periodoLabel}`);
+    linhas.push('');
+    linhas.push('KPIs Gerais');
+    linhas.push(['Total Investido', 'Total de Leads', 'CPL Médio', 'CAC (Custo por Venda)', 'Total de Vendas'].join(','));
+    linhas.push([formatBRL(totalInvestido), totalLeads, formatBRL(cplMedio), formatBRL(cac), totalVendas].map(esc).join(','));
+    linhas.push('');
+    linhas.push('Painel Geral por Consultor');
+    linhas.push(['Consultor', 'Leads', 'Investimento', 'CPL'].join(','));
+    consultoresPeriodo.forEach((c) => {
+      linhas.push([c.nome, c.leads, formatBRL(c.invest), formatBRL(calcularCPL(c.invest, c.leads))].map(esc).join(','));
+    });
+    linhas.push(['TOTAL', totalLeads, formatBRL(totalInvestido), formatBRL(cplMedio)].map(esc).join(','));
+    linhas.push('');
+    linhas.push('Registros de Campanha');
+    linhas.push(['Período', 'Campanha', 'Canal', 'Objetivo', 'Investido', 'Leads', 'CPL', 'Consultores'].join(','));
+    registrosFiltrados.forEach((r) => {
+      const leads = r.consultores.reduce((s, c) => s + c.leads_recebidos, 0);
+      const detalhe = r.consultores
+        .map((c) => `${c.consultor_nome_snapshot}: ${c.leads_recebidos}L / ${formatBRL(c.investimento_direcionado)}`)
+        .join(' | ');
+      linhas.push([
+        `${r.data_inicio.split('-').reverse().join('/')} - ${r.data_fim.split('-').reverse().join('/')}`,
+        r.nome_campanha || '—',
+        labelCanal(r.canal),
+        labelObjetivo(r.objetivo_campanha),
+        formatBRL(r.investimento_total),
+        leads,
+        formatBRL(calcularCPL(r.investimento_total, leads)),
+        detalhe,
+      ].map(esc).join(','));
+    });
+    const blob = new Blob([`\uFEFF${linhas.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `investimento-anuncios-${mesStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportarPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Investimento em Anúncios', 14, 18);
+    doc.setFontSize(10);
+    doc.text(`Período: ${periodoLabel}`, 14, 25);
+    doc.text(`Canal: ${canalFiltro === 'todos' ? 'Todos' : labelCanal(canalFiltro)}`, 14, 30);
+
+    autoTable(doc, {
+      startY: 36,
+      head: [['KPIs', 'Valor']],
+      body: [
+        ['Total Investido', formatBRL(totalInvestido)],
+        ['Total de Leads', String(totalLeads)],
+        ['CPL Médio', formatBRL(cplMedio)],
+        ['Total de Vendas', String(totalVendas)],
+        ['CAC (Custo por Venda)', formatBRL(cac)],
+      ],
+    });
+
+    autoTable(doc, {
+      head: [['Consultor', 'Leads', 'Investimento', 'CPL']],
+      body: [
+        ...consultoresPeriodo.map((c) => [
+          c.nome,
+          String(c.leads),
+          formatBRL(c.invest),
+          formatBRL(calcularCPL(c.invest, c.leads)),
+        ]),
+        ['TOTAL GERAL', String(totalLeads), formatBRL(totalInvestido), formatBRL(cplMedio)],
+      ],
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.row.index === consultoresPeriodo.length) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [230, 230, 230];
+        }
+      },
+    });
+
+    autoTable(doc, {
+      head: [['Período', 'Campanha', 'Canal', 'Invest.', 'Leads', 'CPL']],
+      body: registrosFiltrados.map((r) => {
+        const leads = r.consultores.reduce((s, c) => s + c.leads_recebidos, 0);
+        return [
+          `${r.data_inicio.split('-').reverse().join('/')}-${r.data_fim.split('-').reverse().join('/')}`,
+          r.nome_campanha || '—',
+          labelCanal(r.canal),
+          formatBRL(r.investimento_total),
+          String(leads),
+          formatBRL(calcularCPL(r.investimento_total, leads)),
+        ];
+      }),
+      styles: { fontSize: 8 },
+    });
+
+    doc.setFontSize(8);
+    doc.text(
+      `Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`,
+      14,
+      doc.internal.pageSize.getHeight() - 8
+    );
+    doc.save(`investimento-anuncios-${mesStr}.pdf`);
+  };
 
   const abrirNovo = () => {
     setEditando(null);
