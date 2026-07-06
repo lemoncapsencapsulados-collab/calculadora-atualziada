@@ -468,6 +468,7 @@ export type Database = {
           mao_obra_direta: number | null
           mao_obra_direta_por_tipo: Json
           nome: string
+          overhead_unitario: number
           pis_cofins_credito: number | null
           pis_cofins_saida: number | null
           senha_protecao: string
@@ -499,6 +500,7 @@ export type Database = {
           mao_obra_direta?: number | null
           mao_obra_direta_por_tipo?: Json
           nome: string
+          overhead_unitario?: number
           pis_cofins_credito?: number | null
           pis_cofins_saida?: number | null
           senha_protecao?: string
@@ -530,6 +532,7 @@ export type Database = {
           mao_obra_direta?: number | null
           mao_obra_direta_por_tipo?: Json
           nome?: string
+          overhead_unitario?: number
           pis_cofins_credito?: number | null
           pis_cofins_saida?: number | null
           senha_protecao?: string

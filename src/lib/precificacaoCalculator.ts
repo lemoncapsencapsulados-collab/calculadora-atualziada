@@ -13,166 +13,77 @@ interface CustosIndiretos {
   administrativo: number;
 }
 
+const OVERHEAD_PADRAO = 3;
+const ALIQUOTA_IMPOSTO = 0.12;
+
+function overheadDaConfig(config: ConfiguracaoCustos | null | undefined): number {
+  const v = Number((config as any)?.overhead_unitario);
+  return Number.isFinite(v) && v > 0 ? v : OVERHEAD_PADRAO;
+}
+
 /**
- * Calcula a precificação completa baseada no preço de venda desejado
+ * Formação de preço simplificada:
+ *   Total de custos = Matéria-Prima + Embalagem + Overhead (config, padrão R$ 3,00)
+ *   Impostos       = 12% sobre o preço de venda
+ *   Margem         = Preço - Custos - Impostos
+ *
+ * O parâmetro `custosIndiretos` é ignorado e mantido apenas por compatibilidade
+ * com telas legadas (Editar Precificação, Histórico) que passam esses valores.
  */
 export function calcularPrecificacaoPorPreco(
   custosBase: CustosBase,
-  custosIndiretos: CustosIndiretos,
+  _custosIndiretos: CustosIndiretos,
   precoVenda: number,
   config: ConfiguracaoCustos
 ): PrecificacaoCalculada {
-  // 1. Custos Diretos
-  const subtotalCustosDiretos = 
-    custosBase.custoMateriaPrima + 
-    custosBase.custoEmbalagem + 
-    custosIndiretos.maoObraDireta;
+  const overhead = overheadDaConfig(config);
+  const custoMP = Number(custosBase.custoMateriaPrima) || 0;
+  const custoEmb = Number(custosBase.custoEmbalagem) || 0;
 
-  // 2. Custos Indiretos
-  const subtotalCustosIndiretos = 
-    custosIndiretos.energia + 
-    custosIndiretos.depreciacao + 
-    custosIndiretos.administrativo;
-
-  // 3. Total Custos de Produção Base
-  const totalCustosProducaoBase = subtotalCustosDiretos + subtotalCustosIndiretos;
-  
-  // 4. Taxa de Perca (configurável no Painel Administrador, fallback 20%)
-  const taxaPercaPct = Number((config as any)?.taxa_perca);
-  const taxaPerca = Number.isFinite(taxaPercaPct) ? taxaPercaPct : 20;
-  const margemSeguranca = totalCustosProducaoBase * (taxaPerca / 100);
-  
-  // 5. Total Custos de Produção COM Margem de Segurança
-  const totalCustosProducao = totalCustosProducaoBase + margemSeguranca;
-
-  // 6. Cálculo de ICMS
-  const icmsCreditoNF = (subtotalCustosDiretos * config.icms_credito_nf) / 100;
-  const icmsSaida = (precoVenda * config.icms_saida) / 100;
-  const icmsCreditoProdeic = (icmsSaida * config.credito_prodeic) / 100;
-  const fundebFundes = (icmsSaida * config.fundeb_fundes) / 100;
-  const icmsRecolher = icmsSaida - icmsCreditoNF - icmsCreditoProdeic + fundebFundes;
-
-  // 7. Cálculo de PIS/COFINS
-  const pisCOFINSSaida = (precoVenda * config.pis_cofins_saida) / 100;
-  const pisCOFINSCredito = (subtotalCustosDiretos * config.pis_cofins_credito) / 100;
-  const pisCOFINSRecolher = pisCOFINSSaida - pisCOFINSCredito;
-
-  // 8. Cálculo de IPI
-  const ipiValor = (precoVenda * config.ipi_saida) / 100;
-
-  // 9. Base de Cálculo IRPJ e CSLL
-  const baseCalculoIRPJCSLL = 
-    precoVenda - 
-    totalCustosProducao - 
-    icmsRecolher - 
-    pisCOFINSRecolher - 
-    ipiValor;
-
-  // 10. Cálculo IRPJ e CSLL
-  const irpjCsllValor = (baseCalculoIRPJCSLL * config.irpj_csll) / 100;
-
-  // 11. Total de Impostos
-  const totalImpostos = icmsRecolher + pisCOFINSRecolher + ipiValor + irpjCsllValor;
-
-  // 12. Margem de Lucro
+  const totalCustosProducao = custoMP + custoEmb + overhead;
+  const totalImpostos = precoVenda * ALIQUOTA_IMPOSTO;
   const margemLucroValor = precoVenda - totalCustosProducao - totalImpostos;
-  const margemLucroPercentual = (margemLucroValor / precoVenda) * 100;
-
-  // 13. Markup Bruto
-  const markupBruto = ((precoVenda - totalCustosProducao) / totalCustosProducao) * 100;
+  const margemLucroPercentual = precoVenda > 0 ? (margemLucroValor / precoVenda) * 100 : 0;
+  const markupBruto = totalCustosProducao > 0
+    ? ((precoVenda - totalCustosProducao) / totalCustosProducao) * 100
+    : 0;
 
   const r = arredondarReais;
   return {
-    custoMateriaPrima: r(custosBase.custoMateriaPrima),
-    custoEmbalagem: r(custosBase.custoEmbalagem),
-    custoMaoObraDireta: r(custosIndiretos.maoObraDireta),
-    custoEnergia: r(custosIndiretos.energia),
-    custoDepreciacao: r(custosIndiretos.depreciacao),
-    custoAdministrativo: r(custosIndiretos.administrativo),
-    
-    subtotalCustosDiretos: r(subtotalCustosDiretos),
-    subtotalCustosIndiretos: r(subtotalCustosIndiretos),
-    margemSeguranca: r(margemSeguranca),
+    custoMateriaPrima: r(custoMP),
+    custoEmbalagem: r(custoEmb),
+    custoMaoObraDireta: r(overhead), // overhead exibido como "custo indireto"
+    custoEnergia: 0,
+    custoDepreciacao: 0,
+    custoAdministrativo: 0,
+
+    subtotalCustosDiretos: r(custoMP + custoEmb),
+    subtotalCustosIndiretos: r(overhead),
+    margemSeguranca: 0,
     totalCustosProducao: r(totalCustosProducao),
-    
-    icmsCreditoNF: r(icmsCreditoNF),
-    icmsSaida: r(icmsSaida),
-    icmsCreditoProdeic: r(icmsCreditoProdeic),
-    fundebFundes: r(fundebFundes),
-    icmsRecolher: r(icmsRecolher),
-    
-    pisCOFINSSaida: r(pisCOFINSSaida),
-    pisCOFINSCredito: r(pisCOFINSCredito),
-    pisCOFINSRecolher: r(pisCOFINSRecolher),
-    
-    ipiValor: r(ipiValor),
-    
-    baseCalculoIRPJCSLL: r(baseCalculoIRPJCSLL),
-    irpjCsllValor: r(irpjCsllValor),
-    
+
+    icmsCreditoNF: 0,
+    icmsSaida: 0,
+    icmsCreditoProdeic: 0,
+    fundebFundes: 0,
+    icmsRecolher: 0,
+
+    pisCOFINSSaida: 0,
+    pisCOFINSCredito: 0,
+    pisCOFINSRecolher: 0,
+
+    ipiValor: 0,
+
+    baseCalculoIRPJCSLL: 0,
+    irpjCsllValor: 0,
+
     totalImpostos: r(totalImpostos),
-    
+
     precoVenda: r(precoVenda),
     markupBruto: r(markupBruto),
     margemLucroPercentual: r(margemLucroPercentual),
     margemLucroValor: r(margemLucroValor),
   };
-}
-
-/**
- * Calcula a precificação completa baseada no markup bruto desejado
- * Usa iteração para encontrar o preço de venda que resulta no markup desejado
- */
-export function calcularPrecificacaoPorMarkup(
-  custosBase: CustosBase,
-  custosIndiretos: CustosIndiretos,
-  markupBrutoDesejado: number,
-  config: ConfiguracaoCustos
-): PrecificacaoCalculada {
-  // Calcula total de custos primeiro
-  const totalCustosProducao = 
-    custosBase.custoMateriaPrima + 
-    custosBase.custoEmbalagem + 
-    custosIndiretos.maoObraDireta +
-    custosIndiretos.energia + 
-    custosIndiretos.depreciacao + 
-    custosIndiretos.administrativo;
-
-  // Estimativa inicial de preço usando markup simples
-  let precoVenda = totalCustosProducao * (1 + markupBrutoDesejado / 100);
-  
-  // Iteração para encontrar o preço correto (considerando impostos)
-  // Máximo de 50 iterações para convergir
-  for (let i = 0; i < 50; i++) {
-    const resultado = calcularPrecificacaoPorPreco(
-      custosBase,
-      custosIndiretos,
-      precoVenda,
-      config
-    );
-    
-    const diferencaMarkup = Math.abs(resultado.markupBruto - markupBrutoDesejado);
-    
-    // Se a diferença for menor que 0.01%, encontramos o preço correto
-    if (diferencaMarkup < 0.01) {
-      return resultado;
-    }
-    
-    // Ajusta o preço para próxima iteração
-    if (resultado.markupBruto < markupBrutoDesejado) {
-      precoVenda *= 1.01; // Aumenta 1%
-    } else {
-      precoVenda *= 0.99; // Diminui 1%
-    }
-  }
-  
-  // Retorna o último cálculo mesmo se não convergiu perfeitamente
-  return calcularPrecificacaoPorPreco(
-    custosBase,
-    custosIndiretos,
-    precoVenda,
-    config
-  );
 }
 
 /**
