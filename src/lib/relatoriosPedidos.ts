@@ -414,6 +414,19 @@ const monthKey = (s: string | null | undefined): string => {
   return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : '';
 };
 
+// Rótulo brasileiro do mês (MM/AAAA) a partir de uma chave interna YYYY-MM
+const monthLabel = (key: string): string => {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  return y && m ? `${m}/${y}` : key;
+};
+// Ordenador numérico YYYYMM para coluna auxiliar oculta
+const monthOrder = (key: string): number => {
+  if (!key) return 0;
+  const [y, m] = key.split('-');
+  return Number(`${y}${m}`) || 0;
+};
+
 interface PagamentoResumo {
   metodo: string;
   numParcelas: number;
@@ -478,6 +491,26 @@ const buildRows = (pedidos: PedidoReport[]) => {
   let totGeral = 0;
   const baseUrl = getBaseUrl();
 
+  // Coletar todos os meses (YYYY-MM) referenciados nas parcelas dos pedidos.
+  const monthSet = new Set<string>();
+  const pedidoMesValores: Record<string, Record<string, number>> = {};
+  pedidos.forEach(pedido => {
+    const pg = buildPagamentoResumo(pedido);
+    const acc: Record<string, number> = {};
+    pg.recebimentos.forEach(r => {
+      // Pago → mês do pagamento; caso contrário mês do vencimento.
+      const c = pg.comissoes.find(cc => cc.parcelaIndice === r.indice);
+      const ref = r.status === 'pago' ? (c?.dataPagamento || r.data) : r.data;
+      const key = monthKey(ref);
+      if (!key) return;
+      monthSet.add(key);
+      acc[key] = (acc[key] || 0) + (r.valor || 0);
+    });
+    pedidoMesValores[pedido.numero_pedido] = acc;
+  });
+  const monthKeys = Array.from(monthSet).sort();
+  const monthTotals: Record<string, number> = {};
+
   pedidos.forEach(pedido => {
     const data = extractData(pedido);
     if (!data) return;
@@ -489,7 +522,8 @@ const buildRows = (pedidos: PedidoReport[]) => {
     const link = data.id ? `${baseUrl}/pedidos?pedido=${data.id}` : '';
 
     // Linha-resumo do pedido (nível 0)
-    const resumo: any[] = new Array(headers.length).fill('');
+    const totalCols = headers.length + monthKeys.length;
+    const resumo: any[] = new Array(totalCols).fill('');
     resumo[COL.numero] = data.numeroPedido;
     resumo[COL.cliente] = data.nomeCliente;
     resumo[COL.cnpj] = data.cnpj;
@@ -512,11 +546,19 @@ const buildRows = (pedidos: PedidoReport[]) => {
     resumo[COL.aReceber] = pg.aReceber || 0;
     resumo[COL.statusPagto] = pg.statusPagto;
 
+    // Colunas mensais dinâmicas
+    const mesesDoPedido = pedidoMesValores[pedido.numero_pedido] || {};
+    monthKeys.forEach((mk, i) => {
+      const v = mesesDoPedido[mk] || 0;
+      resumo[headers.length + i] = v || '';
+      if (v) monthTotals[mk] = (monthTotals[mk] || 0) + v;
+    });
+
     rows.push({ cells: resumo, level: 0, link });
 
     // Linhas filhas com produtos (nível 1)
     data.itens.forEach(item => {
-      const r: any[] = new Array(headers.length).fill('');
+      const r: any[] = new Array(totalCols).fill('');
       r[COL.produto] = `   ↳ ${item.nomeProduto}`;
       r[COL.modalidade] = item.modeloCompra;
       r[COL.qtd] = item.quantidade;
@@ -526,7 +568,7 @@ const buildRows = (pedidos: PedidoReport[]) => {
     });
   });
 
-  return { rows, totals: { totProducao, totSetup, totGeral } };
+  return { rows, totals: { totProducao, totSetup, totGeral }, monthKeys, monthTotals };
 };
 
 const buildSheetWithFiltros = (
@@ -535,6 +577,9 @@ const buildSheetWithFiltros = (
   totalPedidos?: number,
 ) => {
   const filtroLinhas = buildFiltrosLinhas(filtros);
+  const monthKeys = built.monthKeys;
+  const monthHeaders = monthKeys.map(monthLabel);
+  const fullHeaders = [...headers, ...monthHeaders];
   const aoa: any[][] = [];
   aoa.push(['Relatório de Pedidos']);
   filtroLinhas.forEach(l => aoa.push([l]));
@@ -542,19 +587,22 @@ const buildSheetWithFiltros = (
   aoa.push([`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`]);
   aoa.push([]);
   const headerRowIdx = aoa.length; // 0-based
-  aoa.push(headers);
+  aoa.push(fullHeaders);
   built.rows.forEach(r => aoa.push(r.cells));
   // TOTAL GERAL
-  const totalRow: any[] = new Array(headers.length).fill('');
+  const totalRow: any[] = new Array(fullHeaders.length).fill('');
   totalRow[COL.numero] = 'TOTAL GERAL';
   totalRow[COL.totalProducao] = built.totals.totProducao;
   totalRow[COL.totalSetup] = built.totals.totSetup;
   totalRow[COL.custoTotal] = built.totals.totGeral;
+  monthKeys.forEach((mk, i) => {
+    totalRow[headers.length + i] = built.monthTotals[mk] || 0;
+  });
   aoa.push([]);
   const totalRowIdx = aoa.length;
   aoa.push(totalRow);
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
 
   ws['!cols'] = [
     { wch: 14 }, { wch: 30 }, { wch: 18 }, { wch: 22 }, { wch: 14 },
@@ -562,6 +610,7 @@ const buildSheetWithFiltros = (
     { wch: 18 }, { wch: 20 }, { wch: 14 },
     { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 20 },
     { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
+    ...monthKeys.map(() => ({ wch: 14 })),
   ];
 
   // Outline (agrupamento) — produtos colapsáveis sob a linha-resumo
@@ -585,6 +634,7 @@ const buildSheetWithFiltros = (
 
   // Formato BRL nas colunas monetárias
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+  const monthColIdxs = monthKeys.map((_, i) => headers.length + i);
   for (let R = headerRowIdx + 1; R <= range.e.r; R++) {
     MONEY_COLS.forEach(C => {
       const addr = XLSX.utils.encode_cell({ r: R, c: C });
@@ -597,10 +647,14 @@ const buildSheetWithFiltros = (
     DATE_COLS.forEach(C => {
       const addr = XLSX.utils.encode_cell({ r: R, c: C });
       const cell = ws[addr];
-      if (cell && cell.v instanceof Date) {
+      if (cell && (cell.v instanceof Date || cell.t === 'd')) {
         cell.t = 'd';
         cell.z = DATE_FMT;
       }
+    });
+    monthColIdxs.forEach(C => {
+      const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+      if (cell && typeof cell.v === 'number') { cell.t = 'n'; cell.z = BRL_FMT; }
     });
   }
 
@@ -608,7 +662,7 @@ const buildSheetWithFiltros = (
   ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 } as any;
 
   // AutoFilter no cabeçalho
-  const lastCol = XLSX.utils.encode_col(headers.length - 1);
+  const lastCol = XLSX.utils.encode_col(fullHeaders.length - 1);
   const firstDataRow = headerRowIdx + 1;
   const lastRow = range.e.r + 1;
   ws['!autofilter'] = { ref: `A${firstDataRow}:${lastCol}${lastRow}` } as any;
@@ -677,12 +731,12 @@ const buildParcelasSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
     aoa.push([
       r.numeroPedido, r.cliente, r.doc, r.consultor, r.tipo, r.metodo,
       r.descricao, r.parcelaNum, r.total,
-      r.dataVenc || '', r.mesVenc, r.dataPag || '', r.mesPag,
+      r.dataVenc || '', monthLabel(r.mesVenc), r.dataPag || '', monthLabel(r.mesPag),
       r.status, r.valorBruto, r.valorLiquido,
       r.percentual, r.comissao, r.comissaoDevida,
     ]);
   });
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
   ws['!cols'] = [
     { wch: 14 }, { wch: 30 }, { wch: 20 }, { wch: 22 }, { wch: 16 }, { wch: 26 },
     { wch: 36 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
@@ -699,7 +753,7 @@ const buildParcelasSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
     });
     dateCols.forEach(C => {
       const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
-      if (cell && cell.v instanceof Date) { cell.t = 'd'; cell.z = DATE_FMT; }
+      if (cell && (cell.v instanceof Date || cell.t === 'd')) { cell.t = 'd'; cell.z = DATE_FMT; }
     });
     pctCols.forEach(C => {
       const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
@@ -735,7 +789,7 @@ const buildEntradasMesSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
   );
   const headers2 = ['Mês/Ano', 'Status', 'Método', 'Nº Parcelas', 'Valor Bruto', 'Valor Líquido'];
   const aoa: any[][] = [headers2];
-  rows.forEach(r => aoa.push([r.mes, r.status, r.metodo, r.qtd, r.bruto, r.liquido]));
+  rows.forEach(r => aoa.push([monthLabel(r.mes), r.status, r.metodo, r.qtd, r.bruto, r.liquido]));
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 12 }, { wch: 18 }, { wch: 18 }];
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
@@ -772,7 +826,7 @@ const buildComissoesMesSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
   );
   const headers2 = ['Consultor', 'Mês/Ano Pagamento', 'Nº Parcelas Pagas', 'Valor Líquido Recebido', 'Comissão Nova Venda (5%)', 'Comissão Recompra (1%)', 'Comissão Total'];
   const aoa: any[][] = [headers2];
-  rows.forEach(r => aoa.push([r.consultor, r.mes, r.qtd, r.liquido, r.nova, r.recompra, r.total]));
+  rows.forEach(r => aoa.push([r.consultor, monthLabel(r.mes), r.qtd, r.liquido, r.nova, r.recompra, r.total]));
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 18 }];
   const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
@@ -881,7 +935,7 @@ const buildDetalhamentoSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
     push([]); push([]); // separador
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
   ws['!cols'] = [{ wch: 34 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
   ws['!merges'] = merges;
 
@@ -891,7 +945,7 @@ const buildDetalhamentoSheet = (pedidos: PedidoReport[]): XLSX.WorkSheet => {
     for (let C = 0; C <= range.e.c; C++) {
       const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
       if (!cell) continue;
-      if (cell.v instanceof Date) { cell.t = 'd'; cell.z = DATE_FMT; }
+      if (cell.v instanceof Date || cell.t === 'd') { cell.t = 'd'; cell.z = DATE_FMT; }
       else if (typeof cell.v === 'number' && C >= 3) { cell.t = 'n'; cell.z = BRL_FMT; }
     }
   }
