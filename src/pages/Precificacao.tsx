@@ -12,7 +12,6 @@ import {
   validarMargemPorTipo,
 } from '@/lib/precificacaoCalculator';
 import { PrecificacaoCalculada } from '@/types/precificacao';
-import { getCustosParaTipo } from '@/lib/adminCustos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -34,7 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Lock, Unlock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
+import { Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
@@ -46,7 +45,7 @@ import { Cliente } from '@/hooks/useClientes';
 export default function Precificacao() {
   const navigate = useNavigate();
   const { formulas, loading: loadingFormulas, deleteFormula, updateFormula } = useFormulas();
-  const { configuracaoAtiva, margens, verificarSenha, updateConfiguracao } = useConfiguracaoCustos();
+  const { configuracaoAtiva, margens } = useConfiguracaoCustos();
   const { salvarPrecificacao } = usePrecificacao();
 
   // Estado da aba ativa
@@ -73,20 +72,6 @@ export default function Precificacao() {
   const [clienteSelecionadoEdit, setClienteSelecionadoEdit] = useState<Cliente | null>(null);
   const [nomeFormulaEdit, setNomeFormulaEdit] = useState('');
 
-  // Estados de custos editáveis
-  const [custosIndiretos, setCustosIndiretos] = useState({
-    maoObraDireta: 0,
-    energia: 0,
-    depreciacao: 0,
-    administrativo: 0,
-  });
-
-  // Estados de bloqueio
-  const [camposBloqueados, setCamposBloqueados] = useState(true);
-  const [senhaDialog, setSenhaDialog] = useState(false);
-  const [senhaInput, setSenhaInput] = useState('');
-  const [salvarPermanente, setSalvarPermanente] = useState(false);
-
   // Estado de duplicação
   const [duplicarDialog, setDuplicarDialog] = useState<Formula | null>(null);
   const [duplicarCliente, setDuplicarCliente] = useState('');
@@ -96,18 +81,11 @@ export default function Precificacao() {
   // Estado de cálculo
   const [resultado, setResultado] = useState<PrecificacaoCalculada | null>(null);
 
-  // Carregar custos da configuração ativa
-  useEffect(() => {
-    if (configuracaoAtiva) {
-      const custos = getCustosParaTipo(configuracaoAtiva, formulaSelecionada?.tipo_produto);
-      setCustosIndiretos({
-        maoObraDireta: custos.mod,
-        energia: custos.energia,
-        depreciacao: Number(configuracaoAtiva.depreciacao_maquinas),
-        administrativo: custos.admin,
-      });
-    }
-  }, [configuracaoAtiva, formulaSelecionada?.tipo_produto]);
+  // Overhead ativo (fallback R$ 3,00)
+  const overheadAtivo = (() => {
+    const v = Number((configuracaoAtiva as any)?.overhead_unitario);
+    return Number.isFinite(v) && v > 0 ? v : 3;
+  })();
 
   // Recalcular quando mudar inputs
   useEffect(() => {
@@ -128,13 +106,18 @@ export default function Precificacao() {
     };
 
     try {
-      const calc = calcularPrecificacaoPorPreco(custosBase, custosIndiretos, valor, configuracaoAtiva);
+      const calc = calcularPrecificacaoPorPreco(
+        custosBase,
+        { maoObraDireta: 0, energia: 0, depreciacao: 0, administrativo: 0 },
+        valor,
+        configuracaoAtiva,
+      );
       setResultado(calc);
     } catch (error) {
       console.error('Erro ao calcular:', error);
       setResultado(null);
     }
-  }, [formulaSelecionada, configuracaoAtiva, custosIndiretos, valorInput]);
+  }, [formulaSelecionada, configuracaoAtiva, valorInput]);
 
   // Filtro de fórmulas
   const filteredFormulas = useMemo(() => {
@@ -146,51 +129,6 @@ export default function Precificacao() {
       return matchesSearch && matchesTipo;
     });
   }, [formulas, searchTerm, filterTipo]);
-
-  const handleDesbloquear = () => {
-    setSenhaDialog(true);
-  };
-
-  const handleVerificarSenha = () => {
-    if (verificarSenha(senhaInput)) {
-      setCamposBloqueados(false);
-      setSenhaDialog(false);
-      setSenhaInput('');
-      toast.success('Campos desbloqueados!');
-    } else {
-      toast.error('Senha incorreta!');
-    }
-  };
-
-  const handleBloquear = async () => {
-    if (salvarPermanente && configuracaoAtiva) {
-      try {
-        await updateConfiguracao.mutateAsync({
-          id: configuracaoAtiva.id,
-          mao_obra_direta: custosIndiretos.maoObraDireta,
-          energia_eletrica: custosIndiretos.energia,
-          depreciacao_maquinas: custosIndiretos.depreciacao,
-          despesas_administrativas: custosIndiretos.administrativo,
-        });
-        toast.success('Alterações salvas permanentemente!');
-      } catch (error) {
-        toast.error('Erro ao salvar alterações');
-      }
-    } else {
-      if (configuracaoAtiva) {
-        const custos = getCustosParaTipo(configuracaoAtiva, formulaSelecionada?.tipo_produto);
-        setCustosIndiretos({
-          maoObraDireta: custos.mod,
-          energia: custos.energia,
-          depreciacao: Number(configuracaoAtiva.depreciacao_maquinas),
-          administrativo: custos.admin,
-        });
-      }
-      toast.info('Alterações descartadas');
-    }
-    setCamposBloqueados(true);
-    setSalvarPermanente(false);
-  };
 
   const handleSalvar = async () => {
     if (!resultado || !formulaSelecionada || !configuracaoAtiva) {
