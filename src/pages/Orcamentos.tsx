@@ -16,7 +16,6 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
-import { PrazoPrecoBadge } from '@/components/PrazoPrecoBadge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -404,7 +403,6 @@ export default function Orcamentos() {
                                     Consultor: <span className="font-medium text-foreground">{orcamento.consultor_responsavel || '—'}</span>
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-0.5">{orcamento.numero_orcamento}</p>
-                                  <PrazoPrecoBadge prazoPrecoId={(orcamento as any).prazo_preco_id} className="mt-1" />
                                 </div>
                               <Select
                                   value={orcamento.status}

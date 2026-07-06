@@ -18,7 +18,6 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
-import { PrazoPrecoBadge } from '@/components/PrazoPrecoBadge';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 
 import { Formula } from '@/types/formula';
@@ -272,7 +271,6 @@ export default function PrecificacoesSalvas({
                         {precificacao.formulas?.tipo_produto}
                       </Badge>
                     </div>
-                    <PrazoPrecoBadge prazoPrecoId={(precificacao as any).prazo_preco_id} />
 
                     {/* Data */}
                     {precificacao.created_at && (
