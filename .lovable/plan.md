@@ -1,45 +1,80 @@
 ## Objetivo
 
-No Excel exportado em **Pedidos**, corrigir duas coisas em `src/lib/relatoriosPedidos.ts` (única alteração — sem mexer em UI, CSV, PDF ou regras de comissão):
+Simplificar a formação de preço para **MP + Embalagem + Overhead (R$ 3,00 configurável) + 12% de imposto sobre a venda**, e remover do Painel Administrador toda a área de custos/gastos e recálculo automático (Prazo de Preços). Precificações e orçamentos já salvos permanecem congelados com o valor atual.
 
-1. **Formato de data BR (dd/mm/aaaa)** em todas as células de data das 5 abas.
-2. **Colunas mensais de pagamento** na aba `Pedidos`, com o valor recebido de cada pedido distribuído por mês.
+## 1. Nova fórmula de precificação
 
-## 1. Formato de data dd/mm/aaaa
+Em `src/lib/precificacaoCalculator.ts`:
 
-Hoje as datas são gravadas como `Date` nativas sem `numFmt`, então o Excel exibe no locale do sistema (frequentemente mm/dd/aaaa em contas em inglês). Vou aplicar `z: 'dd/mm/yyyy'` (e `t: 'd'`) em **todas** as células de data das abas:
+- Reescrever `calcularPrecificacaoPorPreco(custosBase, precoVenda, overhead)`:
+  - `custoMateriaPrima = formula.total_mp`
+  - `custoEmbalagem = formula.total_embalagem`
+  - `overhead = 3.00` (vem da config)
+  - `totalCustosProducao = MP + Embalagem + overhead`
+  - `totalImpostos = precoVenda * 0.12`
+  - `margemLucroValor = precoVenda - totalCustosProducao - totalImpostos`
+  - `margemLucroPercentual = margemLucroValor / precoVenda * 100`
+  - `markupBruto = (precoVenda - totalCustosProducao) / totalCustosProducao * 100`
+  - Zerar campos legados (MOD, energia, depreciação, admin, ICMS detalhado, PIS/COFINS, IPI, IRPJ/CSLL, margem_segurança) preenchendo com `0` para manter compatibilidade com a tabela.
+- Remover `calcularPrecificacaoPorMarkup` (não mais usado).
+- Manter `validarMargemPorTipo` (regra de margens por tipo continua).
 
-- **Pedidos**: `Data 1ª Parcela`, `Data Última Parcela`, `Data Pagamento (aprovação)`
-- **Parcelas**: `Data Vencimento`, `Data Pagamento`
-- **Detalhamento por Pedido**: `Data Pedido`, `Data Pagamento`, vencimentos e pagamentos da tabela de parcelas
+## 2. Tela de Precificação (`src/pages/Precificacao.tsx`)
 
-As colunas `Mês/Ano Vencimento` e `Mês/Ano Pagamento` continuam como texto — mas passam de `YYYY-MM` para **`MM/AAAA`** (padrão BR), mantendo a ordenação correta via coluna auxiliar oculta `Ordem Mês` (`YYYYMM` numérico) para AutoFilter/ordenamento.
+Modo de entrada mantido: **usuário digita o preço, sistema mostra a margem**.
 
-## 2. Colunas mensais na aba `Pedidos`
+- Remover UI de custos indiretos editáveis (MOD, energia, depreciação, administrativo) e o cadeado/senha para editar esses valores.
+- Remover import/uso de `getCustosParaTipo`, `custosIndiretos`, `updateConfiguracao` para custos.
+- Ajustar breakdown da tela para mostrar apenas:
+  - Custo MP, Custo Embalagem, Overhead R$ 3,00
+  - Total de Custos
+  - Imposto (12% sobre venda)
+  - Preço de Venda, Margem R$, Margem %, Markup %
+- `handleSalvar`: continuar gravando na tabela `precificacoes` com os campos novos preenchidos e os legados zerados.
+- Remover badge/lógica de `prazo_preco_id` nesta tela.
 
-Depois das colunas de pagamento atuais (`… | Status Pagamento`), adicionar N colunas dinâmicas, uma para cada mês em que houve/haverá pagamento no conjunto de pedidos exportado:
+## 3. Painel Administrador (`src/pages/PainelAdministrador.tsx`)
 
-```text
-… | Status Pagamento | 01/2026 | 02/2026 | 03/2026 | … | 12/2026 | 01/2027 | …
-```
+Manter apenas: **Consultores**, **Comissionamento**, **Histórico de Alterações**.
 
-Regras de preenchimento (linha-resumo de cada pedido; linhas-filhas de produtos ficam vazias):
+- Remover: `PrazoPrecoCountdown`, `PrazoItensVinculados`, `PrazosAtivosLista`, aba "Variáveis Estruturais" (`VariaveisEstruturaisForm`), hook `usePrazoNotificacoes`.
+- Adicionar um card simples "Overhead de produção" com um único campo (R$) que grava em `configuracao_custos.overhead_unitario` (novo).
+- Ajustar `TabsList` para 3 abas.
 
-- Percorre `derivarRecebimentos(pedido)` de cada pedido.
-- Para cada parcela, escolhe o **mês de referência**:
-  - `pago` → mês da `data_pagamento`
-  - demais status → mês do `data_vencimento`
-  - `sem_data` → não entra em nenhuma coluna
-- Soma o `valor` (bruto, com juros — mesmo total já exibido em `Valor Bruto`) na célula do mês correspondente.
-- Formato BRL (`"R$" #,##0.00;[Red]("R$" #,##0.00);-`), zeros mostrados como `-`.
+## 4. Overhead configurável
 
-O conjunto de meses é calculado varrendo todos os pedidos exportados (união de todos os meses referenciados), ordenado cronologicamente. Se nenhum pedido tem parcelas datadas, nenhuma coluna mensal é adicionada.
+- Migration: `ALTER TABLE configuracao_custos ADD COLUMN overhead_unitario numeric(15,6) NOT NULL DEFAULT 3;`
+- Novo hook mínimo (ou reaproveitar `useConfiguracaoCustos`) para ler/gravar apenas esse campo.
+- Fallback: se `overhead_unitario` for nulo/0, usar 3.
 
-**Validação:** para cada linha-resumo, `SUM(colunas mensais) == Valor Bruto` do pedido (exceto parcelas sem data, que ficam de fora — mesma regra usada na aba `Entradas por Mês`).
+## 5. Remover Prazo de Preços do restante do app
 
-Também vou adicionar as mesmas colunas mensais na aba `Comissões por Consultor / Mês` no formato `MM/AAAA` para manter a consistência de formato de data em todo o workbook (mudança de rótulo apenas).
+Componentes/hook/util a apagar:
+- `src/components/PrazoPrecoBadge.tsx`
+- `src/components/PrazoPrecoBanner.tsx`
+- `src/components/admin/PrazoPrecoCountdown.tsx`
+- `src/components/admin/PrazoItensVinculados.tsx`
+- `src/components/admin/PrazosAtivosLista.tsx`
+- `src/hooks/usePrazoPrecoAtivo.ts`
+- `src/hooks/usePrazoNotificacoes.ts`
+- `src/hooks/usePrazoItens.ts`
+- `src/hooks/useAplicarPrazoVencido.ts`
+- `src/lib/aplicarPrazoPreco.ts`
 
-## Fora do escopo
+Em cada arquivo que importa esses símbolos (ex.: `App.tsx`, listagens de orçamentos, precificações salvas, layout com o banner), remover a importação e o uso — sem alterar o resto da lógica.
 
-- Nada muda em UI, CSV, PDF, edge functions ou regras de comissão.
-- Aba `Detalhamento por Pedido` continua com o mesmo layout — só as datas passam a exibir dd/mm/aaaa.
+Tabela `prazo_precos` e colunas `prazo_preco_id` continuam existindo no banco, apenas não são mais lidas nem gravadas pelo app (registros congelados). Nenhuma migration destrutiva.
+
+## 6. Fora de escopo
+
+- Não altera cálculo de orçamentos/precificações já salvos (ficam congelados no valor atual).
+- Não altera exportações de Pedidos/Excel.
+- Não altera regras de comissão nem consultores.
+- Não mexe em Edge Functions.
+
+## Detalhes técnicos
+
+- `configuracao_custos` continua existindo (usada por `updateConfiguracao` e histórico); só o subconjunto de campos exibidos muda.
+- `usePrecificacao.salvarPrecificacao` mantém a mesma assinatura; os campos legados são gravados como `0`.
+- A validação de margem por tipo (`validarMargemPorTipo`) e a senha `0B%s8QP2Z+Do` para salvar abaixo do mínimo continuam funcionando na tela de Precificação.
+- Verificação após build: rodar o app, abrir /precificacao, digitar um preço em uma fórmula e conferir que o breakdown mostra somente MP, Embalagem, Overhead, Imposto 12% e Margem.
