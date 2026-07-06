@@ -1,0 +1,1 @@
+ALTER TABLE public.configuracao_custos ADD COLUMN IF NOT EXISTS overhead_unitario numeric(15,6) NOT NULL DEFAULT 3;
