@@ -397,7 +397,11 @@ export default function GerarOrcamentoDialog({
         }).catch(() => {});
       }
       if (orcamentoExistente.dados_cliente) {
-        setDadosClienteTemp(orcamentoExistente.dados_cliente);
+        const dc = orcamentoExistente.dados_cliente as DadosCliente;
+        const inferredTipo: 'pj' | 'pf' = dc.tipo_pessoa
+          ? dc.tipo_pessoa
+          : (dc.cnpj || dc.razao_social) ? 'pj' : 'pf';
+        setDadosClienteTemp({ ...dc, tipo_pessoa: inferredTipo });
       }
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
