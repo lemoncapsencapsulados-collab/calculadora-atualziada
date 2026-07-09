@@ -2260,7 +2260,8 @@ export default function GerarOrcamentoDialog({
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || valorTotal === 0}
+                disabled={isSubmitting || valorTotal === 0 || clientePendencias.length > 0}
+                title={clientePendencias.length > 0 ? `Preencha: ${clientePendencias.join(', ')}` : undefined}
               >
                 {isSubmitting ? (
                   <>
