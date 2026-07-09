@@ -1021,6 +1021,24 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     <>
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {zapRevisaoOpen && zapPendingCampos ? (() => {
+          const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
+          if (!modelo) return null;
+          return (
+            <RevisaoContratoZapSignDialog
+              open={zapRevisaoOpen}
+              onOpenChange={(o) => { if (!zapSignLoading) setZapRevisaoOpen(o); }}
+              templateId={modelo.template_id}
+              ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+              modeloNome={modelo.nome}
+              replacements={montarDadosZapSign(zapPendingCampos)}
+              sending={zapSignLoading}
+              onConfirm={executarEnvioZapSign}
+              inline
+            />
+          );
+        })() : (
+        <>
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
         </DialogHeader>
@@ -1321,25 +1339,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
-    {zapPendingCampos && (() => {
-      const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
-      if (!modelo) return null;
-      const replacements = montarDadosZapSign(zapPendingCampos);
-      return (
-        <RevisaoContratoZapSignDialog
-          open={zapRevisaoOpen}
-          onOpenChange={(o) => { if (!zapSignLoading) setZapRevisaoOpen(o); }}
-          templateId={modelo.template_id}
-          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
-          modeloNome={modelo.nome}
-          replacements={replacements}
-          sending={zapSignLoading}
-          onConfirm={executarEnvioZapSign}
-        />
-      );
-    })()}
     </>
   );
 
