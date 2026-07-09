@@ -13,7 +13,7 @@ import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
 import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
+import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
@@ -294,7 +294,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     setRevisaoOpen(true);
   };
 
-  const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners) => {
+  const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners, finalReplacements?: ZapSignReplacement[]) => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo || !pedido) return;
     setLoading(true);
@@ -310,7 +310,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         cliente_id = (orc as any)?.cliente_id ?? null;
       }
 
-      const data = montarDadosZapSign(camposEnvio);
+      const data = finalReplacements?.length ? finalReplacements : montarDadosZapSign(camposEnvio);
 
       // Email configurado no modelo (cópia automática)
       const extrasConfigurados: ExtraSigner[] = [];
@@ -563,8 +563,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           modeloNome={modelo.nome}
           replacements={replacements}
           sending={loading}
-          onConfirm={async () => {
-            await enviar(pendingEnvio.campos, pendingEnvio.signers);
+          onConfirm={async (finalReplacements) => {
+            await enviar(pendingEnvio.campos, pendingEnvio.signers, finalReplacements);
             setRevisaoOpen(false);
           }}
         />

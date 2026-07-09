@@ -26,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
+import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
@@ -458,14 +458,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     setZapRevisaoOpen(true);
   };
 
-  const executarEnvioZapSign = async () => {
+  const executarEnvioZapSign = async (finalReplacements?: ZapSignReplacement[]) => {
     const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
     const campos = zapPendingCampos;
     if (!modelo || !campos) return;
     setZapSignLoading(true);
     try {
       const signerPhone = (campos.signer_phone_number || '').replace(/\D/g, '');
-      const data = montarDadosZapSign(campos);
+      const data = finalReplacements?.length ? finalReplacements : montarDadosZapSign(campos);
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {

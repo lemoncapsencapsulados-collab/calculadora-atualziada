@@ -34,6 +34,11 @@ function aliasKeysFor(variable: string): string[] {
   return group ? group.map(stripBraces) : [normalized];
 }
 
+function getInputVariable(inp: any): string {
+  if (typeof inp === 'string') return inp;
+  return inp?.variable || inp?.name || inp?.label || '';
+}
+
 export function RevisaoContratoZapSignDialog({
   open, onOpenChange, templateId, ambiente, modeloNome, replacements, sending, onConfirm,
 }: Props) {
@@ -87,7 +92,7 @@ export function RevisaoContratoZapSignDialog({
     if (!open || !inputs) return;
     const next: Record<string, string> = {};
     for (const inp of inputs) {
-      const rawVar = inp?.variable || inp?.name || inp?.label || '';
+      const rawVar = getInputVariable(inp);
       const key = stripBraces(rawVar);
       next[key] = lookup[key] || '';
     }
@@ -96,14 +101,14 @@ export function RevisaoContratoZapSignDialog({
   }, [open, inputs, replacements]);
 
   const resolvidos = (inputs || []).map((inp: any) => {
-    const rawVar = inp?.variable || inp?.name || inp?.label || '';
+    const rawVar = getInputVariable(inp);
     const key = stripBraces(rawVar);
     const valor = valoresEditados[key] ?? lookup[key] ?? '';
     return {
       variable: rawVar,
       key,
-      label: inp?.label,
-      required: !!inp?.required,
+      label: typeof inp === 'string' ? '' : inp?.label,
+      required: typeof inp === 'string' ? false : !!inp?.required,
       valor,
       preenchido: !!valor.trim(),
     };
@@ -197,7 +202,7 @@ export function RevisaoContratoZapSignDialog({
                     <div key={i} className="p-2.5 grid grid-cols-1 md:grid-cols-[minmax(0,240px)_1fr_auto] gap-2 md:gap-3 items-start text-sm">
                       <div className="min-w-0">
                         <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded break-all">
-                          {`{{${r.variable}}}`}
+                          {withBraces(r.variable)}
                         </code>
                         {r.label && r.label !== r.variable && (
                           <p className="mt-1 text-[11px] text-muted-foreground break-words">{r.label}</p>
