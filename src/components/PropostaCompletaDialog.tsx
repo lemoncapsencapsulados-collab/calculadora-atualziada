@@ -206,6 +206,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);
   const [zapSignDialogOpen, setZapSignDialogOpen] = useState(false);
+  // Novo fluxo: contrato interno (DOCX) — substitui ZapSign no botão principal
+  const [contratoInternoOpen, setContratoInternoOpen] = useState(false);
   const [zapAdminSenha, setZapAdminSenha] = useState('');
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
