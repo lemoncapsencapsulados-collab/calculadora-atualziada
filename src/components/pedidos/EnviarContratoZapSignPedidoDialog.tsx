@@ -13,7 +13,7 @@ import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
 import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
+import { formatarInsumoContrato, montarDadosZapSign, naoSeAplicaSeVazio, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
@@ -94,6 +94,10 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
   ].filter(Boolean).join(' - ');
   const endereco = isPJ ? enderecoPJ : enderecoPF;
   const item = snap.itens_producao?.[0];
+  const itemSegmento = (item?.segmento || (item as any)?.tipo_produto || '').toLowerCase();
+  const itemIsGummy = itemSegmento.includes('gummy');
+  const itemIsSoluvel = itemSegmento.includes('solúvel') || itemSegmento.includes('soluvel');
+  const itemIsLiquido = itemSegmento.includes('líquido') || itemSegmento.includes('liquido');
   // Mescla detalhes de produção: snapshot do item + resumo salvo (mais recente vence).
   const fontesDetalhes: Array<Record<string, any> | undefined> = [
     (item?.detalhes_producao as any) || {},
@@ -149,8 +153,14 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
     anexo_ativo_2: formatarInsumoContrato(insumos[1]),
     anexo_cor_pote: detalhesFonte.cor_pote || '',
     anexo_cor_tampa: detalhesFonte.cor_tampa || '',
-    anexo_cor_gummy: detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido || '',
-    anexo_sabor_gummy: detalhesFonte.sabor_gummy || detalhesFonte.sabor_soluvel || detalhesFonte.sabor_liquido || '',
+    anexo_cor_gummy: naoSeAplicaSeVazio(
+      detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido,
+      itemIsGummy || itemIsSoluvel || itemIsLiquido,
+    ),
+    anexo_sabor_gummy: naoSeAplicaSeVazio(
+      detalhesFonte.sabor_gummy || detalhesFonte.sabor_soluvel || detalhesFonte.sabor_liquido,
+      itemIsGummy || itemIsSoluvel || itemIsLiquido,
+    ),
     anexo_quantidade: item ? String(item.quantidade) : '',
     anexo_preco_unitario: item ? formatBRL(item.preco_unitario) : '',
   };
@@ -259,6 +269,10 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'produto_apresentacao', label: 'Apresentação' },
     { k: 'produto_preco_unit', label: 'Preço unitário' },
     { k: 'produto_quantidade', label: 'Quantidade' },
+    { k: 'anexo_cor_pote', label: 'Cor do pote' },
+    { k: 'anexo_cor_tampa', label: 'Cor da tampa' },
+    { k: 'anexo_cor_gummy', label: 'Cor gummy/conteúdo' },
+    { k: 'anexo_sabor_gummy', label: 'Sabor gummy/conteúdo' },
     { k: 'valor_setup', label: 'Valor setup' },
     { k: 'valor_producao', label: 'Valor produção' },
     { k: 'valor_total', label: 'Valor total' },

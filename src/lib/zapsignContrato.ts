@@ -21,6 +21,17 @@ export const ZAPSIGN_ALIAS_GROUPS: string[][] = [
   ['{{CONDICAO_PAGAMENTO}}', '{{CONDIÇÃO_PAGAMENTO}}', '{{CONDICAO PAGAMENTO}}', '{{CONDIÇÃO PAGAMENTO}}'],
   ['{{PRAZO_PRODUCAO}}', '{{PRAZO_PRODUÇÃO}}'],
   ['{{PRAZO_ROTULOS}}', '{{PRAZO_RÓTULOS}}'],
+  ['{{ANEXO_PRODUTO_NOME}}', '{{ANEXO PRODUTO NOME}}', '{{PRODUTO_NOME}}', '{{PRODUTO NOME}}'],
+  ['{{ANEXO_QTD_FRASCO}}', '{{ANEXO QUANTIDADE FRASCO}}', '{{ANEXO_QTD_POR_FRASCO}}'],
+  ['{{ANEXO_DOSE_DIARIA}}', '{{ANEXO DOSE DIARIA}}', '{{ANEXO_DOSE_DIÁRIA}}'],
+  ['{{ANEXO_ATIVO_1}}', '{{ANEXO ATIVO 1}}', '{{ATIVO_1}}'],
+  ['{{ANEXO_ATIVO_2}}', '{{ANEXO ATIVO 2}}', '{{ATIVO_2}}'],
+  ['{{ANEXO_COR_POTE}}', '{{ANEXO COR POTE}}', '{{COR_POTE}}', '{{COR DO POTE}}'],
+  ['{{ANEXO_COR_TAMPA}}', '{{ANEXO COR TAMPA}}', '{{COR_TAMPA}}', '{{COR DA TAMPA}}'],
+  ['{{ANEXO_COR_GUMMY}}', '{{ANEXO COR GUMMY}}', '{{COR_GUMMY}}', '{{COR DO CONTEUDO}}', '{{COR_DO_CONTEUDO}}'],
+  ['{{ANEXO_SABOR_GUMMY}}', '{{ANEXO SABOR GUMMY}}', '{{SABOR_GUMMY}}', '{{SABOR}}'],
+  ['{{ANEXO_QUANTIDADE}}', '{{ANEXO QUANTIDADE}}'],
+  ['{{ANEXO_PRECO_UNITARIO}}', '{{ANEXO PRECO UNITARIO}}', '{{ANEXO_PREÇO_UNITÁRIO}}'],
 ];
 
 export interface ZapSignContratoCampos {
@@ -68,6 +79,11 @@ export interface ZapSignContratoCampos {
 const texto = (valor: unknown) => String(valor ?? '').trim();
 
 const par = (de: string, para: unknown): ZapSignReplacement => ({ de, para: texto(para) });
+
+export function naoSeAplicaSeVazio(valor: unknown, aplica: boolean): string {
+  const v = texto(valor);
+  return v || (aplica ? '' : 'Não se aplica');
+}
 
 export function formatarInsumoContrato(insumo: { nome?: string; quantidade?: number; unidade?: string } | null | undefined): string {
   if (!insumo?.nome) return '';
