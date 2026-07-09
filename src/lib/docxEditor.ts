@@ -1,6 +1,5 @@
 import mammoth from 'mammoth';
-// @ts-ignore - html-docx-js has no bundled types
-import htmlDocx from 'html-docx-js/dist/html-docx';
+import { asBlob } from 'html-docx-js-typescript';
 import { saveAs } from 'file-saver';
 
 export async function docxParaHtml(arrayBuffer: ArrayBuffer): Promise<string> {
@@ -37,14 +36,15 @@ function escapeHtml(s: string) {
     .replace(/\n/g, '<br/>');
 }
 
-export function baixarHtmlComoDocx(html: string, nomeArquivo: string) {
+export async function baixarHtmlComoDocx(html: string, nomeArquivo: string) {
   const wrapped = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; }
     h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; }
     table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #999; padding: 6px; }
     p { margin: 6px 0; }
   </style></head><body>${html}</body></html>`;
-  const blob = htmlDocx.asBlob(wrapped);
+  const result = await asBlob(wrapped);
+  const blob = result instanceof Blob ? result : new Blob([result as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   saveAs(blob, nomeArquivo.endsWith('.docx') ? nomeArquivo : `${nomeArquivo}.docx`);
 }
 

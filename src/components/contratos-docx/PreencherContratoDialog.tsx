@@ -39,7 +39,7 @@ export function PreencherContratoDialog({ open, onOpenChange, modelo }: Props) {
     setGerando(true);
     try {
       const htmlPreenchido = preencherHtmlComVariaveis(modelo.html_editado, valores);
-      baixarHtmlComoDocx(htmlPreenchido, `${nomeArquivo}.docx`);
+      await baixarHtmlComoDocx(htmlPreenchido, `${nomeArquivo}.docx`);
       toast.success('Contrato gerado!');
       onOpenChange(false);
     } catch (err: any) {
