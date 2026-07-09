@@ -36,7 +36,7 @@ interface PropostaCompletaDialogProps {
 }
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
-  nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
+  nome: '', cpf: '', rg: '', endereco: '', numero: '', bairro: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
 };
 
 function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
@@ -51,7 +51,13 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
       setLoadingCep(true);
       fetchEnderecoPorCEP(cepNums).then(result => {
         if (result) {
-          onChange({ ...pessoa, endereco: result.logradouro || pessoa.endereco, cidade: result.cidade, estado: result.estado });
+          onChange({
+            ...pessoa,
+            endereco: result.logradouro || pessoa.endereco,
+            bairro: (result as any).bairro || pessoa.bairro,
+            cidade: result.cidade,
+            estado: result.estado,
+          });
         }
         setLoadingCep(false);
       });
@@ -101,8 +107,16 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           </Select>
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
+          <Label className="text-xs">Endereço (Logradouro) <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua / Avenida" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Número <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.numero || ''} onChange={(e) => update('numero', e.target.value)} placeholder="Nº" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Bairro <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.bairro || ''} onChange={(e) => update('bairro', e.target.value)} placeholder="Bairro" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">CEP <span className="text-destructive">*</span>{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
