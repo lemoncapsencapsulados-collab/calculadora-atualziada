@@ -17,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users, ShieldCheck } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail, formatarNomeProprio } from '@/lib/validators';
@@ -29,7 +29,7 @@ import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
 import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
-import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
+import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -204,7 +204,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);
   const [zapSignDialogOpen, setZapSignDialogOpen] = useState(false);
-  const [askSenhaZapOpen, setAskSenhaZapOpen] = useState(false);
+  const [zapAdminSenha, setZapAdminSenha] = useState('');
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
@@ -312,6 +312,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const abrirZapSignDialog = () => {
     setZapSignCampos(buildZapSignCamposPadrao());
     setZapExtraSigners([]);
+    setZapAdminSenha('');
     setZapSignDialogOpen(true);
   };
 
@@ -423,6 +424,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
     if (!modelo) {
       toast.error('Selecione um modelo de contrato.');
+      return;
+    }
+    if (zapAdminSenha !== ADMIN_PANEL_PASSWORD) {
+      toast.error('Senha de administrador incorreta.');
+      setZapAdminSenha('');
       return;
     }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
@@ -1282,23 +1288,35 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             </>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:max-w-xs space-y-1 text-left">
+            <Label htmlFor="zap-admin-senha" className="text-xs flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" /> Senha admin para enviar
+            </Label>
+            <Input
+              id="zap-admin-senha"
+              type="password"
+              value={zapAdminSenha}
+              onChange={(e) => setZapAdminSenha(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !zapSignLoading && modeloSelecionadoId) {
+                  e.preventDefault();
+                  handleEnviarZapSign();
+                }
+              }}
+              placeholder="Digite a senha"
+              autoComplete="current-password"
+              disabled={zapSignLoading}
+            />
+          </div>
           <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
-          <Button onClick={() => setAskSenhaZapOpen(true)} disabled={zapSignLoading || !modeloSelecionadoId}>
+          <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId || !zapAdminSenha}>
             {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
             {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <AdminPasswordDialog
-      open={askSenhaZapOpen}
-      onOpenChange={setAskSenhaZapOpen}
-      title="Confirmar envio do contrato"
-      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
-      actionLabel="Enviar contrato"
-      onConfirm={handleEnviarZapSign}
-    />
     </>
   );
 

@@ -4,17 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, RotateCcw, Plus, Trash2, Users } from 'lucide-react';
+import { Loader2, Send, RotateCcw, Plus, Trash2, Users, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { useResumoContrato } from '@/hooks/useResumoContrato';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
-import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
 import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
+import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 
 interface Props {
   open: boolean;
@@ -150,7 +150,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [modeloId, setModeloId] = useState<string>('');
   const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido, resumo));
   const [loading, setLoading] = useState(false);
-  const [askSenhaOpen, setAskSenhaOpen] = useState(false);
+  const [adminSenha, setAdminSenha] = useState('');
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
   const [ultimoCnpjConsultado, setUltimoCnpjConsultado] = useState<string>('');
@@ -161,6 +161,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     if (open) {
       setCampos(buildCampos(pedido, resumo));
       setExtraSigners([]);
+      setAdminSenha('');
     }
   }, [open, pedido?.id, resumo?.id]);
 
@@ -246,7 +247,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'valor_total', label: 'Valor total' },
   ]), []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo) { toast.error('Selecione um modelo de contrato.'); return; }
     if (!campos.signer_name || !campos.signer_email) {
@@ -269,18 +270,25 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       }
     }
     if (!pedido) return;
+    if (adminSenha !== ADMIN_PANEL_PASSWORD) {
+      toast.error('Senha de administrador incorreta.');
+      setAdminSenha('');
+      return;
+    }
     // Normaliza nomes em Title Case antes do envio
-    setCampos((p) => ({
-      ...p,
-      signer_name: formatarNomeProprio(p.signer_name),
-      razao_social: formatarNomeProprio(p.razao_social),
-      nome_representante: formatarNomeProprio(p.nome_representante),
-    }));
-    setExtraSigners((prev) => prev.map((s) => ({ ...s, name: formatarNomeProprio(s.name) })));
-    setAskSenhaOpen(true);
+    const camposNormalizados = {
+      ...campos,
+      signer_name: formatarNomeProprio(campos.signer_name),
+      razao_social: formatarNomeProprio(campos.razao_social),
+      nome_representante: formatarNomeProprio(campos.nome_representante),
+    };
+    const signersNormalizados = extraSigners.map((s) => ({ ...s, name: formatarNomeProprio(s.name) }));
+    setCampos(camposNormalizados);
+    setExtraSigners(signersNormalizados);
+    await enviar(camposNormalizados, signersNormalizados);
   };
 
-  const enviar = async () => {
+  const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners) => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo || !pedido) return;
     setLoading(true);
@@ -296,7 +304,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         cliente_id = (orc as any)?.cliente_id ?? null;
       }
 
-      const data = montarDadosZapSign(campos);
+      const data = montarDadosZapSign(camposEnvio);
 
       // Email configurado no modelo (cópia automática)
       const extrasConfigurados: ExtraSigner[] = [];
@@ -309,20 +317,20 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       }
       // Mescla com extras manuais, removendo duplicatas por email
       const mapExtras = new Map<string, ExtraSigner>();
-      [...extrasConfigurados, ...extraSigners].forEach((s) => {
+      [...extrasConfigurados, ...extraSignersEnvio].forEach((s) => {
         const key = (s.email || s.name).toLowerCase().trim();
         if (key && !mapExtras.has(key)) mapExtras.set(key, s);
       });
       // Não duplica o signatário principal
-      mapExtras.delete((campos.signer_email || '').toLowerCase().trim());
+      mapExtras.delete((camposEnvio.signer_email || '').toLowerCase().trim());
       const extrasFinal = Array.from(mapExtras.values());
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {
-          signer_name: campos.signer_name,
-          signer_email: campos.signer_email,
+          signer_name: camposEnvio.signer_name,
+          signer_email: camposEnvio.signer_email,
           signer_phone_country: '55',
-          signer_phone_number: (campos.signer_phone_number || '').replace(/\D/g, ''),
+          signer_phone_number: (camposEnvio.signer_phone_number || '').replace(/\D/g, ''),
           lang: 'pt-br',
           send_automatic_email: true,
           data,
@@ -507,23 +515,35 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:max-w-xs space-y-1 text-left">
+            <Label htmlFor="pedido-zap-admin-senha" className="text-xs flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" /> Senha admin para enviar
+            </Label>
+            <Input
+              id="pedido-zap-admin-senha"
+              type="password"
+              value={adminSenha}
+              onChange={(e) => setAdminSenha(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !loading && modeloId) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder="Digite a senha"
+              autoComplete="current-password"
+              disabled={loading}
+            />
+          </div>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading || !modeloId}>
+          <Button onClick={handleSubmit} disabled={loading || !modeloId || !adminSenha}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Enviar para ZapSign
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <AdminPasswordDialog
-      open={askSenhaOpen}
-      onOpenChange={setAskSenhaOpen}
-      title="Confirmar envio do contrato"
-      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
-      actionLabel="Enviar contrato"
-      onConfirm={enviar}
-    />
     </>
   );
 }
