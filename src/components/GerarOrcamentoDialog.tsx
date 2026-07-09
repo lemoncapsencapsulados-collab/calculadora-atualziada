@@ -157,6 +157,25 @@ export default function GerarOrcamentoDialog({
   // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
 
+  // Pendências obrigatórias de Info Cliente (Passo Salvar)
+  const clientePendencias = useMemo(() => {
+    const p: string[] = [];
+    const tipo = dadosClienteTemp.tipo_pessoa || 'pj';
+    if (tipo === 'pj') {
+      const cnpjNums = (dadosClienteTemp.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) p.push('CNPJ');
+      if (!dadosClienteTemp.razao_social?.trim()) p.push('Razão Social');
+    } else {
+      if (!dadosClienteTemp.nome_completo?.trim()) p.push('Nome Completo');
+      const cpfNums = (dadosClienteTemp.cpf || '').replace(/\D/g, '');
+      if (cpfNums.length !== 11) p.push('CPF');
+    }
+    if (!dadosClienteTemp.email?.trim()) p.push('Email');
+    const telNums = (dadosClienteTemp.telefone || '').replace(/\D/g, '');
+    if (telNums.length < 10) p.push('Telefone');
+    return p;
+  }, [dadosClienteTemp]);
+
   // Step 4 (novo): Estabilidade + Notificação Anvisa
   const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
   const [custoAnvisaUnit, setCustoAnvisaUnit] = useState<number>(CUSTO_ANVISA_PADRAO);
