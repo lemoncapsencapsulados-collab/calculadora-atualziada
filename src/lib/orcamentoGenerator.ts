@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
   margin: 20,           // Margem generosa
-  marginBottom: 25,     // Margem inferior para footer
+  marginBottom: 40,     // Margem inferior reservada para footer (evita sobreposição)
   headerHeight: 40,     // Header grande e elegante
   sectionGap: 10,       // Espaçamento entre seções
   lineHeight: 6,        // Altura de linha confortável
@@ -1064,7 +1064,7 @@ function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     const pageWidth = getPageWidth(doc);
-    const footerY = PAGE_HEIGHT - LAYOUT.marginBottom + 5;
+    const footerY = PAGE_HEIGHT - 20;
 
     // Linha separadora
     doc.setDrawColor(...COLORS.lemonYellow);
