@@ -345,9 +345,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    const signerNameFinal = signerOverride.signer_name || body.signer_name;
-    const signerEmailFinal = signerOverride.signer_email || body.signer_email;
-    const signerPhoneFinal = signerOverride.signer_phone_number || body.signer_phone_number || "";
+    // Prioriza SEMPRE o que o usuário editou no modal (body.signer_*).
+    // signerOverride (derivado do resumo salvo) só entra como fallback.
+    const signerNameFinal = (body.signer_name || "").trim() || signerOverride.signer_name || "";
+    const signerEmailFinal = (body.signer_email || "").trim() || signerOverride.signer_email || "";
+    const signerPhoneFinal = (body.signer_phone_number || "").trim() || signerOverride.signer_phone_number || "";
 
     const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
     console.log("[criar-contrato-zapsign] extras recebidos:", JSON.stringify(extras));
