@@ -48,6 +48,50 @@ function onlyDigits(value: unknown): string {
   return String(value || '').replace(/\D/g, '');
 }
 
+function formatBRL(value: unknown): string {
+  const n = Number(value || 0);
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatInsumo(insumo: any): string {
+  if (!insumo?.nome) return '';
+  const nome = String(insumo.nome).trim().toLowerCase() === 'amido de milho' ? 'Excipiente' : String(insumo.nome).trim();
+  const qtd = insumo.quantidade != null ? String(insumo.quantidade).replace('.', ',') : '';
+  const unidade = insumo.unidade || '';
+  return [nome, [qtd, unidade].filter(Boolean).join(' ')].filter(Boolean).join(' - ');
+}
+
+function formatCondicoesPagamento(condicoes: any, valorTotal: number): string {
+  if (!condicoes) return '';
+  const fmt = (v: number) => formatBRL(v);
+  const lines: string[] = [];
+  const metodo = condicoes.metodo_principal;
+  const valorParcela = (p: any) => p?.tipo_valor === 'percentual' ? (Number(p.valor || 0) / 100) * valorTotal : Number(p?.valor || 0);
+  if (metodo === 'pix_boleto') {
+    lines.push('Método: Pix / Boleto');
+    (condicoes.parcelas_pix_boleto || []).forEach((p: any, i: number) => lines.push(`Parcela ${i + 1}: R$ ${fmt(valorParcela(p))}${p?.data_vencimento ? ` - vencimento ${p.data_vencimento}` : ''}`));
+  } else if (metodo === 'cartao_credito') {
+    lines.push('Método: Cartão de Crédito');
+    (condicoes.cartoes || []).forEach((c: any, i: number) => {
+      const total = valorParcela(c);
+      const parcelas = Number(c?.parcelas || 1);
+      lines.push(`Cartão ${i + 1}: ${parcelas}x de R$ ${fmt(total / parcelas)} - Total R$ ${fmt(total)}${c?.data_primeira_parcela ? ` - primeira parcela ${c.data_primeira_parcela}` : ''}`);
+    });
+  } else if (metodo === 'misto') {
+    lines.push('Método: Misto');
+    (condicoes.misto_parcelas_pix_boleto || []).forEach((p: any, i: number) => lines.push(`Pix/Boleto ${i + 1}: R$ ${fmt(valorParcela(p))}${p?.data_vencimento ? ` - vencimento ${p.data_vencimento}` : ''}`));
+    (condicoes.misto_cartoes || []).forEach((c: any, i: number) => {
+      const total = valorParcela(c);
+      const parcelas = Number(c?.parcelas || 1);
+      lines.push(`Cartão ${i + 1}: ${parcelas}x de R$ ${fmt(total / parcelas)} - Total R$ ${fmt(total)}${c?.data_primeira_parcela ? ` - primeira parcela ${c.data_primeira_parcela}` : ''}`);
+    });
+  } else {
+    if (condicoes.valor_entrada) lines.push(`Entrada: R$ ${fmt(Number(condicoes.valor_entrada || 0))}`);
+    if (condicoes.valor_termino) lines.push(`Término: R$ ${fmt(Number(condicoes.valor_termino || 0))}`);
+  }
+  return lines.join('; ');
+}
+
 function firstNonEmptyReplacement(data: ZapSignDataItem[], keys: string[]): string {
   for (const key of keys) {
     const found = data.find((item) => item.de === key && String(item.para || '').trim());
@@ -69,7 +113,7 @@ function mergeReplacement(data: ZapSignDataItem[], keys: string[], fallbackValue
   return val;
 }
 
-function applyResumoToData(data: ZapSignDataItem[], resumo: any): { signer_name?: string; signer_email?: string; signer_phone_number?: string } {
+function applyResumoToData(data: ZapSignDataItem[], resumo: any, orcamento?: any): { signer_name?: string; signer_email?: string; signer_phone_number?: string } {
   const dc = resumo?.dados_cliente || {};
   const isPJ = dc.tipo_pessoa ? dc.tipo_pessoa === 'pj' : !!(dc.cnpj || dc.razao_social);
   const rep = isPJ ? (dc.responsavel_pj || {}) : ((Array.isArray(dc.pessoas_fisicas) && dc.pessoas_fisicas[0]) || {});
@@ -88,9 +132,24 @@ function applyResumoToData(data: ZapSignDataItem[], resumo: any): { signer_name?
         rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
         rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
       ].filter(Boolean).join(' - ');
+  const enderecoRepresentante = [
+    [rep.endereco || rep.logradouro, rep.numero].filter(Boolean).join(', '),
+    rep.bairro,
+    rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
+    rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+  ].filter(Boolean).join(' - ');
   const signerName = titleCasePt(rep.nome || contratante || resumo?.nome_cliente || '');
   const signerEmail = rep.email || dc.email || '';
   const signerPhone = onlyDigits(rep.telefone || dc.telefone || '');
+  const itens = Array.isArray(orcamento?.itens_producao) ? orcamento.itens_producao : [];
+  const item = itens[0] || null;
+  const detalhes = resumo?.detalhes_producao?.[0] || resumo?.detalhes_producao?.['0'] || item?.detalhes_producao || {};
+  const valorSetup = Number(orcamento?.subtotal_servicos || 0);
+  const valorProducao = Number(orcamento?.subtotal_producao || 0);
+  const valorTotal = Number(orcamento?.valor_total || 0);
+  const produtoValorTotal = item ? Number(item.subtotal || Number(item.preco_unitario || 0) * Number(item.quantidade || 0)) : 0;
+  const produtoApresentacao = item?.quantidade_por_pote ? `${item.quantidade_por_pote} ${item.unidade_por_pote || ''} por frasco`.trim() : '';
+  const insumos = Array.isArray(item?.insumos_formula) ? item.insumos_formula : [];
 
   const signerNameFinal = mergeReplacement(data, ['{{NOME_REPRESENTANTE}}', '{{NOME REPRESENTANTE}}', '{{REPRESENTANTE_LEGAL}}', '{{REPRESENTANTE LEGAL}}'], signerName);
   const signerEmailFinal = mergeReplacement(data, ['{{EMAIL_SIGNATARIO}}', '{{EMAIL SIGNATARIO}}', '{{EMAIL_REPRESENTANTE}}', '{{EMAIL REPRESENTANTE}}'], signerEmail);
@@ -101,7 +160,30 @@ function applyResumoToData(data: ZapSignDataItem[], resumo: any): { signer_name?
   mergeReplacement(data, ['{{EMAIL_CONTRATANTE}}', '{{E-MAIL_CONTRATANTE}}', '{{EMAIL CONTRATANTE}}'], dc.email || signerEmailFinal);
   mergeReplacement(data, ['{{TELEFONE_CONTRATANTE}}', '{{TELEFONE CONTRATANTE}}'], dc.telefone || signerPhoneFinal);
   mergeReplacement(data, ['{{CPF_REPRESENTANTE}}', '{{CPF REPRESENTANTE}}'], rep.cpf || '');
-  mergeReplacement(data, ['{{NUMERO_CONTRATO}}', '{{NÚMERO_CONTRATO}}', '{{NUMERO CONTRATO}}', '{{Nº_CONTRATO}}', '{{N_CONTRATO}}'], resumo?.numero_orcamento || '');
+  mergeReplacement(data, ['{{ENDERECO_REPRESENTANTE}}', '{{ENDEREÇO_REPRESENTANTE}}', '{{ENDERECO REPRESENTANTE}}', '{{ENDEREÇO REPRESENTANTE}}'], enderecoRepresentante);
+  mergeReplacement(data, ['{{NUMERO_ORCAMENTO}}', '{{NÚMERO_ORÇAMENTO}}', '{{NUMERO ORCAMENTO}}', '{{NÚMERO ORÇAMENTO}}', '{{NUMERO_CONTRATO}}', '{{NÚMERO_CONTRATO}}', '{{NUMERO CONTRATO}}', '{{Nº_CONTRATO}}', '{{N_CONTRATO}}'], resumo?.numero_orcamento || orcamento?.numero_orcamento || '');
+  mergeReplacement(data, ['{{PRODUTO_DESCRICAO}}', '{{PRODUTO_DESCRIÇÃO}}', '{{PRODUTO DESCRICAO}}', '{{PRODUTO}}'], item ? `${item.nome_produto || ''}${item.segmento ? ` (${item.segmento})` : ''}` : '');
+  mergeReplacement(data, ['{{PRODUTO_APRESENTACAO}}', '{{PRODUTO_APRESENTAÇÃO}}'], produtoApresentacao);
+  mergeReplacement(data, ['{{PRODUTO_PRECO}}', '{{PRODUTO_PREÇO}}', '{{PRODUTO_PRECO_UNIT}}', '{{PRODUTO_PREÇO_UNIT}}'], item ? formatBRL(item.preco_unitario) : '');
+  mergeReplacement(data, ['{{PRODUTO_QUANTIDADE}}'], item ? String(item.quantidade || '') : '');
+  mergeReplacement(data, ['{{PRODUTO_VALOR_TOTAL}}'], item ? formatBRL(produtoValorTotal) : '');
+  mergeReplacement(data, ['{{VALOR_SETUP}}'], formatBRL(valorSetup));
+  mergeReplacement(data, ['{{VALOR_PRODUCAO}}', '{{VALOR_PRODUÇÃO}}'], formatBRL(valorProducao));
+  mergeReplacement(data, ['{{VALOR_TOTAL_PROJETO}}', '{{VALOR_TOTAL_PEDIDO}}', '{{VALOR_TOTAL}}', '{{VALOR TOTAL}}'], formatBRL(valorTotal));
+  mergeReplacement(data, ['{{CONDICAO_PAGAMENTO}}', '{{CONDIÇÃO_PAGAMENTO}}', '{{CONDICAO PAGAMENTO}}', '{{CONDIÇÃO PAGAMENTO}}'], formatCondicoesPagamento(resumo?.condicoes_pagamento || orcamento?.condicoes_pagamento, valorTotal));
+  mergeReplacement(data, ['{{PRAZO_PRODUCAO}}', '{{PRAZO_PRODUÇÃO}}'], '30 dias corridos após aprovação final dos rótulos');
+  mergeReplacement(data, ['{{PRAZO_ROTULOS}}', '{{PRAZO_RÓTULOS}}'], '15 dias úteis');
+  mergeReplacement(data, ['{{ANEXO_PRODUTO_NOME}}'], item?.nome_produto || '');
+  mergeReplacement(data, ['{{ANEXO_QTD_FRASCO}}'], produtoApresentacao);
+  mergeReplacement(data, ['{{ANEXO_DOSE_DIARIA}}'], item?.dose_diaria_sugerida || '');
+  mergeReplacement(data, ['{{ANEXO_ATIVO_1}}'], formatInsumo(insumos[0]));
+  mergeReplacement(data, ['{{ANEXO_ATIVO_2}}'], formatInsumo(insumos[1]));
+  mergeReplacement(data, ['{{ANEXO_COR_POTE}}'], detalhes?.cor_pote || '');
+  mergeReplacement(data, ['{{ANEXO_COR_TAMPA}}'], detalhes?.cor_tampa || '');
+  mergeReplacement(data, ['{{ANEXO_COR_GUMMY}}'], detalhes?.cor_gummy || detalhes?.cor_soluvel || detalhes?.cor_liquido || '');
+  mergeReplacement(data, ['{{ANEXO_SABOR_GUMMY}}'], detalhes?.sabor_gummy || detalhes?.sabor_soluvel || detalhes?.sabor_liquido || '');
+  mergeReplacement(data, ['{{ANEXO_QUANTIDADE}}'], item ? String(item.quantidade || '') : '');
+  mergeReplacement(data, ['{{ANEXO_PRECO_UNITARIO}}'], item ? formatBRL(item.preco_unitario) : '');
 
   return { signer_name: signerNameFinal, signer_email: signerEmailFinal, signer_phone_number: signerPhoneFinal };
 }
@@ -242,14 +324,20 @@ Deno.serve(async (req) => {
         const adminResumo = createClient(supaUrlForResumo, serviceRoleForResumo, { auth: { persistSession: false } });
         const { data: resumo, error: resumoError } = await adminResumo
           .from("resumos_contrato")
-          .select("numero_orcamento, nome_cliente, dados_cliente")
+          .select("numero_orcamento, nome_cliente, dados_cliente, detalhamento_frete, condicoes_pagamento, detalhes_producao")
           .eq("orcamento_id", body.orcamento_id)
           .limit(1)
           .maybeSingle();
         if (resumoError) {
           console.error("[criar-contrato-zapsign] falha ao carregar resumo:", resumoError);
         } else if (resumo) {
-          signerOverride = applyResumoToData(payloadData, resumo);
+          const { data: orcamentoResumo } = await adminResumo
+            .from("orcamentos")
+            .select("numero_orcamento, itens_producao, subtotal_servicos, subtotal_producao, valor_total, condicoes_pagamento")
+            .eq("id", body.orcamento_id)
+            .limit(1)
+            .maybeSingle();
+          signerOverride = applyResumoToData(payloadData, resumo, orcamentoResumo);
           console.log("[criar-contrato-zapsign] dados do resumo aplicados:", resumo.numero_orcamento);
         }
       } catch (e) {
