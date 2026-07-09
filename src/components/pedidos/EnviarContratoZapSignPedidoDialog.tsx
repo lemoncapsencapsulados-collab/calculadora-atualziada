@@ -387,7 +387,14 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       });
 
       if (error) {
-        toast.error(`Erro ZapSign: ${error.message}`);
+        const ctx: any = (error as any).context;
+        let extra = '';
+        try {
+          const txt = ctx && typeof ctx.text === 'function' ? await ctx.text() : '';
+          const parsed = txt ? JSON.parse(txt) : null;
+          extra = parsed?.details || parsed?.error || txt;
+        } catch { /* noop */ }
+        toast.error(`Erro ZapSign: ${extra || error.message}`, { duration: 10000 });
         return;
       }
       if (resp?.token) {
