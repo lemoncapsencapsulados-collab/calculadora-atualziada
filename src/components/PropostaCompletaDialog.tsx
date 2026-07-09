@@ -658,8 +658,38 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     if (!orcamento.itens_producao || orcamento.itens_producao.length === 0) {
       pendencias.push('Ao menos um item de produção');
     }
+    // Validar detalhes de produção de cada item
+    (orcamento.itens_producao || []).forEach((item, idx) => {
+      const seg = (item.segmento || '').toLowerCase();
+      const isEncapsulado = seg.includes('encapsulado');
+      const isGummy = seg.includes('gummy');
+      const isSoluvel = seg.includes('solúvel') || seg.includes('soluvel');
+      const isLiquido = seg.includes('líquido') || seg.includes('liquido');
+      const isKnown = isEncapsulado || isGummy || isSoluvel || isLiquido;
+      const d = detalhesProducao[idx] || {};
+      const label = item.nome_produto || `Item ${idx + 1}`;
+      if (isKnown) {
+        if (!d.cor_tampa?.trim()) pendencias.push(`${label}: Cor da Tampa`);
+        if (!d.cor_pote?.trim()) pendencias.push(`${label}: Cor do Pote`);
+      }
+      if (isGummy) {
+        if (!d.sabor_gummy?.trim()) pendencias.push(`${label}: Sabor (Gummy)`);
+        if (!d.cor_gummy?.trim()) pendencias.push(`${label}: Cor do Conteúdo (Gummy)`);
+      }
+      if (isSoluvel) {
+        if (!d.sabor_soluvel?.trim()) pendencias.push(`${label}: Sabor (Solúvel)`);
+        if (!d.cor_soluvel?.trim()) pendencias.push(`${label}: Cor do Conteúdo (Solúvel)`);
+      }
+      if (isLiquido) {
+        if (!d.sabor_liquido?.trim()) pendencias.push(`${label}: Sabor (Líquido)`);
+        if (!d.cor_liquido?.trim()) pendencias.push(`${label}: Cor do Conteúdo (Líquido)`);
+      }
+      if (!isKnown) {
+        if (!d.observacao_producao?.trim()) pendencias.push(`${label}: Observação de Produção`);
+      }
+    });
     return pendencias;
-  }, [tipoPessoa, dadosCliente, responsavelPJ, pessoasFisicas, detalhamentoEnvio, condicoesPagamento, orcamento.valor_total, orcamento.itens_producao]);
+  }, [tipoPessoa, dadosCliente, responsavelPJ, pessoasFisicas, detalhamentoEnvio, condicoesPagamento, orcamento.valor_total, orcamento.itens_producao, detalhesProducao]);
 
   // Pre-load client from orcamento.cliente_id
   useEffect(() => {
