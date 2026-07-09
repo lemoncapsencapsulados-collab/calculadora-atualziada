@@ -1323,6 +1323,23 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {zapPendingCampos && (() => {
+      const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
+      if (!modelo) return null;
+      const replacements = montarDadosZapSign(zapPendingCampos);
+      return (
+        <RevisaoContratoZapSignDialog
+          open={zapRevisaoOpen}
+          onOpenChange={(o) => { if (!zapSignLoading) setZapRevisaoOpen(o); }}
+          templateId={modelo.template_id}
+          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+          modeloNome={modelo.nome}
+          replacements={replacements}
+          sending={zapSignLoading}
+          onConfirm={executarEnvioZapSign}
+        />
+      );
+    })()}
     </>
   );
 
