@@ -1064,7 +1064,7 @@ function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     const pageWidth = getPageWidth(doc);
-    const footerY = PAGE_HEIGHT - LAYOUT.marginBottom + 5;
+    const footerY = PAGE_HEIGHT - 20;
 
     // Linha separadora
     doc.setDrawColor(...COLORS.lemonYellow);
