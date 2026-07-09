@@ -550,6 +550,26 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {pendingEnvio && (() => {
+      const modelo = modelos.find((m) => m.id === modeloId);
+      if (!modelo) return null;
+      const replacements = montarDadosZapSign(pendingEnvio.campos);
+      return (
+        <RevisaoContratoZapSignDialog
+          open={revisaoOpen}
+          onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
+          templateId={modelo.template_id}
+          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+          modeloNome={modelo.nome}
+          replacements={replacements}
+          sending={loading}
+          onConfirm={async () => {
+            await enviar(pendingEnvio.campos, pendingEnvio.signers);
+            setRevisaoOpen(false);
+          }}
+        />
+      );
+    })()}
     </>
   );
 }
