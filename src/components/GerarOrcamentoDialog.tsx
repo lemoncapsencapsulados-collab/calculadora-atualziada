@@ -150,13 +150,31 @@ export default function GerarOrcamentoDialog({
   const [valorFixoSetup, setValorFixoSetup] = useState(0);
 
   // Step 5: Dados opcionais (cliente e frete)
-  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
+  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({ tipo_pessoa: 'pj' });
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
-  const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
   const [showFreteInline, setShowFreteInline] = useState(false);
 
   // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
+
+  // Pendências obrigatórias de Info Cliente (Passo Salvar)
+  const clientePendencias = useMemo(() => {
+    const p: string[] = [];
+    const tipo = dadosClienteTemp.tipo_pessoa || 'pj';
+    if (tipo === 'pj') {
+      const cnpjNums = (dadosClienteTemp.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) p.push('CNPJ');
+      if (!dadosClienteTemp.razao_social?.trim()) p.push('Razão Social');
+    } else {
+      if (!dadosClienteTemp.nome_completo?.trim()) p.push('Nome Completo');
+      const cpfNums = (dadosClienteTemp.cpf || '').replace(/\D/g, '');
+      if (cpfNums.length !== 11) p.push('CPF');
+    }
+    if (!dadosClienteTemp.email?.trim()) p.push('Email');
+    const telNums = (dadosClienteTemp.telefone || '').replace(/\D/g, '');
+    if (telNums.length < 10) p.push('Telefone');
+    return p;
+  }, [dadosClienteTemp]);
 
   // Step 4 (novo): Estabilidade + Notificação Anvisa
   const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
@@ -379,7 +397,11 @@ export default function GerarOrcamentoDialog({
         }).catch(() => {});
       }
       if (orcamentoExistente.dados_cliente) {
-        setDadosClienteTemp(orcamentoExistente.dados_cliente);
+        const dc = orcamentoExistente.dados_cliente as DadosCliente;
+        const inferredTipo: 'pj' | 'pf' = dc.tipo_pessoa
+          ? dc.tipo_pessoa
+          : (dc.cnpj || dc.razao_social) ? 'pj' : 'pf';
+        setDadosClienteTemp({ ...dc, tipo_pessoa: inferredTipo });
       }
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
@@ -732,6 +754,10 @@ export default function GerarOrcamentoDialog({
 
   const handleSubmit = async () => {
     if (!nomeCliente.trim()) return;
+    if (clientePendencias.length > 0) {
+      toast.error(`Preencha os dados obrigatórios do cliente: ${clientePendencias.join(', ')}`);
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -2009,110 +2035,118 @@ export default function GerarOrcamentoDialog({
                 Validade: {validadeDias} dias a partir da emissão
               </p>
 
-              {/* Seção opcional de Info Cliente e Frete */}
+              {/* Info Cliente (obrigatório) */}
+              <Card className="border-primary/40">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Informações do Cliente <span className="text-destructive">*</span>
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={dadosClienteTemp.tipo_pessoa === 'pj' ? 'default' : 'outline'}
+                        onClick={() => setDadosClienteTemp(prev => ({ ...prev, tipo_pessoa: 'pj' }))}
+                      >
+                        Pessoa Jurídica
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={dadosClienteTemp.tipo_pessoa === 'pf' ? 'default' : 'outline'}
+                        onClick={() => setDadosClienteTemp(prev => ({ ...prev, tipo_pessoa: 'pf' }))}
+                      >
+                        Pessoa Física
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {dadosClienteTemp.tipo_pessoa === 'pj' ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.cnpj || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cnpj: e.target.value }))}
+                            placeholder="00.000.000/0000-00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Razão Social <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.razao_social || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, razao_social: e.target.value }))}
+                            placeholder="Razão social"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nome Completo <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.nome_completo || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, nome_completo: e.target.value }))}
+                            placeholder="Nome completo"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.cpf || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cpf: e.target.value }))}
+                            placeholder="000.000.000-00"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="email"
+                        value={dadosClienteTemp.email || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.telefone || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, telefone: e.target.value }))}
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+                  </div>
+
+                  {clientePendencias.length > 0 && (
+                    <div className="text-xs text-destructive">
+                      Preencha: {clientePendencias.join(', ')}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Frete (opcional) */}
               <Card className="border-dashed">
                 <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Adicionar informações (opcional):
-                  </p>
-                  <div className="flex gap-3 flex-wrap">
-                    <Button 
-                      variant={Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '') ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setShowInfoClienteInline(!showInfoClienteInline)}
-                    >
-                      <User className="w-4 h-4 mr-2" />
-                      Info Cliente
-                      {Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '') && (
-                        <Check className="w-3 h-3 ml-1" />
-                      )}
-                    </Button>
-                    <Button 
+                  <div className="flex gap-3 flex-wrap items-center">
+                    <p className="text-sm text-muted-foreground">Frete (opcional):</p>
+                    <Button
                       variant={detalhamentoFreteTemp ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setShowFreteInline(!showFreteInline)}
                     >
                       <Truck className="w-4 h-4 mr-2" />
                       Frete
-                      {detalhamentoFreteTemp && (
-                        <Check className="w-3 h-3 ml-1" />
-                      )}
+                      {detalhamentoFreteTemp && (<Check className="w-3 h-3 ml-1" />)}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Esses dados podem ser adicionados depois na tela de orçamentos
-                  </p>
                 </CardContent>
               </Card>
-
-              {/* Form inline de Info Cliente */}
-              {showInfoClienteInline && (
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        Informações do Cliente
-                      </p>
-                      <Button variant="ghost" size="sm" onClick={() => setShowInfoClienteInline(false)}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Nome Completo</Label>
-                        <Input
-                          value={dadosClienteTemp.nome_completo || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, nome_completo: e.target.value }))}
-                          placeholder="Nome completo"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Email</Label>
-                        <Input
-                          type="email"
-                          value={dadosClienteTemp.email || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, email: e.target.value }))}
-                          placeholder="email@exemplo.com"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Telefone</Label>
-                        <Input
-                          value={dadosClienteTemp.telefone || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, telefone: e.target.value }))}
-                          placeholder="(00) 00000-0000"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">CPF</Label>
-                        <Input
-                          value={dadosClienteTemp.cpf || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cpf: e.target.value }))}
-                          placeholder="000.000.000-00"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">CNPJ</Label>
-                        <Input
-                          value={dadosClienteTemp.cnpj || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cnpj: e.target.value }))}
-                          placeholder="00.000.000/0000-00"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Razão Social</Label>
-                        <Input
-                          value={dadosClienteTemp.razao_social || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, razao_social: e.target.value }))}
-                          placeholder="Razão social"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               {/* Form inline de Frete */}
               {showFreteInline && (
@@ -2234,7 +2268,8 @@ export default function GerarOrcamentoDialog({
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || valorTotal === 0}
+                disabled={isSubmitting || valorTotal === 0 || clientePendencias.length > 0}
+                title={clientePendencias.length > 0 ? `Preencha: ${clientePendencias.join(', ')}` : undefined}
               >
                 {isSubmitting ? (
                   <>
