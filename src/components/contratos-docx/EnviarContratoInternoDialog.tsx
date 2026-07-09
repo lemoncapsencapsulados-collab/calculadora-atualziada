@@ -11,6 +11,7 @@ import { Loader2, Download, Send, FileText, AlertTriangle, Mail } from 'lucide-r
 import { toast } from 'sonner';
 import { useContratoModelosDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
 import { docxParaHtml, preencherDocxOriginal } from '@/lib/docxEditor';
+import { preencherHtmlComVariaveis } from '@/lib/docxEditor';
 import { construirMapaAutoFill, preencherAutomatico } from '@/lib/contratoDocxAutoFill';
 import type { ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { supabase } from '@/integrations/supabase/client';
@@ -102,6 +103,7 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
   const [carregandoHtml, setCarregandoHtml] = useState(false);
   const [complemento, setComplemento] = useState('');
   const [cepStatus, setCepStatus] = useState<Record<string, 'ok' | 'invalido' | 'checando' | undefined>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const modelo = useMemo(() => modelos.find((m) => m.id === modeloId) || null, [modelos, modeloId]);
   const variaveis = useMemo(() => detectarVariaveis(htmlBase || ''), [htmlBase]);
@@ -266,6 +268,13 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
 
   const temEndereco = variaveis.some((v) => tipoVariavel(v) === 'endereco');
 
+  const htmlPreview = useMemo(() => {
+    if (!htmlBase) return '';
+    const finais = aplicarComplementoEmEnderecos(valores);
+    return preencherHtmlComVariaveis(htmlBase, finais);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [htmlBase, valores, complemento]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -391,6 +400,9 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={gerando || enviando}>
             Cancelar
           </Button>
+          <Button variant="outline" onClick={() => setPreviewOpen(true)} disabled={!htmlBase}>
+            <FileText className="w-4 h-4 mr-2" /> Ver preview
+          </Button>
           <Button variant="secondary" onClick={handleGerar} disabled={gerando || enviando || !modelo || !htmlBase}>
             {gerando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             Gerar contrato
@@ -401,6 +413,29 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
           </Button>
         </DialogFooter>
       </DialogContent>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" /> Preview do contrato
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto bg-muted/30 px-4 pb-6" style={{ maxHeight: '80vh' }}>
+            <div
+              className="contrato-editor"
+              style={{ background: 'white' }}
+              dangerouslySetInnerHTML={{ __html: htmlPreview || '<p>Sem conteúdo</p>' }}
+            />
+          </div>
+          <DialogFooter className="px-6 pb-4">
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Fechar</Button>
+            <Button onClick={handleGerar} disabled={gerando}>
+              {gerando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+              Baixar DOCX
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
