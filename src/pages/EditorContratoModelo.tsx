@@ -47,7 +47,7 @@ export default function EditorContratoModelo() {
     content: '<p>Carregando modelo...</p>',
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[70vh] p-8 bg-white text-black',
+        class: 'contrato-editor prose prose-sm max-w-none focus:outline-none min-h-[70vh] p-10 bg-white text-black shadow-inner',
       },
     },
   });
