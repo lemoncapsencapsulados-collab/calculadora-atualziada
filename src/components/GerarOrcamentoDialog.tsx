@@ -410,7 +410,24 @@ export default function GerarOrcamentoDialog({
         const inferredTipo: 'pj' | 'pf' = dc.tipo_pessoa
           ? dc.tipo_pessoa
           : (dc.cnpj || dc.razao_social) ? 'pj' : 'pf';
-        setDadosClienteTemp({ ...dc, tipo_pessoa: inferredTipo });
+        const merged: DadosCliente = { ...dc, tipo_pessoa: inferredTipo };
+        // Para PF, espelha endereço de pessoas_fisicas[0] nos campos genéricos do form
+        if (inferredTipo === 'pf') {
+          const pf0 = dc.pessoas_fisicas?.[0];
+          if (pf0) {
+            merged.cep_cnpj = merged.cep_cnpj || pf0.cep;
+            merged.endereco_cnpj = merged.endereco_cnpj || pf0.endereco;
+            merged.numero_cnpj = merged.numero_cnpj || pf0.numero;
+            merged.bairro_cnpj = merged.bairro_cnpj || pf0.bairro;
+            merged.cidade = merged.cidade || pf0.cidade;
+            merged.estado = merged.estado || pf0.estado;
+            merged.nome_completo = merged.nome_completo || pf0.nome;
+            merged.cpf = merged.cpf || pf0.cpf;
+            merged.email = merged.email || pf0.email;
+            merged.telefone = merged.telefone || pf0.telefone;
+          }
+        }
+        setDadosClienteTemp(merged);
       }
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
