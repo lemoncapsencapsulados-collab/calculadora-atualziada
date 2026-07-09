@@ -15,6 +15,7 @@ import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
 import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
+import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
 interface Props {
   open: boolean;
@@ -154,6 +155,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
   const [ultimoCnpjConsultado, setUltimoCnpjConsultado] = useState<string>('');
+  const [revisaoOpen, setRevisaoOpen] = useState(false);
+  const [pendingEnvio, setPendingEnvio] = useState<{ campos: Campos; signers: ExtraSigner[] } | null>(null);
 
   const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido, resumo), [pedido?.id, resumo?.id]);
 
@@ -162,6 +165,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       setCampos(buildCampos(pedido, resumo));
       setExtraSigners([]);
       setAdminSenha('');
+      setRevisaoOpen(false);
+      setPendingEnvio(null);
     }
   }, [open, pedido?.id, resumo?.id]);
 
@@ -285,7 +290,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     const signersNormalizados = extraSigners.map((s) => ({ ...s, name: formatarNomeProprio(s.name) }));
     setCampos(camposNormalizados);
     setExtraSigners(signersNormalizados);
-    await enviar(camposNormalizados, signersNormalizados);
+    setPendingEnvio({ campos: camposNormalizados, signers: signersNormalizados });
+    setRevisaoOpen(true);
   };
 
   const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners) => {
@@ -544,6 +550,26 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {pendingEnvio && (() => {
+      const modelo = modelos.find((m) => m.id === modeloId);
+      if (!modelo) return null;
+      const replacements = montarDadosZapSign(pendingEnvio.campos);
+      return (
+        <RevisaoContratoZapSignDialog
+          open={revisaoOpen}
+          onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
+          templateId={modelo.template_id}
+          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+          modeloNome={modelo.nome}
+          replacements={replacements}
+          sending={loading}
+          onConfirm={async () => {
+            await enviar(pendingEnvio.campos, pendingEnvio.signers);
+            setRevisaoOpen(false);
+          }}
+        />
+      );
+    })()}
     </>
   );
 }
