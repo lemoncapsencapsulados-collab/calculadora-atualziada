@@ -31,6 +31,7 @@ import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
+import { EnviarContratoInternoDialog } from '@/components/contratos-docx/EnviarContratoInternoDialog';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
