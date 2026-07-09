@@ -12,6 +12,7 @@ import { normalizarVariavel } from './contratoDocxAutoFill';
 // ---------------------------------------------------------------------------
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
 function q(el: Element, local: string): Element | null {
   const list = el.getElementsByTagNameNS(W_NS, local);
@@ -36,6 +37,10 @@ function children(el: Element, local?: string): Element[] {
 function attr(el: Element | null, local: string): string | null {
   if (!el) return null;
   return el.getAttributeNS(W_NS, local) ?? el.getAttribute(`w:${local}`) ?? el.getAttribute(local);
+}
+function relAttr(el: Element | null, local: string): string | null {
+  if (!el) return null;
+  return el.getAttributeNS(R_NS, local) ?? el.getAttribute(`r:${local}`) ?? el.getAttribute(local);
 }
 
 // Word usa half-points para sz e twentieths-of-a-point (dxa) para espaçamento.
@@ -88,7 +93,7 @@ function readRPr(rPr: Element): Record<string, string> {
   const s: Record<string, string> = {};
   const rFonts = child(rPr, 'rFonts');
   const font = attr(rFonts, 'ascii') || attr(rFonts, 'hAnsi') || attr(rFonts, 'cs');
-  if (font) s['font-family'] = `"${font}"`;
+  if (font) s['font-family'] = `'${font.replace(/'/g, '')}'`;
   const sz = attr(child(rPr, 'sz'), 'val');
   const pt = halfPtToPt(sz);
   if (pt) s['font-size'] = `${pt}pt`;
@@ -174,7 +179,7 @@ function resolvePStyle(styles: Record<string, StyleDef & { basedOn?: string }>, 
 function styleAttr(map: Record<string, string>): string {
   const entries = Object.entries(map).filter(([, v]) => v);
   if (!entries.length) return '';
-  return ` style="${entries.map(([k, v]) => `${k}: ${v}`).join('; ')}"`;
+  return ` style="${entries.map(([k, v]) => `${k}: ${String(v).replace(/"/g, '&quot;')}`).join('; ')}"`;
 }
 
 function escapeText(s: string): string {
@@ -197,7 +202,7 @@ function renderRun(r: Element, defaults: StyleDef, stylesMap: Record<string, Sty
     if (c.namespaceURI !== W_NS) continue;
     if (c.localName === 't') text += escapeText(c.textContent || '');
     else if (c.localName === 'tab') text += '&nbsp;&nbsp;&nbsp;&nbsp;';
-    else if (c.localName === 'br') text += '<br/>';
+    else if (c.localName === 'br') text += attr(c as Element, 'type') === 'page' ? '<hr data-page-break="true" />' : '<br/>';
     else if (c.localName === 'noBreakHyphen') text += '&#8209;';
     else if (c.localName === 'sym') text += '';
   }
@@ -221,6 +226,9 @@ function renderParagraph(p: Element, defaults: StyleDef, stylesMap: Record<strin
     const rInPPr = child(pPr, 'rPr');
     if (rInPPr) rDefaults = { rStyle: mergeStyle(rDefaults.rStyle || {}, readRPr(rInPPr)) };
   }
+
+  const pageBreakOnly = qAll(p, 'br').some((br) => attr(br, 'type') === 'page') && !qAll(p, 't').some((t) => (t.textContent || '').trim());
+  if (pageBreakOnly) return '<hr data-page-break="true" />';
 
   // Runs
   let inner = '';
@@ -309,11 +317,27 @@ function wrapLists(html: string): string {
 }
 
 function renderTable(tbl: Element, defaults: StyleDef, stylesMap: Record<string, StyleDef & { basedOn?: string }>, numbering: NumberingCtx): string {
+  const tblPr = child(tbl, 'tblPr');
+  const tableStyle: Record<string, string> = { 'border-collapse': 'collapse', 'table-layout': 'fixed' };
+  const tblW = tblPr ? child(tblPr, 'tblW') : null;
+  if (tblW && attr(tblW, 'type') === 'dxa') {
+    const pt = dxaToPt(attr(tblW, 'w'));
+    if (pt) tableStyle.width = `${pt}pt`;
+  }
+
+  const grid = child(tbl, 'tblGrid');
+  const gridWidths = grid ? children(grid, 'gridCol').map((gc) => attr(gc, 'w')).filter(Boolean) as string[] : [];
+  const colgroup = gridWidths.length
+    ? `<colgroup>${gridWidths.map((w) => `<col style="width: ${dxaToPt(w) || 0}pt" />`).join('')}</colgroup>`
+    : '';
+
+  const tableBorder = readBorderCss(tblPr ? child(tblPr, 'tblBorders') : null);
   let rows = '';
   for (const tr of children(tbl, 'tr')) {
     let cells = '';
-    for (const tc of children(tr, 'tc')) {
-      const tcStyle: Record<string, string> = {};
+    const rowStyle: Record<string, string> = {};
+    for (const [cellIndex, tc] of children(tr, 'tc').entries()) {
+      const tcStyle: Record<string, string> = { ...(tableBorder ? { border: tableBorder } : {}) };
       const tcPr = child(tc, 'tcPr');
       if (tcPr) {
         const w = attr(child(tcPr, 'tcW'), 'w');
@@ -326,6 +350,18 @@ function renderTable(tbl: Element, defaults: StyleDef, stylesMap: Record<string,
         }
         const shd = attr(child(tcPr, 'shd'), 'fill');
         if (shd && shd !== 'auto') tcStyle['background-color'] = `#${shd}`;
+        const tcMar = child(tcPr, 'tcMar');
+        if (tcMar) {
+          const top = dxaToPt(attr(child(tcMar, 'top'), 'w'));
+          const right = dxaToPt(attr(child(tcMar, 'right'), 'w'));
+          const bottom = dxaToPt(attr(child(tcMar, 'bottom'), 'w'));
+          const left = dxaToPt(attr(child(tcMar, 'left'), 'w'));
+          const parts = [top ?? 0, right ?? 4, bottom ?? 0, left ?? 4].map((n) => `${n}pt`);
+          tcStyle.padding = parts.join(' ');
+        }
+      } else if (gridWidths[cellIndex]) {
+        const pt = dxaToPt(gridWidths[cellIndex]);
+        if (pt) tcStyle.width = `${pt}pt`;
       }
       let inner = '';
       for (const c of children(tc)) {
@@ -334,9 +370,51 @@ function renderTable(tbl: Element, defaults: StyleDef, stylesMap: Record<string,
       }
       cells += `<td${styleAttr(tcStyle)}>${wrapLists(inner)}</td>`;
     }
-    rows += `<tr>${cells}</tr>`;
+    rows += `<tr${styleAttr(rowStyle)}>${cells}</tr>`;
   }
-  return `<table><tbody>${rows}</tbody></table>`;
+  return `<table${styleAttr(tableStyle)}>${colgroup}<tbody>${rows}</tbody></table>`;
+}
+
+function readBorderCss(borders: Element | null): string | null {
+  if (!borders) return null;
+  const top = child(borders, 'top') || child(borders, 'left') || child(borders, 'insideH');
+  const val = attr(top, 'val');
+  if (!top || !val || val === 'nil' || val === 'none') return null;
+  const sz = parseFloat(attr(top, 'sz') || '4');
+  const pt = Number.isFinite(sz) ? Math.max(sz / 8, 0.5) : 0.5;
+  const rawColor = attr(top, 'color');
+  const color = !rawColor || rawColor === 'auto' ? '#000' : `#${rawColor}`;
+  return `${pt}pt solid ${color}`;
+}
+
+function parseDocumentRels(xml: string | undefined): Record<string, string> {
+  if (!xml) return {};
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const out: Record<string, string> = {};
+  for (const rel of Array.from(doc.getElementsByTagName('Relationship'))) {
+    const id = rel.getAttribute('Id');
+    const target = rel.getAttribute('Target');
+    if (id && target) out[id] = target;
+  }
+  return out;
+}
+
+function renderHeader(zip: PizZip, sectPr: Element | null, defaults: StyleDef, stylesMap: Record<string, StyleDef & { basedOn?: string }>, numbering: NumberingCtx): string {
+  const headerRef = sectPr ? child(sectPr, 'headerReference') : null;
+  const relId = relAttr(headerRef, 'id');
+  if (!relId) return '';
+  const rels = parseDocumentRels(zip.file('word/_rels/document.xml.rels')?.asText());
+  const target = rels[relId];
+  if (!target) return '';
+  const path = target.startsWith('/') ? target.replace(/^\//, '') : `word/${target.replace(/^\.\//, '')}`;
+  const headerXml = zip.file(path)?.asText();
+  if (!headerXml) return '';
+  const headerDoc = new DOMParser().parseFromString(headerXml, 'application/xml');
+  let html = '';
+  for (const p of Array.from(headerDoc.getElementsByTagNameNS(W_NS, 'p'))) {
+    html += renderParagraph(p as Element, defaults, stylesMap, numbering);
+  }
+  return html ? `<div data-docx-header="true" style="margin-bottom: 24pt">${html}</div>` : '';
 }
 
 export async function docxParaHtml(arrayBuffer: ArrayBuffer): Promise<string> {
@@ -354,8 +432,9 @@ export async function docxParaHtml(arrayBuffer: ArrayBuffer): Promise<string> {
   const doc = new DOMParser().parseFromString(documentXml, 'application/xml');
   const body = doc.getElementsByTagNameNS(W_NS, 'body').item(0);
   if (!body) return '';
+  const sectPr = child(body as Element, 'sectPr');
 
-  let html = '';
+  let html = renderHeader(zip, sectPr, docDefaults, styles, numbering);
   for (const c of children(body as Element)) {
     if (c.localName === 'p') html += renderParagraph(c, docDefaults, styles, numbering);
     else if (c.localName === 'tbl') html += renderTable(c, docDefaults, styles, numbering);

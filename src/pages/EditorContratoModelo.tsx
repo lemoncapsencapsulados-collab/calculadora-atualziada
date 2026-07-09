@@ -4,9 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
-import { Table } from '@tiptap/extension-table';
-import { TableRow } from '@tiptap/extension-table-row';
-import { ParagraphWithStyle, HeadingWithStyle, TableCellWithStyle, TableHeaderWithStyle, TextStyleAll } from '@/lib/tiptapPreserveStyle';
+import { ParagraphWithStyle, HeadingWithStyle, TableWithStyle, TableRowWithStyle, TableCellWithStyle, TableHeaderWithStyle, TextStyleAll } from '@/lib/tiptapPreserveStyle';
 import { Color } from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import { ArrowLeft, Save, Loader2, Braces, FileText, Download } from 'lucide-react';
@@ -45,8 +43,8 @@ export default function EditorContratoModelo() {
       FontFamily,
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: true }),
-      TableRow,
+      TableWithStyle.configure({ resizable: true }),
+      TableRowWithStyle,
       TableHeaderWithStyle,
       TableCellWithStyle,
     ],
