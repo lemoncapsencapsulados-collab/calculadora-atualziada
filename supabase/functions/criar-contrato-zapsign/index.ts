@@ -48,19 +48,30 @@ function onlyDigits(value: unknown): string {
   return String(value || '').replace(/\D/g, '');
 }
 
-function mergeReplacement(data: ZapSignDataItem[], keys: string[], value: string): void {
-  const val = value || '';
+function firstNonEmptyReplacement(data: ZapSignDataItem[], keys: string[]): string {
+  for (const key of keys) {
+    const found = data.find((item) => item.de === key && String(item.para || '').trim());
+    if (found) return String(found.para || '');
+  }
+  return '';
+}
+
+function mergeReplacement(data: ZapSignDataItem[], keys: string[], fallbackValue: string): string {
+  // Preserva o que foi editado manualmente no modal "Enviar para ZapSign".
+  // O resumo salvo entra apenas como fallback para campos vazios/ausentes.
+  const val = firstNonEmptyReplacement(data, keys) || fallbackValue || '';
   const byKey = new Map(data.map((item, idx) => [item.de, idx]));
   for (const key of keys) {
     const idx = byKey.get(key);
     if (idx !== undefined) data[idx] = { de: key, para: val };
     else data.push({ de: key, para: val });
   }
+  return val;
 }
 
 function applyResumoToData(data: ZapSignDataItem[], resumo: any): { signer_name?: string; signer_email?: string; signer_phone_number?: string } {
   const dc = resumo?.dados_cliente || {};
-  const isPJ = dc.tipo_pessoa === 'pj' || !!dc.razao_social;
+  const isPJ = dc.tipo_pessoa ? dc.tipo_pessoa === 'pj' : !!(dc.cnpj || dc.razao_social);
   const rep = isPJ ? (dc.responsavel_pj || {}) : ((Array.isArray(dc.pessoas_fisicas) && dc.pessoas_fisicas[0]) || {});
   const contratante = isPJ ? titleCasePt(dc.razao_social || resumo?.nome_cliente || '') : titleCasePt(rep.nome || resumo?.nome_cliente || '');
   const documento = isPJ ? (dc.cnpj || '') : (rep.cpf || dc.cpf || '');
@@ -81,16 +92,32 @@ function applyResumoToData(data: ZapSignDataItem[], resumo: any): { signer_name?
   const signerEmail = rep.email || dc.email || '';
   const signerPhone = onlyDigits(rep.telefone || dc.telefone || '');
 
+  const signerNameFinal = mergeReplacement(data, ['{{NOME_REPRESENTANTE}}', '{{NOME REPRESENTANTE}}', '{{REPRESENTANTE_LEGAL}}', '{{REPRESENTANTE LEGAL}}'], signerName);
+  const signerEmailFinal = mergeReplacement(data, ['{{EMAIL_SIGNATARIO}}', '{{EMAIL SIGNATARIO}}', '{{EMAIL_REPRESENTANTE}}', '{{EMAIL REPRESENTANTE}}'], signerEmail);
+  const signerPhoneFinal = mergeReplacement(data, ['{{TELEFONE_SIGNATARIO}}', '{{TELEFONE SIGNATARIO}}', '{{TELEFONE_REPRESENTANTE}}', '{{TELEFONE REPRESENTANTE}}'], signerPhone);
   mergeReplacement(data, ['{{RAZAO_SOCIAL_CONTRATANTE}}', '{{RAZÃO_SOCIAL_CONTRATANTE}}', '{{RAZAO SOCIAL CONTRATANTE}}', '{{RAZÃO SOCIAL CONTRATANTE}}', '{{NOME_CONTRATANTE}}', '{{NOME CONTRATANTE}}'], contratante);
   mergeReplacement(data, ['{{CNPJ_CONTRATANTE}}', '{{CPF_CNPJ_CONTRATANTE}}', '{{CNPJ CONTRATANTE}}', '{{CPF/CNPJ CONTRATANTE}}'], documento);
   mergeReplacement(data, ['{{ENDERECO_CONTRATANTE}}', '{{ENDEREÇO_CONTRATANTE}}', '{{ENDERECO CONTRATANTE}}', '{{ENDEREÇO CONTRATANTE}}'], endereco);
-  mergeReplacement(data, ['{{EMAIL_CONTRATANTE}}', '{{E-MAIL_CONTRATANTE}}', '{{EMAIL CONTRATANTE}}'], dc.email || signerEmail);
-  mergeReplacement(data, ['{{TELEFONE_CONTRATANTE}}', '{{TELEFONE CONTRATANTE}}'], dc.telefone || signerPhone);
-  mergeReplacement(data, ['{{NOME_REPRESENTANTE}}', '{{NOME REPRESENTANTE}}', '{{REPRESENTANTE_LEGAL}}', '{{REPRESENTANTE LEGAL}}'], signerName);
+  mergeReplacement(data, ['{{EMAIL_CONTRATANTE}}', '{{E-MAIL_CONTRATANTE}}', '{{EMAIL CONTRATANTE}}'], dc.email || signerEmailFinal);
+  mergeReplacement(data, ['{{TELEFONE_CONTRATANTE}}', '{{TELEFONE CONTRATANTE}}'], dc.telefone || signerPhoneFinal);
   mergeReplacement(data, ['{{CPF_REPRESENTANTE}}', '{{CPF REPRESENTANTE}}'], rep.cpf || '');
   mergeReplacement(data, ['{{NUMERO_CONTRATO}}', '{{NÚMERO_CONTRATO}}', '{{NUMERO CONTRATO}}', '{{Nº_CONTRATO}}', '{{N_CONTRATO}}'], resumo?.numero_orcamento || '');
 
-  return { signer_name: signerName, signer_email: signerEmail, signer_phone_number: signerPhone };
+  return { signer_name: signerNameFinal, signer_email: signerEmailFinal, signer_phone_number: signerPhoneFinal };
+}
+
+async function getTemplateInfo(baseUrl: string, templateId: string, token: string): Promise<any | null> {
+  const resp = await fetch(`${baseUrl}/templates/${templateId}/`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const text = await resp.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* keep null */ }
+  if (!resp.ok) {
+    throw new Error(`ZapSign retornou ${resp.status} ao validar o modelo${json?.detail ? `: ${json.detail}` : ''}`);
+  }
+  return json;
 }
 
 Deno.serve(async (req) => {
@@ -147,11 +174,16 @@ Deno.serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+      const templateType = String(json?.template_type || '').toLowerCase();
       return new Response(
         JSON.stringify({
           valid: true,
           template_id: templateId,
           ambiente: ambiente || 'default',
+          supports_dynamic_data: templateType === 'docx',
+          warning: templateType && templateType !== 'docx'
+            ? "Este modelo é PDF. Pela API da ZapSign, substituição de variáveis via modelo funciona apenas em Modelo DOCX dinâmico."
+            : undefined,
           template: json ?? { raw: text },
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -188,6 +220,21 @@ Deno.serve(async (req) => {
 
     const payloadData = [...body.data];
     let signerOverride: { signer_name?: string; signer_email?: string; signer_phone_number?: string } = {};
+
+    const templateInfo = await getTemplateInfo(baseUrl, templateId, token);
+    const templateType = String(templateInfo?.template_type || '').toLowerCase();
+    if (templateType && templateType !== 'docx') {
+      return new Response(
+        JSON.stringify({
+          error: "Modelo ZapSign incompatível para preenchimento automático.",
+          details: "O modelo cadastrado na ZapSign é PDF. Conforme a API da ZapSign, o endpoint /models/create-doc/ substitui variáveis apenas em Modelos DOCX dinâmicos. Cadastre um modelo DOCX com variáveis como {{NUMERO_CONTRATO}}, {{NOME_CONTRATANTE}}, {{CNPJ_CONTRATANTE}} etc.",
+          template_id: templateId,
+          template_type: templateInfo?.template_type,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const supaUrlForResumo = Deno.env.get("SUPABASE_URL");
     const serviceRoleForResumo = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (body.orcamento_id && supaUrlForResumo && serviceRoleForResumo) {

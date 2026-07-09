@@ -42,7 +42,14 @@ function VerificarTemplateButton({ templateId, ambiente }: { templateId: string;
       }
 
       if (data?.valid) {
-        toast.success('Template validado com sucesso na ZapSign!', {
+        if (data?.supports_dynamic_data === false) {
+          toast.error('Modelo ZapSign é PDF e não aceita dados dinâmicos.', {
+            description: data?.warning || 'Use um Modelo DOCX dinâmico para preencher os dados do Projeto para Contrato.',
+            duration: 9000,
+          });
+          return;
+        }
+        toast.success('Template DOCX validado com sucesso na ZapSign!', {
           description: `ID: ${templateId} | Ambiente: ${ambiente}`,
         });
       } else {
