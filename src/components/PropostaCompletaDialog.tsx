@@ -1683,8 +1683,16 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                       <Input value={dadosCliente.inscricao_estadual || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
                     </div>
                     <div className="col-span-2 space-y-1">
-                      <Label className="text-xs">Endereço</Label>
-                      <Input value={dadosCliente.endereco_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua, número, bairro" />
+                      <Label className="text-xs">Endereço (Logradouro) <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.endereco_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua / Avenida" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Número <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.numero_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, numero_cnpj: e.target.value }))} placeholder="Nº" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bairro <span className="text-destructive">*</span></Label>
+                      <Input value={dadosCliente.bairro_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, bairro_cnpj: e.target.value }))} placeholder="Bairro" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">CEP</Label>
