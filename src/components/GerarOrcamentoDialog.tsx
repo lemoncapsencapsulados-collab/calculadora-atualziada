@@ -750,6 +750,10 @@ export default function GerarOrcamentoDialog({
 
   const handleSubmit = async () => {
     if (!nomeCliente.trim()) return;
+    if (clientePendencias.length > 0) {
+      toast.error(`Preencha os dados obrigatórios do cliente: ${clientePendencias.join(', ')}`);
+      return;
+    }
     
     setIsSubmitting(true);
     
