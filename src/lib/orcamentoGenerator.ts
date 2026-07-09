@@ -365,7 +365,18 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     
     // Verificar espaço - cada produto precisa de aprox. 30-50mm
     const estimatedHeight = isPOD ? 20 : 25 + (item.insumos_formula?.length || 0) * 5;
-    yPos = checkPageBreak(doc, yPos, estimatedHeight);
+    // Para o primeiro item, garantir que título + item caibam juntos (evita título órfão)
+    if (index === 0) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const needed = 15 + estimatedHeight; // título + item
+      if (yPos + needed > pageHeight - 20) {
+        doc.addPage();
+        yPos = LAYOUT.margin;
+      }
+      yPos = renderSectionTitle(doc, 'Produtos', yPos);
+    } else {
+      yPos = checkPageBreak(doc, yPos, estimatedHeight);
+    }
     
     // Número e nome do produto
     doc.setFillColor(...COLORS.lightGray);
