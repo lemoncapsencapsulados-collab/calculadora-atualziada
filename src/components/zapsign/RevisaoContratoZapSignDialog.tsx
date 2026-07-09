@@ -242,9 +242,17 @@ export function RevisaoContratoZapSignDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>
             Voltar e editar
           </Button>
-          <Button onClick={() => onConfirm(montarReplacementsFinais())} disabled={sending || loading || !!erro}>
+          <Button
+            onClick={() => onConfirm(montarReplacementsFinais())}
+            disabled={sending || loading || !!erro || faltantesObrig.length > 0}
+            title={faltantesObrig.length > 0 ? `Preencha os ${faltantesObrig.length} campo(s) obrigatório(s) antes de enviar` : undefined}
+          >
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            {sending ? 'Enviando...' : 'Confirmar e enviar para ZapSign'}
+            {sending
+              ? 'Enviando...'
+              : faltantesObrig.length > 0
+                ? `Preencha ${faltantesObrig.length} obrigatório(s)`
+                : 'Confirmar e enviar para ZapSign'}
           </Button>
         </DialogFooter>
     </>
