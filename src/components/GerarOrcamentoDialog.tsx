@@ -174,6 +174,14 @@ export default function GerarOrcamentoDialog({
     if (!dadosClienteTemp.email?.trim()) p.push('Email');
     const telNums = (dadosClienteTemp.telefone || '').replace(/\D/g, '');
     if (telNums.length < 10) p.push('Telefone');
+    // Endereço obrigatório (comum a PJ e PF) — lido dos campos endereco_cnpj/*
+    const cepNums = (dadosClienteTemp.cep_cnpj || '').replace(/\D/g, '');
+    if (cepNums.length !== 8) p.push('CEP');
+    if (!dadosClienteTemp.endereco_cnpj?.trim()) p.push('Logradouro');
+    if (!dadosClienteTemp.numero_cnpj?.trim()) p.push('Número');
+    if (!dadosClienteTemp.bairro_cnpj?.trim()) p.push('Bairro');
+    if (!dadosClienteTemp.cidade?.trim()) p.push('Cidade');
+    if (!dadosClienteTemp.estado?.trim()) p.push('Estado');
     return p;
   }, [dadosClienteTemp]);
 
