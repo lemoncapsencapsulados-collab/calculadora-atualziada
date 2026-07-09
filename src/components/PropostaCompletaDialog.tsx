@@ -254,7 +254,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           representante.cep,
         ].filter(Boolean).join(' - ');
     const primeiroItem = orcamento.itens_producao?.[0];
-    const primeiroSegmento = (primeiroItem?.segmento || primeiroItem?.tipo_produto || '').toLowerCase();
+    const primeiroSegmento = (primeiroItem?.segmento || (primeiroItem as any)?.tipo_produto || '').toLowerCase();
     const primeiroIsGummy = primeiroSegmento.includes('gummy');
     const primeiroIsSoluvel = primeiroSegmento.includes('solúvel') || primeiroSegmento.includes('soluvel');
     const primeiroIsLiquido = primeiroSegmento.includes('líquido') || primeiroSegmento.includes('liquido');
@@ -459,37 +459,23 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       return;
     }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
+    const camposAtualizados = buildZapSignCamposPadrao();
+    const usarEditadoOuAtualizado = (editado?: string, atualizado?: string) =>
+      editado?.trim() ? editado : (atualizado || '');
     const camposComAnexos = {
+      ...camposAtualizados,
       ...campos,
-      ...buildZapSignCamposPadrao(),
-      signer_name: campos.signer_name,
-      signer_email: campos.signer_email,
-      signer_phone_number: campos.signer_phone_number,
-      razao_social: campos.razao_social,
-      cnpj: campos.cnpj,
-      endereco: campos.endereco,
-      endereco_representante: campos.endereco_representante,
-      email_contratante: campos.email_contratante,
-      telefone_contratante: campos.telefone_contratante,
-      nome_representante: campos.nome_representante,
-      cpf_representante: campos.cpf_representante,
-      numero_contrato: campos.numero_contrato,
-      data_contrato: campos.data_contrato,
-      produto_descricao: campos.produto_descricao,
-      produto_apresentacao: campos.produto_apresentacao,
-      produto_preco_unit: campos.produto_preco_unit,
-      produto_quantidade: campos.produto_quantidade,
-      produto_valor_total: campos.produto_valor_total,
-      valor_setup: campos.valor_setup,
-      valor_setup_extenso: campos.valor_setup_extenso,
-      valor_producao: campos.valor_producao,
-      valor_producao_extenso: campos.valor_producao_extenso,
-      valor_total: campos.valor_total,
-      valor_total_extenso: campos.valor_total_extenso,
-      valor_total_pedido: campos.valor_total_pedido,
-      condicao_pagamento: campos.condicao_pagamento,
-      prazo_producao: campos.prazo_producao,
-      prazo_rotulos: campos.prazo_rotulos,
+      anexo_produto_nome: usarEditadoOuAtualizado(campos.anexo_produto_nome, camposAtualizados.anexo_produto_nome),
+      anexo_qtd_frasco: usarEditadoOuAtualizado(campos.anexo_qtd_frasco, camposAtualizados.anexo_qtd_frasco),
+      anexo_dose_diaria: usarEditadoOuAtualizado(campos.anexo_dose_diaria, camposAtualizados.anexo_dose_diaria),
+      anexo_ativo_1: usarEditadoOuAtualizado(campos.anexo_ativo_1, camposAtualizados.anexo_ativo_1),
+      anexo_ativo_2: usarEditadoOuAtualizado(campos.anexo_ativo_2, camposAtualizados.anexo_ativo_2),
+      anexo_cor_pote: usarEditadoOuAtualizado(campos.anexo_cor_pote, camposAtualizados.anexo_cor_pote),
+      anexo_cor_tampa: usarEditadoOuAtualizado(campos.anexo_cor_tampa, camposAtualizados.anexo_cor_tampa),
+      anexo_cor_gummy: usarEditadoOuAtualizado(campos.anexo_cor_gummy, camposAtualizados.anexo_cor_gummy),
+      anexo_sabor_gummy: usarEditadoOuAtualizado(campos.anexo_sabor_gummy, camposAtualizados.anexo_sabor_gummy),
+      anexo_quantidade: usarEditadoOuAtualizado(campos.anexo_quantidade, camposAtualizados.anexo_quantidade),
+      anexo_preco_unitario: usarEditadoOuAtualizado(campos.anexo_preco_unitario, camposAtualizados.anexo_preco_unitario),
     };
     if (!campos.signer_name || !campos.signer_email) {
       toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
