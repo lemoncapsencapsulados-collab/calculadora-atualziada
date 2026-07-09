@@ -33,6 +33,66 @@ function resolveBaseUrl(ambiente?: string, defaultBaseUrl?: string): string {
   return (defaultBaseUrl || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
 }
 
+function titleCasePt(value: string): string {
+  const lowerWords = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, index) => lowerWords.has(word) && index > 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function onlyDigits(value: unknown): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function mergeReplacement(data: ZapSignDataItem[], keys: string[], value: string): void {
+  const val = value || '';
+  const byKey = new Map(data.map((item, idx) => [item.de, idx]));
+  for (const key of keys) {
+    const idx = byKey.get(key);
+    if (idx !== undefined) data[idx] = { de: key, para: val };
+    else data.push({ de: key, para: val });
+  }
+}
+
+function applyResumoToData(data: ZapSignDataItem[], resumo: any): { signer_name?: string; signer_email?: string; signer_phone_number?: string } {
+  const dc = resumo?.dados_cliente || {};
+  const isPJ = dc.tipo_pessoa === 'pj' || !!dc.razao_social;
+  const rep = isPJ ? (dc.responsavel_pj || {}) : ((Array.isArray(dc.pessoas_fisicas) && dc.pessoas_fisicas[0]) || {});
+  const contratante = isPJ ? titleCasePt(dc.razao_social || resumo?.nome_cliente || '') : titleCasePt(rep.nome || resumo?.nome_cliente || '');
+  const documento = isPJ ? (dc.cnpj || '') : (rep.cpf || dc.cpf || '');
+  const endereco = isPJ
+    ? [
+        [dc.endereco_cnpj || dc.logradouro, dc.numero_cnpj || dc.numero].filter(Boolean).join(', '),
+        dc.bairro_cnpj || dc.bairro,
+        dc.cidade && dc.estado ? `${dc.cidade} - ${dc.estado}` : (dc.cidade || dc.estado),
+        dc.cep_cnpj || dc.cep ? `CEP ${String(dc.cep_cnpj || dc.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+      ].filter(Boolean).join(' - ')
+    : [
+        [rep.endereco || rep.logradouro, rep.numero].filter(Boolean).join(', '),
+        rep.bairro,
+        rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
+        rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+      ].filter(Boolean).join(' - ');
+  const signerName = titleCasePt(rep.nome || contratante || resumo?.nome_cliente || '');
+  const signerEmail = rep.email || dc.email || '';
+  const signerPhone = onlyDigits(rep.telefone || dc.telefone || '');
+
+  mergeReplacement(data, ['{{RAZAO_SOCIAL_CONTRATANTE}}', '{{RAZÃO_SOCIAL_CONTRATANTE}}', '{{RAZAO SOCIAL CONTRATANTE}}', '{{RAZÃO SOCIAL CONTRATANTE}}', '{{NOME_CONTRATANTE}}', '{{NOME CONTRATANTE}}'], contratante);
+  mergeReplacement(data, ['{{CNPJ_CONTRATANTE}}', '{{CPF_CNPJ_CONTRATANTE}}', '{{CNPJ CONTRATANTE}}', '{{CPF/CNPJ CONTRATANTE}}'], documento);
+  mergeReplacement(data, ['{{ENDERECO_CONTRATANTE}}', '{{ENDEREÇO_CONTRATANTE}}', '{{ENDERECO CONTRATANTE}}', '{{ENDEREÇO CONTRATANTE}}'], endereco);
+  mergeReplacement(data, ['{{EMAIL_CONTRATANTE}}', '{{E-MAIL_CONTRATANTE}}', '{{EMAIL CONTRATANTE}}'], dc.email || signerEmail);
+  mergeReplacement(data, ['{{TELEFONE_CONTRATANTE}}', '{{TELEFONE CONTRATANTE}}'], dc.telefone || signerPhone);
+  mergeReplacement(data, ['{{NOME_REPRESENTANTE}}', '{{NOME REPRESENTANTE}}', '{{REPRESENTANTE_LEGAL}}', '{{REPRESENTANTE LEGAL}}'], signerName);
+  mergeReplacement(data, ['{{CPF_REPRESENTANTE}}', '{{CPF REPRESENTANTE}}'], rep.cpf || '');
+  mergeReplacement(data, ['{{NUMERO_CONTRATO}}', '{{NÚMERO_CONTRATO}}', '{{NUMERO CONTRATO}}', '{{Nº_CONTRATO}}', '{{N_CONTRATO}}'], resumo?.numero_orcamento || '');
+
+  return { signer_name: signerName, signer_email: signerEmail, signer_phone_number: signerPhone };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
