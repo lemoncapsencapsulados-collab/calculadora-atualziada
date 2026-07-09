@@ -1,6 +1,8 @@
 import PizZip from 'pizzip';
 import { asBlob } from 'html-docx-js-typescript';
 import { saveAs } from 'file-saver';
+import Docxtemplater from 'docxtemplater';
+import { normalizarVariavel } from './contratoDocxAutoFill';
 
 // ---------------------------------------------------------------------------
 // Conversor OOXML → HTML de alta fidelidade
