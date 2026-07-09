@@ -57,6 +57,7 @@ import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
+import { fetchEnderecoPorCEP, UFS_BRASIL } from '@/lib/brasilData';
 
 const CUSTO_ESTABILIDADE_PADRAO = 4100;
 const CUSTO_ANVISA_PADRAO = 1750;
