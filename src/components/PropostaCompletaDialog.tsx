@@ -26,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
+import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
@@ -458,14 +458,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     setZapRevisaoOpen(true);
   };
 
-  const executarEnvioZapSign = async () => {
+  const executarEnvioZapSign = async (finalReplacements?: ZapSignReplacement[]) => {
     const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
     const campos = zapPendingCampos;
     if (!modelo || !campos) return;
     setZapSignLoading(true);
     try {
       const signerPhone = (campos.signer_phone_number || '').replace(/\D/g, '');
-      const data = montarDadosZapSign(campos);
+      const data = finalReplacements?.length ? finalReplacements : montarDadosZapSign(campos);
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {
@@ -1021,6 +1021,24 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     <>
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {zapRevisaoOpen && zapPendingCampos ? (() => {
+          const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
+          if (!modelo) return null;
+          return (
+            <RevisaoContratoZapSignDialog
+              open={zapRevisaoOpen}
+              onOpenChange={(o) => { if (!zapSignLoading) setZapRevisaoOpen(o); }}
+              templateId={modelo.template_id}
+              ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+              modeloNome={modelo.nome}
+              replacements={montarDadosZapSign(zapPendingCampos)}
+              sending={zapSignLoading}
+              onConfirm={executarEnvioZapSign}
+              inline
+            />
+          );
+        })() : (
+        <>
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
         </DialogHeader>
@@ -1321,25 +1339,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
-    {zapPendingCampos && (() => {
-      const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
-      if (!modelo) return null;
-      const replacements = montarDadosZapSign(zapPendingCampos);
-      return (
-        <RevisaoContratoZapSignDialog
-          open={zapRevisaoOpen}
-          onOpenChange={(o) => { if (!zapSignLoading) setZapRevisaoOpen(o); }}
-          templateId={modelo.template_id}
-          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
-          modeloNome={modelo.nome}
-          replacements={replacements}
-          sending={zapSignLoading}
-          onConfirm={executarEnvioZapSign}
-        />
-      );
-    })()}
     </>
   );
 

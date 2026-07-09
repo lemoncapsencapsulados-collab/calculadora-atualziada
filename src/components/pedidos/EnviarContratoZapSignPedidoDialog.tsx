@@ -13,7 +13,7 @@ import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
 import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
+import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
@@ -294,7 +294,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     setRevisaoOpen(true);
   };
 
-  const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners) => {
+  const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners, finalReplacements?: ZapSignReplacement[]) => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo || !pedido) return;
     setLoading(true);
@@ -310,7 +310,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         cliente_id = (orc as any)?.cliente_id ?? null;
       }
 
-      const data = montarDadosZapSign(camposEnvio);
+      const data = finalReplacements?.length ? finalReplacements : montarDadosZapSign(camposEnvio);
 
       // Email configurado no modelo (cópia automática)
       const extrasConfigurados: ExtraSigner[] = [];
@@ -389,6 +389,27 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {revisaoOpen && pendingEnvio ? (() => {
+          const modelo = modelos.find((m) => m.id === modeloId);
+          if (!modelo) return null;
+          return (
+            <RevisaoContratoZapSignDialog
+              open={revisaoOpen}
+              onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
+              templateId={modelo.template_id}
+              ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+              modeloNome={modelo.nome}
+              replacements={montarDadosZapSign(pendingEnvio.campos)}
+              sending={loading}
+              onConfirm={async (finalReplacements) => {
+                await enviar(pendingEnvio.campos, pendingEnvio.signers, finalReplacements);
+                setRevisaoOpen(false);
+              }}
+              inline
+            />
+          );
+        })() : (
+        <>
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign — Pedido {pedido?.numero_pedido}</DialogTitle>
         </DialogHeader>
@@ -548,28 +569,10 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
             Enviar para ZapSign
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
-    {pendingEnvio && (() => {
-      const modelo = modelos.find((m) => m.id === modeloId);
-      if (!modelo) return null;
-      const replacements = montarDadosZapSign(pendingEnvio.campos);
-      return (
-        <RevisaoContratoZapSignDialog
-          open={revisaoOpen}
-          onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
-          templateId={modelo.template_id}
-          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
-          modeloNome={modelo.nome}
-          replacements={replacements}
-          sending={loading}
-          onConfirm={async () => {
-            await enviar(pendingEnvio.campos, pendingEnvio.signers);
-            setRevisaoOpen(false);
-          }}
-        />
-      );
-    })()}
     </>
   );
 }

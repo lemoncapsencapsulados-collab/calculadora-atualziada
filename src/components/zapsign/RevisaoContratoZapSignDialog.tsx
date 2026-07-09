@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Send, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import type { ZapSignReplacement } from '@/lib/zapsignContrato';
+import { ZAPSIGN_ALIAS_GROUPS, type ZapSignReplacement } from '@/lib/zapsignContrato';
 
 interface Props {
   open: boolean;
@@ -14,20 +15,39 @@ interface Props {
   modeloNome?: string;
   replacements: ZapSignReplacement[];
   sending: boolean;
-  onConfirm: () => void;
+  onConfirm: (finalReplacements: ZapSignReplacement[]) => void;
+  inline?: boolean;
 }
 
 function stripBraces(v: string): string {
   return String(v || '').replace(/[{}\s]/g, '').toUpperCase();
 }
 
+function withBraces(v: string): string {
+  const clean = String(v || '').trim();
+  if (!clean) return '';
+  return clean.startsWith('{{') ? clean : `{{${clean}}}`;
+}
+
+function aliasKeysFor(variable: string): string[] {
+  const normalized = stripBraces(variable);
+  const group = ZAPSIGN_ALIAS_GROUPS.find((items) => items.some((item) => stripBraces(item) === normalized));
+  return group ? group.map(stripBraces) : [normalized];
+}
+
+function getInputVariable(inp: any): string {
+  if (typeof inp === 'string') return inp;
+  return inp?.variable || inp?.name || inp?.label || '';
+}
+
 export function RevisaoContratoZapSignDialog({
-  open, onOpenChange, templateId, ambiente, modeloNome, replacements, sending, onConfirm,
+  open, onOpenChange, templateId, ambiente, modeloNome, replacements, sending, onConfirm, inline = false,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState<any[] | null>(null);
   const [templateType, setTemplateType] = useState<string>('');
   const [erro, setErro] = useState<string>('');
+  const [valoresEditados, setValoresEditados] = useState<Record<string, string>>({});
 
   const carregar = async () => {
     if (!templateId) return;
@@ -69,14 +89,27 @@ export function RevisaoContratoZapSignDialog({
     if (!lookup[k] && r.para != null && String(r.para).trim()) lookup[k] = String(r.para);
   }
 
+  useEffect(() => {
+    if (!open || !inputs) return;
+    const next: Record<string, string> = {};
+    for (const inp of inputs) {
+      const rawVar = getInputVariable(inp);
+      const key = stripBraces(rawVar);
+      next[key] = lookup[key] || '';
+    }
+    setValoresEditados(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, inputs, replacements]);
+
   const resolvidos = (inputs || []).map((inp: any) => {
-    const rawVar = inp?.variable || inp?.name || inp?.label || '';
+    const rawVar = getInputVariable(inp);
     const key = stripBraces(rawVar);
-    const valor = lookup[key] || '';
+    const valor = valoresEditados[key] ?? lookup[key] ?? '';
     return {
       variable: rawVar,
-      label: inp?.label,
-      required: !!inp?.required,
+      key,
+      label: typeof inp === 'string' ? '' : inp?.label,
+      required: typeof inp === 'string' ? false : !!inp?.required,
       valor,
       preenchido: !!valor.trim(),
     };
@@ -84,17 +117,48 @@ export function RevisaoContratoZapSignDialog({
 
   const faltantesObrig = resolvidos.filter((r) => r.required && !r.preenchido);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+  const montarReplacementsFinais = (): ZapSignReplacement[] => {
+    const finalData = replacements.map((r) => ({ ...r }));
+    const existentes = new Set(finalData.map((item) => stripBraces(item.de)));
+
+    for (const r of resolvidos) {
+      const value = valoresEditados[r.key] ?? '';
+      const aliasKeys = aliasKeysFor(r.variable);
+      let updatedAny = false;
+      finalData.forEach((item) => {
+        if (aliasKeys.includes(stripBraces(item.de))) {
+          item.para = value;
+          updatedAny = true;
+        }
+      });
+      if (!updatedAny && r.variable) {
+        finalData.push({ de: withBraces(r.variable), para: value });
+        existentes.add(stripBraces(r.variable));
+      }
+      for (const aliasGroupKey of aliasKeys) {
+        if (!existentes.has(aliasGroupKey)) {
+          const alias = ZAPSIGN_ALIAS_GROUPS.flat().find((item) => stripBraces(item) === aliasGroupKey);
+          if (alias) {
+            finalData.push({ de: alias, para: value });
+            existentes.add(aliasGroupKey);
+          }
+        }
+      }
+    }
+
+    return finalData;
+  };
+
+  const content = (
+    <>
         <DialogHeader>
           <DialogTitle>Revisar envio — {modeloNome || 'Contrato ZapSign'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Estes são exatamente os valores que serão enviados para cada variável do modelo na ZapSign.
-            Confira antes de confirmar. Se algo estiver errado, volte e edite os campos.
+            Estes são os campos reais do modelo na ZapSign. Eles já vêm preenchidos com os dados finais,
+            mas você pode editar qualquer valor aqui antes de confirmar o envio.
           </p>
 
           {loading && (
@@ -129,7 +193,7 @@ export function RevisaoContratoZapSignDialog({
               </div>
 
               {inputs.length === 0 ? (
-                <div className="text-sm text-muted-foreground italic border rounded-md p-3">
+                  <div className="text-sm text-muted-foreground italic border rounded-md p-3">
                   O modelo não expõe variáveis dinâmicas.
                 </div>
               ) : (
@@ -138,12 +202,19 @@ export function RevisaoContratoZapSignDialog({
                     <div key={i} className="p-2.5 grid grid-cols-1 md:grid-cols-[minmax(0,240px)_1fr_auto] gap-2 md:gap-3 items-start text-sm">
                       <div className="min-w-0">
                         <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded break-all">
-                          {`{{${r.variable}}}`}
+                          {withBraces(r.variable)}
                         </code>
+                        {r.label && r.label !== r.variable && (
+                          <p className="mt-1 text-[11px] text-muted-foreground break-words">{r.label}</p>
+                        )}
                       </div>
-                      <div className={`min-w-0 whitespace-pre-wrap break-words ${r.preenchido ? '' : 'text-muted-foreground italic'}`}>
-                        {r.preenchido ? r.valor : '— (vazio)'}
-                      </div>
+                      <Textarea
+                        value={r.valor}
+                        onChange={(e) => setValoresEditados((prev) => ({ ...prev, [r.key]: e.target.value }))}
+                        rows={String(r.valor || '').length > 80 ? 3 : 1}
+                        className="min-h-9 resize-y text-sm"
+                        placeholder="Valor que será enviado"
+                      />
                       <div className="flex items-center gap-1">
                         {r.required && !r.preenchido && (
                           <Badge variant="destructive" className="text-[10px]">obrigatório</Badge>
@@ -171,11 +242,20 @@ export function RevisaoContratoZapSignDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending}>
             Voltar e editar
           </Button>
-          <Button onClick={onConfirm} disabled={sending || loading || !!erro}>
+          <Button onClick={() => onConfirm(montarReplacementsFinais())} disabled={sending || loading || !!erro}>
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             {sending ? 'Enviando...' : 'Confirmar e enviar para ZapSign'}
           </Button>
         </DialogFooter>
+    </>
+  );
+
+  if (inline) return content;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {content}
       </DialogContent>
     </Dialog>
   );
