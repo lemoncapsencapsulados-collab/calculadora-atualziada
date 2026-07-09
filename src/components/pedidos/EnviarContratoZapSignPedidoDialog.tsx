@@ -82,7 +82,7 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
   const snap: any = pedido?.orcamento_snapshot || {};
   // Prefere os dados do Resumo/Projeto para Contrato (mais atualizados) sobre o snapshot original.
   const dc: any = (resumo?.dados_cliente) || snap.dados_cliente || {};
-  const isPJ = !!(dc.cnpj || dc.razao_social);
+  const isPJ = dc.tipo_pessoa ? dc.tipo_pessoa === 'pj' : !!(dc.cnpj || dc.razao_social);
   const repPJ = (dc.responsavel_pj) || {};
   const repPF = (dc.pessoas_fisicas && dc.pessoas_fisicas[0]) || {};
   const rep: any = isPJ ? repPJ : repPF;
@@ -289,24 +289,57 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
 
       const data = [
         { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{RAZÃO_SOCIAL_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{RAZAO SOCIAL CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{RAZÃO SOCIAL CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{NOME_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{NOME CONTRATANTE}}', para: campos.razao_social },
         { de: '{{CNPJ_CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{CPF_CNPJ_CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{CNPJ CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{CPF/CNPJ CONTRATANTE}}', para: campos.cnpj },
         { de: '{{ENDERECO_CONTRATANTE}}', para: campos.endereco },
+        { de: '{{ENDEREÇO_CONTRATANTE}}', para: campos.endereco },
+        { de: '{{ENDERECO CONTRATANTE}}', para: campos.endereco },
+        { de: '{{ENDEREÇO CONTRATANTE}}', para: campos.endereco },
         { de: '{{EMAIL_CONTRATANTE}}', para: campos.email_contratante },
+        { de: '{{E-MAIL_CONTRATANTE}}', para: campos.email_contratante },
+        { de: '{{EMAIL CONTRATANTE}}', para: campos.email_contratante },
         { de: '{{TELEFONE_CONTRATANTE}}', para: campos.telefone_contratante },
+        { de: '{{TELEFONE CONTRATANTE}}', para: campos.telefone_contratante },
         { de: '{{NOME_REPRESENTANTE}}', para: campos.nome_representante },
+        { de: '{{NOME REPRESENTANTE}}', para: campos.nome_representante },
+        { de: '{{REPRESENTANTE_LEGAL}}', para: campos.nome_representante },
+        { de: '{{REPRESENTANTE LEGAL}}', para: campos.nome_representante },
         { de: '{{CPF_REPRESENTANTE}}', para: campos.cpf_representante },
+        { de: '{{CPF REPRESENTANTE}}', para: campos.cpf_representante },
         { de: '{{NUMERO_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{NÚMERO_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{NUMERO CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{Nº_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{N_CONTRATO}}', para: campos.numero_contrato },
         { de: '{{DATA_CONTRATO}}', para: campos.data_contrato },
+        { de: '{{DATA CONTRATO}}', para: campos.data_contrato },
         { de: '{{PRODUTO_DESCRICAO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO_DESCRIÇÃO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO DESCRICAO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO}}', para: campos.produto_descricao },
         { de: '{{PRODUTO_APRESENTACAO}}', para: campos.produto_apresentacao },
+        { de: '{{PRODUTO_APRESENTAÇÃO}}', para: campos.produto_apresentacao },
         { de: '{{PRODUTO_PRECO_UNIT}}', para: campos.produto_preco_unit },
+        { de: '{{PRODUTO_PREÇO_UNIT}}', para: campos.produto_preco_unit },
         { de: '{{PRODUTO_QUANTIDADE}}', para: campos.produto_quantidade },
         { de: '{{VALOR_SETUP}}', para: campos.valor_setup },
         { de: '{{VALOR_SETUP_EXTENSO}}', para: campos.valor_setup_extenso },
         { de: '{{VALOR_PRODUCAO}}', para: campos.valor_producao },
+        { de: '{{VALOR_PRODUÇÃO}}', para: campos.valor_producao },
         { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: campos.valor_producao_extenso },
+        { de: '{{VALOR_PRODUÇÃO_EXTENSO}}', para: campos.valor_producao_extenso },
         { de: '{{VALOR_TOTAL_PROJETO}}', para: campos.valor_total },
+        { de: '{{VALOR_TOTAL}}', para: campos.valor_total },
+        { de: '{{VALOR TOTAL}}', para: campos.valor_total },
         { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: campos.valor_total_extenso },
+        { de: '{{VALOR_TOTAL_EXTENSO}}', para: campos.valor_total_extenso },
       ];
 
       // Email configurado no modelo (cópia automática)
