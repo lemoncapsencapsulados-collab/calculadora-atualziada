@@ -872,6 +872,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   };
 
   const handleGenerateProposta = async () => {
+    // Bloquear se houver pendências (incluindo detalhes do produto)
+    if (camposPendentes.length > 0) {
+      toast.error(`Preencha os campos obrigatórios antes de gerar o Projeto para Contrato (${camposPendentes.length} pendente${camposPendentes.length > 1 ? 's' : ''}).`);
+      return;
+    }
     // CNPJ obrigatório para PJ
     if (tipoPessoa === 'pj') {
       const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
