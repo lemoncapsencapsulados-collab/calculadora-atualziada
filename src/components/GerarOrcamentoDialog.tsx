@@ -150,9 +150,8 @@ export default function GerarOrcamentoDialog({
   const [valorFixoSetup, setValorFixoSetup] = useState(0);
 
   // Step 5: Dados opcionais (cliente e frete)
-  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
+  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({ tipo_pessoa: 'pj' });
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
-  const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
   const [showFreteInline, setShowFreteInline] = useState(false);
 
   // Condições de pagamento (step 4)
