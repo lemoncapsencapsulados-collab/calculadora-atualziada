@@ -6,8 +6,9 @@ import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
+import { ParagraphWithStyle, HeadingWithStyle, TableCellWithStyle, TableHeaderWithStyle, TextStyleAll } from '@/lib/tiptapPreserveStyle';
+import { Color } from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
 import { ArrowLeft, Save, Loader2, Braces, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,13 +37,18 @@ export default function EditorContratoModelo() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ paragraph: false, heading: false }),
+      ParagraphWithStyle,
+      HeadingWithStyle,
+      TextStyleAll,
+      Color,
+      FontFamily,
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Table.configure({ resizable: true }),
       TableRow,
-      TableHeader,
-      TableCell,
+      TableHeaderWithStyle,
+      TableCellWithStyle,
     ],
     content: '<p>Carregando modelo...</p>',
     editorProps: {
