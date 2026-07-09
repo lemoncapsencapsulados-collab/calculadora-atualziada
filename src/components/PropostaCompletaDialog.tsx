@@ -245,8 +245,20 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     const razaoSocial = isPJ ? formatarNomeProprio(dadosCliente.razao_social || '') : formatarNomeProprio(representante.nome || '');
     const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
     const enderecoContratante = isPJ
-      ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
-      : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
+      ? [
+          [dadosCliente.endereco_cnpj, dadosCliente.numero_cnpj].filter(Boolean).join(', '),
+          dadosCliente.bairro_cnpj,
+          dadosCliente.cidade,
+          dadosCliente.estado,
+          dadosCliente.cep_cnpj,
+        ].filter(Boolean).join(' - ')
+      : [
+          [representante.endereco, representante.numero].filter(Boolean).join(', '),
+          representante.bairro,
+          representante.cidade,
+          representante.estado,
+          representante.cep,
+        ].filter(Boolean).join(' - ');
     const primeiroItem = orcamento.itens_producao?.[0];
     const produtoDescricao = primeiroItem
       ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
