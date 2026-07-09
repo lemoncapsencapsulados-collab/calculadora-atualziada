@@ -26,7 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
+import { formatarInsumoContrato, montarDadosZapSign, naoSeAplicaSeVazio, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
@@ -254,6 +254,10 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           representante.cep,
         ].filter(Boolean).join(' - ');
     const primeiroItem = orcamento.itens_producao?.[0];
+    const primeiroSegmento = (primeiroItem?.segmento || primeiroItem?.tipo_produto || '').toLowerCase();
+    const primeiroIsGummy = primeiroSegmento.includes('gummy');
+    const primeiroIsSoluvel = primeiroSegmento.includes('solúvel') || primeiroSegmento.includes('soluvel');
+    const primeiroIsLiquido = primeiroSegmento.includes('líquido') || primeiroSegmento.includes('liquido');
     // Mescla os detalhes de produção de todas as fontes, priorizando o que o
     // usuário está editando agora (detalhesProducao) > resumo salvo > snapshot do item.
     const fontesDetalhes: Array<Record<string, any> | undefined> = [
@@ -319,8 +323,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       anexo_ativo_2: formatarInsumoContrato(insumos[1]),
       anexo_cor_pote: detalhesFonte.cor_pote || '',
       anexo_cor_tampa: detalhesFonte.cor_tampa || '',
-      anexo_cor_gummy: detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido || '',
-      anexo_sabor_gummy: detalhesFonte.sabor_gummy || detalhesFonte.sabor_soluvel || detalhesFonte.sabor_liquido || '',
+      anexo_cor_gummy: naoSeAplicaSeVazio(
+        detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido,
+        primeiroIsGummy || primeiroIsSoluvel || primeiroIsLiquido,
+      ),
+      anexo_sabor_gummy: naoSeAplicaSeVazio(
+        detalhesFonte.sabor_gummy || detalhesFonte.sabor_soluvel || detalhesFonte.sabor_liquido,
+        primeiroIsGummy || primeiroIsSoluvel || primeiroIsLiquido,
+      ),
       anexo_quantidade: produtoQuantidade,
       anexo_preco_unitario: produtoPrecoUnit,
     };
@@ -449,6 +459,38 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       return;
     }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
+    const camposComAnexos = {
+      ...campos,
+      ...buildZapSignCamposPadrao(),
+      signer_name: campos.signer_name,
+      signer_email: campos.signer_email,
+      signer_phone_number: campos.signer_phone_number,
+      razao_social: campos.razao_social,
+      cnpj: campos.cnpj,
+      endereco: campos.endereco,
+      endereco_representante: campos.endereco_representante,
+      email_contratante: campos.email_contratante,
+      telefone_contratante: campos.telefone_contratante,
+      nome_representante: campos.nome_representante,
+      cpf_representante: campos.cpf_representante,
+      numero_contrato: campos.numero_contrato,
+      data_contrato: campos.data_contrato,
+      produto_descricao: campos.produto_descricao,
+      produto_apresentacao: campos.produto_apresentacao,
+      produto_preco_unit: campos.produto_preco_unit,
+      produto_quantidade: campos.produto_quantidade,
+      produto_valor_total: campos.produto_valor_total,
+      valor_setup: campos.valor_setup,
+      valor_setup_extenso: campos.valor_setup_extenso,
+      valor_producao: campos.valor_producao,
+      valor_producao_extenso: campos.valor_producao_extenso,
+      valor_total: campos.valor_total,
+      valor_total_extenso: campos.valor_total_extenso,
+      valor_total_pedido: campos.valor_total_pedido,
+      condicao_pagamento: campos.condicao_pagamento,
+      prazo_producao: campos.prazo_producao,
+      prazo_rotulos: campos.prazo_rotulos,
+    };
     if (!campos.signer_name || !campos.signer_email) {
       toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
       return;
@@ -468,7 +510,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         return;
       }
     }
-    setZapPendingCampos(campos);
+    setZapSignCampos(camposComAnexos);
+    setZapPendingCampos(camposComAnexos);
     setZapRevisaoOpen(true);
   };
 
@@ -1288,6 +1331,22 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                       <div className="space-y-1">
                         <Label className="text-xs">Preço unitário</Label>
                         <Input value={zapSignCampos.produto_preco_unit} onChange={(e) => updateZapCampo('produto_preco_unit', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Cor do pote</Label>
+                        <Input value={zapSignCampos.anexo_cor_pote} onChange={(e) => updateZapCampo('anexo_cor_pote', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Cor da tampa</Label>
+                        <Input value={zapSignCampos.anexo_cor_tampa} onChange={(e) => updateZapCampo('anexo_cor_tampa', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Cor gummy/conteúdo</Label>
+                        <Input value={zapSignCampos.anexo_cor_gummy} onChange={(e) => updateZapCampo('anexo_cor_gummy', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Sabor gummy/conteúdo</Label>
+                        <Input value={zapSignCampos.anexo_sabor_gummy} onChange={(e) => updateZapCampo('anexo_sabor_gummy', e.target.value)} />
                       </div>
                     </div>
                   </div>
