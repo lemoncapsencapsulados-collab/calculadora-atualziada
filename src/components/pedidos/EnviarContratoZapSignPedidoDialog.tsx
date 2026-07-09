@@ -389,6 +389,27 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {revisaoOpen && pendingEnvio ? (() => {
+          const modelo = modelos.find((m) => m.id === modeloId);
+          if (!modelo) return null;
+          return (
+            <RevisaoContratoZapSignDialog
+              open={revisaoOpen}
+              onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
+              templateId={modelo.template_id}
+              ambiente={modelo.ambiente as 'producao' | 'sandbox'}
+              modeloNome={modelo.nome}
+              replacements={montarDadosZapSign(pendingEnvio.campos)}
+              sending={loading}
+              onConfirm={async (finalReplacements) => {
+                await enviar(pendingEnvio.campos, pendingEnvio.signers, finalReplacements);
+                setRevisaoOpen(false);
+              }}
+              inline
+            />
+          );
+        })() : (
+        <>
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign — Pedido {pedido?.numero_pedido}</DialogTitle>
         </DialogHeader>
@@ -548,28 +569,10 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
             Enviar para ZapSign
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
-    {pendingEnvio && (() => {
-      const modelo = modelos.find((m) => m.id === modeloId);
-      if (!modelo) return null;
-      const replacements = montarDadosZapSign(pendingEnvio.campos);
-      return (
-        <RevisaoContratoZapSignDialog
-          open={revisaoOpen}
-          onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
-          templateId={modelo.template_id}
-          ambiente={modelo.ambiente as 'producao' | 'sandbox'}
-          modeloNome={modelo.nome}
-          replacements={replacements}
-          sending={loading}
-          onConfirm={async (finalReplacements) => {
-            await enviar(pendingEnvio.campos, pendingEnvio.signers, finalReplacements);
-            setRevisaoOpen(false);
-          }}
-        />
-      );
-    })()}
     </>
   );
 }
