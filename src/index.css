@@ -142,6 +142,31 @@ All colors MUST be HSL.
   }
 }
 
+/* Editor de contratos (TipTap) — mantém a formatação próxima ao Word */
+.contrato-editor {
+  font-family: Calibri, "Segoe UI", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #000;
+}
+.contrato-editor p { margin: 0 0 8pt; text-align: justify; }
+.contrato-editor h1 { font-size: 18pt; font-weight: 700; margin: 12pt 0 6pt; }
+.contrato-editor h2 { font-size: 14pt; font-weight: 700; margin: 10pt 0 6pt; }
+.contrato-editor h3 { font-size: 12pt; font-weight: 700; margin: 8pt 0 4pt; }
+.contrato-editor h4, .contrato-editor h5 { font-size: 11pt; font-weight: 700; margin: 6pt 0 3pt; }
+.contrato-editor strong, .contrato-editor b { font-weight: 700; }
+.contrato-editor em, .contrato-editor i { font-style: italic; }
+.contrato-editor u { text-decoration: underline; }
+.contrato-editor ul { list-style: disc; padding-left: 24pt; margin: 4pt 0 8pt; }
+.contrato-editor ol { list-style: decimal; padding-left: 24pt; margin: 4pt 0 8pt; }
+.contrato-editor li { margin: 2pt 0; }
+.contrato-editor li p { margin: 0; }
+.contrato-editor blockquote { border-left: 3px solid #ccc; padding-left: 12pt; margin: 6pt 0 6pt 12pt; color: #333; font-style: italic; }
+.contrato-editor table { border-collapse: collapse; width: 100%; margin: 8pt 0; }
+.contrato-editor td, .contrato-editor th { border: 1px solid #666; padding: 6px 8px; vertical-align: top; }
+.contrato-editor a { color: #1e40af; text-decoration: underline; }
+.contrato-editor img { max-width: 100%; height: auto; }
+
 /* Animação de brilho dourado para celebração "LEMON RICA" */
 @keyframes gold-shimmer {
   0% {
