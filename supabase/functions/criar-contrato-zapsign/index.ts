@@ -350,9 +350,9 @@ Deno.serve(async (req) => {
             orcamento_id: body.orcamento_id ?? null,
             cliente_id: body.cliente_id ?? null,
             pedido_id: body.pedido_id ?? null,
-            signer_name: body.signer_name,
-            signer_email: body.signer_email,
-            signer_phone: body.signer_phone_number ?? null,
+            signer_name: signerNameFinal,
+            signer_email: signerEmailFinal,
+            signer_phone: signerPhoneFinal || null,
             status: 'pending',
           }, { onConflict: 'zapsign_token' });
 
