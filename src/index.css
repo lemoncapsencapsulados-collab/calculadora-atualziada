@@ -145,8 +145,8 @@ All colors MUST be HSL.
 /* Editor de contratos (TipTap) — canvas A4 fiel ao Word */
 .contrato-editor {
   font-family: "Times New Roman", Times, serif;
-  font-size: 11pt;
-  line-height: 15pt;
+  font-size: 12pt;
+  line-height: 16pt;
   color: #000;
   width: 595.3pt;
   min-height: 841.9pt;
@@ -156,7 +156,7 @@ All colors MUST be HSL.
   margin: 24px auto;
   overflow: visible;
 }
-.contrato-editor p { margin: 0 0 10pt; text-align: justify; font-family: "Times New Roman", Times, serif; }
+.contrato-editor p { margin: 0 0 10pt; text-align: justify; font-family: "Times New Roman", Times, serif; font-size: 12pt; }
 .contrato-editor h1 { font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; font-family: "Times New Roman", Times, serif; }
 .contrato-editor h2 { font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; font-family: "Times New Roman", Times, serif; }
 .contrato-editor h3 { font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; font-family: "Times New Roman", Times, serif; }

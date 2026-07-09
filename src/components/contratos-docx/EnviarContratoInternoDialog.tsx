@@ -15,6 +15,7 @@ import { construirMapaAutoFill, preencherAutomatico } from '@/lib/contratoDocxAu
 import type { ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { supabase } from '@/integrations/supabase/client';
 import { saveAs } from 'file-saver';
+import { fetchEnderecoPorCEP } from '@/lib/brasilData';
 
 interface Props {
   open: boolean;
@@ -40,6 +41,56 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
+// ---- Formatadores ----------------------------------------------------------
+const PALAVRAS_MINUSCULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'di', 'du']);
+
+function capitalizarNome(input: string): string {
+  if (!input) return '';
+  return input
+    .toLowerCase()
+    .split(/(\s+)/)
+    .map((tok, i) => {
+      if (/^\s+$/.test(tok)) return tok;
+      if (i > 0 && PALAVRAS_MINUSCULAS.has(tok)) return tok;
+      return tok.charAt(0).toUpperCase() + tok.slice(1);
+    })
+    .join('');
+}
+
+function formatarCEP(input: string): string {
+  const n = (input || '').replace(/\D/g, '').slice(0, 8);
+  if (n.length <= 5) return n;
+  return `${n.slice(0, 5)}-${n.slice(5)}`;
+}
+
+function formatarTelefone(input: string): string {
+  const n = (input || '').replace(/\D/g, '').slice(0, 11);
+  if (n.length < 3) return n;
+  const ddd = `(${n.slice(0, 2)})`;
+  const resto = n.slice(2);
+  if (!resto) return ddd;
+  if (resto.length <= 4) return `${ddd} ${resto}`;
+  if (resto.length <= 8) return `${ddd} ${resto.slice(0, 4)}-${resto.slice(4)}`;
+  return `${ddd} ${resto.slice(0, 5)}-${resto.slice(5)}`;
+}
+
+function tipoVariavel(v: string): 'nome' | 'cep' | 'telefone' | 'endereco' | 'outro' {
+  const k = v.toUpperCase();
+  if (/TELEFONE|CELULAR|WHATSAPP|PHONE/.test(k)) return 'telefone';
+  if (/\bCEP\b/.test(k)) return 'cep';
+  if (/ENDERECO|ENDEREÇO|LOGRADOURO/.test(k)) return 'endereco';
+  if (/NOME|RAZAO|RAZÃO|REPRESENTANTE|CONTRATANTE/.test(k) && !/CNPJ|CPF|EMAIL|E-MAIL/.test(k)) return 'nome';
+  return 'outro';
+}
+
+function formatarValor(v: string, valor: string): string {
+  const t = tipoVariavel(v);
+  if (t === 'cep') return formatarCEP(valor);
+  if (t === 'telefone') return formatarTelefone(valor);
+  if (t === 'nome') return capitalizarNome(valor);
+  return valor;
+}
+
 export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contexto }: Props) {
   const { data: modelos = [], isLoading } = useContratoModelosDocx();
   const [modeloId, setModeloId] = useState<string>('');
@@ -49,6 +100,8 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
   const [enviando, setEnviando] = useState(false);
   const [htmlBase, setHtmlBase] = useState<string>('');
   const [carregandoHtml, setCarregandoHtml] = useState(false);
+  const [complemento, setComplemento] = useState('');
+  const [cepStatus, setCepStatus] = useState<Record<string, 'ok' | 'invalido' | 'checando' | undefined>>({});
 
   const modelo = useMemo(() => modelos.find((m) => m.id === modeloId) || null, [modelos, modeloId]);
   const variaveis = useMemo(() => detectarVariaveis(htmlBase || ''), [htmlBase]);
@@ -93,11 +146,46 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
     setValores((prev) => {
       const next: Record<string, string> = {};
       for (const v of variaveis) {
-        next[v] = prev[v] ?? preencherAutomatico(v, mapaAuto);
+        const bruto = prev[v] ?? preencherAutomatico(v, mapaAuto);
+        next[v] = formatarValor(v, bruto);
       }
       return next;
     });
   }, [variaveis.join('|'), mapaAuto]);
+
+  // Aplica complemento nas variáveis de endereço (sem duplicar)
+  const aplicarComplementoEmEnderecos = (base: Record<string, string>): Record<string, string> => {
+    const compTrim = complemento.trim();
+    const out = { ...base };
+    for (const v of variaveis) {
+      if (tipoVariavel(v) !== 'endereco') continue;
+      const raw = (out[v] || '').replace(/\s*-\s*Compl\.:.*$/i, '').trim();
+      out[v] = compTrim ? `${raw} - Compl.: ${compTrim}` : raw;
+    }
+    return out;
+  };
+
+  const validarCEPsAntesEnvio = async (): Promise<boolean> => {
+    const cepVars = variaveis.filter((v) => tipoVariavel(v) === 'cep');
+    for (const v of cepVars) {
+      const val = (valores[v] || '').replace(/\D/g, '');
+      if (!val) continue;
+      if (val.length !== 8) {
+        toast.error(`CEP inválido em ${v}`);
+        setCepStatus((s) => ({ ...s, [v]: 'invalido' }));
+        return false;
+      }
+      setCepStatus((s) => ({ ...s, [v]: 'checando' }));
+      const r = await fetchEnderecoPorCEP(val);
+      if (!r) {
+        toast.error(`CEP não encontrado (${valores[v]}) em ${v}`);
+        setCepStatus((s) => ({ ...s, [v]: 'invalido' }));
+        return false;
+      }
+      setCepStatus((s) => ({ ...s, [v]: 'ok' }));
+    }
+    return true;
+  };
 
   // Gera o DOCX preenchendo APENAS as variáveis {{...}} no arquivo Word ORIGINAL
   // (via docxtemplater), preservando 100% da formatação: fontes, tamanhos,
@@ -109,7 +197,8 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
     }
     try {
       const buf = await baixarModeloArquivo(modelo.arquivo_url);
-      return preencherDocxOriginal(buf, valores);
+      const finais = aplicarComplementoEmEnderecos(valores);
+      return preencherDocxOriginal(buf, finais);
     } catch (e: any) {
       toast.error('Erro ao preencher modelo: ' + (e?.message || 'erro'));
       return null;
@@ -119,6 +208,8 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
   const handleGerar = async () => {
     setGerando(true);
     try {
+      const ok = await validarCEPsAntesEnvio();
+      if (!ok) return;
       const blob = await gerarBlob();
       if (!blob) return;
       saveAs(blob, nomeArquivo.endsWith('.docx') ? nomeArquivo : `${nomeArquivo}.docx`);
@@ -137,6 +228,8 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
     }
     setEnviando(true);
     try {
+      const ok = await validarCEPsAntesEnvio();
+      if (!ok) return;
       const blob = await gerarBlob();
       if (!blob) return;
       const base64 = await blobToBase64(blob);
@@ -170,6 +263,8 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
 
   const semModelos = !isLoading && modelos.length === 0;
   const semEmailFin = modelo && !modelo.email_financeiro?.trim();
+
+  const temEndereco = variaveis.some((v) => tipoVariavel(v) === 'endereco');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -229,6 +324,17 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
             <Input value={nomeArquivo} onChange={(e) => setNomeArquivo(e.target.value)} />
           </div>
 
+          {temEndereco && (
+            <div className="space-y-1">
+              <Label>Complemento do endereço <span className="text-xs text-muted-foreground">(opcional — aplicado a todos os endereços)</span></Label>
+              <Input
+                value={complemento}
+                onChange={(e) => setComplemento(e.target.value)}
+                placeholder="Ex.: Sala 302 · Bloco B · Ap 41"
+              />
+            </div>
+          )}
+
           {!carregandoHtml && modelo && variaveis.length === 0 && htmlBase && (
             <Alert>
               <AlertDescription>
@@ -247,17 +353,29 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
                 {variaveis.map((v) => {
                   const autoValue = preencherAutomatico(v, mapaAuto);
                   const filled = !!valores[v]?.trim();
+                  const t = tipoVariavel(v);
+                  const status = cepStatus[v];
                   return (
                     <div key={v} className="space-y-1">
                       <Label className="text-xs font-mono flex items-center gap-1">
                         {`{{${v}}}`}
                         {autoValue && <Badge variant="outline" className="text-[10px]">auto</Badge>}
                         {!filled && <Badge variant="destructive" className="text-[10px]">vazio</Badge>}
+                        {t === 'cep' && status === 'ok' && <Badge className="text-[10px] bg-emerald-600">CEP ok</Badge>}
+                        {t === 'cep' && status === 'invalido' && <Badge variant="destructive" className="text-[10px]">CEP inválido</Badge>}
                       </Label>
                       <Textarea
                         rows={2}
                         value={valores[v] || ''}
-                        onChange={(e) => setValores({ ...valores, [v]: e.target.value })}
+                        onChange={(e) => setValores({ ...valores, [v]: formatarValor(v, e.target.value) })}
+                        onBlur={async () => {
+                          if (t !== 'cep') return;
+                          const nums = (valores[v] || '').replace(/\D/g, '');
+                          if (nums.length !== 8) { setCepStatus((s) => ({ ...s, [v]: 'invalido' })); return; }
+                          setCepStatus((s) => ({ ...s, [v]: 'checando' }));
+                          const r = await fetchEnderecoPorCEP(nums);
+                          setCepStatus((s) => ({ ...s, [v]: r ? 'ok' : 'invalido' }));
+                        }}
                         placeholder={autoValue || 'Valor a preencher'}
                         className="text-xs"
                       />
