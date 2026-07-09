@@ -59,7 +59,7 @@ export async function baixarModeloArquivo(arquivo_url: string): Promise<ArrayBuf
 export function useCriarModeloDocx() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ nome, descricao, file }: { nome: string; descricao?: string; file: File }) => {
+    mutationFn: async ({ nome, descricao, file, email_financeiro, nome_financeiro }: { nome: string; descricao?: string; file: File; email_financeiro?: string; nome_financeiro?: string }) => {
       const path = `${crypto.randomUUID()}-${file.name}`;
       const up = await supabase.storage.from(BUCKET).upload(path, file, {
         upsert: false,
@@ -74,6 +74,8 @@ export function useCriarModeloDocx() {
           arquivo_url: path,
           arquivo_nome: file.name,
           variaveis_detectadas: [],
+          email_financeiro: email_financeiro?.trim() || null,
+          nome_financeiro: nome_financeiro?.trim() || null,
         })
         .select()
         .single();
