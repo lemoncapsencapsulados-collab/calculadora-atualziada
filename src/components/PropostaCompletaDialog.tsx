@@ -30,6 +30,7 @@ import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } fro
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
+import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
