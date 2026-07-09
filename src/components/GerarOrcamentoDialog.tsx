@@ -2131,6 +2131,80 @@ export default function GerarOrcamentoDialog({
                     </div>
                   </div>
 
+                  {/* Endereço completo (obrigatório) */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">CEP <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.cep_cnpj || ''}
+                        onChange={(e) => {
+                          const cep = e.target.value;
+                          setDadosClienteTemp(prev => ({ ...prev, cep_cnpj: cep }));
+                          const nums = cep.replace(/\D/g, '');
+                          if (nums.length === 8) {
+                            fetchEnderecoPorCEP(nums).then(r => {
+                              if (!r) return;
+                              setDadosClienteTemp(prev => ({
+                                ...prev,
+                                endereco_cnpj: prev.endereco_cnpj || r.logradouro,
+                                bairro_cnpj: prev.bairro_cnpj || r.bairro,
+                                cidade: prev.cidade || r.cidade,
+                                estado: prev.estado || r.estado,
+                              }));
+                            });
+                          }
+                        }}
+                        placeholder="00000-000"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+                      <Select
+                        value={dadosClienteTemp.estado || ''}
+                        onValueChange={(v) => setDadosClienteTemp(prev => ({ ...prev, estado: v }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                        <SelectContent>
+                          {UFS_BRASIL.map(uf => (
+                            <SelectItem key={uf.uf} value={uf.uf}>{uf.uf} — {uf.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Endereço (Logradouro) <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.endereco_cnpj || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, endereco_cnpj: e.target.value }))}
+                        placeholder="Rua, Avenida..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Número <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.numero_cnpj || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, numero_cnpj: e.target.value }))}
+                        placeholder="Número"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bairro <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.bairro_cnpj || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, bairro_cnpj: e.target.value }))}
+                        placeholder="Bairro"
+                      />
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.cidade || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cidade: e.target.value }))}
+                        placeholder="Cidade"
+                      />
+                    </div>
+                  </div>
+
                   {clientePendencias.length > 0 && (
                     <div className="text-xs text-destructive">
                       Preencha: {clientePendencias.join(', ')}
