@@ -8,6 +8,7 @@ import { Loader2, Send, RotateCcw, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
+import { useResumoContrato } from '@/hooks/useResumoContrato';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
@@ -21,9 +22,9 @@ interface Props {
 
 type ExtraSigner = { name: string; email: string; phone_number: string };
 
-function buildCandidatosExtras(pedido: Pedido | null): ExtraSigner[] {
+function buildCandidatosExtras(pedido: Pedido | null, resumo?: any): ExtraSigner[] {
   const snap: any = pedido?.orcamento_snapshot || {};
-  const dc: any = snap.dados_cliente || {};
+  const dc: any = (resumo?.dados_cliente) || snap.dados_cliente || {};
   const out: ExtraSigner[] = [];
   const push = (nome?: string, email?: string, tel?: string) => {
     if (!nome && !email) return;
@@ -41,7 +42,7 @@ function buildCandidatosExtras(pedido: Pedido | null): ExtraSigner[] {
     for (const pf of dc.pessoas_fisicas) push(pf?.nome, pf?.email, pf?.telefone);
   }
   // Contato geral do cliente
-  push(dc.razao_social || snap.nome_cliente, dc.email, dc.telefone);
+  push(dc.razao_social || resumo?.nome_cliente || snap.nome_cliente, dc.email, dc.telefone);
   // Remove duplicatas por email
   const seen = new Set<string>();
   return out.filter((s) => {
@@ -77,21 +78,32 @@ type Campos = {
   valor_total_extenso: string;
 };
 
-function buildCampos(pedido: Pedido | null): Campos {
+function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
   const snap: any = pedido?.orcamento_snapshot || {};
-  const dc: any = snap.dados_cliente || {};
+  // Prefere os dados do Resumo/Projeto para Contrato (mais atualizados) sobre o snapshot original.
+  const dc: any = (resumo?.dados_cliente) || snap.dados_cliente || {};
   const isPJ = !!(dc.cnpj || dc.razao_social);
   const repPJ = (dc.responsavel_pj) || {};
   const repPF = (dc.pessoas_fisicas && dc.pessoas_fisicas[0]) || {};
   const rep: any = isPJ ? repPJ : repPF;
-  const signerName = formatarNomeProprio(rep.nome || dc.razao_social || snap.nome_cliente || '');
+  const signerName = formatarNomeProprio(rep.nome || dc.razao_social || resumo?.nome_cliente || snap.nome_cliente || '');
   const signerEmail = rep.email || dc.email || '';
   const signerPhone = (rep.telefone || dc.telefone || '').replace(/\D/g, '');
   const razao = isPJ ? formatarNomeProprio(dc.razao_social || '') : formatarNomeProprio(rep.nome || '');
   const cnpj = isPJ ? (dc.cnpj || '') : (rep.cpf || '');
-  const endereco = isPJ
-    ? [dc.endereco_cnpj, dc.cidade, dc.estado, dc.cep_cnpj].filter(Boolean).join(' - ')
-    : [rep.endereco, rep.cidade, rep.estado, rep.cep].filter(Boolean).join(' - ');
+  const enderecoPJ = [
+    [dc.logradouro || dc.endereco_cnpj, dc.numero].filter(Boolean).join(', '),
+    dc.bairro,
+    dc.cidade && dc.estado ? `${dc.cidade} - ${dc.estado}` : (dc.cidade || dc.estado),
+    dc.cep_cnpj || dc.cep ? `CEP ${String(dc.cep_cnpj || dc.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+  ].filter(Boolean).join(' - ');
+  const enderecoPF = [
+    [rep.logradouro || rep.endereco, rep.numero].filter(Boolean).join(', '),
+    rep.bairro,
+    rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
+    rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+  ].filter(Boolean).join(' - ');
+  const endereco = isPJ ? enderecoPJ : enderecoPF;
   const item = snap.itens_producao?.[0];
   const valorSetup = snap.subtotal_servicos || 0;
   const valorProd = snap.subtotal_producao || 0;
@@ -107,7 +119,7 @@ function buildCampos(pedido: Pedido | null): Campos {
     telefone_contratante: dc.telefone || signerPhone,
     nome_representante: formatarNomeProprio(rep.nome || ''),
     cpf_representante: rep.cpf || '',
-    numero_contrato: snap.numero_orcamento || pedido?.numero_pedido || '',
+    numero_contrato: resumo?.numero_orcamento || snap.numero_orcamento || pedido?.numero_pedido || '',
     data_contrato: dataPorExtenso(new Date()),
     produto_descricao: item ? `${item.nome_produto}${item.segmento ? ` (${item.segmento})` : ''}` : '',
     produto_apresentacao: item?.quantidade_por_pote ? `${item.quantidade_por_pote} ${item.unidade_por_pote || ''} por frasco`.trim() : '',
@@ -124,22 +136,24 @@ function buildCampos(pedido: Pedido | null): Campos {
 
 export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }: Props) {
   const { data: modelos = [] } = useContratoModelos();
+  const { data: resumoData } = useResumoContrato(pedido?.orcamento_id ?? null);
+  const resumo = resumoData?.resumo;
   const [modeloId, setModeloId] = useState<string>('');
-  const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido));
+  const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido, resumo));
   const [loading, setLoading] = useState(false);
   const [askSenhaOpen, setAskSenhaOpen] = useState(false);
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
   const [ultimoCnpjConsultado, setUltimoCnpjConsultado] = useState<string>('');
 
-  const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido), [pedido?.id]);
+  const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido, resumo), [pedido?.id, resumo?.id]);
 
   useEffect(() => {
     if (open) {
-      setCampos(buildCampos(pedido));
+      setCampos(buildCampos(pedido, resumo));
       setExtraSigners([]);
     }
-  }, [open, pedido?.id]);
+  }, [open, pedido?.id, resumo?.id]);
 
   const adicionarSignatario = () => {
     setExtraSigners((prev) => {
@@ -385,8 +399,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setCampos(buildCampos(pedido))}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Recarregar do pedido
+            <Button type="button" variant="ghost" size="sm" onClick={() => setCampos(buildCampos(pedido, resumo))}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Recarregar {resumo ? 'do resumo/contrato' : 'do pedido'}
             </Button>
           </div>
 
