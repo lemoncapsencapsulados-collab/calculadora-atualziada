@@ -155,6 +155,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
   const [ultimoCnpjConsultado, setUltimoCnpjConsultado] = useState<string>('');
+  const [revisaoOpen, setRevisaoOpen] = useState(false);
+  const [pendingEnvio, setPendingEnvio] = useState<{ campos: Campos; signers: ExtraSigner[] } | null>(null);
 
   const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido, resumo), [pedido?.id, resumo?.id]);
 
@@ -163,6 +165,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       setCampos(buildCampos(pedido, resumo));
       setExtraSigners([]);
       setAdminSenha('');
+      setRevisaoOpen(false);
+      setPendingEnvio(null);
     }
   }, [open, pedido?.id, resumo?.id]);
 
