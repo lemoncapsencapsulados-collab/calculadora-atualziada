@@ -107,7 +107,7 @@ function buildCampos(pedido: Pedido | null): Campos {
     telefone_contratante: dc.telefone || signerPhone,
     nome_representante: formatarNomeProprio(rep.nome || ''),
     cpf_representante: rep.cpf || '',
-    numero_contrato: pedido?.numero_pedido || snap.numero_orcamento || '',
+    numero_contrato: snap.numero_orcamento || pedido?.numero_pedido || '',
     data_contrato: dataPorExtenso(new Date()),
     produto_descricao: item ? `${item.nome_produto}${item.segmento ? ` (${item.segmento})` : ''}` : '',
     produto_apresentacao: item?.quantidade_por_pote ? `${item.quantidade_por_pote} ${item.unidade_por_pote || ''} por frasco`.trim() : '',
