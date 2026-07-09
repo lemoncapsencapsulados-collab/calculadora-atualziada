@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
   margin: 20,           // Margem generosa
-  marginBottom: 25,     // Margem inferior para footer
+  marginBottom: 40,     // Margem inferior reservada para footer (evita sobreposição)
   headerHeight: 40,     // Header grande e elegante
   sectionGap: 10,       // Espaçamento entre seções
   lineHeight: 6,        // Altura de linha confortável
