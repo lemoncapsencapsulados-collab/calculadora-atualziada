@@ -356,8 +356,6 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   }
 
   const pageWidth = getPageWidth(doc);
-  
-  yPos = renderSectionTitle(doc, 'Produtos', yPos);
 
   // Renderizar cada produto detalhadamente
   orcamento.itens_producao.forEach((item, index) => {
