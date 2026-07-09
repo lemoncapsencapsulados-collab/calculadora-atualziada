@@ -774,7 +774,27 @@ export default function GerarOrcamentoDialog({
       const hasDadosCliente = Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '');
       const hasCondicoesPagamento = Object.values(condicoesPagamento).some(v => v !== undefined && v !== null && v !== '');
       const servicosMarcaFinal = buildServicosMarca();
-      
+
+      // Se PF, espelha endereço/contato em pessoas_fisicas[0] para o PDF/Contrato
+      const dadosClienteFinal: DadosCliente = (() => {
+        const dc = { ...dadosClienteTemp };
+        if ((dc.tipo_pessoa || 'pj') === 'pf') {
+          const pf0 = { ...(dc.pessoas_fisicas?.[0] || {}) };
+          pf0.nome = pf0.nome || dc.nome_completo;
+          pf0.cpf = pf0.cpf || dc.cpf;
+          pf0.email = pf0.email || dc.email;
+          pf0.telefone = pf0.telefone || dc.telefone;
+          pf0.cep = pf0.cep || dc.cep_cnpj;
+          pf0.endereco = pf0.endereco || dc.endereco_cnpj;
+          pf0.numero = pf0.numero || dc.numero_cnpj;
+          pf0.bairro = pf0.bairro || dc.bairro_cnpj;
+          pf0.cidade = pf0.cidade || dc.cidade;
+          pf0.estado = pf0.estado || dc.estado;
+          dc.pessoas_fisicas = [pf0, ...((dc.pessoas_fisicas || []).slice(1))];
+        }
+        return dc;
+      })();
+
       if (orcamentoExistente) {
         await updateOrcamento.mutateAsync({
           id: orcamentoExistente.id,
@@ -790,7 +810,7 @@ export default function GerarOrcamentoDialog({
             subtotal_producao: subtotalProducao,
             subtotal_servicos: subtotalServicos,
             valor_total: valorTotal,
-            ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
+            ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
             ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
             ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
           },
@@ -811,7 +831,7 @@ export default function GerarOrcamentoDialog({
           subtotal_servicos: subtotalServicos,
           valor_total: valorTotal,
           status: 'rascunho',
-          ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
+          ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
           ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
           ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
         };
