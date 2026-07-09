@@ -16,6 +16,7 @@ interface Props {
   replacements: ZapSignReplacement[];
   sending: boolean;
   onConfirm: (finalReplacements: ZapSignReplacement[]) => void;
+  inline?: boolean;
 }
 
 function stripBraces(v: string): string {
@@ -40,7 +41,7 @@ function getInputVariable(inp: any): string {
 }
 
 export function RevisaoContratoZapSignDialog({
-  open, onOpenChange, templateId, ambiente, modeloNome, replacements, sending, onConfirm,
+  open, onOpenChange, templateId, ambiente, modeloNome, replacements, sending, onConfirm, inline = false,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState<any[] | null>(null);
@@ -148,9 +149,8 @@ export function RevisaoContratoZapSignDialog({
     return finalData;
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+  const content = (
+    <>
         <DialogHeader>
           <DialogTitle>Revisar envio — {modeloNome || 'Contrato ZapSign'}</DialogTitle>
         </DialogHeader>
@@ -247,6 +247,15 @@ export function RevisaoContratoZapSignDialog({
             {sending ? 'Enviando...' : 'Confirmar e enviar para ZapSign'}
           </Button>
         </DialogFooter>
+    </>
+  );
+
+  if (inline) return content;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {content}
       </DialogContent>
     </Dialog>
   );
