@@ -11,6 +11,8 @@ export interface ContratoModeloDocx {
   html_editado: string | null;
   variaveis_detectadas: string[];
   versao: number;
+  email_financeiro: string | null;
+  nome_financeiro: string | null;
   created_at: string;
   updated_at: string;
 }
