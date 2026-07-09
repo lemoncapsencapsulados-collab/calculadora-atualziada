@@ -290,7 +290,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     const signersNormalizados = extraSigners.map((s) => ({ ...s, name: formatarNomeProprio(s.name) }));
     setCampos(camposNormalizados);
     setExtraSigners(signersNormalizados);
-    await enviar(camposNormalizados, signersNormalizados);
+    setPendingEnvio({ campos: camposNormalizados, signers: signersNormalizados });
+    setRevisaoOpen(true);
   };
 
   const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners) => {
