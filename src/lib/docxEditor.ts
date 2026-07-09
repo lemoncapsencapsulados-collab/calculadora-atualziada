@@ -1,6 +1,8 @@
 import PizZip from 'pizzip';
 import { asBlob } from 'html-docx-js-typescript';
 import { saveAs } from 'file-saver';
+import Docxtemplater from 'docxtemplater';
+import { normalizarVariavel } from './contratoDocxAutoFill';
 
 // ---------------------------------------------------------------------------
 // Conversor OOXML → HTML de alta fidelidade
@@ -406,4 +408,44 @@ export function baixarHtmlComoHtml(html: string, nomeArquivo: string) {
   const wrapped = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`;
   const blob = new Blob([wrapped], { type: 'text/html;charset=utf-8' });
   saveAs(blob, nomeArquivo.endsWith('.html') ? nomeArquivo : `${nomeArquivo}.html`);
+}
+
+// ---------------------------------------------------------------------------
+// Preenche o DOCX ORIGINAL substituindo apenas {{VAR}} — preserva 100% da
+// formatação (fontes, tamanhos, alinhamento, cabeçalhos, tabelas, etc).
+// Usa docxtemplater sobre o arquivo Word real, sem passar por HTML.
+// ---------------------------------------------------------------------------
+export function preencherDocxOriginal(
+  arrayBuffer: ArrayBuffer,
+  valores: Record<string, string>,
+): Blob {
+  const zip = new PizZip(arrayBuffer);
+
+  // Mapa normalizado (case/acento-insensível) para casar com variantes das chaves
+  const mapa: Record<string, string> = {};
+  for (const [k, v] of Object.entries(valores || {})) {
+    const key = normalizarVariavel(k);
+    if (key) mapa[key] = v ?? '';
+  }
+
+  const doc = new Docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    delimiters: { start: '{{', end: '}}' },
+    nullGetter: () => '',
+    parser: (tag: string) => ({
+      get: () => {
+        const key = normalizarVariavel(tag);
+        return mapa[key] ?? '';
+      },
+    }),
+  });
+
+  doc.render();
+  const out = doc.getZip().generate({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    compression: 'DEFLATE',
+  });
+  return out;
 }

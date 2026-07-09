@@ -10,12 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Download, Send, FileText, AlertTriangle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratoModelosDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
-import { docxParaHtml, preencherHtmlComVariaveis, baixarHtmlComoDocx } from '@/lib/docxEditor';
+import { docxParaHtml, preencherDocxOriginal } from '@/lib/docxEditor';
 import { construirMapaAutoFill, preencherAutomatico } from '@/lib/contratoDocxAutoFill';
 import type { ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { supabase } from '@/integrations/supabase/client';
-// html-docx-js-typescript returns a Blob in the browser
-import { asBlob } from 'html-docx-js-typescript';
+import { saveAs } from 'file-saver';
 
 interface Props {
   open: boolean;
@@ -100,27 +99,29 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
     });
   }, [variaveis.join('|'), mapaAuto]);
 
+  // Gera o DOCX preenchendo APENAS as variáveis {{...}} no arquivo Word ORIGINAL
+  // (via docxtemplater), preservando 100% da formatação: fontes, tamanhos,
+  // alinhamentos, cabeçalhos, tabelas — idêntico ao modelo enviado.
   const gerarBlob = async (): Promise<Blob | null> => {
-    if (!modelo || !htmlBase) {
-      toast.error('Selecione um modelo com conteúdo válido.');
+    if (!modelo) {
+      toast.error('Selecione um modelo.');
       return null;
     }
-    const htmlPreenchido = preencherHtmlComVariaveis(htmlBase, valores);
-    const wrapped = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-      body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; }
-      h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; }
-      table { border-collapse: collapse; width: 100%; } td, th { border: 1px solid #999; padding: 6px; }
-      p { margin: 6px 0; }
-    </style></head><body>${htmlPreenchido}</body></html>`;
-    const result = await asBlob(wrapped);
-    return result instanceof Blob ? result : new Blob([result as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    try {
+      const buf = await baixarModeloArquivo(modelo.arquivo_url);
+      return preencherDocxOriginal(buf, valores);
+    } catch (e: any) {
+      toast.error('Erro ao preencher modelo: ' + (e?.message || 'erro'));
+      return null;
+    }
   };
 
   const handleGerar = async () => {
     setGerando(true);
     try {
-      const htmlPreenchido = preencherHtmlComVariaveis(htmlBase, valores);
-      await baixarHtmlComoDocx(htmlPreenchido, `${nomeArquivo}.docx`);
+      const blob = await gerarBlob();
+      if (!blob) return;
+      saveAs(blob, nomeArquivo.endsWith('.docx') ? nomeArquivo : `${nomeArquivo}.docx`);
       toast.success('Contrato gerado! Verifique a pasta de downloads.');
     } catch (e: any) {
       toast.error('Erro ao gerar: ' + (e?.message || 'erro'));
