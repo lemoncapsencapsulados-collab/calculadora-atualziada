@@ -15,6 +15,7 @@ import { formatarNomeProprio, validarCPF } from '@/lib/validators';
 import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
 import { formatarInsumoContrato, montarDadosZapSign, ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
+import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
 interface Props {
   open: boolean;
