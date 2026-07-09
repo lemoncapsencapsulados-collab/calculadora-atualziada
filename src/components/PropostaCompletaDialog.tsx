@@ -1521,18 +1521,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 </Button>
               )}
               <Button
-                variant="outline"
-                onClick={abrirZapSignDialog}
-                disabled={zapSignLoading}
-              >
-                {zapSignLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <FileSignature className="w-4 h-4 mr-2" />
-                )}
-                {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
-              </Button>
-              <Button
                 onClick={() => { setZapSignCampos(buildZapSignCamposPadrao()); setContratoInternoOpen(true); }}
               >
                 <FileSignature className="w-4 h-4 mr-2" />
