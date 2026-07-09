@@ -592,6 +592,45 @@ export type Database = {
         }
         Relationships: []
       }
+      contrato_modelos_docx: {
+        Row: {
+          arquivo_nome: string | null
+          arquivo_url: string
+          created_at: string
+          descricao: string | null
+          html_editado: string | null
+          id: string
+          nome: string
+          updated_at: string
+          variaveis_detectadas: Json
+          versao: number
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          arquivo_url: string
+          created_at?: string
+          descricao?: string | null
+          html_editado?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          variaveis_detectadas?: Json
+          versao?: number
+        }
+        Update: {
+          arquivo_nome?: string | null
+          arquivo_url?: string
+          created_at?: string
+          descricao?: string | null
+          html_editado?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          variaveis_detectadas?: Json
+          versao?: number
+        }
+        Relationships: []
+      }
       contratos_zapsign: {
         Row: {
           ambiente: string
