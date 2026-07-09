@@ -147,6 +147,8 @@ function renderPessoaFisicaFields(doc: jsPDF, pf: PessoaFisicaResponsavel, titul
     { label: 'Email', valor: pf.email },
     { label: 'Telefone', valor: pf.telefone },
     { label: 'Endereço', valor: pf.endereco },
+    { label: 'Número', valor: pf.numero },
+    { label: 'Bairro', valor: pf.bairro },
     { label: 'CEP', valor: pf.cep },
     { label: 'Cidade/UF', valor: pf.cidade && pf.estado ? `${pf.cidade}/${pf.estado}` : (pf.cidade || pf.estado || '') },
   ];
@@ -273,6 +275,8 @@ function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): num
       { label: 'Insc. Estadual', valor: dados.inscricao_estadual },
       { label: 'Insc. Municipal', valor: dados.inscricao_municipal },
       { label: 'Endereço', valor: dados.endereco_cnpj },
+      { label: 'Número', valor: dados.numero_cnpj },
+      { label: 'Bairro', valor: dados.bairro_cnpj },
       { label: 'CEP', valor: dados.cep_cnpj },
       { label: 'Cidade/UF', valor: dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : '' },
       { label: 'Telefone', valor: dados.telefone },
