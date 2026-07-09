@@ -435,42 +435,42 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       return;
     }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
+    if (!campos.signer_name || !campos.signer_email) {
+      toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
+      return;
+    }
+    if (!campos.nome_representante?.trim()) {
+      toast.error('Informe o nome do representante legal.');
+      return;
+    }
+    const cpfRep = (campos.cpf_representante || '').replace(/\D/g, '');
+    if (!cpfRep || !validarCPF(cpfRep)) {
+      toast.error('Informe um CPF válido para o representante legal.');
+      return;
+    }
+    for (const s of zapExtraSigners) {
+      if (!s.name?.trim() || !s.email?.trim()) {
+        toast.error('Preencha nome e email de todos os signatários adicionais.');
+        return;
+      }
+    }
+    setZapPendingCampos(campos);
+    setZapRevisaoOpen(true);
+  };
+
+  const executarEnvioZapSign = async () => {
+    const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
+    const campos = zapPendingCampos;
+    if (!modelo || !campos) return;
     setZapSignLoading(true);
     try {
-      const signerName = campos.signer_name;
-      const signerEmail = campos.signer_email;
       const signerPhone = (campos.signer_phone_number || '').replace(/\D/g, '');
-
-      if (!signerName || !signerEmail) {
-        toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
-        setZapSignLoading(false);
-        return;
-      }
-      if (!campos.nome_representante?.trim()) {
-        toast.error('Informe o nome do representante legal.');
-        setZapSignLoading(false);
-        return;
-      }
-      const cpfRep = (campos.cpf_representante || '').replace(/\D/g, '');
-      if (!cpfRep || !validarCPF(cpfRep)) {
-        toast.error('Informe um CPF válido para o representante legal.');
-        setZapSignLoading(false);
-        return;
-      }
-      for (const s of zapExtraSigners) {
-        if (!s.name?.trim() || !s.email?.trim()) {
-          toast.error('Preencha nome e email de todos os signatários adicionais.');
-          setZapSignLoading(false);
-          return;
-        }
-      }
-
       const data = montarDadosZapSign(campos);
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {
-          signer_name: signerName,
-          signer_email: signerEmail,
+          signer_name: campos.signer_name,
+          signer_email: campos.signer_email,
           signer_phone_country: '55',
           signer_phone_number: signerPhone,
           lang: 'pt-br',
@@ -509,11 +509,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           action: { label: 'Abrir', onClick: () => window.open(url, '_blank') },
           duration: 10000,
         });
+        setZapRevisaoOpen(false);
         setZapSignDialogOpen(false);
       } else if (resp?.error) {
         toast.error(`ZapSign: ${resp.error}${resp.status ? ` (${resp.status})` : ''}`);
       } else {
         toast.success('Contrato criado na ZapSign!');
+        setZapRevisaoOpen(false);
+        setZapSignDialogOpen(false);
       }
     } catch (err: any) {
       toast.error(`Falha ao enviar para ZapSign: ${err?.message || 'erro desconhecido'}`);
