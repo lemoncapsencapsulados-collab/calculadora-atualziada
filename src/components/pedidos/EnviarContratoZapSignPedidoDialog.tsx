@@ -399,8 +399,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setCampos(buildCampos(pedido))}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Recarregar do pedido
+            <Button type="button" variant="ghost" size="sm" onClick={() => setCampos(buildCampos(pedido, resumo))}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Recarregar {resumo ? 'do resumo/contrato' : 'do pedido'}
             </Button>
           </div>
 
