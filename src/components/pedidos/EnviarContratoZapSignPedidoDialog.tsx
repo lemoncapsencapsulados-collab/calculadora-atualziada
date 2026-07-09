@@ -94,7 +94,19 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
   ].filter(Boolean).join(' - ');
   const endereco = isPJ ? enderecoPJ : enderecoPF;
   const item = snap.itens_producao?.[0];
-  const detalhesFonte = ((resumo?.detalhes_producao as any)?.[0] || (resumo?.detalhes_producao as any)?.['0'] || item?.detalhes_producao || {}) as Record<string, string>;
+  // Mescla detalhes de produção: snapshot do item + resumo salvo (mais recente vence).
+  const fontesDetalhes: Array<Record<string, any> | undefined> = [
+    (item?.detalhes_producao as any) || {},
+    ((resumo?.detalhes_producao as any)?.[0] || (resumo?.detalhes_producao as any)?.['0'] || {}),
+  ];
+  const detalhesFonte: Record<string, string> = {};
+  for (const fonte of fontesDetalhes) {
+    if (!fonte) continue;
+    for (const [k, v] of Object.entries(fonte)) {
+      const s = v == null ? '' : String(v).trim();
+      if (s) detalhesFonte[k] = s;
+    }
+  }
   const valorSetup = snap.subtotal_servicos || 0;
   const valorProd = snap.subtotal_producao || 0;
   const valorTotal = snap.valor_total || 0;

@@ -254,7 +254,21 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           representante.cep,
         ].filter(Boolean).join(' - ');
     const primeiroItem = orcamento.itens_producao?.[0];
-    const detalhesFonte = ((resumo?.detalhes_producao as any)?.[0] || (resumo?.detalhes_producao as any)?.['0'] || detalhesProducao[0] || primeiroItem?.detalhes_producao || {}) as Record<string, string>;
+    // Mescla os detalhes de produção de todas as fontes, priorizando o que o
+    // usuário está editando agora (detalhesProducao) > resumo salvo > snapshot do item.
+    const fontesDetalhes: Array<Record<string, any> | undefined> = [
+      (primeiroItem?.detalhes_producao as any) || {},
+      ((resumo?.detalhes_producao as any)?.[0] || (resumo?.detalhes_producao as any)?.['0'] || {}),
+      (detalhesProducao[0] as any) || {},
+    ];
+    const detalhesFonte: Record<string, string> = {};
+    for (const fonte of fontesDetalhes) {
+      if (!fonte) continue;
+      for (const [k, v] of Object.entries(fonte)) {
+        const s = v == null ? '' : String(v).trim();
+        if (s) detalhesFonte[k] = s;
+      }
+    }
     const produtoDescricao = primeiroItem
       ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
       : '';
