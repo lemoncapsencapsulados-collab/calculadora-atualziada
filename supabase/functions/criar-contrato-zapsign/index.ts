@@ -186,6 +186,34 @@ Deno.serve(async (req) => {
 
     const baseUrl = resolveBaseUrl(body.ambiente, defaultBaseUrl);
 
+    const payloadData = [...body.data];
+    let signerOverride: { signer_name?: string; signer_email?: string; signer_phone_number?: string } = {};
+    const supaUrlForResumo = Deno.env.get("SUPABASE_URL");
+    const serviceRoleForResumo = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (body.orcamento_id && supaUrlForResumo && serviceRoleForResumo) {
+      try {
+        const adminResumo = createClient(supaUrlForResumo, serviceRoleForResumo, { auth: { persistSession: false } });
+        const { data: resumo, error: resumoError } = await adminResumo
+          .from("resumos_contrato")
+          .select("numero_orcamento, nome_cliente, dados_cliente")
+          .eq("orcamento_id", body.orcamento_id)
+          .limit(1)
+          .maybeSingle();
+        if (resumoError) {
+          console.error("[criar-contrato-zapsign] falha ao carregar resumo:", resumoError);
+        } else if (resumo) {
+          signerOverride = applyResumoToData(payloadData, resumo);
+          console.log("[criar-contrato-zapsign] dados do resumo aplicados:", resumo.numero_orcamento);
+        }
+      } catch (e) {
+        console.error("[criar-contrato-zapsign] erro ao aplicar resumo:", e);
+      }
+    }
+
+    const signerNameFinal = signerOverride.signer_name || body.signer_name;
+    const signerEmailFinal = signerOverride.signer_email || body.signer_email;
+    const signerPhoneFinal = signerOverride.signer_phone_number || body.signer_phone_number || "";
+
     const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
     console.log("[criar-contrato-zapsign] extras recebidos:", JSON.stringify(extras));
 
@@ -204,7 +232,7 @@ Deno.serve(async (req) => {
         const emailCopia = (modelo?.email_envio || "").trim();
         if (emailCopia) {
           const ja = new Set<string>([
-            (body.signer_email || "").toLowerCase().trim(),
+            (signerEmailFinal || "").toLowerCase().trim(),
             ...extras.map((s) => (s.email || "").toLowerCase().trim()),
           ]);
           if (!ja.has(emailCopia.toLowerCase())) {
@@ -224,13 +252,14 @@ Deno.serve(async (req) => {
 
     const zapPayload: Record<string, unknown> = {
       template_id: templateId,
-      signer_name: body.signer_name,
-      signer_email: body.signer_email,
+      signer_name: signerNameFinal,
+      signer_email: signerEmailFinal,
       signer_phone_country: body.signer_phone_country || "55",
-      signer_phone_number: (body.signer_phone_number || "").replace(/\D/g, ""),
+      signer_phone_number: signerPhoneFinal.replace(/\D/g, ""),
       lang: body.lang || "pt-br",
       send_automatic_email: body.send_automatic_email ?? true,
-      data: body.data,
+      data: payloadData,
+      external_id: body.orcamento_id || body.pedido_id || undefined,
     };
 
     const url = `${baseUrl}/models/create-doc/`;
