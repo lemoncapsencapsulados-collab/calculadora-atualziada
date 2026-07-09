@@ -31,6 +31,7 @@ import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
+import { EnviarContratoInternoDialog } from '@/components/contratos-docx/EnviarContratoInternoDialog';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -205,6 +206,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);
   const [zapSignDialogOpen, setZapSignDialogOpen] = useState(false);
+  // Novo fluxo: contrato interno (DOCX) — substitui ZapSign no botão principal
+  const [contratoInternoOpen, setContratoInternoOpen] = useState(false);
   const [zapAdminSenha, setZapAdminSenha] = useState('');
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
@@ -1529,10 +1532,27 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 )}
                 {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
               </Button>
+              <Button
+                onClick={() => { setZapSignCampos(buildZapSignCamposPadrao()); setContratoInternoOpen(true); }}
+              >
+                <FileSignature className="w-4 h-4 mr-2" />
+                Enviar Contrato
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         {zapSignDialog()}
+        <EnviarContratoInternoDialog
+          open={contratoInternoOpen}
+          onOpenChange={setContratoInternoOpen}
+          campos={zapSignCampos || buildZapSignCamposPadrao()}
+          contexto={{
+            consultorNome: orcamento.consultor_responsavel || undefined,
+            orcamentoId: orcamento.id,
+            orcamentoNumero: orcamento.numero_orcamento,
+            cliente: orcamento.nome_cliente,
+          }}
+        />
       </>
     );
   }

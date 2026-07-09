@@ -598,9 +598,11 @@ export type Database = {
           arquivo_url: string
           created_at: string
           descricao: string | null
+          email_financeiro: string | null
           html_editado: string | null
           id: string
           nome: string
+          nome_financeiro: string | null
           updated_at: string
           variaveis_detectadas: Json
           versao: number
@@ -610,9 +612,11 @@ export type Database = {
           arquivo_url: string
           created_at?: string
           descricao?: string | null
+          email_financeiro?: string | null
           html_editado?: string | null
           id?: string
           nome: string
+          nome_financeiro?: string | null
           updated_at?: string
           variaveis_detectadas?: Json
           versao?: number
@@ -622,9 +626,11 @@ export type Database = {
           arquivo_url?: string
           created_at?: string
           descricao?: string | null
+          email_financeiro?: string | null
           html_editado?: string | null
           id?: string
           nome?: string
+          nome_financeiro?: string | null
           updated_at?: string
           variaveis_detectadas?: Json
           versao?: number
