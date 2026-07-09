@@ -1532,10 +1532,27 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 )}
                 {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
               </Button>
+              <Button
+                onClick={() => { setZapSignCampos(buildZapSignCamposPadrao()); setContratoInternoOpen(true); }}
+              >
+                <FileSignature className="w-4 h-4 mr-2" />
+                Enviar Contrato
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         {zapSignDialog()}
+        <EnviarContratoInternoDialog
+          open={contratoInternoOpen}
+          onOpenChange={setContratoInternoOpen}
+          campos={zapSignCampos || buildZapSignCamposPadrao()}
+          contexto={{
+            consultorNome: orcamento.consultor_responsavel || undefined,
+            orcamentoId: orcamento.id,
+            orcamentoNumero: orcamento.numero_orcamento,
+            cliente: orcamento.nome_cliente,
+          }}
+        />
       </>
     );
   }
