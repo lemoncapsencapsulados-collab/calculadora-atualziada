@@ -94,7 +94,7 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
   ].filter(Boolean).join(' - ');
   const endereco = isPJ ? enderecoPJ : enderecoPF;
   const item = snap.itens_producao?.[0];
-  const itemSegmento = (item?.segmento || item?.tipo_produto || '').toLowerCase();
+  const itemSegmento = (item?.segmento || (item as any)?.tipo_produto || '').toLowerCase();
   const itemIsGummy = itemSegmento.includes('gummy');
   const itemIsSoluvel = itemSegmento.includes('solúvel') || itemSegmento.includes('soluvel');
   const itemIsLiquido = itemSegmento.includes('líquido') || itemSegmento.includes('liquido');
