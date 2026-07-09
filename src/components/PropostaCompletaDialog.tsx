@@ -584,6 +584,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       if (cnpjNums.length !== 14) pendencias.push('CNPJ do cliente (14 dígitos)');
       if (!dadosCliente.razao_social?.trim()) pendencias.push('Razão Social');
       if (!dadosCliente.endereco_cnpj?.trim()) pendencias.push('Endereço do CNPJ');
+      if (!dadosCliente.numero_cnpj?.trim()) pendencias.push('Número do endereço');
+      if (!dadosCliente.bairro_cnpj?.trim()) pendencias.push('Bairro');
       if (!dadosCliente.cep_cnpj?.trim()) pendencias.push('CEP');
       if (!dadosCliente.cidade?.trim()) pendencias.push('Cidade');
       if (!dadosCliente.estado?.trim()) pendencias.push('Estado');
@@ -598,6 +600,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       if (cpfPf.length !== 11) pendencias.push('CPF do contratante (PF)');
       if (!pf?.email?.trim()) pendencias.push('Email do contratante');
       if (!pf?.endereco?.trim()) pendencias.push('Endereço do contratante');
+      if (!pf?.numero?.trim()) pendencias.push('Número do endereço');
+      if (!pf?.bairro?.trim()) pendencias.push('Bairro');
     }
     if (!detalhamentoEnvio.tipo) pendencias.push('Selecionar opção de frete');
     const errosPg = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
