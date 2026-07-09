@@ -515,23 +515,35 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:max-w-xs space-y-1 text-left">
+            <Label htmlFor="pedido-zap-admin-senha" className="text-xs flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" /> Senha admin para enviar
+            </Label>
+            <Input
+              id="pedido-zap-admin-senha"
+              type="password"
+              value={adminSenha}
+              onChange={(e) => setAdminSenha(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !loading && modeloId) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder="Digite a senha"
+              autoComplete="current-password"
+              disabled={loading}
+            />
+          </div>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading || !modeloId}>
+          <Button onClick={handleSubmit} disabled={loading || !modeloId || !adminSenha}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Enviar para ZapSign
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <AdminPasswordDialog
-      open={askSenhaOpen}
-      onOpenChange={setAskSenhaOpen}
-      title="Confirmar envio do contrato"
-      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
-      actionLabel="Enviar contrato"
-      onConfirm={enviar}
-    />
     </>
   );
 }
