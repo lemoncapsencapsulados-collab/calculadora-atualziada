@@ -793,6 +793,9 @@ export default function GerarOrcamentoDialog({
   };
 
   const canGoNext = () => {
+    return true; // placeholder to keep shape below
+  };
+  const _ignore = null;
     if (step === 1) {
       const temNome = nomeCliente.trim().length > 0;
       const temConsultor = consultorResponsavel.trim().length > 0;
