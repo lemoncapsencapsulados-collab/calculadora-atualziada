@@ -211,6 +211,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   type ZapExtraSigner = { name: string; email: string; phone_number: string };
   const [zapExtraSigners, setZapExtraSigners] = useState<ZapExtraSigner[]>([]);
+  const [zapRevisaoOpen, setZapRevisaoOpen] = useState(false);
+  const [zapPendingCampos, setZapPendingCampos] = useState<ZapSignContratoCampos | null>(null);
 
   // Campos editáveis do contrato ZapSign
   type ZapSignCampos = ZapSignContratoCampos;
