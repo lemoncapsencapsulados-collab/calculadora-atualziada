@@ -1,5 +1,7 @@
 import { Paragraph } from '@tiptap/extension-paragraph';
 import { Heading } from '@tiptap/extension-heading';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -26,6 +28,8 @@ function withStyleAttr<T extends { extend: any }>(node: T) {
 
 export const ParagraphWithStyle = withStyleAttr(Paragraph);
 export const HeadingWithStyle = withStyleAttr(Heading);
+export const TableWithStyle = withStyleAttr(Table);
+export const TableRowWithStyle = withStyleAttr(TableRow);
 export const TableCellWithStyle = withStyleAttr(TableCell);
 export const TableHeaderWithStyle = withStyleAttr(TableHeader);
 
