@@ -35,6 +35,15 @@ function aliasKeysFor(variable: string): string[] {
   return group ? group.map(stripBraces) : [normalized];
 }
 
+function getLookupValue(lookup: Record<string, string>, variable: string): string {
+  const aliasKeys = aliasKeysFor(variable);
+  for (const key of aliasKeys) {
+    const value = lookup[key];
+    if (value != null && String(value).trim()) return value;
+  }
+  return '';
+}
+
 function getInputVariable(inp: any): string {
   if (typeof inp === 'string') return inp;
   return inp?.variable || inp?.name || inp?.label || '';
@@ -95,7 +104,7 @@ export function RevisaoContratoZapSignDialog({
     for (const inp of inputs) {
       const rawVar = getInputVariable(inp);
       const key = stripBraces(rawVar);
-      next[key] = lookup[key] || '';
+      next[key] = getLookupValue(lookup, rawVar);
     }
     setValoresEditados(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +113,7 @@ export function RevisaoContratoZapSignDialog({
   const resolvidos = (inputs || []).map((inp: any) => {
     const rawVar = getInputVariable(inp);
     const key = stripBraces(rawVar);
-    const valor = valoresEditados[key] ?? lookup[key] ?? '';
+    const valor = valoresEditados[key] ?? getLookupValue(lookup, rawVar);
     return {
       variable: rawVar,
       key,
