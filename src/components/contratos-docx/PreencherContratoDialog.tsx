@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Download, FileText } from 'lucide-react';
-import { ContratoModeloDocx, detectarVariaveis } from '@/hooks/useContratoModelosDocx';
-import { preencherHtmlComVariaveis, baixarHtmlComoDocx } from '@/lib/docxEditor';
+import { ContratoModeloDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
+import { preencherDocxOriginal } from '@/lib/docxEditor';
+import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
 interface Props {
@@ -32,14 +33,15 @@ export function PreencherContratoDialog({ open, onOpenChange, modelo }: Props) {
   }, [open, modelo?.id]);
 
   const gerar = async () => {
-    if (!modelo?.html_editado) {
-      toast.error('Este modelo ainda não tem conteúdo editado. Abra o editor e salve primeiro.');
+    if (!modelo?.arquivo_url) {
+      toast.error('Modelo sem arquivo original.');
       return;
     }
     setGerando(true);
     try {
-      const htmlPreenchido = preencherHtmlComVariaveis(modelo.html_editado, valores);
-      await baixarHtmlComoDocx(htmlPreenchido, `${nomeArquivo}.docx`);
+      const buf = await baixarModeloArquivo(modelo.arquivo_url);
+      const blob = preencherDocxOriginal(buf, valores);
+      saveAs(blob, nomeArquivo.endsWith('.docx') ? nomeArquivo : `${nomeArquivo}.docx`);
       toast.success('Contrato gerado!');
       onOpenChange(false);
     } catch (err: any) {
