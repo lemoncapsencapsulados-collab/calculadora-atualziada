@@ -59,8 +59,8 @@ Deno.serve(async (req) => {
     const body = await req.json()
     templateName = body.templateName || body.template_name
     recipientEmail = body.recipientEmail || body.recipient_email
-    idempotencyKey = body.idempotencyKey || body.idempotency_key || crypto.randomUUID()
-    messageId = body.messageId || body.message_id || idempotencyKey
+    messageId = crypto.randomUUID()
+    idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId
     if (body.templateData && typeof body.templateData === 'object') {
       templateData = body.templateData
     }
@@ -345,7 +345,7 @@ Deno.serve(async (req) => {
   console.log('Transactional email enqueued', { templateName, effectiveRecipient })
 
   return new Response(
-    JSON.stringify({ success: true, queued: true, messageId }),
+    JSON.stringify({ success: true, queued: true }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

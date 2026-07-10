@@ -1,52 +1,80 @@
-# Editor de Contratos DOCX no sistema
+## Objetivo
 
-Nova área **Contratos → Editor de Modelos** que permite subir DOCX, editar visualmente (estilo Word) no navegador, detectar variáveis `{{...}}` automaticamente, preencher com dados do orçamento e exportar DOCX/PDF final — tudo sem depender da ZapSign.
+Simplificar a formação de preço para **MP + Embalagem + Overhead (R$ 3,00 configurável) + 12% de imposto sobre a venda**, e remover do Painel Administrador toda a área de custos/gastos e recálculo automático (Prazo de Preços). Precificações e orçamentos já salvos permanecem congelados com o valor atual.
 
-## Fluxo do usuário
+## 1. Nova fórmula de precificação
 
-1. **Biblioteca de Modelos** (nova aba em Configuração de Contratos)
-   - Upload de arquivos `.docx`
-   - Lista com nome, descrição, data, botões Editar / Duplicar / Excluir / Usar
-2. **Editor Visual** (rich-text estilo Word)
-   - Converte o DOCX para HTML editável
-   - Barra de ferramentas: negrito, itálico, sublinhado, títulos, listas, alinhamento, tabelas, cor, tamanho de fonte
-   - Painel lateral direito: lista de variáveis `{{VARIAVEL}}` detectadas no texto, com botão "Inserir" para colocar novas
-   - Salva alterações no modelo (versão do template)
-3. **Gerar Contrato a partir de um Orçamento**
-   - Escolher orçamento/pedido → escolher modelo → sistema pré-preenche todas as variáveis com os dados existentes (nome, CNPJ, endereço, produtos, valores, condições de pagamento, cores, sabores etc.)
-   - Tela de revisão: cada variável em um campo editável (mesma lógica que já existe hoje na revisão ZapSign)
-   - Botões: **Baixar DOCX**, **Baixar PDF**, **Salvar cópia no pedido**
+Em `src/lib/precificacaoCalculator.ts`:
 
-## Peças técnicas
+- Reescrever `calcularPrecificacaoPorPreco(custosBase, precoVenda, overhead)`:
+  - `custoMateriaPrima = formula.total_mp`
+  - `custoEmbalagem = formula.total_embalagem`
+  - `overhead = 3.00` (vem da config)
+  - `totalCustosProducao = MP + Embalagem + overhead`
+  - `totalImpostos = precoVenda * 0.12`
+  - `margemLucroValor = precoVenda - totalCustosProducao - totalImpostos`
+  - `margemLucroPercentual = margemLucroValor / precoVenda * 100`
+  - `markupBruto = (precoVenda - totalCustosProducao) / totalCustosProducao * 100`
+  - Zerar campos legados (MOD, energia, depreciação, admin, ICMS detalhado, PIS/COFINS, IPI, IRPJ/CSLL, margem_segurança) preenchendo com `0` para manter compatibilidade com a tabela.
+- Remover `calcularPrecificacaoPorMarkup` (não mais usado).
+- Manter `validarMargemPorTipo` (regra de margens por tipo continua).
 
-**Backend (Supabase)**
-- Nova tabela `contrato_modelos_docx` (id, nome, descricao, arquivo_url, html_editado, variaveis_detectadas jsonb, versao, created_at, updated_at)
-- Bucket privado `contratos-modelos` para os `.docx` originais
-- Bucket `contratos-gerados` para os contratos finais
-- Edge function `gerar-contrato-docx`: recebe `{ modelo_id, variaveis }`, aplica no template DOCX usando **docxtemplater**, devolve URL do DOCX preenchido
-- Edge function `docx-para-pdf`: converte via LibreOffice headless (ou biblioteca puppeteer no PDF do HTML editado)
+## 2. Tela de Precificação (`src/pages/Precificacao.tsx`)
 
-**Frontend**
-- Bibliotecas: `mammoth` (DOCX → HTML), `@tiptap/react` + extensões (editor rich-text), `docx` (montar DOCX de volta do HTML quando o usuário edita), `docxtemplater` + `pizzip` (merge das variáveis)
-- Nova página `/contratos/modelos` com listagem
-- Página `/contratos/modelos/:id/editar` com o editor TipTap ocupando a tela
-- Componente `PreencherContratoDialog` reutilizando a lógica do `RevisaoContratoZapSignDialog`
-- Botão **"Gerar contrato interno"** em Orçamentos e Pedidos, ao lado do "Enviar para ZapSign"
+Modo de entrada mantido: **usuário digita o preço, sistema mostra a margem**.
 
-## Detecção automática de variáveis
+- Remover UI de custos indiretos editáveis (MOD, energia, depreciação, administrativo) e o cadeado/senha para editar esses valores.
+- Remover import/uso de `getCustosParaTipo`, `custosIndiretos`, `updateConfiguracao` para custos.
+- Ajustar breakdown da tela para mostrar apenas:
+  - Custo MP, Custo Embalagem, Overhead R$ 3,00
+  - Total de Custos
+  - Imposto (12% sobre venda)
+  - Preço de Venda, Margem R$, Margem %, Markup %
+- `handleSalvar`: continuar gravando na tabela `precificacoes` com os campos novos preenchidos e os legados zerados.
+- Remover badge/lógica de `prazo_preco_id` nesta tela.
 
-- Regex `/\{\{\s*([A-Z0-9_]+)\s*\}\}/g` roda toda vez que o modelo é salvo
-- Mapeia contra o mesmo dicionário de aliases que já existe em `src/lib/zapsignContrato.ts` — assim os mesmos dados do orçamento (nome, CNPJ, endereço, valor, produtos, condições de pagamento, cores/sabores) preenchem tanto o contrato ZapSign quanto o interno
-- Variáveis novas que não estejam no dicionário aparecem no painel para preenchimento manual
+## 3. Painel Administrador (`src/pages/PainelAdministrador.tsx`)
 
-## Limitações honestas
+Manter apenas: **Consultores**, **Comissionamento**, **Histórico de Alterações**.
 
-- Editor visual **não é 100% fiel ao Word**: formatações muito específicas (numeração multi-nível complexa, campos de mesclagem antigos, quebras de seção incomuns) podem perder no vai-e-vem HTML↔DOCX. Solução: manter o DOCX original intocado e, ao gerar o contrato, aplicar as variáveis no arquivo original (via docxtemplater) — o editor visual serve pra ajustar texto/parágrafos e definir onde ficam as `{{variaveis}}`, não pra recriar layouts complexos
-- Conversão DOCX→PDF exata precisa de LibreOffice em edge function (mais pesada). Alternativa mais leve: gerar PDF a partir do HTML do editor com jsPDF/html2pdf, que é fiel ao que o usuário vê no editor mas não ao Word original
+- Remover: `PrazoPrecoCountdown`, `PrazoItensVinculados`, `PrazosAtivosLista`, aba "Variáveis Estruturais" (`VariaveisEstruturaisForm`), hook `usePrazoNotificacoes`.
+- Adicionar um card simples "Overhead de produção" com um único campo (R$) que grava em `configuracao_custos.overhead_unitario` (novo).
+- Ajustar `TabsList` para 3 abas.
 
-## Escopo desta implementação (proposta)
+## 4. Overhead configurável
 
-**Fase 1 (agora):** upload de modelo, editor TipTap, detecção de variáveis, biblioteca de modelos, gerar DOCX preenchido, baixar DOCX
-**Fase 2 (depois):** exportar PDF, salvar cópia no pedido, versionamento de modelos
+- Migration: `ALTER TABLE configuracao_custos ADD COLUMN overhead_unitario numeric(15,6) NOT NULL DEFAULT 3;`
+- Novo hook mínimo (ou reaproveitar `useConfiguracaoCustos`) para ler/gravar apenas esse campo.
+- Fallback: se `overhead_unitario` for nulo/0, usar 3.
 
-Confirma que posso seguir com a Fase 1 assim? Ou quer ajustar algo (ex.: já incluir PDF, remover a biblioteca e deixar só upload avulso, etc.)?
+## 5. Remover Prazo de Preços do restante do app
+
+Componentes/hook/util a apagar:
+- `src/components/PrazoPrecoBadge.tsx`
+- `src/components/PrazoPrecoBanner.tsx`
+- `src/components/admin/PrazoPrecoCountdown.tsx`
+- `src/components/admin/PrazoItensVinculados.tsx`
+- `src/components/admin/PrazosAtivosLista.tsx`
+- `src/hooks/usePrazoPrecoAtivo.ts`
+- `src/hooks/usePrazoNotificacoes.ts`
+- `src/hooks/usePrazoItens.ts`
+- `src/hooks/useAplicarPrazoVencido.ts`
+- `src/lib/aplicarPrazoPreco.ts`
+
+Em cada arquivo que importa esses símbolos (ex.: `App.tsx`, listagens de orçamentos, precificações salvas, layout com o banner), remover a importação e o uso — sem alterar o resto da lógica.
+
+Tabela `prazo_precos` e colunas `prazo_preco_id` continuam existindo no banco, apenas não são mais lidas nem gravadas pelo app (registros congelados). Nenhuma migration destrutiva.
+
+## 6. Fora de escopo
+
+- Não altera cálculo de orçamentos/precificações já salvos (ficam congelados no valor atual).
+- Não altera exportações de Pedidos/Excel.
+- Não altera regras de comissão nem consultores.
+- Não mexe em Edge Functions.
+
+## Detalhes técnicos
+
+- `configuracao_custos` continua existindo (usada por `updateConfiguracao` e histórico); só o subconjunto de campos exibidos muda.
+- `usePrecificacao.salvarPrecificacao` mantém a mesma assinatura; os campos legados são gravados como `0`.
+- A validação de margem por tipo (`validarMargemPorTipo`) e a senha `0B%s8QP2Z+Do` para salvar abaixo do mínimo continuam funcionando na tela de Precificação.
+- Verificação após build: rodar o app, abrir /precificacao, digitar um preço em uma fórmula e conferir que o breakdown mostra somente MP, Embalagem, Overhead, Imposto 12% e Margem.

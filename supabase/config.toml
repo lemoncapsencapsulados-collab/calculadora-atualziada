@@ -1,33 +1,37 @@
 project_id = "nawhpweyisawxaymmusg"
 
-[functions]
-  [functions.asaas-webhook]
-    verify_jwt = false
-  [functions.auth-email-hook]
-    verify_jwt = false
-  [functions.criar-contrato-zapsign]
-    verify_jwt = false
-  [functions.enviar-projeto-financeiro]
-    verify_jwt = true
-  [functions.public-api]
-    verify_jwt = false
-  [functions.emit-webhook-event]
-    verify_jwt = true
-  [functions.extract-dose-from-image]
-    verify_jwt = false
-  [functions.handle-email-suppression]
-    verify_jwt = false
-  [functions.handle-email-unsubscribe]
-    verify_jwt = false
-  [functions.import-insumos]
-    verify_jwt = false
-  [functions.import-inventory]
-    verify_jwt = false
-  [functions.preview-transactional-email]
-    verify_jwt = false
-  [functions.process-email-queue]
-    verify_jwt = true
-  [functions.send-transactional-email]
-    verify_jwt = true
-  [functions.zapsign-webhook]
-    verify_jwt = false
+[functions.import-insumos]
+verify_jwt = false
+
+[functions.import-inventory]
+verify_jwt = false
+
+[functions.extract-dose-from-image]
+verify_jwt = false
+
+[functions.criar-contrato-zapsign]
+verify_jwt = false
+
+[functions.zapsign-webhook]
+verify_jwt = false
+
+[functions.process-email-queue]
+verify_jwt = true
+
+[functions.asaas-webhook]
+verify_jwt = false
+
+[functions.send-transactional-email]
+verify_jwt = true
+
+[functions.preview-transactional-email]
+verify_jwt = false
+
+[functions.handle-email-unsubscribe]
+verify_jwt = false
+
+[functions.handle-email-suppression]
+verify_jwt = false
+
+[functions.enviar-projeto-financeiro]
+verify_jwt = true

@@ -4,18 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, RotateCcw, Plus, Trash2, Users, ShieldCheck } from 'lucide-react';
+import { Loader2, Send, RotateCcw, Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
-import { useResumoContrato } from '@/hooks/useResumoContrato';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
 import { Pedido } from '@/types/formula';
+import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { formatarNomeProprio, validarCPF } from '@/lib/validators';
-import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, naoSeAplicaSeVazio, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
-import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
-import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 
 interface Props {
   open: boolean;
@@ -25,9 +21,9 @@ interface Props {
 
 type ExtraSigner = { name: string; email: string; phone_number: string };
 
-function buildCandidatosExtras(pedido: Pedido | null, resumo?: any): ExtraSigner[] {
+function buildCandidatosExtras(pedido: Pedido | null): ExtraSigner[] {
   const snap: any = pedido?.orcamento_snapshot || {};
-  const dc: any = (resumo?.dados_cliente) || snap.dados_cliente || {};
+  const dc: any = snap.dados_cliente || {};
   const out: ExtraSigner[] = [];
   const push = (nome?: string, email?: string, tel?: string) => {
     if (!nome && !email) return;
@@ -45,7 +41,7 @@ function buildCandidatosExtras(pedido: Pedido | null, resumo?: any): ExtraSigner
     for (const pf of dc.pessoas_fisicas) push(pf?.nome, pf?.email, pf?.telefone);
   }
   // Contato geral do cliente
-  push(dc.razao_social || resumo?.nome_cliente || snap.nome_cliente, dc.email, dc.telefone);
+  push(dc.razao_social || snap.nome_cliente, dc.email, dc.telefone);
   // Remove duplicatas por email
   const seen = new Set<string>();
   return out.filter((s) => {
@@ -56,67 +52,50 @@ function buildCandidatosExtras(pedido: Pedido | null, resumo?: any): ExtraSigner
   });
 }
 
-type Campos = ZapSignContratoCampos;
+type Campos = {
+  signer_name: string;
+  signer_email: string;
+  signer_phone_number: string;
+  razao_social: string;
+  cnpj: string;
+  endereco: string;
+  email_contratante: string;
+  telefone_contratante: string;
+  nome_representante: string;
+  cpf_representante: string;
+  numero_contrato: string;
+  data_contrato: string;
+  produto_descricao: string;
+  produto_apresentacao: string;
+  produto_preco_unit: string;
+  produto_quantidade: string;
+  valor_setup: string;
+  valor_setup_extenso: string;
+  valor_producao: string;
+  valor_producao_extenso: string;
+  valor_total: string;
+  valor_total_extenso: string;
+};
 
-function montarEnderecoPF(rep: any): string {
-  return [
-    [rep?.endereco || rep?.logradouro, rep?.numero].filter(Boolean).join(', '),
-    rep?.bairro,
-    rep?.cidade && rep?.estado ? `${rep.cidade} - ${rep.estado}` : (rep?.cidade || rep?.estado),
-    rep?.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
-  ].filter(Boolean).join(' - ');
-}
-
-function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
+function buildCampos(pedido: Pedido | null): Campos {
   const snap: any = pedido?.orcamento_snapshot || {};
-  // Prefere os dados do Resumo/Projeto para Contrato (mais atualizados) sobre o snapshot original.
-  const dc: any = (resumo?.dados_cliente) || snap.dados_cliente || {};
-  const isPJ = dc.tipo_pessoa ? dc.tipo_pessoa === 'pj' : !!(dc.cnpj || dc.razao_social);
+  const dc: any = snap.dados_cliente || {};
+  const isPJ = !!(dc.cnpj || dc.razao_social);
   const repPJ = (dc.responsavel_pj) || {};
   const repPF = (dc.pessoas_fisicas && dc.pessoas_fisicas[0]) || {};
   const rep: any = isPJ ? repPJ : repPF;
-  const signerName = formatarNomeProprio(rep.nome || dc.razao_social || resumo?.nome_cliente || snap.nome_cliente || '');
+  const signerName = formatarNomeProprio(rep.nome || dc.razao_social || snap.nome_cliente || '');
   const signerEmail = rep.email || dc.email || '';
   const signerPhone = (rep.telefone || dc.telefone || '').replace(/\D/g, '');
   const razao = isPJ ? formatarNomeProprio(dc.razao_social || '') : formatarNomeProprio(rep.nome || '');
   const cnpj = isPJ ? (dc.cnpj || '') : (rep.cpf || '');
-  const enderecoPJ = [
-    [dc.logradouro || dc.endereco_cnpj, dc.numero].filter(Boolean).join(', '),
-    dc.bairro,
-    dc.cidade && dc.estado ? `${dc.cidade} - ${dc.estado}` : (dc.cidade || dc.estado),
-    dc.cep_cnpj || dc.cep ? `CEP ${String(dc.cep_cnpj || dc.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
-  ].filter(Boolean).join(' - ');
-  const enderecoPF = [
-    [rep.logradouro || rep.endereco, rep.numero].filter(Boolean).join(', '),
-    rep.bairro,
-    rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
-    rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
-  ].filter(Boolean).join(' - ');
-  const endereco = isPJ ? enderecoPJ : enderecoPF;
+  const endereco = isPJ
+    ? [dc.endereco_cnpj, dc.cidade, dc.estado, dc.cep_cnpj].filter(Boolean).join(' - ')
+    : [rep.endereco, rep.cidade, rep.estado, rep.cep].filter(Boolean).join(' - ');
   const item = snap.itens_producao?.[0];
-  const itemSegmento = (item?.segmento || (item as any)?.tipo_produto || '').toLowerCase();
-  const itemIsGummy = itemSegmento.includes('gummy');
-  const itemIsSoluvel = itemSegmento.includes('solúvel') || itemSegmento.includes('soluvel');
-  const itemIsLiquido = itemSegmento.includes('líquido') || itemSegmento.includes('liquido');
-  // Mescla detalhes de produção: snapshot do item + resumo salvo (mais recente vence).
-  const fontesDetalhes: Array<Record<string, any> | undefined> = [
-    (item?.detalhes_producao as any) || {},
-    ((resumo?.detalhes_producao as any)?.[0] || (resumo?.detalhes_producao as any)?.['0'] || {}),
-  ];
-  const detalhesFonte: Record<string, string> = {};
-  for (const fonte of fontesDetalhes) {
-    if (!fonte) continue;
-    for (const [k, v] of Object.entries(fonte)) {
-      const s = v == null ? '' : String(v).trim();
-      if (s) detalhesFonte[k] = s;
-    }
-  }
   const valorSetup = snap.subtotal_servicos || 0;
   const valorProd = snap.subtotal_producao || 0;
   const valorTotal = snap.valor_total || 0;
-  const produtoValorTotal = item ? formatBRL(item.subtotal || (item.preco_unitario || 0) * (item.quantidade || 0)) : '';
-  const condicaoPagamento = formatarPagamentoResumo(resumo?.condicoes_pagamento || snap.condicoes_pagamento, valorTotal).replace(/\n/g, '; ');
-  const insumos = item?.insumos_formula || [];
   return {
     signer_name: signerName,
     signer_email: signerEmail,
@@ -124,73 +103,43 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
     razao_social: razao,
     cnpj,
     endereco,
-    endereco_representante: montarEnderecoPF(rep),
     email_contratante: dc.email || signerEmail,
     telefone_contratante: dc.telefone || signerPhone,
     nome_representante: formatarNomeProprio(rep.nome || ''),
     cpf_representante: rep.cpf || '',
-    numero_contrato: resumo?.numero_orcamento || snap.numero_orcamento || pedido?.numero_pedido || '',
+    numero_contrato: pedido?.numero_pedido || snap.numero_orcamento || '',
     data_contrato: dataPorExtenso(new Date()),
     produto_descricao: item ? `${item.nome_produto}${item.segmento ? ` (${item.segmento})` : ''}` : '',
     produto_apresentacao: item?.quantidade_por_pote ? `${item.quantidade_por_pote} ${item.unidade_por_pote || ''} por frasco`.trim() : '',
     produto_preco_unit: item ? formatBRL(item.preco_unitario) : '',
     produto_quantidade: item ? String(item.quantidade) : '',
-    produto_valor_total: produtoValorTotal,
     valor_setup: formatBRL(valorSetup),
     valor_setup_extenso: valorPorExtensoBRL(valorSetup),
     valor_producao: formatBRL(valorProd),
     valor_producao_extenso: valorPorExtensoBRL(valorProd),
     valor_total: formatBRL(valorTotal),
     valor_total_extenso: valorPorExtensoBRL(valorTotal),
-    valor_total_pedido: formatBRL(valorTotal),
-    condicao_pagamento: condicaoPagamento,
-    prazo_producao: '30 dias corridos após aprovação final dos rótulos',
-    prazo_rotulos: '15 dias úteis',
-    anexo_produto_nome: item?.nome_produto || '',
-    anexo_qtd_frasco: item?.quantidade_por_pote ? `${item.quantidade_por_pote} ${item.unidade_por_pote || ''} por frasco`.trim() : '',
-    anexo_dose_diaria: item?.dose_diaria_sugerida || '',
-    anexo_ativo_1: formatarInsumoContrato(insumos[0]),
-    anexo_ativo_2: formatarInsumoContrato(insumos[1]),
-    anexo_cor_pote: detalhesFonte.cor_pote || '',
-    anexo_cor_tampa: detalhesFonte.cor_tampa || '',
-    anexo_cor_gummy: naoSeAplicaSeVazio(
-      detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido,
-      itemIsGummy || itemIsSoluvel || itemIsLiquido,
-    ),
-    anexo_sabor_gummy: naoSeAplicaSeVazio(
-      detalhesFonte.sabor_gummy || detalhesFonte.sabor_soluvel || detalhesFonte.sabor_liquido,
-      itemIsGummy || itemIsSoluvel || itemIsLiquido,
-    ),
-    anexo_quantidade: item ? String(item.quantidade) : '',
-    anexo_preco_unitario: item ? formatBRL(item.preco_unitario) : '',
   };
 }
 
 export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }: Props) {
   const { data: modelos = [] } = useContratoModelos();
-  const { data: resumoData } = useResumoContrato(pedido?.orcamento_id ?? null);
-  const resumo = resumoData?.resumo;
   const [modeloId, setModeloId] = useState<string>('');
-  const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido, resumo));
+  const [campos, setCampos] = useState<Campos>(() => buildCampos(pedido));
   const [loading, setLoading] = useState(false);
-  const [adminSenha, setAdminSenha] = useState('');
+  const [askSenhaOpen, setAskSenhaOpen] = useState(false);
   const [extraSigners, setExtraSigners] = useState<ExtraSigner[]>([]);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
   const [ultimoCnpjConsultado, setUltimoCnpjConsultado] = useState<string>('');
-  const [revisaoOpen, setRevisaoOpen] = useState(false);
-  const [pendingEnvio, setPendingEnvio] = useState<{ campos: Campos; signers: ExtraSigner[] } | null>(null);
 
-  const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido, resumo), [pedido?.id, resumo?.id]);
+  const candidatosExtras = useMemo(() => buildCandidatosExtras(pedido), [pedido?.id]);
 
   useEffect(() => {
     if (open) {
-      setCampos(buildCampos(pedido, resumo));
+      setCampos(buildCampos(pedido));
       setExtraSigners([]);
-      setAdminSenha('');
-      setRevisaoOpen(false);
-      setPendingEnvio(null);
     }
-  }, [open, pedido?.id, resumo?.id]);
+  }, [open, pedido?.id]);
 
   const adicionarSignatario = () => {
     setExtraSigners((prev) => {
@@ -269,16 +218,12 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'produto_apresentacao', label: 'Apresentação' },
     { k: 'produto_preco_unit', label: 'Preço unitário' },
     { k: 'produto_quantidade', label: 'Quantidade' },
-    { k: 'anexo_cor_pote', label: 'Cor do pote' },
-    { k: 'anexo_cor_tampa', label: 'Cor da tampa' },
-    { k: 'anexo_cor_gummy', label: 'Cor gummy/conteúdo' },
-    { k: 'anexo_sabor_gummy', label: 'Sabor gummy/conteúdo' },
     { k: 'valor_setup', label: 'Valor setup' },
     { k: 'valor_producao', label: 'Valor produção' },
     { k: 'valor_total', label: 'Valor total' },
   ]), []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo) { toast.error('Selecione um modelo de contrato.'); return; }
     if (!campos.signer_name || !campos.signer_email) {
@@ -301,26 +246,18 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       }
     }
     if (!pedido) return;
-    if (adminSenha !== ADMIN_PANEL_PASSWORD) {
-      toast.error('Senha de administrador incorreta.');
-      setAdminSenha('');
-      return;
-    }
     // Normaliza nomes em Title Case antes do envio
-    const camposNormalizados = {
-      ...campos,
-      signer_name: formatarNomeProprio(campos.signer_name),
-      razao_social: formatarNomeProprio(campos.razao_social),
-      nome_representante: formatarNomeProprio(campos.nome_representante),
-    };
-    const signersNormalizados = extraSigners.map((s) => ({ ...s, name: formatarNomeProprio(s.name) }));
-    setCampos(camposNormalizados);
-    setExtraSigners(signersNormalizados);
-    setPendingEnvio({ campos: camposNormalizados, signers: signersNormalizados });
-    setRevisaoOpen(true);
+    setCampos((p) => ({
+      ...p,
+      signer_name: formatarNomeProprio(p.signer_name),
+      razao_social: formatarNomeProprio(p.razao_social),
+      nome_representante: formatarNomeProprio(p.nome_representante),
+    }));
+    setExtraSigners((prev) => prev.map((s) => ({ ...s, name: formatarNomeProprio(s.name) })));
+    setAskSenhaOpen(true);
   };
 
-  const enviar = async (camposEnvio = campos, extraSignersEnvio = extraSigners, finalReplacements?: ZapSignReplacement[]) => {
+  const enviar = async () => {
     const modelo = modelos.find((m) => m.id === modeloId);
     if (!modelo || !pedido) return;
     setLoading(true);
@@ -336,7 +273,27 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
         cliente_id = (orc as any)?.cliente_id ?? null;
       }
 
-      const data = finalReplacements?.length ? finalReplacements : montarDadosZapSign(camposEnvio);
+      const data = [
+        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{CNPJ_CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{ENDERECO_CONTRATANTE}}', para: campos.endereco },
+        { de: '{{EMAIL_CONTRATANTE}}', para: campos.email_contratante },
+        { de: '{{TELEFONE_CONTRATANTE}}', para: campos.telefone_contratante },
+        { de: '{{NOME_REPRESENTANTE}}', para: campos.nome_representante },
+        { de: '{{CPF_REPRESENTANTE}}', para: campos.cpf_representante },
+        { de: '{{NUMERO_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{DATA_CONTRATO}}', para: campos.data_contrato },
+        { de: '{{PRODUTO_DESCRICAO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO_APRESENTACAO}}', para: campos.produto_apresentacao },
+        { de: '{{PRODUTO_PRECO_UNIT}}', para: campos.produto_preco_unit },
+        { de: '{{PRODUTO_QUANTIDADE}}', para: campos.produto_quantidade },
+        { de: '{{VALOR_SETUP}}', para: campos.valor_setup },
+        { de: '{{VALOR_SETUP_EXTENSO}}', para: campos.valor_setup_extenso },
+        { de: '{{VALOR_PRODUCAO}}', para: campos.valor_producao },
+        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: campos.valor_producao_extenso },
+        { de: '{{VALOR_TOTAL_PROJETO}}', para: campos.valor_total },
+        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: campos.valor_total_extenso },
+      ];
 
       // Email configurado no modelo (cópia automática)
       const extrasConfigurados: ExtraSigner[] = [];
@@ -349,20 +306,20 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       }
       // Mescla com extras manuais, removendo duplicatas por email
       const mapExtras = new Map<string, ExtraSigner>();
-      [...extrasConfigurados, ...extraSignersEnvio].forEach((s) => {
+      [...extrasConfigurados, ...extraSigners].forEach((s) => {
         const key = (s.email || s.name).toLowerCase().trim();
         if (key && !mapExtras.has(key)) mapExtras.set(key, s);
       });
       // Não duplica o signatário principal
-      mapExtras.delete((camposEnvio.signer_email || '').toLowerCase().trim());
+      mapExtras.delete((campos.signer_email || '').toLowerCase().trim());
       const extrasFinal = Array.from(mapExtras.values());
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {
-          signer_name: camposEnvio.signer_name,
-          signer_email: camposEnvio.signer_email,
+          signer_name: campos.signer_name,
+          signer_email: campos.signer_email,
           signer_phone_country: '55',
-          signer_phone_number: (camposEnvio.signer_phone_number || '').replace(/\D/g, ''),
+          signer_phone_number: (campos.signer_phone_number || '').replace(/\D/g, ''),
           lang: 'pt-br',
           send_automatic_email: true,
           data,
@@ -383,14 +340,7 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
       });
 
       if (error) {
-        const ctx: any = (error as any).context;
-        let extra = '';
-        try {
-          const txt = ctx && typeof ctx.text === 'function' ? await ctx.text() : '';
-          const parsed = txt ? JSON.parse(txt) : null;
-          extra = parsed?.details || parsed?.error || txt;
-        } catch { /* noop */ }
-        toast.error(`Erro ZapSign: ${extra || error.message}`, { duration: 10000 });
+        toast.error(`Erro ZapSign: ${error.message}`);
         return;
       }
       if (resp?.token) {
@@ -415,27 +365,6 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        {revisaoOpen && pendingEnvio ? (() => {
-          const modelo = modelos.find((m) => m.id === modeloId);
-          if (!modelo) return null;
-          return (
-            <RevisaoContratoZapSignDialog
-              open={revisaoOpen}
-              onOpenChange={(o) => { if (!loading) setRevisaoOpen(o); }}
-              templateId={modelo.template_id}
-              ambiente={modelo.ambiente as 'producao' | 'sandbox'}
-              modeloNome={modelo.nome}
-              replacements={montarDadosZapSign(pendingEnvio.campos)}
-              sending={loading}
-              onConfirm={async (finalReplacements) => {
-                await enviar(pendingEnvio.campos, pendingEnvio.signers, finalReplacements);
-                setRevisaoOpen(false);
-              }}
-              inline
-            />
-          );
-        })() : (
-        <>
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign — Pedido {pedido?.numero_pedido}</DialogTitle>
         </DialogHeader>
@@ -456,8 +385,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           </div>
 
           <div className="flex justify-end">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setCampos(buildCampos(pedido, resumo))}>
-              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Recarregar {resumo ? 'do resumo/contrato' : 'do pedido'}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setCampos(buildCampos(pedido))}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1" /> Recarregar do pedido
             </Button>
           </div>
 
@@ -568,37 +497,23 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
           </div>
         </div>
 
-        <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="w-full sm:max-w-xs space-y-1 text-left">
-            <Label htmlFor="pedido-zap-admin-senha" className="text-xs flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" /> Senha admin para enviar
-            </Label>
-            <Input
-              id="pedido-zap-admin-senha"
-              type="password"
-              value={adminSenha}
-              onChange={(e) => setAdminSenha(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !loading && modeloId) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder="Digite a senha"
-              autoComplete="current-password"
-              disabled={loading}
-            />
-          </div>
+        <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading || !modeloId || !adminSenha}>
+          <Button onClick={handleSubmit} disabled={loading || !modeloId}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             Enviar para ZapSign
           </Button>
         </DialogFooter>
-        </>
-        )}
       </DialogContent>
     </Dialog>
+    <AdminPasswordDialog
+      open={askSenhaOpen}
+      onOpenChange={setAskSenhaOpen}
+      title="Confirmar envio do contrato"
+      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
+      actionLabel="Enviar contrato"
+      onConfirm={enviar}
+    />
     </>
   );
 }

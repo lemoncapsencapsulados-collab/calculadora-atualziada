@@ -17,8 +17,6 @@ import NotFound from "./pages/NotFound";
 import PainelAdministrador from "./pages/PainelAdministrador";
 import SucessoCliente from "./pages/SucessoCliente";
 import ConfiguracaoContratos from "./pages/ConfiguracaoContratos";
-import EditorContratos from "./pages/EditorContratos";
-import EditorContratoModelo from "./pages/EditorContratoModelo";
 import VhsysLogs from "./pages/VhsysLogs";
 import AsaasLogs from "./pages/AsaasLogs";
 import EmailLogs from "./pages/EmailLogs";
@@ -93,8 +91,6 @@ const AppContent = () => {
           <Route path="/dashboard" element={<DashboardComercial />} />
           <Route path="/painel-administrador" element={<PainelAdministrador />} />
           <Route path="/configuracao-contratos" element={<ConfiguracaoContratos />} />
-          <Route path="/editor-contratos" element={<EditorContratos />} />
-          <Route path="/editor-contratos/:id" element={<EditorContratoModelo />} />
           <Route path="/vhsys-logs" element={<VhsysLogs />} />
           <Route path="/asaas-logs" element={<AsaasLogs />} />
           <Route path="/email-logs" element={<EmailLogs />} />

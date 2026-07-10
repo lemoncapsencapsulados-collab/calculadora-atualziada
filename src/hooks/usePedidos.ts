@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { emitWebhookEvent } from '@/lib/webhookEmitter';
 import { toast } from 'sonner';
 import { Pedido, AcompanhamentoProcessos, HistoricoVhsysEntry } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot, CondicoesPagamento } from '@/types/orcamento';
@@ -199,7 +198,6 @@ export const usePedidos = () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Pedido de produção criado com sucesso!');
       if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
-      emitWebhookEvent('pedido.criado', data);
     },
     onError: (error) => {
       console.error('Erro ao criar pedido:', error);
@@ -258,7 +256,6 @@ export const usePedidos = () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Pedido criado automaticamente a partir do orçamento pago!');
       if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
-      emitWebhookEvent('pedido.criado', data);
     },
     onError: (error) => {
       console.error('Erro ao criar pedido do orçamento:', error);
@@ -282,7 +279,6 @@ export const usePedidos = () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Status do pedido atualizado!');
       if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
-      emitWebhookEvent(data?.status === 'concluido' ? 'pedido.concluido' : 'pedido.atualizado', data);
     },
     onError: () => {
       toast.error('Erro ao atualizar status');
@@ -331,7 +327,6 @@ export const usePedidos = () => {
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast.success('Acompanhamento atualizado!');
       if (data?.orcamento_snapshot) notifyWebhook(data.orcamento_snapshot);
-      emitWebhookEvent(data?.status === 'concluido' ? 'pedido.concluido' : 'pedido.atualizado', data);
     },
     onError: () => {
       toast.error('Erro ao atualizar acompanhamento');

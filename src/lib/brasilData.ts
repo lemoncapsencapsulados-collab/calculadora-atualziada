@@ -50,7 +50,7 @@ export async function fetchCidadesPorUF(uf: string): Promise<string[]> {
   }
 }
 
-export async function fetchEnderecoPorCEP(cep: string): Promise<{ logradouro: string; bairro: string; cidade: string; estado: string } | null> {
+export async function fetchEnderecoPorCEP(cep: string): Promise<{ logradouro: string; cidade: string; estado: string } | null> {
   const nums = cep.replace(/\D/g, '');
   if (nums.length !== 8) return null;
   try {
@@ -60,7 +60,6 @@ export async function fetchEnderecoPorCEP(cep: string): Promise<{ logradouro: st
     if (data.erro) return null;
     return {
       logradouro: data.logradouro || '',
-      bairro: data.bairro || '',
       cidade: data.localidade || '',
       estado: data.uf || '',
     };

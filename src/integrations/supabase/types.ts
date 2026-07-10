@@ -104,42 +104,6 @@ export type Database = {
         }
         Relationships: []
       }
-      api_keys: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          id: string
-          key_hash: string
-          key_prefix: string
-          last_used_at: string | null
-          nome: string
-          permissoes: string[]
-          updated_at: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          key_hash: string
-          key_prefix: string
-          last_used_at?: string | null
-          nome: string
-          permissoes?: string[]
-          updated_at?: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          id?: string
-          key_hash?: string
-          key_prefix?: string
-          last_used_at?: string | null
-          nome?: string
-          permissoes?: string[]
-          updated_at?: string
-        }
-        Relationships: []
-      }
       asaas_consultas_salvas: {
         Row: {
           consultor_id: string
@@ -625,51 +589,6 @@ export type Database = {
           template_id?: string
           updated_at?: string
           variaveis?: Json | null
-        }
-        Relationships: []
-      }
-      contrato_modelos_docx: {
-        Row: {
-          arquivo_nome: string | null
-          arquivo_url: string
-          created_at: string
-          descricao: string | null
-          email_financeiro: string | null
-          html_editado: string | null
-          id: string
-          nome: string
-          nome_financeiro: string | null
-          updated_at: string
-          variaveis_detectadas: Json
-          versao: number
-        }
-        Insert: {
-          arquivo_nome?: string | null
-          arquivo_url: string
-          created_at?: string
-          descricao?: string | null
-          email_financeiro?: string | null
-          html_editado?: string | null
-          id?: string
-          nome: string
-          nome_financeiro?: string | null
-          updated_at?: string
-          variaveis_detectadas?: Json
-          versao?: number
-        }
-        Update: {
-          arquivo_nome?: string | null
-          arquivo_url?: string
-          created_at?: string
-          descricao?: string | null
-          email_financeiro?: string | null
-          html_editado?: string | null
-          id?: string
-          nome?: string
-          nome_financeiro?: string | null
-          updated_at?: string
-          variaveis_detectadas?: Json
-          versao?: number
         }
         Relationships: []
       }
@@ -1771,86 +1690,6 @@ export type Database = {
             columns: ["pedido_id"]
             isOneToOne: false
             referencedRelation: "pedidos"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      webhook_configs: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          eventos: string[]
-          id: string
-          nome: string
-          secret: string | null
-          updated_at: string
-          url: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          eventos?: string[]
-          id?: string
-          nome: string
-          secret?: string | null
-          updated_at?: string
-          url: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          eventos?: string[]
-          id?: string
-          nome?: string
-          secret?: string | null
-          updated_at?: string
-          url?: string
-        }
-        Relationships: []
-      }
-      webhook_deliveries: {
-        Row: {
-          created_at: string
-          error: string | null
-          evento: string
-          http_status: number | null
-          id: string
-          payload: Json
-          response_body: string | null
-          status: string
-          tentativas: number
-          webhook_config_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          error?: string | null
-          evento: string
-          http_status?: number | null
-          id?: string
-          payload: Json
-          response_body?: string | null
-          status?: string
-          tentativas?: number
-          webhook_config_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          error?: string | null
-          evento?: string
-          http_status?: number | null
-          id?: string
-          payload?: Json
-          response_body?: string | null
-          status?: string
-          tentativas?: number
-          webhook_config_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "webhook_deliveries_webhook_config_id_fkey"
-            columns: ["webhook_config_id"]
-            isOneToOne: false
-            referencedRelation: "webhook_configs"
             referencedColumns: ["id"]
           },
         ]

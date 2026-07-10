@@ -7,8 +7,6 @@ import { HistoricoAlteracoes } from '@/components/admin/HistoricoAlteracoes';
 import { ConsultoresAdmin } from '@/components/admin/ConsultoresAdmin';
 import { RelatorioComissoes } from '@/components/admin/RelatorioComissoes';
 import { OverheadConfigCard } from '@/components/admin/OverheadConfigCard';
-import { WebhooksConfigCard } from '@/components/admin/WebhooksConfigCard';
-import { ApiKeysCard } from '@/components/admin/ApiKeysCard';
 import { isAdminUnlocked, lockAdmin } from '@/lib/adminConfig';
 
 export default function PainelAdministrador() {
@@ -52,8 +50,6 @@ export default function PainelAdministrador() {
           <TabsTrigger value="consultores">Consultores</TabsTrigger>
           <TabsTrigger value="comissoes">Comissionamento</TabsTrigger>
           <TabsTrigger value="historico">Histórico de Alterações</TabsTrigger>
-          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
-          <TabsTrigger value="api-keys">API Keys</TabsTrigger>
         </TabsList>
         <TabsContent value="consultores">
           <ConsultoresAdmin />
@@ -67,12 +63,6 @@ export default function PainelAdministrador() {
             filtroDataFim={filtroHistorico?.fim ?? null}
             onLimparFiltro={() => setFiltroHistorico(null)}
           />
-        </TabsContent>
-        <TabsContent value="integracoes">
-          <WebhooksConfigCard />
-        </TabsContent>
-        <TabsContent value="api-keys">
-          <ApiKeysCard />
         </TabsContent>
       </Tabs>
     </div>

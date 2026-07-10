@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature, Webhook, Mail, CreditCard, Megaphone, FileEdit } from 'lucide-react';
+import { Package, Calculator, FlaskConical, FileText, ClipboardList, DollarSign, Receipt, LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature, Webhook, Mail, CreditCard, Megaphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -26,7 +26,6 @@ export function Navigation({ onLogout }: NavigationProps) {
     { to: '/investimento-anuncios', label: 'Investimento em Anúncios', short: 'Anúncios', icon: Megaphone },
     { to: '/painel-administrador', label: 'Painel Administrador', short: 'Admin', icon: Shield },
     { to: '/configuracao-contratos', label: 'Config. Contratos', short: 'Contratos', icon: FileSignature },
-    { to: '/editor-contratos', label: 'Editor de Contratos', short: 'Editor', icon: FileEdit },
     { to: '/vhsys-logs', label: 'Logs VHSys', short: 'VHSys', icon: Webhook },
     { to: '/asaas-logs', label: 'Logs Asaas', short: 'Asaas', icon: CreditCard },
     { to: '/email-logs', label: 'Logs de Email', short: 'Emails', icon: Mail },

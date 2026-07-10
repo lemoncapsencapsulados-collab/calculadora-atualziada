@@ -60,8 +60,6 @@ export interface PessoaFisicaResponsavel {
   cpf?: string;
   rg?: string;
   endereco?: string;
-  numero?: string;
-  bairro?: string;
   cep?: string;
   cidade?: string;
   estado?: string;
@@ -78,8 +76,6 @@ export interface DadosCliente {
   inscricao_municipal?: string;
   inscricao_estadual?: string;
   endereco_cnpj?: string;
-  numero_cnpj?: string;
-  bairro_cnpj?: string;
   cep_cnpj?: string;
   cidade?: string;
   estado?: string;

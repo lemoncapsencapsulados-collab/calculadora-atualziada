@@ -17,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users, ShieldCheck } from 'lucide-react';
+import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import { validarCPF, validarCNPJ, validarEmail, formatarNomeProprio } from '@/lib/validators';
@@ -25,13 +25,9 @@ import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
 import { usePedidos } from '@/hooks/usePedidos';
 import { valorPorExtensoBRL, formatBRL, dataPorExtenso } from '@/lib/extenso';
-import { formatarPagamentoResumo } from '@/lib/formatarPagamento';
-import { formatarInsumoContrato, montarDadosZapSign, naoSeAplicaSeVazio, ZapSignContratoCampos, type ZapSignReplacement } from '@/lib/zapsignContrato';
 import { FileSignature } from 'lucide-react';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
-import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
-import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
-import { EnviarContratoInternoDialog } from '@/components/contratos-docx/EnviarContratoInternoDialog';
+import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -40,7 +36,7 @@ interface PropostaCompletaDialogProps {
 }
 
 const EMPTY_PF: PessoaFisicaResponsavel = {
-  nome: '', cpf: '', rg: '', endereco: '', numero: '', bairro: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
+  nome: '', cpf: '', rg: '', endereco: '', cep: '', cidade: '', estado: '', telefone: '', email: '', estado_civil: '',
 };
 
 function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaResponsavel; onChange: (p: PessoaFisicaResponsavel) => void; label: string }) {
@@ -55,13 +51,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
       setLoadingCep(true);
       fetchEnderecoPorCEP(cepNums).then(result => {
         if (result) {
-          onChange({
-            ...pessoa,
-            endereco: result.logradouro || pessoa.endereco,
-            bairro: (result as any).bairro || pessoa.bairro,
-            cidade: result.cidade,
-            estado: result.estado,
-          });
+          onChange({ ...pessoa, endereco: result.logradouro || pessoa.endereco, cidade: result.cidade, estado: result.estado });
         }
         setLoadingCep(false);
       });
@@ -111,16 +101,8 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
           </Select>
         </div>
         <div className="col-span-2 space-y-1">
-          <Label className="text-xs">Endereço (Logradouro) <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua / Avenida" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Número <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.numero || ''} onChange={(e) => update('numero', e.target.value)} placeholder="Nº" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Bairro <span className="text-destructive">*</span></Label>
-          <Input value={pessoa.bairro || ''} onChange={(e) => update('bairro', e.target.value)} placeholder="Bairro" />
+          <Label className="text-xs">Endereço <span className="text-destructive">*</span></Label>
+          <Input value={pessoa.endereco || ''} onChange={(e) => update('endereco', e.target.value)} placeholder="Rua, número, bairro" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">CEP <span className="text-destructive">*</span>{loadingCep && <Loader2 className="inline w-3 h-3 ml-1 animate-spin" />}</Label>
@@ -206,76 +188,52 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);
   const [zapSignDialogOpen, setZapSignDialogOpen] = useState(false);
-  // Novo fluxo: contrato interno (DOCX) — substitui ZapSign no botão principal
-  const [contratoInternoOpen, setContratoInternoOpen] = useState(false);
-  const [zapAdminSenha, setZapAdminSenha] = useState('');
+  const [askSenhaZapOpen, setAskSenhaZapOpen] = useState(false);
   const [modeloSelecionadoId, setModeloSelecionadoId] = useState<string>('');
   const { data: modelosContrato = [] } = useContratoModelos();
 
   type ZapExtraSigner = { name: string; email: string; phone_number: string };
   const [zapExtraSigners, setZapExtraSigners] = useState<ZapExtraSigner[]>([]);
-  const [zapRevisaoOpen, setZapRevisaoOpen] = useState(false);
-  const [zapPendingCampos, setZapPendingCampos] = useState<ZapSignContratoCampos | null>(null);
 
   // Campos editáveis do contrato ZapSign
-  type ZapSignCampos = ZapSignContratoCampos;
+  type ZapSignCampos = {
+    signer_name: string;
+    signer_email: string;
+    signer_phone_number: string;
+    razao_social: string;
+    cnpj: string;
+    endereco: string;
+    email_contratante: string;
+    telefone_contratante: string;
+    nome_representante: string;
+    cpf_representante: string;
+    numero_contrato: string;
+    data_contrato: string;
+    produto_descricao: string;
+    produto_apresentacao: string;
+    produto_preco_unit: string;
+    produto_quantidade: string;
+    valor_setup: string;
+    valor_setup_extenso: string;
+    valor_producao: string;
+    valor_producao_extenso: string;
+    valor_total: string;
+    valor_total_extenso: string;
+  };
   const [zapSignCampos, setZapSignCampos] = useState<ZapSignCampos | null>(null);
 
-  const montarEnderecoPF = (pessoa?: PessoaFisicaResponsavel) => [
-    [pessoa?.endereco, pessoa?.numero].filter(Boolean).join(', '),
-    pessoa?.bairro,
-    pessoa?.cidade && pessoa?.estado ? `${pessoa.cidade} - ${pessoa.estado}` : (pessoa?.cidade || pessoa?.estado),
-    pessoa?.cep ? `CEP ${String(pessoa.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
-  ].filter(Boolean).join(' - ');
-
   const buildZapSignCamposPadrao = (): ZapSignCampos => {
-    const resumo = resumoSalvo?.resumo;
-    const dadosFonte = (resumo?.dados_cliente || dadosCliente || {}) as DadosCliente;
-    const isPJ = dadosFonte.tipo_pessoa ? dadosFonte.tipo_pessoa === 'pj' : tipoPessoa === 'pj';
-    const pfsFonte = (dadosFonte.pessoas_fisicas?.length ? dadosFonte.pessoas_fisicas : pessoasFisicas) || [];
-    const representante = isPJ
-      ? ((dadosFonte.responsavel_pj || responsavelPJ || {}) as PessoaFisicaResponsavel)
-      : ((pfsFonte[0] || {}) as PessoaFisicaResponsavel);
-    const signerName = formatarNomeProprio((representante.nome) || dadosFonte.razao_social || resumo?.nome_cliente || orcamento.nome_cliente || '');
-    const signerEmail = representante.email || dadosFonte.email || '';
-    const signerPhone = (representante.telefone || dadosFonte.telefone || '').replace(/\D/g, '');
-    const razaoSocial = isPJ ? formatarNomeProprio(dadosFonte.razao_social || '') : formatarNomeProprio(representante.nome || '');
-    const cnpjContratante = isPJ ? (dadosFonte.cnpj || '') : (representante.cpf || '');
+    const isPJ = tipoPessoa === 'pj';
+    const representante = isPJ ? (responsavelPJ || {} as any) : (pessoasFisicas[0] || {} as any);
+    const signerName = formatarNomeProprio((representante.nome) || dadosCliente.razao_social || orcamento.nome_cliente || '');
+    const signerEmail = representante.email || dadosCliente.email || '';
+    const signerPhone = (representante.telefone || dadosCliente.telefone || '').replace(/\D/g, '');
+    const razaoSocial = isPJ ? formatarNomeProprio(dadosCliente.razao_social || '') : formatarNomeProprio(representante.nome || '');
+    const cnpjContratante = isPJ ? (dadosCliente.cnpj || '') : (representante.cpf || '');
     const enderecoContratante = isPJ
-      ? [
-          [dadosFonte.endereco_cnpj, dadosFonte.numero_cnpj].filter(Boolean).join(', '),
-          dadosFonte.bairro_cnpj,
-          dadosFonte.cidade,
-          dadosFonte.estado,
-          dadosFonte.cep_cnpj,
-        ].filter(Boolean).join(' - ')
-      : [
-          [representante.endereco, representante.numero].filter(Boolean).join(', '),
-          representante.bairro,
-          representante.cidade,
-          representante.estado,
-          representante.cep,
-        ].filter(Boolean).join(' - ');
+      ? [dadosCliente.endereco_cnpj, dadosCliente.cidade, dadosCliente.estado, dadosCliente.cep_cnpj].filter(Boolean).join(' - ')
+      : [representante.endereco, representante.cidade, representante.estado, representante.cep].filter(Boolean).join(' - ');
     const primeiroItem = orcamento.itens_producao?.[0];
-    const primeiroSegmento = (primeiroItem?.segmento || (primeiroItem as any)?.tipo_produto || '').toLowerCase();
-    const primeiroIsGummy = primeiroSegmento.includes('gummy');
-    const primeiroIsSoluvel = primeiroSegmento.includes('solúvel') || primeiroSegmento.includes('soluvel');
-    const primeiroIsLiquido = primeiroSegmento.includes('líquido') || primeiroSegmento.includes('liquido');
-    // Mescla os detalhes de produção de todas as fontes, priorizando o que o
-    // usuário está editando agora (detalhesProducao) > resumo salvo > snapshot do item.
-    const fontesDetalhes: Array<Record<string, any> | undefined> = [
-      (primeiroItem?.detalhes_producao as any) || {},
-      ((resumo?.detalhes_producao as any)?.[0] || (resumo?.detalhes_producao as any)?.['0'] || {}),
-      (detalhesProducao[0] as any) || {},
-    ];
-    const detalhesFonte: Record<string, string> = {};
-    for (const fonte of fontesDetalhes) {
-      if (!fonte) continue;
-      for (const [k, v] of Object.entries(fonte)) {
-        const s = v == null ? '' : String(v).trim();
-        if (s) detalhesFonte[k] = s;
-      }
-    }
     const produtoDescricao = primeiroItem
       ? `${primeiroItem.nome_produto}${primeiroItem.segmento ? ` (${primeiroItem.segmento})` : ''}`
       : '';
@@ -284,12 +242,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       : '';
     const produtoPrecoUnit = primeiroItem ? formatBRL(primeiroItem.preco_unitario) : '';
     const produtoQuantidade = primeiroItem ? String(primeiroItem.quantidade) : '';
-    const produtoValorTotal = primeiroItem ? formatBRL(primeiroItem.subtotal || (primeiroItem.preco_unitario || 0) * (primeiroItem.quantidade || 0)) : '';
     const valorSetup = orcamento.subtotal_servicos || 0;
     const valorProducao = orcamento.subtotal_producao || 0;
     const valorTotal = orcamento.valor_total || 0;
-    const condicaoPagamento = formatarPagamentoResumo(resumo?.condicoes_pagamento || condicoesPagamento, valorTotal).replace(/\n/g, '; ');
-    const insumos = primeiroItem?.insumos_formula || [];
     return {
       signer_name: signerName,
       signer_email: signerEmail,
@@ -297,52 +252,28 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       razao_social: razaoSocial,
       cnpj: cnpjContratante,
       endereco: enderecoContratante,
-      endereco_representante: montarEnderecoPF(representante),
-      email_contratante: dadosFonte.email || signerEmail,
-      telefone_contratante: dadosFonte.telefone || signerPhone,
+      email_contratante: dadosCliente.email || signerEmail,
+      telefone_contratante: dadosCliente.telefone || signerPhone,
       nome_representante: formatarNomeProprio(representante.nome || ''),
       cpf_representante: representante.cpf || '',
-      numero_contrato: resumo?.numero_orcamento || orcamento.numero_orcamento || '',
+      numero_contrato: orcamento.numero_orcamento || '',
       data_contrato: dataPorExtenso(new Date()),
       produto_descricao: produtoDescricao,
       produto_apresentacao: produtoApresentacao,
       produto_preco_unit: produtoPrecoUnit,
       produto_quantidade: produtoQuantidade,
-      produto_valor_total: produtoValorTotal,
       valor_setup: formatBRL(valorSetup),
       valor_setup_extenso: valorPorExtensoBRL(valorSetup),
       valor_producao: formatBRL(valorProducao),
       valor_producao_extenso: valorPorExtensoBRL(valorProducao),
       valor_total: formatBRL(valorTotal),
       valor_total_extenso: valorPorExtensoBRL(valorTotal),
-      valor_total_pedido: formatBRL(valorTotal),
-      condicao_pagamento: condicaoPagamento,
-      prazo_producao: '30 dias corridos após aprovação final dos rótulos',
-      prazo_rotulos: '15 dias úteis',
-      anexo_produto_nome: primeiroItem?.nome_produto || '',
-      anexo_qtd_frasco: produtoApresentacao,
-      anexo_dose_diaria: primeiroItem?.dose_diaria_sugerida || '',
-      anexo_ativo_1: formatarInsumoContrato(insumos[0]),
-      anexo_ativo_2: formatarInsumoContrato(insumos[1]),
-      anexo_cor_pote: detalhesFonte.cor_pote || '',
-      anexo_cor_tampa: detalhesFonte.cor_tampa || '',
-      anexo_cor_gummy: naoSeAplicaSeVazio(
-        detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido,
-        primeiroIsGummy || primeiroIsSoluvel || primeiroIsLiquido,
-      ),
-      anexo_sabor_gummy: naoSeAplicaSeVazio(
-        detalhesFonte.sabor_gummy || detalhesFonte.sabor_soluvel || detalhesFonte.sabor_liquido,
-        primeiroIsGummy || primeiroIsSoluvel || primeiroIsLiquido,
-      ),
-      anexo_quantidade: produtoQuantidade,
-      anexo_preco_unitario: produtoPrecoUnit,
     };
   };
 
   const abrirZapSignDialog = () => {
     setZapSignCampos(buildZapSignCamposPadrao());
     setZapExtraSigners([]);
-    setZapAdminSenha('');
     setZapSignDialogOpen(true);
   };
 
@@ -357,14 +288,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         phone_number: (tel || '').replace(/\D/g, ''),
       });
     };
-    const dadosFonte = (resumoSalvo?.resumo?.dados_cliente || dadosCliente || {}) as DadosCliente;
     // Representante PJ
-    const repPJ = dadosFonte.responsavel_pj || responsavelPJ;
-    if (repPJ) push(repPJ.nome, repPJ.email, repPJ.telefone);
+    if (responsavelPJ) push(responsavelPJ.nome, responsavelPJ.email, responsavelPJ.telefone);
     // Pessoas físicas
-    ((dadosFonte.pessoas_fisicas?.length ? dadosFonte.pessoas_fisicas : pessoasFisicas) || []).forEach((pf) => push(pf?.nome, pf?.email, pf?.telefone));
+    (pessoasFisicas || []).forEach((pf) => push(pf?.nome, pf?.email, pf?.telefone));
     // Contato geral do cliente
-    push(dadosFonte.razao_social || resumoSalvo?.resumo?.nome_cliente || orcamento.nome_cliente, dadosFonte.email, dadosFonte.telefone);
+    push(dadosCliente.razao_social || orcamento.nome_cliente, dadosCliente.email, dadosCliente.telefone);
     // Dedup
     const seen = new Set<string>();
     return out.filter((s) => {
@@ -456,67 +385,63 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       toast.error('Selecione um modelo de contrato.');
       return;
     }
-    if (zapAdminSenha !== ADMIN_PANEL_PASSWORD) {
-      toast.error('Senha de administrador incorreta.');
-      setZapAdminSenha('');
-      return;
-    }
     const campos = zapSignCampos || buildZapSignCamposPadrao();
-    const camposAtualizados = buildZapSignCamposPadrao();
-    const usarEditadoOuAtualizado = (editado?: string, atualizado?: string) =>
-      editado?.trim() ? editado : (atualizado || '');
-    const camposComAnexos = {
-      ...camposAtualizados,
-      ...campos,
-      anexo_produto_nome: usarEditadoOuAtualizado(campos.anexo_produto_nome, camposAtualizados.anexo_produto_nome),
-      anexo_qtd_frasco: usarEditadoOuAtualizado(campos.anexo_qtd_frasco, camposAtualizados.anexo_qtd_frasco),
-      anexo_dose_diaria: usarEditadoOuAtualizado(campos.anexo_dose_diaria, camposAtualizados.anexo_dose_diaria),
-      anexo_ativo_1: usarEditadoOuAtualizado(campos.anexo_ativo_1, camposAtualizados.anexo_ativo_1),
-      anexo_ativo_2: usarEditadoOuAtualizado(campos.anexo_ativo_2, camposAtualizados.anexo_ativo_2),
-      anexo_cor_pote: usarEditadoOuAtualizado(campos.anexo_cor_pote, camposAtualizados.anexo_cor_pote),
-      anexo_cor_tampa: usarEditadoOuAtualizado(campos.anexo_cor_tampa, camposAtualizados.anexo_cor_tampa),
-      anexo_cor_gummy: usarEditadoOuAtualizado(campos.anexo_cor_gummy, camposAtualizados.anexo_cor_gummy),
-      anexo_sabor_gummy: usarEditadoOuAtualizado(campos.anexo_sabor_gummy, camposAtualizados.anexo_sabor_gummy),
-      anexo_quantidade: usarEditadoOuAtualizado(campos.anexo_quantidade, camposAtualizados.anexo_quantidade),
-      anexo_preco_unitario: usarEditadoOuAtualizado(campos.anexo_preco_unitario, camposAtualizados.anexo_preco_unitario),
-    };
-    if (!campos.signer_name || !campos.signer_email) {
-      toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
-      return;
-    }
-    if (!campos.nome_representante?.trim()) {
-      toast.error('Informe o nome do representante legal.');
-      return;
-    }
-    const cpfRep = (campos.cpf_representante || '').replace(/\D/g, '');
-    if (!cpfRep || !validarCPF(cpfRep)) {
-      toast.error('Informe um CPF válido para o representante legal.');
-      return;
-    }
-    for (const s of zapExtraSigners) {
-      if (!s.name?.trim() || !s.email?.trim()) {
-        toast.error('Preencha nome e email de todos os signatários adicionais.');
-        return;
-      }
-    }
-    setZapSignCampos(camposComAnexos);
-    setZapPendingCampos(camposComAnexos);
-    setZapRevisaoOpen(true);
-  };
-
-  const executarEnvioZapSign = async (finalReplacements?: ZapSignReplacement[]) => {
-    const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
-    const campos = zapPendingCampos;
-    if (!modelo || !campos) return;
     setZapSignLoading(true);
     try {
+      const signerName = campos.signer_name;
+      const signerEmail = campos.signer_email;
       const signerPhone = (campos.signer_phone_number || '').replace(/\D/g, '');
-      const data = finalReplacements?.length ? finalReplacements : montarDadosZapSign(campos);
+
+      if (!signerName || !signerEmail) {
+        toast.error('Preencha nome e email do representante antes de enviar para a ZapSign.');
+        setZapSignLoading(false);
+        return;
+      }
+      if (!campos.nome_representante?.trim()) {
+        toast.error('Informe o nome do representante legal.');
+        setZapSignLoading(false);
+        return;
+      }
+      const cpfRep = (campos.cpf_representante || '').replace(/\D/g, '');
+      if (!cpfRep || !validarCPF(cpfRep)) {
+        toast.error('Informe um CPF válido para o representante legal.');
+        setZapSignLoading(false);
+        return;
+      }
+      for (const s of zapExtraSigners) {
+        if (!s.name?.trim() || !s.email?.trim()) {
+          toast.error('Preencha nome e email de todos os signatários adicionais.');
+          setZapSignLoading(false);
+          return;
+        }
+      }
+
+      const data = [
+        { de: '{{RAZAO_SOCIAL_CONTRATANTE}}', para: campos.razao_social },
+        { de: '{{CNPJ_CONTRATANTE}}', para: campos.cnpj },
+        { de: '{{ENDERECO_CONTRATANTE}}', para: campos.endereco },
+        { de: '{{EMAIL_CONTRATANTE}}', para: campos.email_contratante },
+        { de: '{{TELEFONE_CONTRATANTE}}', para: campos.telefone_contratante },
+        { de: '{{NOME_REPRESENTANTE}}', para: campos.nome_representante },
+        { de: '{{CPF_REPRESENTANTE}}', para: campos.cpf_representante },
+        { de: '{{NUMERO_CONTRATO}}', para: campos.numero_contrato },
+        { de: '{{DATA_CONTRATO}}', para: campos.data_contrato },
+        { de: '{{PRODUTO_DESCRICAO}}', para: campos.produto_descricao },
+        { de: '{{PRODUTO_APRESENTACAO}}', para: campos.produto_apresentacao },
+        { de: '{{PRODUTO_PRECO_UNIT}}', para: campos.produto_preco_unit },
+        { de: '{{PRODUTO_QUANTIDADE}}', para: campos.produto_quantidade },
+        { de: '{{VALOR_SETUP}}', para: campos.valor_setup },
+        { de: '{{VALOR_SETUP_EXTENSO}}', para: campos.valor_setup_extenso },
+        { de: '{{VALOR_PRODUCAO}}', para: campos.valor_producao },
+        { de: '{{VALOR_PRODUCAO_EXTENSO}}', para: campos.valor_producao_extenso },
+        { de: '{{VALOR_TOTAL_PROJETO}}', para: campos.valor_total },
+        { de: '{{VALOR_TOTAL_PROJETO_EXTENSO}}', para: campos.valor_total_extenso },
+      ];
 
       const { data: resp, error } = await supabase.functions.invoke('criar-contrato-zapsign', {
         body: {
-          signer_name: campos.signer_name,
-          signer_email: campos.signer_email,
+          signer_name: signerName,
+          signer_email: signerEmail,
           signer_phone_country: '55',
           signer_phone_number: signerPhone,
           lang: 'pt-br',
@@ -524,7 +449,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           data,
           template_id: modelo.template_id,
           ambiente: modelo.ambiente,
-          orcamento_id: resumoSalvo?.resumo?.orcamento_id || orcamento.id,
+          orcamento_id: orcamento.id,
           cliente_id: orcamento.cliente_id ?? null,
           extra_signers: zapExtraSigners
             .filter((s) => s.name?.trim() && s.email?.trim())
@@ -555,14 +480,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           action: { label: 'Abrir', onClick: () => window.open(url, '_blank') },
           duration: 10000,
         });
-        setZapRevisaoOpen(false);
         setZapSignDialogOpen(false);
       } else if (resp?.error) {
         toast.error(`ZapSign: ${resp.error}${resp.status ? ` (${resp.status})` : ''}`);
       } else {
         toast.success('Contrato criado na ZapSign!');
-        setZapRevisaoOpen(false);
-        setZapSignDialogOpen(false);
       }
     } catch (err: any) {
       toast.error(`Falha ao enviar para ZapSign: ${err?.message || 'erro desconhecido'}`);
@@ -636,8 +558,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       if (cnpjNums.length !== 14) pendencias.push('CNPJ do cliente (14 dígitos)');
       if (!dadosCliente.razao_social?.trim()) pendencias.push('Razão Social');
       if (!dadosCliente.endereco_cnpj?.trim()) pendencias.push('Endereço do CNPJ');
-      if (!dadosCliente.numero_cnpj?.trim()) pendencias.push('Número do endereço');
-      if (!dadosCliente.bairro_cnpj?.trim()) pendencias.push('Bairro');
       if (!dadosCliente.cep_cnpj?.trim()) pendencias.push('CEP');
       if (!dadosCliente.cidade?.trim()) pendencias.push('Cidade');
       if (!dadosCliente.estado?.trim()) pendencias.push('Estado');
@@ -652,8 +572,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       if (cpfPf.length !== 11) pendencias.push('CPF do contratante (PF)');
       if (!pf?.email?.trim()) pendencias.push('Email do contratante');
       if (!pf?.endereco?.trim()) pendencias.push('Endereço do contratante');
-      if (!pf?.numero?.trim()) pendencias.push('Número do endereço');
-      if (!pf?.bairro?.trim()) pendencias.push('Bairro');
     }
     if (!detalhamentoEnvio.tipo) pendencias.push('Selecionar opção de frete');
     const errosPg = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
@@ -661,38 +579,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     if (!orcamento.itens_producao || orcamento.itens_producao.length === 0) {
       pendencias.push('Ao menos um item de produção');
     }
-    // Validar detalhes de produção de cada item
-    (orcamento.itens_producao || []).forEach((item, idx) => {
-      const seg = (item.segmento || '').toLowerCase();
-      const isEncapsulado = seg.includes('encapsulado');
-      const isGummy = seg.includes('gummy');
-      const isSoluvel = seg.includes('solúvel') || seg.includes('soluvel');
-      const isLiquido = seg.includes('líquido') || seg.includes('liquido');
-      const isKnown = isEncapsulado || isGummy || isSoluvel || isLiquido;
-      const d = detalhesProducao[idx] || {};
-      const label = item.nome_produto || `Item ${idx + 1}`;
-      if (isKnown) {
-        if (!d.cor_tampa?.trim()) pendencias.push(`${label}: Cor da Tampa`);
-        if (!d.cor_pote?.trim()) pendencias.push(`${label}: Cor do Pote`);
-      }
-      if (isGummy) {
-        if (!d.sabor_gummy?.trim()) pendencias.push(`${label}: Sabor (Gummy)`);
-        if (!d.cor_gummy?.trim()) pendencias.push(`${label}: Cor do Conteúdo (Gummy)`);
-      }
-      if (isSoluvel) {
-        if (!d.sabor_soluvel?.trim()) pendencias.push(`${label}: Sabor (Solúvel)`);
-        if (!d.cor_soluvel?.trim()) pendencias.push(`${label}: Cor do Conteúdo (Solúvel)`);
-      }
-      if (isLiquido) {
-        if (!d.sabor_liquido?.trim()) pendencias.push(`${label}: Sabor (Líquido)`);
-        if (!d.cor_liquido?.trim()) pendencias.push(`${label}: Cor do Conteúdo (Líquido)`);
-      }
-      if (!isKnown) {
-        if (!d.observacao_producao?.trim()) pendencias.push(`${label}: Observação de Produção`);
-      }
-    });
     return pendencias;
-  }, [tipoPessoa, dadosCliente, responsavelPJ, pessoasFisicas, detalhamentoEnvio, condicoesPagamento, orcamento.valor_total, orcamento.itens_producao, detalhesProducao]);
+  }, [tipoPessoa, dadosCliente, responsavelPJ, pessoasFisicas, detalhamentoEnvio, condicoesPagamento, orcamento.valor_total, orcamento.itens_producao]);
 
   // Pre-load client from orcamento.cliente_id
   useEffect(() => {
@@ -839,7 +727,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           setDadosCliente(prev => ({
             ...prev,
             endereco_cnpj: result.logradouro || prev.endereco_cnpj,
-            bairro_cnpj: (result as any).bairro || prev.bairro_cnpj,
             cidade: result.cidade,
             estado: result.estado,
           }));
@@ -856,12 +743,15 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
       if (response.ok) {
         const data = await response.json();
+        // Montar endereço robusto: "Rua, Num, Complemento - Bairro"
+        const parteLogradouro = [data.logradouro, data.numero, data.complemento].filter(Boolean).join(', ');
+        const enderecoCompleto = parteLogradouro && data.bairro
+          ? `${parteLogradouro} - ${data.bairro}`
+          : parteLogradouro || data.bairro || '';
         setDadosCliente(prev => ({
           ...prev,
           razao_social: data.razao_social || '',
-          endereco_cnpj: data.logradouro || '',
-          numero_cnpj: data.numero ? String(data.numero) : (prev.numero_cnpj || ''),
-          bairro_cnpj: data.bairro || '',
+          endereco_cnpj: enderecoCompleto,
           cep_cnpj: data.cep ? data.cep.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2') : '',
           cidade: data.municipio || '',
           estado: data.uf || '',
@@ -875,11 +765,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   };
 
   const handleGenerateProposta = async () => {
-    // Bloquear se houver pendências (incluindo detalhes do produto)
-    if (camposPendentes.length > 0) {
-      toast.error(`Preencha os campos obrigatórios antes de gerar o Projeto para Contrato (${camposPendentes.length} pendente${camposPendentes.length > 1 ? 's' : ''}).`);
-      return;
-    }
     // CNPJ obrigatório para PJ
     if (tipoPessoa === 'pj') {
       const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
@@ -1102,24 +987,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     <>
     <Dialog open={zapSignDialogOpen} onOpenChange={setZapSignDialogOpen}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        {zapRevisaoOpen && zapPendingCampos ? (() => {
-          const modelo = modelosContrato.find(m => m.id === modeloSelecionadoId);
-          if (!modelo) return null;
-          return (
-            <RevisaoContratoZapSignDialog
-              open={zapRevisaoOpen}
-              onOpenChange={(o) => { if (!zapSignLoading) setZapRevisaoOpen(o); }}
-              templateId={modelo.template_id}
-              ambiente={modelo.ambiente as 'producao' | 'sandbox'}
-              modeloNome={modelo.nome}
-              replacements={montarDadosZapSign(zapPendingCampos)}
-              sending={zapSignLoading}
-              onConfirm={executarEnvioZapSign}
-              inline
-            />
-          );
-        })() : (
-        <>
         <DialogHeader>
           <DialogTitle>Enviar contrato para ZapSign</DialogTitle>
         </DialogHeader>
@@ -1356,22 +1223,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         <Label className="text-xs">Preço unitário</Label>
                         <Input value={zapSignCampos.produto_preco_unit} onChange={(e) => updateZapCampo('produto_preco_unit', e.target.value)} />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Cor do pote</Label>
-                        <Input value={zapSignCampos.anexo_cor_pote} onChange={(e) => updateZapCampo('anexo_cor_pote', e.target.value)} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Cor da tampa</Label>
-                        <Input value={zapSignCampos.anexo_cor_tampa} onChange={(e) => updateZapCampo('anexo_cor_tampa', e.target.value)} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Cor gummy/conteúdo</Label>
-                        <Input value={zapSignCampos.anexo_cor_gummy} onChange={(e) => updateZapCampo('anexo_cor_gummy', e.target.value)} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Sabor gummy/conteúdo</Label>
-                        <Input value={zapSignCampos.anexo_sabor_gummy} onChange={(e) => updateZapCampo('anexo_sabor_gummy', e.target.value)} />
-                      </div>
                     </div>
                   </div>
 
@@ -1409,37 +1260,23 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             </>
           )}
         </div>
-        <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="w-full sm:max-w-xs space-y-1 text-left">
-            <Label htmlFor="zap-admin-senha" className="text-xs flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" /> Senha admin para enviar
-            </Label>
-            <Input
-              id="zap-admin-senha"
-              type="password"
-              value={zapAdminSenha}
-              onChange={(e) => setZapAdminSenha(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !zapSignLoading && modeloSelecionadoId) {
-                  e.preventDefault();
-                  handleEnviarZapSign();
-                }
-              }}
-              placeholder="Digite a senha"
-              autoComplete="current-password"
-              disabled={zapSignLoading}
-            />
-          </div>
+        <DialogFooter>
           <Button variant="outline" onClick={() => setZapSignDialogOpen(false)} disabled={zapSignLoading}>Cancelar</Button>
-          <Button onClick={handleEnviarZapSign} disabled={zapSignLoading || !modeloSelecionadoId || !zapAdminSenha}>
+          <Button onClick={() => setAskSenhaZapOpen(true)} disabled={zapSignLoading || !modeloSelecionadoId}>
             {zapSignLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileSignature className="w-4 h-4 mr-2" />}
             {zapSignLoading ? 'Enviando...' : 'Enviar agora'}
           </Button>
         </DialogFooter>
-        </>
-        )}
       </DialogContent>
     </Dialog>
+    <AdminPasswordDialog
+      open={askSenhaZapOpen}
+      onOpenChange={setAskSenhaZapOpen}
+      title="Confirmar envio do contrato"
+      description="O contrato será enviado para assinatura via ZapSign. Digite a senha de administrador."
+      actionLabel="Enviar contrato"
+      onConfirm={handleEnviarZapSign}
+    />
     </>
   );
 
@@ -1521,26 +1358,21 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                 </Button>
               )}
               <Button
-                onClick={() => { setZapSignCampos(buildZapSignCamposPadrao()); setContratoInternoOpen(true); }}
+                variant="outline"
+                onClick={abrirZapSignDialog}
+                disabled={zapSignLoading}
               >
-                <FileSignature className="w-4 h-4 mr-2" />
-                Enviar Contrato
+                {zapSignLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileSignature className="w-4 h-4 mr-2" />
+                )}
+                {zapSignLoading ? 'Enviando...' : 'Enviar para ZapSign'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
         {zapSignDialog()}
-        <EnviarContratoInternoDialog
-          open={contratoInternoOpen}
-          onOpenChange={setContratoInternoOpen}
-          campos={zapSignCampos || buildZapSignCamposPadrao()}
-          contexto={{
-            consultorNome: orcamento.consultor_responsavel || undefined,
-            orcamentoId: orcamento.id,
-            orcamentoNumero: orcamento.numero_orcamento,
-            cliente: orcamento.nome_cliente,
-          }}
-        />
       </>
     );
   }
@@ -1823,16 +1655,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                       <Input value={dadosCliente.inscricao_estadual || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, inscricao_estadual: e.target.value }))} placeholder="Inscrição estadual" />
                     </div>
                     <div className="col-span-2 space-y-1">
-                      <Label className="text-xs">Endereço (Logradouro) <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.endereco_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua / Avenida" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Número <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.numero_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, numero_cnpj: e.target.value }))} placeholder="Nº" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Bairro <span className="text-destructive">*</span></Label>
-                      <Input value={dadosCliente.bairro_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, bairro_cnpj: e.target.value }))} placeholder="Bairro" />
+                      <Label className="text-xs">Endereço</Label>
+                      <Input value={dadosCliente.endereco_cnpj || ''} onChange={(e) => setDadosCliente(prev => ({ ...prev, endereco_cnpj: e.target.value }))} placeholder="Rua, número, bairro" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">CEP</Label>
