@@ -255,6 +255,21 @@ Deno.serve(async (req) => {
   });
 });
 
+async function emitirEvento(evento: string, payload: unknown) {
+  try {
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/emit-webhook-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify({ evento, payload }),
+    });
+  } catch (e) {
+    console.warn("emitirEvento falhou", e);
+  }
+}
+
 // Cria automaticamente uma task na lista de Rótulos do ClickUp quando o contrato é assinado.
 async function criarTaskRotuloClickUp(
   supabase: any,
