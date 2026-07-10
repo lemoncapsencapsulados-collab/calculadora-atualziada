@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Trash2, Plus, Copy } from 'lucide-react';
+import { Trash2, Plus, Copy, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { baixarDocApi } from '@/lib/integracoesDocs';
 
 const PERMS = [
   { id: 'pedidos', label: 'Consultar pedidos' },
@@ -70,7 +71,12 @@ export function ApiKeysCard() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base">Endpoint público</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Endpoint público</CardTitle>
+          <Button size="sm" variant="outline" onClick={baixarDocApi}>
+            <FileDown className="w-4 h-4 mr-2" />Baixar documentação
+          </Button>
+        </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <code className="text-xs bg-muted p-2 rounded flex-1 truncate">{endpoint}</code>
