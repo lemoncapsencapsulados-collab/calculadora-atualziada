@@ -244,6 +244,13 @@ Deno.serve(async (req) => {
         }
       }
     }
+    if (isSigned) {
+      await emitirEvento("contrato.assinado", {
+        contrato_id: contrato.id,
+        orcamento_id: contrato.orcamento_id,
+        signed_file_url: (updates as any).signed_file_url ?? null,
+      });
+    }
   }
 
   return jsonResp({
