@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Trash2, Plus, Send } from 'lucide-react';
+import { Trash2, Plus, Send, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { baixarDocWebhooks } from '@/lib/integracoesDocs';
 
 const EVENTOS = [
   { id: 'pedido.criado', label: 'Pedido criado' },
@@ -79,7 +80,12 @@ export function WebhooksConfigCard() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base">Novo Webhook</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base">Novo Webhook</CardTitle>
+          <Button size="sm" variant="outline" onClick={baixarDocWebhooks}>
+            <FileDown className="w-4 h-4 mr-2" />Baixar documentação
+          </Button>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><Label>Nome</Label><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Integração N8N" /></div>
