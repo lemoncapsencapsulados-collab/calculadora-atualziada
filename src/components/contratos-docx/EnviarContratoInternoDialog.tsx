@@ -255,6 +255,20 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       toast.success(`Contrato enviado para ${modelo.email_financeiro}`);
+      supabase.functions.invoke('emit-webhook-event', {
+        body: {
+          evento: 'contrato.enviado',
+          payload: {
+            modelo: modelo.nome,
+            emailFinanceiro: modelo.email_financeiro,
+            cliente: contexto?.cliente || campos?.razao_social || '',
+            cnpj: campos?.cnpj || '',
+            orcamentoId: contexto?.orcamentoId ?? null,
+            orcamentoNumero: contexto?.orcamentoNumero ?? null,
+            pedidoId: contexto?.pedidoId ?? null,
+          },
+        },
+      }).catch(() => {});
       onOpenChange(false);
     } catch (e: any) {
       toast.error('Falha ao enviar: ' + (e?.message || 'erro'));
