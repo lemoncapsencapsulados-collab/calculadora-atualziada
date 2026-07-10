@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
       templateName: 'projeto-contrato-financeiro',
       recipientEmail: to,
       recipientName: nomeFinanceiro || undefined,
+      messageId: idempotencyKey,
       idempotencyKey,
       templateData: {
         consultorNome: consultorNome || '',
@@ -78,6 +79,7 @@ Deno.serve(async (req) => {
         cnpj: cnpj || '',
         cliente: cliente || '',
         valorTotal: valorTotal || '',
+        documentoUrl: signed.signedUrl,
         pdfUrl: signed.signedUrl,
         orcamentoNumero: orcamentoNumero || '',
         modeloNome: modeloNome || '',
@@ -90,7 +92,37 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Falha ao enviar email: ' + invErr.message, url: signed.signedUrl }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  return new Response(JSON.stringify({ success: true, url: signed.signedUrl, invoke: invData }), {
+  if (invData && typeof invData === 'object' && 'success' in invData && !invData.success) {
+    return new Response(JSON.stringify({ error: 'Email não foi enfileirado para envio', url: signed.signedUrl, invoke: invData }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  let finalStatus = 'pending'
+  let finalError = ''
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data: logs, error: logErr } = await supabase
+      .from('email_send_log')
+      .select('status,error_message,created_at')
+      .eq('message_id', idempotencyKey)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (!logErr && logs?.[0]) {
+      finalStatus = logs[0].status || 'pending'
+      finalError = logs[0].error_message || ''
+      if (['sent', 'dlq', 'failed', 'suppressed'].includes(finalStatus)) break
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+  }
+
+  if (finalStatus !== 'sent') {
+    const detail = finalStatus === 'pending'
+      ? 'O email foi colocado na fila, mas ainda não confirmou envio. Tente novamente em instantes.'
+      : `Status do envio: ${finalStatus}${finalError ? ` — ${finalError}` : ''}`
+    return new Response(JSON.stringify({ error: detail, url: signed.signedUrl, invoke: invData, emailStatus: finalStatus }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  return new Response(JSON.stringify({ success: true, url: signed.signedUrl, invoke: invData, emailStatus: finalStatus }), {
     status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 })
