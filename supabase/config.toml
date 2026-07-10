@@ -9,6 +9,10 @@ project_id = "nawhpweyisawxaymmusg"
     verify_jwt = false
   [functions.enviar-projeto-financeiro]
     verify_jwt = true
+  [functions.public-api]
+    verify_jwt = false
+  [functions.emit-webhook-event]
+    verify_jwt = true
   [functions.extract-dose-from-image]
     verify_jwt = false
   [functions.handle-email-suppression]
