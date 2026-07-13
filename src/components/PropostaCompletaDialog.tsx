@@ -1534,6 +1534,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           open={contratoInternoOpen}
           onOpenChange={setContratoInternoOpen}
           campos={zapSignCampos || buildZapSignCamposPadrao()}
+          condicoesPagamento={condicoesPagamento}
+          valorTotalNumerico={orcamento.valor_total || 0}
           contexto={{
             consultorNome: orcamento.consultor_responsavel || undefined,
             orcamentoId: orcamento.id,
