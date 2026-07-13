@@ -10,34 +10,38 @@ interface Props {
   cnpj?: string
   cliente?: string
   valorTotal?: string
+  documentoUrl?: string
   pdfUrl?: string
   orcamentoNumero?: string
+  modeloNome?: string
 }
 
-const Email = ({ consultorNome, razaoSocial, cnpj, cliente, valorTotal, pdfUrl, orcamentoNumero }: Props) => {
+const Email = ({ consultorNome, razaoSocial, cnpj, cliente, valorTotal, documentoUrl, pdfUrl, orcamentoNumero, modeloNome }: Props) => {
+  const linkContrato = documentoUrl || pdfUrl
   const identificacao = razaoSocial || cnpj || cliente || 'Produtor'
   const subtitulo = `${consultorNome || 'Consultor'} — ${identificacao}`
   return (
     <Html lang="pt-BR">
       <Head />
-      <Preview>Resumo Para Contrato Produtor Lemon Caps</Preview>
+      <Preview>Contrato DOCX pronto para conferência do financeiro</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Resumo Para Contrato Produtor Lemon Caps</Heading>
+          <Heading style={h1}>Contrato para conferência do financeiro</Heading>
           <Text style={sub}>{subtitulo}</Text>
           <Hr style={hr} />
           <Section>
             {orcamentoNumero && <Text style={row}><strong>Orçamento:</strong> {orcamentoNumero}</Text>}
+            {modeloNome && <Text style={row}><strong>Modelo:</strong> {modeloNome}</Text>}
             {cliente && <Text style={row}><strong>Cliente:</strong> {cliente}</Text>}
             {razaoSocial && <Text style={row}><strong>Razão Social:</strong> {razaoSocial}</Text>}
             {cnpj && <Text style={row}><strong>CNPJ:</strong> {cnpj}</Text>}
             {consultorNome && <Text style={row}><strong>Consultor:</strong> {consultorNome}</Text>}
             {valorTotal && <Text style={row}><strong>Valor Total:</strong> {valorTotal}</Text>}
           </Section>
-          {pdfUrl && (
+          {linkContrato && (
             <Section style={{ textAlign: 'center', marginTop: 24 }}>
-              <Button href={pdfUrl} style={btn}>Baixar Projeto (PDF)</Button>
-              <Text style={muted}>Link válido por 7 dias.</Text>
+              <Button href={linkContrato} style={btn}>Baixar contrato DOCX</Button>
+              <Text style={muted}>Link válido por 14 dias.</Text>
             </Section>
           )}
           <Hr style={hr} />
@@ -52,15 +56,15 @@ export const template = {
   component: Email,
   subject: 'Resumo Para Contrato Produtor Lemon Caps',
   displayName: 'Projeto para Contrato — Financeiro',
-  to: 'financeiro@lemoncaps.com.br',
   previewData: {
     consultorNome: 'João da Silva',
     razaoSocial: 'Produtor Exemplo LTDA',
     cnpj: '00.000.000/0001-00',
     cliente: 'Cliente Exemplo',
     valorTotal: 'R$ 10.000,00',
-    pdfUrl: 'https://example.com/projeto.pdf',
+    documentoUrl: 'https://example.com/contrato.docx',
     orcamentoNumero: 'ORC-000',
+    modeloNome: 'Contrato padrão',
   },
 } satisfies TemplateEntry
 

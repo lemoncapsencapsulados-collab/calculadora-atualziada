@@ -57,6 +57,7 @@ import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
+import { fetchEnderecoPorCEP, UFS_BRASIL } from '@/lib/brasilData';
 
 const CUSTO_ESTABILIDADE_PADRAO = 4100;
 const CUSTO_ANVISA_PADRAO = 1750;
@@ -150,13 +151,39 @@ export default function GerarOrcamentoDialog({
   const [valorFixoSetup, setValorFixoSetup] = useState(0);
 
   // Step 5: Dados opcionais (cliente e frete)
-  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({});
+  const [dadosClienteTemp, setDadosClienteTemp] = useState<DadosCliente>({ tipo_pessoa: 'pj' });
   const [detalhamentoFreteTemp, setDetalhamentoFreteTemp] = useState<DetalhamentoFrete | null>(null);
-  const [showInfoClienteInline, setShowInfoClienteInline] = useState(false);
   const [showFreteInline, setShowFreteInline] = useState(false);
 
   // Condições de pagamento (step 4)
   const [condicoesPagamento, setCondicoesPagamento] = useState<CondicoesPagamento>({});
+
+  // Pendências obrigatórias de Info Cliente (Passo Salvar)
+  const clientePendencias = useMemo(() => {
+    const p: string[] = [];
+    const tipo = dadosClienteTemp.tipo_pessoa || 'pj';
+    if (tipo === 'pj') {
+      const cnpjNums = (dadosClienteTemp.cnpj || '').replace(/\D/g, '');
+      if (cnpjNums.length !== 14) p.push('CNPJ');
+      if (!dadosClienteTemp.razao_social?.trim()) p.push('Razão Social');
+    } else {
+      if (!dadosClienteTemp.nome_completo?.trim()) p.push('Nome Completo');
+      const cpfNums = (dadosClienteTemp.cpf || '').replace(/\D/g, '');
+      if (cpfNums.length !== 11) p.push('CPF');
+    }
+    if (!dadosClienteTemp.email?.trim()) p.push('Email');
+    const telNums = (dadosClienteTemp.telefone || '').replace(/\D/g, '');
+    if (telNums.length < 10) p.push('Telefone');
+    // Endereço obrigatório (comum a PJ e PF) — lido dos campos endereco_cnpj/*
+    const cepNums = (dadosClienteTemp.cep_cnpj || '').replace(/\D/g, '');
+    if (cepNums.length !== 8) p.push('CEP');
+    if (!dadosClienteTemp.endereco_cnpj?.trim()) p.push('Logradouro');
+    if (!dadosClienteTemp.numero_cnpj?.trim()) p.push('Número');
+    if (!dadosClienteTemp.bairro_cnpj?.trim()) p.push('Bairro');
+    if (!dadosClienteTemp.cidade?.trim()) p.push('Cidade');
+    if (!dadosClienteTemp.estado?.trim()) p.push('Estado');
+    return p;
+  }, [dadosClienteTemp]);
 
   // Step 4 (novo): Estabilidade + Notificação Anvisa
   const [custoEstabilidadeUnit, setCustoEstabilidadeUnit] = useState<number>(CUSTO_ESTABILIDADE_PADRAO);
@@ -379,7 +406,28 @@ export default function GerarOrcamentoDialog({
         }).catch(() => {});
       }
       if (orcamentoExistente.dados_cliente) {
-        setDadosClienteTemp(orcamentoExistente.dados_cliente);
+        const dc = orcamentoExistente.dados_cliente as DadosCliente;
+        const inferredTipo: 'pj' | 'pf' = dc.tipo_pessoa
+          ? dc.tipo_pessoa
+          : (dc.cnpj || dc.razao_social) ? 'pj' : 'pf';
+        const merged: DadosCliente = { ...dc, tipo_pessoa: inferredTipo };
+        // Para PF, espelha endereço de pessoas_fisicas[0] nos campos genéricos do form
+        if (inferredTipo === 'pf') {
+          const pf0 = dc.pessoas_fisicas?.[0];
+          if (pf0) {
+            merged.cep_cnpj = merged.cep_cnpj || pf0.cep;
+            merged.endereco_cnpj = merged.endereco_cnpj || pf0.endereco;
+            merged.numero_cnpj = merged.numero_cnpj || pf0.numero;
+            merged.bairro_cnpj = merged.bairro_cnpj || pf0.bairro;
+            merged.cidade = merged.cidade || pf0.cidade;
+            merged.estado = merged.estado || pf0.estado;
+            merged.nome_completo = merged.nome_completo || pf0.nome;
+            merged.cpf = merged.cpf || pf0.cpf;
+            merged.email = merged.email || pf0.email;
+            merged.telefone = merged.telefone || pf0.telefone;
+          }
+        }
+        setDadosClienteTemp(merged);
       }
       if (orcamentoExistente.detalhamento_frete) {
         setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
@@ -732,6 +780,10 @@ export default function GerarOrcamentoDialog({
 
   const handleSubmit = async () => {
     if (!nomeCliente.trim()) return;
+    if (clientePendencias.length > 0) {
+      toast.error(`Preencha os dados obrigatórios do cliente: ${clientePendencias.join(', ')}`);
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -739,7 +791,27 @@ export default function GerarOrcamentoDialog({
       const hasDadosCliente = Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '');
       const hasCondicoesPagamento = Object.values(condicoesPagamento).some(v => v !== undefined && v !== null && v !== '');
       const servicosMarcaFinal = buildServicosMarca();
-      
+
+      // Se PF, espelha endereço/contato em pessoas_fisicas[0] para o PDF/Contrato
+      const dadosClienteFinal: DadosCliente = (() => {
+        const dc = { ...dadosClienteTemp };
+        if ((dc.tipo_pessoa || 'pj') === 'pf') {
+          const pf0 = { ...(dc.pessoas_fisicas?.[0] || {}) };
+          pf0.nome = pf0.nome || dc.nome_completo;
+          pf0.cpf = pf0.cpf || dc.cpf;
+          pf0.email = pf0.email || dc.email;
+          pf0.telefone = pf0.telefone || dc.telefone;
+          pf0.cep = pf0.cep || dc.cep_cnpj;
+          pf0.endereco = pf0.endereco || dc.endereco_cnpj;
+          pf0.numero = pf0.numero || dc.numero_cnpj;
+          pf0.bairro = pf0.bairro || dc.bairro_cnpj;
+          pf0.cidade = pf0.cidade || dc.cidade;
+          pf0.estado = pf0.estado || dc.estado;
+          dc.pessoas_fisicas = [pf0, ...((dc.pessoas_fisicas || []).slice(1))];
+        }
+        return dc;
+      })();
+
       if (orcamentoExistente) {
         await updateOrcamento.mutateAsync({
           id: orcamentoExistente.id,
@@ -755,7 +827,7 @@ export default function GerarOrcamentoDialog({
             subtotal_producao: subtotalProducao,
             subtotal_servicos: subtotalServicos,
             valor_total: valorTotal,
-            ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
+            ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
             ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
             ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
           },
@@ -776,7 +848,7 @@ export default function GerarOrcamentoDialog({
           subtotal_servicos: subtotalServicos,
           valor_total: valorTotal,
           status: 'rascunho',
-          ...(hasDadosCliente && { dados_cliente: dadosClienteTemp }),
+          ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
           ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
           ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
         };
@@ -2009,110 +2081,192 @@ export default function GerarOrcamentoDialog({
                 Validade: {validadeDias} dias a partir da emissão
               </p>
 
-              {/* Seção opcional de Info Cliente e Frete */}
+              {/* Info Cliente (obrigatório) */}
+              <Card className="border-primary/40">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium flex items-center gap-2">
+                      <User className="w-4 h-4" />
+                      Informações do Cliente <span className="text-destructive">*</span>
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={dadosClienteTemp.tipo_pessoa === 'pj' ? 'default' : 'outline'}
+                        onClick={() => setDadosClienteTemp(prev => ({ ...prev, tipo_pessoa: 'pj' }))}
+                      >
+                        Pessoa Jurídica
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={dadosClienteTemp.tipo_pessoa === 'pf' ? 'default' : 'outline'}
+                        onClick={() => setDadosClienteTemp(prev => ({ ...prev, tipo_pessoa: 'pf' }))}
+                      >
+                        Pessoa Física
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {dadosClienteTemp.tipo_pessoa === 'pj' ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs">CNPJ <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.cnpj || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cnpj: e.target.value }))}
+                            placeholder="00.000.000/0000-00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Razão Social <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.razao_social || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, razao_social: e.target.value }))}
+                            placeholder="Razão social"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Nome Completo <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.nome_completo || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, nome_completo: e.target.value }))}
+                            placeholder="Nome completo"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">CPF <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={dadosClienteTemp.cpf || ''}
+                            onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cpf: e.target.value }))}
+                            placeholder="000.000.000-00"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="email"
+                        value={dadosClienteTemp.email || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telefone <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.telefone || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, telefone: e.target.value }))}
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Endereço completo (obrigatório) */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">CEP <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.cep_cnpj || ''}
+                        onChange={(e) => {
+                          const cep = e.target.value;
+                          setDadosClienteTemp(prev => ({ ...prev, cep_cnpj: cep }));
+                          const nums = cep.replace(/\D/g, '');
+                          if (nums.length === 8) {
+                            fetchEnderecoPorCEP(nums).then(r => {
+                              if (!r) return;
+                              setDadosClienteTemp(prev => ({
+                                ...prev,
+                                endereco_cnpj: prev.endereco_cnpj || r.logradouro,
+                                bairro_cnpj: prev.bairro_cnpj || r.bairro,
+                                cidade: prev.cidade || r.cidade,
+                                estado: prev.estado || r.estado,
+                              }));
+                            });
+                          }
+                        }}
+                        placeholder="00000-000"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Estado <span className="text-destructive">*</span></Label>
+                      <Select
+                        value={dadosClienteTemp.estado || ''}
+                        onValueChange={(v) => setDadosClienteTemp(prev => ({ ...prev, estado: v }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                        <SelectContent>
+                          {UFS_BRASIL.map(uf => (
+                            <SelectItem key={uf.uf} value={uf.uf}>{uf.uf} — {uf.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Endereço (Logradouro) <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.endereco_cnpj || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, endereco_cnpj: e.target.value }))}
+                        placeholder="Rua, Avenida..."
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Número <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.numero_cnpj || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, numero_cnpj: e.target.value }))}
+                        placeholder="Número"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Bairro <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.bairro_cnpj || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, bairro_cnpj: e.target.value }))}
+                        placeholder="Bairro"
+                      />
+                    </div>
+                    <div className="space-y-1 col-span-2">
+                      <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={dadosClienteTemp.cidade || ''}
+                        onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cidade: e.target.value }))}
+                        placeholder="Cidade"
+                      />
+                    </div>
+                  </div>
+
+                  {clientePendencias.length > 0 && (
+                    <div className="text-xs text-destructive">
+                      Preencha: {clientePendencias.join(', ')}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Frete (opcional) */}
               <Card className="border-dashed">
                 <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Adicionar informações (opcional):
-                  </p>
-                  <div className="flex gap-3 flex-wrap">
-                    <Button 
-                      variant={Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '') ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setShowInfoClienteInline(!showInfoClienteInline)}
-                    >
-                      <User className="w-4 h-4 mr-2" />
-                      Info Cliente
-                      {Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '') && (
-                        <Check className="w-3 h-3 ml-1" />
-                      )}
-                    </Button>
-                    <Button 
+                  <div className="flex gap-3 flex-wrap items-center">
+                    <p className="text-sm text-muted-foreground">Frete (opcional):</p>
+                    <Button
                       variant={detalhamentoFreteTemp ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setShowFreteInline(!showFreteInline)}
                     >
                       <Truck className="w-4 h-4 mr-2" />
                       Frete
-                      {detalhamentoFreteTemp && (
-                        <Check className="w-3 h-3 ml-1" />
-                      )}
+                      {detalhamentoFreteTemp && (<Check className="w-3 h-3 ml-1" />)}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Esses dados podem ser adicionados depois na tela de orçamentos
-                  </p>
                 </CardContent>
               </Card>
-
-              {/* Form inline de Info Cliente */}
-              {showInfoClienteInline && (
-                <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        Informações do Cliente
-                      </p>
-                      <Button variant="ghost" size="sm" onClick={() => setShowInfoClienteInline(false)}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Nome Completo</Label>
-                        <Input
-                          value={dadosClienteTemp.nome_completo || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, nome_completo: e.target.value }))}
-                          placeholder="Nome completo"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Email</Label>
-                        <Input
-                          type="email"
-                          value={dadosClienteTemp.email || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, email: e.target.value }))}
-                          placeholder="email@exemplo.com"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Telefone</Label>
-                        <Input
-                          value={dadosClienteTemp.telefone || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, telefone: e.target.value }))}
-                          placeholder="(00) 00000-0000"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">CPF</Label>
-                        <Input
-                          value={dadosClienteTemp.cpf || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cpf: e.target.value }))}
-                          placeholder="000.000.000-00"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">CNPJ</Label>
-                        <Input
-                          value={dadosClienteTemp.cnpj || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, cnpj: e.target.value }))}
-                          placeholder="00.000.000/0000-00"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Razão Social</Label>
-                        <Input
-                          value={dadosClienteTemp.razao_social || ''}
-                          onChange={(e) => setDadosClienteTemp(prev => ({ ...prev, razao_social: e.target.value }))}
-                          placeholder="Razão social"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               {/* Form inline de Frete */}
               {showFreteInline && (
@@ -2234,7 +2388,8 @@ export default function GerarOrcamentoDialog({
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || valorTotal === 0}
+                disabled={isSubmitting || valorTotal === 0 || clientePendencias.length > 0}
+                title={clientePendencias.length > 0 ? `Preencha: ${clientePendencias.join(', ')}` : undefined}
               >
                 {isSubmitting ? (
                   <>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { FileSignature, Plus, Pencil, Trash2, Star, Loader2, CheckCircle2, AlertTriangle, RefreshCw, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,7 +42,14 @@ function VerificarTemplateButton({ templateId, ambiente }: { templateId: string;
       }
 
       if (data?.valid) {
-        toast.success('Template validado com sucesso na ZapSign!', {
+        if (data?.supports_dynamic_data === false) {
+          toast.error('Modelo ZapSign é PDF e não aceita dados dinâmicos.', {
+            description: data?.warning || 'Use um Modelo DOCX dinâmico para preencher os dados do Projeto para Contrato.',
+            duration: 9000,
+          });
+          return;
+        }
+        toast.success('Template DOCX validado com sucesso na ZapSign!', {
           description: `ID: ${templateId} | Ambiente: ${ambiente}`,
         });
       } else {
@@ -68,6 +75,117 @@ function VerificarTemplateButton({ templateId, ambiente }: { templateId: string;
     >
       {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
     </Button>
+  );
+}
+
+function VerCamposModeloButton({ templateId, ambiente, nome }: { templateId: string; ambiente: 'producao' | 'sandbox'; nome: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [inputs, setInputs] = useState<any[] | null>(null);
+  const [templateType, setTemplateType] = useState<string>('');
+  const [erro, setErro] = useState<string>('');
+
+  const carregar = async () => {
+    setLoading(true);
+    setErro('');
+    setInputs(null);
+    try {
+      const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/criar-contrato-zapsign`);
+      url.searchParams.set('template_id', templateId.trim());
+      url.searchParams.set('ambiente', ambiente);
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok || !data?.valid) {
+        setErro(data?.error || data?.hint || 'Não foi possível carregar o modelo.');
+        return;
+      }
+      setTemplateType(String(data?.template?.template_type || '').toUpperCase());
+      const list = Array.isArray(data?.template?.inputs) ? data.template.inputs : [];
+      setInputs(list);
+    } catch (err: any) {
+      setErro(err?.message || 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const abrir = () => {
+    setOpen(true);
+    if (!inputs) carregar();
+  };
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        title="Ver campos editáveis deste modelo"
+        onClick={abrir}
+      >
+        <Eye className="w-4 h-4" />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Campos editáveis — {nome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Estas são as variáveis (<code>{'{{VARIAVEL}}'}</code>) que este modelo aceita na ZapSign. O sistema preenche automaticamente as variáveis com o mesmo nome usadas em "Enviar contrato para ZapSign".
+            </p>
+            {loading && (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Carregando campos do modelo...
+              </div>
+            )}
+            {erro && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                {erro}
+              </div>
+            )}
+            {!loading && !erro && inputs && (
+              <>
+                <div className="flex items-center gap-2 text-xs">
+                  <Badge variant="outline">Tipo: {templateType || '—'}</Badge>
+                  <Badge variant="secondary">{inputs.length} variáveis</Badge>
+                  <Button variant="ghost" size="sm" className="ml-auto h-7" onClick={carregar}>
+                    <RefreshCw className="w-3 h-3 mr-1" /> Recarregar
+                  </Button>
+                </div>
+                {inputs.length === 0 ? (
+                  <div className="text-sm text-muted-foreground italic border rounded-md p-3">
+                    O modelo não expõe variáveis dinâmicas. Para preencher campos automaticamente, use um Modelo <strong>DOCX dinâmico</strong> na ZapSign com marcações <code>{'{{NOME_DA_VARIAVEL}}'}</code>.
+                  </div>
+                ) : (
+                  <div className="border rounded-md divide-y">
+                    {inputs.map((inp: any, i: number) => (
+                      <div key={i} className="p-2 flex items-start justify-between gap-3 text-sm">
+                        <div className="flex-1 min-w-0">
+                          <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
+                            {`{{${inp?.variable || inp?.name || inp?.label || '—'}}}`}
+                          </code>
+                          {inp?.label && inp?.variable && inp.label !== inp.variable && (
+                            <p className="text-xs text-muted-foreground mt-1">{inp.label}</p>
+                          )}
+                        </div>
+                        {inp?.type && <Badge variant="outline" className="text-[10px]">{inp.type}</Badge>}
+                        {inp?.required && <Badge variant="destructive" className="text-[10px]">obrigatório</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -166,6 +284,7 @@ export default function ConfiguracaoContratos() {
                   </div>
                   <div className="flex items-center gap-1">
                     <VerificarTemplateButton templateId={m.template_id} ambiente={m.ambiente} />
+                    <VerCamposModeloButton templateId={m.template_id} ambiente={m.ambiente} nome={m.nome} />
                     <Button variant="ghost" size="icon" onClick={() => abrirEdicao(m)}>
                       <Pencil className="w-4 h-4" />
                     </Button>

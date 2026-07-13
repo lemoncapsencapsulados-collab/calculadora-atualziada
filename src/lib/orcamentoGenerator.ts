@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
   margin: 20,           // Margem generosa
-  marginBottom: 25,     // Margem inferior para footer
+  marginBottom: 40,     // Margem inferior reservada para footer (evita sobreposição)
   headerHeight: 40,     // Header grande e elegante
   sectionGap: 10,       // Espaçamento entre seções
   lineHeight: 6,        // Altura de linha confortável
@@ -147,6 +147,8 @@ function renderPessoaFisicaFields(doc: jsPDF, pf: PessoaFisicaResponsavel, titul
     { label: 'Email', valor: pf.email },
     { label: 'Telefone', valor: pf.telefone },
     { label: 'Endereço', valor: pf.endereco },
+    { label: 'Número', valor: pf.numero },
+    { label: 'Bairro', valor: pf.bairro },
     { label: 'CEP', valor: pf.cep },
     { label: 'Cidade/UF', valor: pf.cidade && pf.estado ? `${pf.cidade}/${pf.estado}` : (pf.cidade || pf.estado || '') },
   ];
@@ -273,6 +275,8 @@ function renderDadosCliente(doc: jsPDF, orcamento: Orcamento, yPos: number): num
       { label: 'Insc. Estadual', valor: dados.inscricao_estadual },
       { label: 'Insc. Municipal', valor: dados.inscricao_municipal },
       { label: 'Endereço', valor: dados.endereco_cnpj },
+      { label: 'Número', valor: dados.numero_cnpj },
+      { label: 'Bairro', valor: dados.bairro_cnpj },
       { label: 'CEP', valor: dados.cep_cnpj },
       { label: 'Cidade/UF', valor: dados.cidade && dados.estado ? `${dados.cidade}/${dados.estado}` : '' },
       { label: 'Telefone', valor: dados.telefone },
@@ -352,8 +356,6 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
   }
 
   const pageWidth = getPageWidth(doc);
-  
-  yPos = renderSectionTitle(doc, 'Produtos', yPos);
 
   // Renderizar cada produto detalhadamente
   orcamento.itens_producao.forEach((item, index) => {
@@ -361,7 +363,18 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     
     // Verificar espaço - cada produto precisa de aprox. 30-50mm
     const estimatedHeight = isPOD ? 20 : 25 + (item.insumos_formula?.length || 0) * 5;
-    yPos = checkPageBreak(doc, yPos, estimatedHeight);
+    // Para o primeiro item, garantir que título + item caibam juntos (evita título órfão)
+    if (index === 0) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const needed = 15 + estimatedHeight; // título + item
+      if (yPos + needed > pageHeight - 20) {
+        doc.addPage();
+        yPos = LAYOUT.margin;
+      }
+      yPos = renderSectionTitle(doc, 'Produtos', yPos);
+    } else {
+      yPos = checkPageBreak(doc, yPos, estimatedHeight);
+    }
     
     // Número e nome do produto
     doc.setFillColor(...COLORS.lightGray);
@@ -1060,7 +1073,7 @@ function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     const pageWidth = getPageWidth(doc);
-    const footerY = PAGE_HEIGHT - LAYOUT.marginBottom + 5;
+    const footerY = PAGE_HEIGHT - 20;
 
     // Linha separadora
     doc.setDrawColor(...COLORS.lemonYellow);

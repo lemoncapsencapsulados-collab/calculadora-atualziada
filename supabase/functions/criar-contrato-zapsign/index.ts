@@ -33,6 +33,175 @@ function resolveBaseUrl(ambiente?: string, defaultBaseUrl?: string): string {
   return (defaultBaseUrl || "https://api.zapsign.com.br/api/v1").replace(/\/+$/, "");
 }
 
+function titleCasePt(value: string): string {
+  const lowerWords = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word, index) => lowerWords.has(word) && index > 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function onlyDigits(value: unknown): string {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function formatBRL(value: unknown): string {
+  const n = Number(value || 0);
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatInsumo(insumo: any): string {
+  if (!insumo?.nome) return '';
+  const nome = String(insumo.nome).trim().toLowerCase() === 'amido de milho' ? 'Excipiente' : String(insumo.nome).trim();
+  const qtd = insumo.quantidade != null ? String(insumo.quantidade).replace('.', ',') : '';
+  const unidade = insumo.unidade || '';
+  return [nome, [qtd, unidade].filter(Boolean).join(' ')].filter(Boolean).join(' - ');
+}
+
+function formatCondicoesPagamento(condicoes: any, valorTotal: number): string {
+  if (!condicoes) return '';
+  const fmt = (v: number) => formatBRL(v);
+  const lines: string[] = [];
+  const metodo = condicoes.metodo_principal;
+  const valorParcela = (p: any) => p?.tipo_valor === 'percentual' ? (Number(p.valor || 0) / 100) * valorTotal : Number(p?.valor || 0);
+  if (metodo === 'pix_boleto') {
+    lines.push('Método: Pix / Boleto');
+    (condicoes.parcelas_pix_boleto || []).forEach((p: any, i: number) => lines.push(`Parcela ${i + 1}: R$ ${fmt(valorParcela(p))}${p?.data_vencimento ? ` - vencimento ${p.data_vencimento}` : ''}`));
+  } else if (metodo === 'cartao_credito') {
+    lines.push('Método: Cartão de Crédito');
+    (condicoes.cartoes || []).forEach((c: any, i: number) => {
+      const total = valorParcela(c);
+      const parcelas = Number(c?.parcelas || 1);
+      lines.push(`Cartão ${i + 1}: ${parcelas}x de R$ ${fmt(total / parcelas)} - Total R$ ${fmt(total)}${c?.data_primeira_parcela ? ` - primeira parcela ${c.data_primeira_parcela}` : ''}`);
+    });
+  } else if (metodo === 'misto') {
+    lines.push('Método: Misto');
+    (condicoes.misto_parcelas_pix_boleto || []).forEach((p: any, i: number) => lines.push(`Pix/Boleto ${i + 1}: R$ ${fmt(valorParcela(p))}${p?.data_vencimento ? ` - vencimento ${p.data_vencimento}` : ''}`));
+    (condicoes.misto_cartoes || []).forEach((c: any, i: number) => {
+      const total = valorParcela(c);
+      const parcelas = Number(c?.parcelas || 1);
+      lines.push(`Cartão ${i + 1}: ${parcelas}x de R$ ${fmt(total / parcelas)} - Total R$ ${fmt(total)}${c?.data_primeira_parcela ? ` - primeira parcela ${c.data_primeira_parcela}` : ''}`);
+    });
+  } else {
+    if (condicoes.valor_entrada) lines.push(`Entrada: R$ ${fmt(Number(condicoes.valor_entrada || 0))}`);
+    if (condicoes.valor_termino) lines.push(`Término: R$ ${fmt(Number(condicoes.valor_termino || 0))}`);
+  }
+  return lines.join('; ');
+}
+
+function firstNonEmptyReplacement(data: ZapSignDataItem[], keys: string[]): string {
+  for (const key of keys) {
+    const found = data.find((item) => item.de === key && String(item.para || '').trim());
+    if (found) return String(found.para || '');
+  }
+  return '';
+}
+
+function mergeReplacement(data: ZapSignDataItem[], keys: string[], fallbackValue: string): string {
+  // Preserva o que foi editado manualmente no modal "Enviar para ZapSign".
+  // O resumo salvo entra apenas como fallback para campos vazios/ausentes.
+  const val = firstNonEmptyReplacement(data, keys) || fallbackValue || '';
+  const byKey = new Map(data.map((item, idx) => [item.de, idx]));
+  for (const key of keys) {
+    const idx = byKey.get(key);
+    if (idx !== undefined) data[idx] = { de: key, para: val };
+    else data.push({ de: key, para: val });
+  }
+  return val;
+}
+
+function applyResumoToData(data: ZapSignDataItem[], resumo: any, orcamento?: any): { signer_name?: string; signer_email?: string; signer_phone_number?: string } {
+  const dc = resumo?.dados_cliente || {};
+  const isPJ = dc.tipo_pessoa ? dc.tipo_pessoa === 'pj' : !!(dc.cnpj || dc.razao_social);
+  const rep = isPJ ? (dc.responsavel_pj || {}) : ((Array.isArray(dc.pessoas_fisicas) && dc.pessoas_fisicas[0]) || {});
+  const contratante = isPJ ? titleCasePt(dc.razao_social || resumo?.nome_cliente || '') : titleCasePt(rep.nome || resumo?.nome_cliente || '');
+  const documento = isPJ ? (dc.cnpj || '') : (rep.cpf || dc.cpf || '');
+  const endereco = isPJ
+    ? [
+        [dc.endereco_cnpj || dc.logradouro, dc.numero_cnpj || dc.numero].filter(Boolean).join(', '),
+        dc.bairro_cnpj || dc.bairro,
+        dc.cidade && dc.estado ? `${dc.cidade} - ${dc.estado}` : (dc.cidade || dc.estado),
+        dc.cep_cnpj || dc.cep ? `CEP ${String(dc.cep_cnpj || dc.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+      ].filter(Boolean).join(' - ')
+    : [
+        [rep.endereco || rep.logradouro, rep.numero].filter(Boolean).join(', '),
+        rep.bairro,
+        rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
+        rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+      ].filter(Boolean).join(' - ');
+  const enderecoRepresentante = [
+    [rep.endereco || rep.logradouro, rep.numero].filter(Boolean).join(', '),
+    rep.bairro,
+    rep.cidade && rep.estado ? `${rep.cidade} - ${rep.estado}` : (rep.cidade || rep.estado),
+    rep.cep ? `CEP ${String(rep.cep).replace(/(\d{5})(\d{3})/, '$1-$2')}` : '',
+  ].filter(Boolean).join(' - ');
+  const signerName = titleCasePt(rep.nome || contratante || resumo?.nome_cliente || '');
+  const signerEmail = rep.email || dc.email || '';
+  const signerPhone = onlyDigits(rep.telefone || dc.telefone || '');
+  const itens = Array.isArray(orcamento?.itens_producao) ? orcamento.itens_producao : [];
+  const item = itens[0] || null;
+  const detalhes = resumo?.detalhes_producao?.[0] || resumo?.detalhes_producao?.['0'] || item?.detalhes_producao || {};
+  const valorSetup = Number(orcamento?.subtotal_servicos || 0);
+  const valorProducao = Number(orcamento?.subtotal_producao || 0);
+  const valorTotal = Number(orcamento?.valor_total || 0);
+  const produtoValorTotal = item ? Number(item.subtotal || Number(item.preco_unitario || 0) * Number(item.quantidade || 0)) : 0;
+  const produtoApresentacao = item?.quantidade_por_pote ? `${item.quantidade_por_pote} ${item.unidade_por_pote || ''} por frasco`.trim() : '';
+  const insumos = Array.isArray(item?.insumos_formula) ? item.insumos_formula : [];
+
+  const signerNameFinal = mergeReplacement(data, ['{{NOME_REPRESENTANTE}}', '{{NOME REPRESENTANTE}}', '{{REPRESENTANTE_LEGAL}}', '{{REPRESENTANTE LEGAL}}'], signerName);
+  const signerEmailFinal = mergeReplacement(data, ['{{EMAIL_SIGNATARIO}}', '{{EMAIL SIGNATARIO}}', '{{EMAIL_REPRESENTANTE}}', '{{EMAIL REPRESENTANTE}}'], signerEmail);
+  const signerPhoneFinal = mergeReplacement(data, ['{{TELEFONE_SIGNATARIO}}', '{{TELEFONE SIGNATARIO}}', '{{TELEFONE_REPRESENTANTE}}', '{{TELEFONE REPRESENTANTE}}'], signerPhone);
+  mergeReplacement(data, ['{{RAZAO_SOCIAL_CONTRATANTE}}', '{{RAZÃO_SOCIAL_CONTRATANTE}}', '{{RAZAO SOCIAL CONTRATANTE}}', '{{RAZÃO SOCIAL CONTRATANTE}}', '{{NOME_CONTRATANTE}}', '{{NOME CONTRATANTE}}'], contratante);
+  mergeReplacement(data, ['{{CNPJ_CONTRATANTE}}', '{{CPF_CNPJ_CONTRATANTE}}', '{{CNPJ CONTRATANTE}}', '{{CPF/CNPJ CONTRATANTE}}'], documento);
+  mergeReplacement(data, ['{{ENDERECO_CONTRATANTE}}', '{{ENDEREÇO_CONTRATANTE}}', '{{ENDERECO CONTRATANTE}}', '{{ENDEREÇO CONTRATANTE}}'], endereco);
+  mergeReplacement(data, ['{{EMAIL_CONTRATANTE}}', '{{E-MAIL_CONTRATANTE}}', '{{EMAIL CONTRATANTE}}'], dc.email || signerEmailFinal);
+  mergeReplacement(data, ['{{TELEFONE_CONTRATANTE}}', '{{TELEFONE CONTRATANTE}}'], dc.telefone || signerPhoneFinal);
+  mergeReplacement(data, ['{{CPF_REPRESENTANTE}}', '{{CPF REPRESENTANTE}}'], rep.cpf || '');
+  mergeReplacement(data, ['{{ENDERECO_REPRESENTANTE}}', '{{ENDEREÇO_REPRESENTANTE}}', '{{ENDERECO REPRESENTANTE}}', '{{ENDEREÇO REPRESENTANTE}}'], enderecoRepresentante);
+  mergeReplacement(data, ['{{NUMERO_ORCAMENTO}}', '{{NÚMERO_ORÇAMENTO}}', '{{NUMERO ORCAMENTO}}', '{{NÚMERO ORÇAMENTO}}', '{{NUMERO_CONTRATO}}', '{{NÚMERO_CONTRATO}}', '{{NUMERO CONTRATO}}', '{{Nº_CONTRATO}}', '{{N_CONTRATO}}'], resumo?.numero_orcamento || orcamento?.numero_orcamento || '');
+  mergeReplacement(data, ['{{PRODUTO_DESCRICAO}}', '{{PRODUTO_DESCRIÇÃO}}', '{{PRODUTO DESCRICAO}}', '{{PRODUTO}}'], item ? `${item.nome_produto || ''}${item.segmento ? ` (${item.segmento})` : ''}` : '');
+  mergeReplacement(data, ['{{PRODUTO_APRESENTACAO}}', '{{PRODUTO_APRESENTAÇÃO}}'], produtoApresentacao);
+  mergeReplacement(data, ['{{PRODUTO_PRECO}}', '{{PRODUTO_PREÇO}}', '{{PRODUTO_PRECO_UNIT}}', '{{PRODUTO_PREÇO_UNIT}}'], item ? formatBRL(item.preco_unitario) : '');
+  mergeReplacement(data, ['{{PRODUTO_QUANTIDADE}}'], item ? String(item.quantidade || '') : '');
+  mergeReplacement(data, ['{{PRODUTO_VALOR_TOTAL}}'], item ? formatBRL(produtoValorTotal) : '');
+  mergeReplacement(data, ['{{VALOR_SETUP}}'], formatBRL(valorSetup));
+  mergeReplacement(data, ['{{VALOR_PRODUCAO}}', '{{VALOR_PRODUÇÃO}}'], formatBRL(valorProducao));
+  mergeReplacement(data, ['{{VALOR_TOTAL_PROJETO}}', '{{VALOR_TOTAL_PEDIDO}}', '{{VALOR_TOTAL}}', '{{VALOR TOTAL}}'], formatBRL(valorTotal));
+  mergeReplacement(data, ['{{CONDICAO_PAGAMENTO}}', '{{CONDIÇÃO_PAGAMENTO}}', '{{CONDICAO PAGAMENTO}}', '{{CONDIÇÃO PAGAMENTO}}'], formatCondicoesPagamento(resumo?.condicoes_pagamento || orcamento?.condicoes_pagamento, valorTotal));
+  mergeReplacement(data, ['{{PRAZO_PRODUCAO}}', '{{PRAZO_PRODUÇÃO}}'], '30 dias corridos após aprovação final dos rótulos');
+  mergeReplacement(data, ['{{PRAZO_ROTULOS}}', '{{PRAZO_RÓTULOS}}'], '15 dias úteis');
+  mergeReplacement(data, ['{{ANEXO_PRODUTO_NOME}}'], item?.nome_produto || '');
+  mergeReplacement(data, ['{{ANEXO_QTD_FRASCO}}'], produtoApresentacao);
+  mergeReplacement(data, ['{{ANEXO_DOSE_DIARIA}}'], item?.dose_diaria_sugerida || '');
+  mergeReplacement(data, ['{{ANEXO_ATIVO_1}}'], formatInsumo(insumos[0]));
+  mergeReplacement(data, ['{{ANEXO_ATIVO_2}}'], formatInsumo(insumos[1]));
+  mergeReplacement(data, ['{{ANEXO_COR_POTE}}'], detalhes?.cor_pote || '');
+  mergeReplacement(data, ['{{ANEXO_COR_TAMPA}}'], detalhes?.cor_tampa || '');
+  mergeReplacement(data, ['{{ANEXO_COR_GUMMY}}'], detalhes?.cor_gummy || detalhes?.cor_soluvel || detalhes?.cor_liquido || '');
+  mergeReplacement(data, ['{{ANEXO_SABOR_GUMMY}}'], detalhes?.sabor_gummy || detalhes?.sabor_soluvel || detalhes?.sabor_liquido || '');
+  mergeReplacement(data, ['{{ANEXO_QUANTIDADE}}'], item ? String(item.quantidade || '') : '');
+  mergeReplacement(data, ['{{ANEXO_PRECO_UNITARIO}}'], item ? formatBRL(item.preco_unitario) : '');
+
+  return { signer_name: signerNameFinal, signer_email: signerEmailFinal, signer_phone_number: signerPhoneFinal };
+}
+
+async function getTemplateInfo(baseUrl: string, templateId: string, token: string): Promise<any | null> {
+  const resp = await fetch(`${baseUrl}/templates/${templateId}/`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const text = await resp.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* keep null */ }
+  if (!resp.ok) {
+    throw new Error(`ZapSign retornou ${resp.status} ao validar o modelo${json?.detail ? `: ${json.detail}` : ''}`);
+  }
+  return json;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -87,11 +256,16 @@ Deno.serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+      const templateType = String(json?.template_type || '').toLowerCase();
       return new Response(
         JSON.stringify({
           valid: true,
           template_id: templateId,
           ambiente: ambiente || 'default',
+          supports_dynamic_data: templateType === 'docx',
+          warning: templateType && templateType !== 'docx'
+            ? "Este modelo é PDF. Pela API da ZapSign, substituição de variáveis via modelo funciona apenas em Modelo DOCX dinâmico."
+            : undefined,
           template: json ?? { raw: text },
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -126,6 +300,57 @@ Deno.serve(async (req) => {
 
     const baseUrl = resolveBaseUrl(body.ambiente, defaultBaseUrl);
 
+    const payloadData = [...body.data];
+    let signerOverride: { signer_name?: string; signer_email?: string; signer_phone_number?: string } = {};
+
+    const templateInfo = await getTemplateInfo(baseUrl, templateId, token);
+    const templateType = String(templateInfo?.template_type || '').toLowerCase();
+    if (templateType && templateType !== 'docx') {
+      return new Response(
+        JSON.stringify({
+          error: "Modelo ZapSign incompatível para preenchimento automático.",
+          details: "O modelo cadastrado na ZapSign é PDF. Conforme a API da ZapSign, o endpoint /models/create-doc/ substitui variáveis apenas em Modelos DOCX dinâmicos. Cadastre um modelo DOCX com variáveis como {{NUMERO_CONTRATO}}, {{NOME_CONTRATANTE}}, {{CNPJ_CONTRATANTE}} etc.",
+          template_id: templateId,
+          template_type: templateInfo?.template_type,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const supaUrlForResumo = Deno.env.get("SUPABASE_URL");
+    const serviceRoleForResumo = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (body.orcamento_id && supaUrlForResumo && serviceRoleForResumo) {
+      try {
+        const adminResumo = createClient(supaUrlForResumo, serviceRoleForResumo, { auth: { persistSession: false } });
+        const { data: resumo, error: resumoError } = await adminResumo
+          .from("resumos_contrato")
+          .select("numero_orcamento, nome_cliente, dados_cliente, detalhamento_frete, condicoes_pagamento, detalhes_producao")
+          .eq("orcamento_id", body.orcamento_id)
+          .limit(1)
+          .maybeSingle();
+        if (resumoError) {
+          console.error("[criar-contrato-zapsign] falha ao carregar resumo:", resumoError);
+        } else if (resumo) {
+          const { data: orcamentoResumo } = await adminResumo
+            .from("orcamentos")
+            .select("numero_orcamento, itens_producao, subtotal_servicos, subtotal_producao, valor_total, condicoes_pagamento")
+            .eq("id", body.orcamento_id)
+            .limit(1)
+            .maybeSingle();
+          signerOverride = applyResumoToData(payloadData, resumo, orcamentoResumo);
+          console.log("[criar-contrato-zapsign] dados do resumo aplicados:", resumo.numero_orcamento);
+        }
+      } catch (e) {
+        console.error("[criar-contrato-zapsign] erro ao aplicar resumo:", e);
+      }
+    }
+
+    // Prioriza SEMPRE o que o usuário editou no modal (body.signer_*).
+    // signerOverride (derivado do resumo salvo) só entra como fallback.
+    const signerNameFinal = (body.signer_name || "").trim() || signerOverride.signer_name || "";
+    const signerEmailFinal = (body.signer_email || "").trim() || signerOverride.signer_email || "";
+    const signerPhoneFinal = (body.signer_phone_number || "").trim() || signerOverride.signer_phone_number || "";
+
     const extras = (body.extra_signers || []).filter((s) => s && s.name && s.email);
     console.log("[criar-contrato-zapsign] extras recebidos:", JSON.stringify(extras));
 
@@ -144,7 +369,7 @@ Deno.serve(async (req) => {
         const emailCopia = (modelo?.email_envio || "").trim();
         if (emailCopia) {
           const ja = new Set<string>([
-            (body.signer_email || "").toLowerCase().trim(),
+            (signerEmailFinal || "").toLowerCase().trim(),
             ...extras.map((s) => (s.email || "").toLowerCase().trim()),
           ]);
           if (!ja.has(emailCopia.toLowerCase())) {
@@ -164,13 +389,14 @@ Deno.serve(async (req) => {
 
     const zapPayload: Record<string, unknown> = {
       template_id: templateId,
-      signer_name: body.signer_name,
-      signer_email: body.signer_email,
+      signer_name: signerNameFinal,
+      signer_email: signerEmailFinal,
       signer_phone_country: body.signer_phone_country || "55",
-      signer_phone_number: (body.signer_phone_number || "").replace(/\D/g, ""),
+      signer_phone_number: signerPhoneFinal.replace(/\D/g, ""),
       lang: body.lang || "pt-br",
       send_automatic_email: body.send_automatic_email ?? true,
-      data: body.data,
+      data: payloadData,
+      external_id: body.orcamento_id || body.pedido_id || undefined,
     };
 
     const url = `${baseUrl}/models/create-doc/`;
@@ -261,9 +487,9 @@ Deno.serve(async (req) => {
             orcamento_id: body.orcamento_id ?? null,
             cliente_id: body.cliente_id ?? null,
             pedido_id: body.pedido_id ?? null,
-            signer_name: body.signer_name,
-            signer_email: body.signer_email,
-            signer_phone: body.signer_phone_number ?? null,
+            signer_name: signerNameFinal,
+            signer_email: signerEmailFinal,
+            signer_phone: signerPhoneFinal || null,
             status: 'pending',
           }, { onConflict: 'zapsign_token' });
 
