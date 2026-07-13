@@ -17,6 +17,9 @@ import type { ZapSignContratoCampos } from '@/lib/zapsignContrato';
 import { supabase } from '@/integrations/supabase/client';
 import { saveAs } from 'file-saver';
 import { fetchEnderecoPorCEP } from '@/lib/brasilData';
+import CondicoesPagamentoForm from '@/components/CondicoesPagamentoForm';
+import { formatarCondicoesParaContrato } from '@/lib/formatarPagamento';
+import type { CondicoesPagamento } from '@/types/orcamento';
 
 interface Props {
   open: boolean;
@@ -29,6 +32,8 @@ interface Props {
     pedidoId?: string | null;
     cliente?: string;
   };
+  condicoesPagamento?: CondicoesPagamento;
+  valorTotalNumerico?: number;
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
@@ -75,8 +80,9 @@ function formatarTelefone(input: string): string {
   return `${ddd} ${resto.slice(0, 5)}-${resto.slice(5)}`;
 }
 
-function tipoVariavel(v: string): 'nome' | 'cep' | 'telefone' | 'endereco' | 'outro' {
+function tipoVariavel(v: string): 'nome' | 'cep' | 'telefone' | 'endereco' | 'pagamento' | 'outro' {
   const k = v.toUpperCase();
+  if (/CONDICAO_?PAGAMENTO|CONDIÇÃO_?PAGAMENTO|PAGAMENTO/.test(k)) return 'pagamento';
   if (/TELEFONE|CELULAR|WHATSAPP|PHONE/.test(k)) return 'telefone';
   if (/\bCEP\b/.test(k)) return 'cep';
   if (/ENDERECO|ENDEREÇO|LOGRADOURO/.test(k)) return 'endereco';
@@ -92,7 +98,7 @@ function formatarValor(v: string, valor: string): string {
   return valor;
 }
 
-export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contexto }: Props) {
+export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contexto, condicoesPagamento, valorTotalNumerico }: Props) {
   const { data: modelos = [], isLoading } = useContratoModelosDocx();
   const [modeloId, setModeloId] = useState<string>('');
   const [valores, setValores] = useState<Record<string, string>>({});
@@ -104,6 +110,29 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
   const [complemento, setComplemento] = useState('');
   const [cepStatus, setCepStatus] = useState<Record<string, 'ok' | 'invalido' | 'checando' | undefined>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [condEdit, setCondEdit] = useState<CondicoesPagamento>({});
+
+  // Sincroniza estrutura de condições ao abrir
+  useEffect(() => {
+    if (open) setCondEdit(condicoesPagamento ? { ...condicoesPagamento } : {});
+  }, [open, condicoesPagamento]);
+
+  // Sempre que a estrutura mudar, atualiza o texto formatado em TODAS as vars de pagamento
+  useEffect(() => {
+    const texto = formatarCondicoesParaContrato(condEdit, valorTotalNumerico);
+    if (!texto) return;
+    setValores((prev) => {
+      const next = { ...prev };
+      let mudou = false;
+      for (const v of Object.keys(next)) {
+        if (tipoVariavel(v) === 'pagamento' && next[v] !== texto) {
+          next[v] = texto;
+          mudou = true;
+        }
+      }
+      return mudou ? next : prev;
+    });
+  }, [condEdit, valorTotalNumerico]);
 
   const modelo = useMemo(() => modelos.find((m) => m.id === modeloId) || null, [modelos, modeloId]);
   const variaveis = useMemo(() => detectarVariaveis(htmlBase || ''), [htmlBase]);
@@ -378,6 +407,28 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
                   const filled = !!valores[v]?.trim();
                   const t = tipoVariavel(v);
                   const status = cepStatus[v];
+                  if (t === 'pagamento') {
+                    const preview = formatarCondicoesParaContrato(condEdit, valorTotalNumerico) || valores[v] || '';
+                    return (
+                      <div key={v} className="space-y-2 md:col-span-2 border rounded-md p-3 bg-muted/20">
+                        <Label className="text-xs font-mono flex items-center gap-1">
+                          {`{{${v}}}`}
+                          <Badge variant="outline" className="text-[10px]">editor de pagamento</Badge>
+                        </Label>
+                        <CondicoesPagamentoForm
+                          value={condEdit}
+                          onChange={setCondEdit}
+                          valorTotal={valorTotalNumerico || 0}
+                        />
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Texto que será inserido no contrato</Label>
+                          <div className="text-sm bg-background border rounded-md p-2 whitespace-pre-wrap">
+                            {preview || <span className="text-muted-foreground">Configure as parcelas acima.</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={v} className="space-y-1">
                       <Label className="text-xs font-mono flex items-center gap-1">
