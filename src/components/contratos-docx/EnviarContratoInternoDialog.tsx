@@ -588,15 +588,21 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
               style={{ background: 'white' }}
             >
               <img
-                src={new URL('@/assets/watermark-lemoncaps.jpeg', import.meta.url).href}
-                alt="Marca d'água"
+                src={(new URL('../../assets/watermark-lemoncaps.png.asset.json', import.meta.url), '')}
+                data-src-json
+                alt=""
                 aria-hidden
+                ref={(el) => {
+                  if (el && !el.src) {
+                    import('@/assets/watermark-lemoncaps.png.asset.json').then((m: any) => { el.src = m.default?.url || m.url; });
+                  }
+                }}
                 style={{
                   position: 'sticky',
                   top: 8,
-                  float: 'right',
-                  marginRight: 12,
-                  width: 36,
+                  float: 'left',
+                  marginLeft: 12,
+                  width: 24,
                   height: 'auto',
                   opacity: 0.9,
                   zIndex: 5,
