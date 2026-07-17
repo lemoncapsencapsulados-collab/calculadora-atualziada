@@ -11,6 +11,7 @@ export const ZAPSIGN_ALIAS_GROUPS: string[][] = [
   ['{{CPF_REPRESENTANTE}}', '{{CPF REPRESENTANTE}}'],
   ['{{NUMERO_ORCAMENTO}}', '{{NÚMERO_ORÇAMENTO}}', '{{NUMERO ORCAMENTO}}', '{{NÚMERO ORÇAMENTO}}', '{{NUMERO_CONTRATO}}', '{{NÚMERO_CONTRATO}}', '{{NUMERO CONTRATO}}', '{{Nº_CONTRATO}}', '{{N_CONTRATO}}'],
   ['{{DATA_CONTRATO}}', '{{DATA CONTRATO}}'],
+  ['{{DATADODIA}}', '{{DATA_DO_DIA}}', '{{DATA DO DIA}}', '{{DATA_HOJE}}', '{{DATA HOJE}}', '{{DATA_ATUAL}}', '{{DATA ATUAL}}'],
   ['{{PRODUTO_DESCRICAO}}', '{{PRODUTO_DESCRIÇÃO}}', '{{PRODUTO DESCRICAO}}', '{{PRODUTO}}'],
   ['{{PRODUTO_APRESENTACAO}}', '{{PRODUTO_APRESENTAÇÃO}}'],
   ['{{PRODUTO_PRECO}}', '{{PRODUTO_PREÇO}}', '{{PRODUTO_PRECO_UNIT}}', '{{PRODUTO_PREÇO_UNIT}}'],
@@ -95,6 +96,8 @@ export function formatarInsumoContrato(insumo: { nome?: string; quantidade?: num
 }
 
 export function montarDadosZapSign(campos: ZapSignContratoCampos): ZapSignReplacement[] {
+  const hoje = new Date();
+  const dataDoDia = hoje.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return [
     par('{{RAZAO_SOCIAL_CONTRATANTE}}', campos.razao_social),
     par('{{RAZÃO_SOCIAL_CONTRATANTE}}', campos.razao_social),
@@ -136,6 +139,13 @@ export function montarDadosZapSign(campos: ZapSignContratoCampos): ZapSignReplac
     par('{{N_CONTRATO}}', campos.numero_contrato),
     par('{{DATA_CONTRATO}}', campos.data_contrato),
     par('{{DATA CONTRATO}}', campos.data_contrato),
+    par('{{DATADODIA}}', dataDoDia),
+    par('{{DATA_DO_DIA}}', dataDoDia),
+    par('{{DATA DO DIA}}', dataDoDia),
+    par('{{DATA_HOJE}}', dataDoDia),
+    par('{{DATA HOJE}}', dataDoDia),
+    par('{{DATA_ATUAL}}', dataDoDia),
+    par('{{DATA ATUAL}}', dataDoDia),
     par('{{PRODUTO_DESCRICAO}}', campos.produto_descricao),
     par('{{PRODUTO_DESCRIÇÃO}}', campos.produto_descricao),
     par('{{PRODUTO DESCRICAO}}', campos.produto_descricao),
