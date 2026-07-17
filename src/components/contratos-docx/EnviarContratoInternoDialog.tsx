@@ -596,7 +596,7 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
                   position: 'sticky',
                   top: 80,
                   float: 'left',
-                  marginLeft: 40,
+                  marginLeft: 120,
                   width: 40,
                   height: 'auto',
                   opacity: 0.9,
