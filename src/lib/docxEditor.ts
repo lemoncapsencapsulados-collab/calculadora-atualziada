@@ -3,147 +3,8 @@ import { asBlob } from 'html-docx-js-typescript';
 import { saveAs } from 'file-saver';
 import Docxtemplater from 'docxtemplater';
 import { normalizarVariavel } from './contratoDocxAutoFill';
-import watermarkAsset from '@/assets/watermark-lemoncaps.png.asset.json';
-const watermarkUrl = watermarkAsset.url;
 
-// ---------------------------------------------------------------------------
-// Marca d'água — imagem pequena no canto superior direito de todas as páginas
-// ---------------------------------------------------------------------------
-let _watermarkBytesPromise: Promise<Uint8Array> | null = null;
-async function getWatermarkBytes(): Promise<Uint8Array> {
-  if (!_watermarkBytesPromise) {
-    _watermarkBytesPromise = fetch(watermarkUrl)
-      .then((r) => r.arrayBuffer())
-      .then((b) => new Uint8Array(b));
-  }
-  return _watermarkBytesPromise;
-}
 
-export const WATERMARK_URL = watermarkUrl;
-
-function buildHeaderXml(): string {
-  // EMUs: 914400 = 1 inch, 9525 EMU = 1px. Logo 40px posicionado mais abaixo
-  // e mais à direita no topo da página, alinhado à marca vermelha.
-  const cx = 381000; // 40px
-  const cy = 381000; // 40px
-  const posH = 1600000; // ~1.75in da borda esquerda da página
-  const posV = 1600000; // ~1.75in do topo
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-  <w:p>
-    <w:r>
-      <w:rPr><w:noProof/></w:rPr>
-      <w:drawing>
-        <wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
-          <wp:simplePos x="0" y="0"/>
-          <wp:positionH relativeFrom="page"><wp:posOffset>${posH}</wp:posOffset></wp:positionH>
-          <wp:positionV relativeFrom="page"><wp:posOffset>${posV}</wp:posOffset></wp:positionV>
-          <wp:extent cx="${cx}" cy="${cy}"/>
-          <wp:effectExtent l="0" t="0" r="0" b="0"/>
-          <wp:wrapNone/>
-          <wp:docPr id="1001" name="MarcaDagua"/>
-          <wp:cNvGraphicFramePr/>
-          <a:graphic>
-            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-              <pic:pic>
-                <pic:nvPicPr>
-                  <pic:cNvPr id="1001" name="wm.jpeg"/>
-                  <pic:cNvPicPr/>
-                </pic:nvPicPr>
-                <pic:blipFill>
-                  <a:blip r:embed="rIdWmImg"/>
-                  <a:stretch><a:fillRect/></a:stretch>
-                </pic:blipFill>
-                <pic:spPr>
-                  <a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
-                  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-                </pic:spPr>
-              </pic:pic>
-            </a:graphicData>
-          </a:graphic>
-        </wp:anchor>
-      </w:drawing>
-    </w:r>
-  </w:p>
-</w:hdr>`;
-}
-
-async function injetarMarcaDagua(blob: Blob): Promise<Blob> {
-  try {
-    const ab = await blob.arrayBuffer();
-    const zip = new PizZip(ab);
-    const imgBytes = await getWatermarkBytes();
-
-    // 1) media
-    zip.file('word/media/watermark-lemoncaps.png', imgBytes, { binary: true });
-
-    // 2) header xml
-    zip.file('word/header_watermark.xml', buildHeaderXml());
-
-    // 3) rels do header → imagem
-    const headerRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rIdWmImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/watermark-lemoncaps.png"/>
-</Relationships>`;
-    zip.file('word/_rels/header_watermark.xml.rels', headerRels);
-
-    // 4) rels do document → header
-    const relsPath = 'word/_rels/document.xml.rels';
-    let relsXml = zip.file(relsPath)?.asText();
-    if (!relsXml) return blob;
-    const headerRelId = 'rIdWmHeader';
-    if (!relsXml.includes(headerRelId)) {
-      relsXml = relsXml.replace(
-        /<\/Relationships>/i,
-        `<Relationship Id="${headerRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header_watermark.xml"/></Relationships>`,
-      );
-      zip.file(relsPath, relsXml);
-    }
-
-    // 5) [Content_Types].xml — jpeg default + header override
-    const ctPath = '[Content_Types].xml';
-    let ct = zip.file(ctPath)?.asText();
-    if (ct) {
-      if (!/Extension="png"/i.test(ct)) {
-        ct = ct.replace(/<Types(\s[^>]*)?>/i, (m) => `${m}<Default Extension="png" ContentType="image/png"/>`);
-      }
-      if (!ct.includes('header_watermark.xml')) {
-        ct = ct.replace(
-          /<\/Types>/i,
-          `<Override PartName="/word/header_watermark.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>`,
-        );
-      }
-      zip.file(ctPath, ct);
-    }
-
-    // 6) document.xml — inserir headerReference no sectPr
-    const docPath = 'word/document.xml';
-    let docXml = zip.file(docPath)?.asText();
-    if (docXml && !docXml.includes(`r:id="${headerRelId}"`)) {
-      const headerRef = `<w:headerReference xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" w:type="default" r:id="${headerRelId}"/>`;
-      if (/<w:sectPr(\s[^>]*)?>/i.test(docXml)) {
-        docXml = docXml.replace(/<w:sectPr(\s[^>]*)?>/i, (m) => `${m}${headerRef}`);
-      } else {
-        // Cria sectPr no fim do body
-        docXml = docXml.replace(
-          /<\/w:body>/i,
-          `<w:sectPr>${headerRef}</w:sectPr></w:body>`,
-        );
-      }
-      zip.file(docPath, docXml);
-    }
-
-    const outBlob = zip.generate({
-      type: 'blob',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      compression: 'DEFLATE',
-    });
-    return outBlob;
-  } catch (err) {
-    console.warn('[watermark] falha ao injetar marca d\'água:', err);
-    return blob;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Conversor OOXML → HTML de alta fidelidade
@@ -657,10 +518,9 @@ function envolverHtmlParaDocx(html: string) {
 
 export async function htmlComoDocxBlob(html: string): Promise<Blob> {
   const result = await asBlob(envolverHtmlParaDocx(html));
-  const blob = result instanceof Blob
+  return result instanceof Blob
     ? result
     : new Blob([result as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-  return injetarMarcaDagua(blob);
 }
 
 export async function baixarHtmlComoDocx(html: string, nomeArquivo: string) {
@@ -712,12 +572,4 @@ export function preencherDocxOriginal(
     compression: 'DEFLATE',
   });
   return out as Blob;
-}
-
-export async function preencherDocxOriginalComMarcaDagua(
-  arrayBuffer: ArrayBuffer,
-  valores: Record<string, string>,
-): Promise<Blob> {
-  const blob = preencherDocxOriginal(arrayBuffer, valores);
-  return injetarMarcaDagua(blob);
 }
