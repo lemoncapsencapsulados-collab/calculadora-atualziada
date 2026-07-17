@@ -101,7 +101,15 @@ function formatarValor(v: string, valor: string): string {
 }
 
 function entregaveisParaTexto(items: string[]): string {
-  return items.map((s) => s.trim()).filter(Boolean).map((s) => `• ${s}`).join('\n');
+  return items.map((s) => limparEmojis(s).trim()).filter(Boolean).map((s) => `• ${s}`).join('\n');
+}
+
+function limparEmojis(s: string): string {
+  // Remove emojis (símbolos pictográficos, dingbats, checkmarks) e espaços duplicados
+  return s
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contexto, condicoesPagamento, valorTotalNumerico, entregaveisPadrao }: Props) {
