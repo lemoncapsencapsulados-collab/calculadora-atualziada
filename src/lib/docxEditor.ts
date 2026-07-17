@@ -443,7 +443,41 @@ export async function docxParaHtml(arrayBuffer: ArrayBuffer): Promise<string> {
 }
 
 export function preencherHtmlComVariaveis(html: string, valores: Record<string, string>): string {
-  return html.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_all, nome) => {
+  // 1) Placeholders cujo valor contém quebras de linha (ex.: ENTREGAVEIS) são
+  // expandidos em múltiplos parágrafos alinhados à esquerda, dividindo o <p>
+  // pai. Isso evita que a justificação do parágrafo original estique linhas
+  // intermediárias (o Word só não estica a última linha antes de <w:br/>).
+  let out = html;
+  const multi = Object.entries(valores).filter(
+    ([, v]) => typeof v === 'string' && /\n/.test(v as string),
+  );
+  for (const [k, v] of multi) {
+    const linhas = String(v)
+      .split(/\r?\n+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (!linhas.length) continue;
+    const bloco = linhas
+      .map(
+        (l) =>
+          `<p style="text-align:left;margin:2pt 0">${escapeHtml(l)}</p>`,
+      )
+      .join('');
+    const escKey = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(
+      `<p([^>]*)>([\\s\\S]*?)\\{\\{\\s*${escKey}\\s*\\}\\}([\\s\\S]*?)</p>`,
+      'gi',
+    );
+    out = out.replace(re, (_m, attrs: string, antes: string, depois: string) => {
+      const antesLimpo = antes.replace(/(?:&nbsp;|\s|<br\s*\/?>)+$/i, '');
+      const depoisLimpo = depois.replace(/^(?:&nbsp;|\s|<br\s*\/?>)+/i, '');
+      const antesP = antesLimpo.trim() ? `<p${attrs}>${antesLimpo}</p>` : '';
+      const depoisP = depoisLimpo.trim() ? `<p${attrs}>${depoisLimpo}</p>` : '';
+      return `${antesP}${bloco}${depoisP}`;
+    });
+  }
+  // 2) Substitui os placeholders restantes normalmente (com escape de HTML).
+  return out.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_all, nome) => {
     const chave = String(nome).trim();
     if (chave in valores) return escapeHtml(valores[chave] ?? '');
     // tenta case-insensitive
