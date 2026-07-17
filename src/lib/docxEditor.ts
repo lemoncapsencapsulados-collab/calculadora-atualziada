@@ -22,11 +22,12 @@ async function getWatermarkBytes(): Promise<Uint8Array> {
 export const WATERMARK_URL = watermarkUrl;
 
 function buildHeaderXml(): string {
-  // EMUs: 914400 = 1 inch. Imagem pequena (~0.32in) no canto superior esquerdo.
-  const cx = 300000;
-  const cy = 300000;
-  const posH = 360000; // ~0.4in a partir da esquerda da página
-  const posV = 200000; // ~0.22in do topo
+  // EMUs: 914400 = 1 inch, 9525 EMU = 1px. Logo 40px no canto superior esquerdo
+  // do conteúdo (após margem esquerda ~1in).
+  const cx = 381000; // 40px
+  const cy = 381000; // 40px
+  const posH = 914400; // ~1in da borda esquerda da página
+  const posV = 640000; // ~0.7in do topo
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
   <w:p>
