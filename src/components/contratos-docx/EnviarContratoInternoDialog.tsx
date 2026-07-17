@@ -20,6 +20,7 @@ import { fetchEnderecoPorCEP } from '@/lib/brasilData';
 import CondicoesPagamentoForm from '@/components/CondicoesPagamentoForm';
 import { formatarCondicoesParaContrato } from '@/lib/formatarPagamento';
 import type { CondicoesPagamento } from '@/types/orcamento';
+import watermarkAsset from '@/assets/watermark-lemoncaps.png.asset.json';
 
 interface Props {
   open: boolean;
@@ -588,15 +589,15 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
               style={{ background: 'white' }}
             >
               <img
-                src={new URL('@/assets/watermark-lemoncaps.jpeg', import.meta.url).href}
-                alt="Marca d'água"
+                src={watermarkAsset.url}
+                alt=""
                 aria-hidden
                 style={{
                   position: 'sticky',
                   top: 8,
-                  float: 'right',
-                  marginRight: 12,
-                  width: 36,
+                  float: 'left',
+                  marginLeft: 12,
+                  width: 24,
                   height: 'auto',
                   opacity: 0.9,
                   zIndex: 5,

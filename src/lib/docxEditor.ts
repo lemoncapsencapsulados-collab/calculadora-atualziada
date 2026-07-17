@@ -3,7 +3,8 @@ import { asBlob } from 'html-docx-js-typescript';
 import { saveAs } from 'file-saver';
 import Docxtemplater from 'docxtemplater';
 import { normalizarVariavel } from './contratoDocxAutoFill';
-import watermarkUrl from '@/assets/watermark-lemoncaps.jpeg';
+import watermarkAsset from '@/assets/watermark-lemoncaps.png.asset.json';
+const watermarkUrl = watermarkAsset.url;
 
 // ---------------------------------------------------------------------------
 // Marca d'água — imagem pequena no canto superior direito de todas as páginas
@@ -21,12 +22,11 @@ async function getWatermarkBytes(): Promise<Uint8Array> {
 export const WATERMARK_URL = watermarkUrl;
 
 function buildHeaderXml(): string {
-  // EMUs: 914400 = 1 inch. Imagem ~0.55in (500000 EMU) posicionada perto do
-  // canto superior direito da página (A4/Letter ~5.9-6.2in do lado esquerdo).
-  const cx = 500000;
-  const cy = 650000;
-  const posH = 5600000; // ~6.1in a partir da esquerda da página
-  const posV = 200000;  // ~0.22in do topo
+  // EMUs: 914400 = 1 inch. Imagem pequena (~0.32in) no canto superior esquerdo.
+  const cx = 300000;
+  const cy = 300000;
+  const posH = 360000; // ~0.4in a partir da esquerda da página
+  const posV = 200000; // ~0.22in do topo
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
   <w:p>
@@ -74,7 +74,7 @@ async function injetarMarcaDagua(blob: Blob): Promise<Blob> {
     const imgBytes = await getWatermarkBytes();
 
     // 1) media
-    zip.file('word/media/watermark-lemoncaps.jpeg', imgBytes, { binary: true });
+    zip.file('word/media/watermark-lemoncaps.png', imgBytes, { binary: true });
 
     // 2) header xml
     zip.file('word/header_watermark.xml', buildHeaderXml());
@@ -82,7 +82,7 @@ async function injetarMarcaDagua(blob: Blob): Promise<Blob> {
     // 3) rels do header → imagem
     const headerRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rIdWmImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/watermark-lemoncaps.jpeg"/>
+  <Relationship Id="rIdWmImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/watermark-lemoncaps.png"/>
 </Relationships>`;
     zip.file('word/_rels/header_watermark.xml.rels', headerRels);
 
@@ -103,8 +103,8 @@ async function injetarMarcaDagua(blob: Blob): Promise<Blob> {
     const ctPath = '[Content_Types].xml';
     let ct = zip.file(ctPath)?.asText();
     if (ct) {
-      if (!/Extension="jpeg"/i.test(ct) && !/Extension="jpg"/i.test(ct)) {
-        ct = ct.replace(/<Types(\s[^>]*)?>/i, (m) => `${m}<Default Extension="jpeg" ContentType="image/jpeg"/>`);
+      if (!/Extension="png"/i.test(ct)) {
+        ct = ct.replace(/<Types(\s[^>]*)?>/i, (m) => `${m}<Default Extension="png" ContentType="image/png"/>`);
       }
       if (!ct.includes('header_watermark.xml')) {
         ct = ct.replace(
