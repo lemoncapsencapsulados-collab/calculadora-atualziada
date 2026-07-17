@@ -1536,6 +1536,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           campos={zapSignCampos || buildZapSignCamposPadrao()}
           condicoesPagamento={condicoesPagamento}
           valorTotalNumerico={orcamento.valor_total || 0}
+          entregaveisPadrao={(orcamento.servicos_marca || []).flatMap((sv) =>
+            (sv.entregaveis || [])
+              .filter((e) => e.incluso)
+              .map((e) => (e.quantidade > 1 ? `${e.nome} (${e.quantidade}x)` : e.nome))
+          )}
           contexto={{
             consultorNome: orcamento.consultor_responsavel || undefined,
             orcamentoId: orcamento.id,
