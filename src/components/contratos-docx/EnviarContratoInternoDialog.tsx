@@ -584,10 +584,30 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
           </DialogHeader>
           <div className="overflow-y-auto bg-muted/30 px-4 pb-6" style={{ maxHeight: '80vh' }}>
             <div
-              className="contrato-editor"
+              className="relative"
               style={{ background: 'white' }}
-              dangerouslySetInnerHTML={{ __html: htmlPreview || '<p>Sem conteúdo</p>' }}
-            />
+            >
+              <img
+                src={new URL('@/assets/watermark-lemoncaps.jpeg', import.meta.url).href}
+                alt="Marca d'água"
+                aria-hidden
+                style={{
+                  position: 'sticky',
+                  top: 8,
+                  float: 'right',
+                  marginRight: 12,
+                  width: 36,
+                  height: 'auto',
+                  opacity: 0.9,
+                  zIndex: 5,
+                  pointerEvents: 'none',
+                }}
+              />
+              <div
+                className="contrato-editor"
+                dangerouslySetInnerHTML={{ __html: htmlPreview || '<p>Sem conteúdo</p>' }}
+              />
+            </div>
           </div>
           <DialogFooter className="px-6 pb-4">
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>Fechar</Button>
