@@ -146,7 +146,7 @@ All colors MUST be HSL.
 .contrato-editor {
   font-family: "Times New Roman", Times, serif;
   font-size: 12pt;
-  line-height: 16pt;
+  line-height: 1.5;
   color: #000;
   width: 595.3pt;
   min-height: 841.9pt;

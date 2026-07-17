@@ -20,7 +20,7 @@ import { fetchEnderecoPorCEP } from '@/lib/brasilData';
 import CondicoesPagamentoForm from '@/components/CondicoesPagamentoForm';
 import { formatarCondicoesParaContrato } from '@/lib/formatarPagamento';
 import type { CondicoesPagamento } from '@/types/orcamento';
-import watermarkAsset from '@/assets/watermark-lemoncaps.png.asset.json';
+
 
 interface Props {
   open: boolean;
@@ -585,30 +585,10 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
           </DialogHeader>
           <div className="overflow-y-auto bg-muted/30 px-4 pb-6" style={{ maxHeight: '80vh' }}>
             <div
-              className="relative"
+              className="relative contrato-editor"
               style={{ background: 'white' }}
-            >
-              <img
-                src={watermarkAsset.url}
-                alt=""
-                aria-hidden
-                style={{
-                  position: 'sticky',
-                  top: 80,
-                  float: 'left',
-                  marginLeft: 120,
-                  width: 40,
-                  height: 'auto',
-                  opacity: 0.9,
-                  zIndex: 5,
-                  pointerEvents: 'none',
-                }}
-              />
-              <div
-                className="contrato-editor"
-                dangerouslySetInnerHTML={{ __html: htmlPreview || '<p>Sem conteúdo</p>' }}
-              />
-            </div>
+              dangerouslySetInnerHTML={{ __html: htmlPreview || '<p>Sem conteúdo</p>' }}
+            />
           </div>
           <DialogFooter className="px-6 pb-4">
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>Fechar</Button>
