@@ -1,9 +1,19 @@
 import { Editor } from '@tiptap/react';
 import { Button } from '@/components/ui/button';
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading1, Heading2, Heading3, AlignLeft, AlignCenter, AlignRight, Table as TableIcon, Undo, Redo, Braces } from 'lucide-react';
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Heading1, Heading2, Heading3, AlignLeft, AlignCenter, AlignRight, Table as TableIcon, Undo, Redo, Braces, Image as ImageIcon } from 'lucide-react';
+import { useRef } from 'react';
 
 export function EditorToolbar({ editor, onInsertVariable }: { editor: Editor | null; onInsertVariable?: () => void }) {
   if (!editor) return null;
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const inserirImagemArquivo = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = reader.result as string;
+      (editor.chain().focus() as any).setImage({ src }).run();
+    };
+    reader.readAsDataURL(file);
+  };
   const chain = () => (editor.chain().focus() as any);
   const btn = (active: boolean, onClick: () => void, icon: React.ReactNode, title: string) => (
     <Button type="button" size="sm" variant={active ? 'default' : 'ghost'} className="h-8 w-8 p-0" onClick={onClick} title={title}>
@@ -28,6 +38,18 @@ export function EditorToolbar({ editor, onInsertVariable }: { editor: Editor | n
       {btn(editor.isActive({ textAlign: 'right' }), () => chain().setTextAlign('right').run(), <AlignRight className="w-4 h-4" />, 'Direita')}
       <div className="w-px h-6 bg-border mx-1" />
       {btn(false, () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), <TableIcon className="w-4 h-4" />, 'Inserir tabela')}
+      {btn(false, () => fileRef.current?.click(), <ImageIcon className="w-4 h-4" />, 'Inserir imagem (ou cole com Ctrl+V)')}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) inserirImagemArquivo(f);
+          e.target.value = '';
+        }}
+      />
       <div className="w-px h-6 bg-border mx-1" />
       {btn(false, () => chain().undo().run(), <Undo className="w-4 h-4" />, 'Desfazer')}
       {btn(false, () => chain().redo().run(), <Redo className="w-4 h-4" />, 'Refazer')}
