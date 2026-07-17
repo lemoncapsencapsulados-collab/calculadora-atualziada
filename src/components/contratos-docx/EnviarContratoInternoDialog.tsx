@@ -461,6 +461,60 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
                       </div>
                     );
                   }
+                  if ((t as any) === 'entregaveis') {
+                    const preview = entregaveisParaTexto(entregaveisEdit);
+                    return (
+                      <div key={v} className="space-y-2 md:col-span-2 border rounded-md p-3 bg-muted/20">
+                        <Label className="text-xs font-mono flex items-center gap-1">
+                          {`{{${v}}}`}
+                          <Badge variant="outline" className="text-[10px]">entregáveis do projeto</Badge>
+                          <Badge variant="secondary" className="text-[10px] ml-auto">{entregaveisEdit.length} itens</Badge>
+                        </Label>
+                        <p className="text-[11px] text-muted-foreground">
+                          Puxado do projeto. Edite, adicione ou remova itens — vão para a Cláusula 1 do contrato.
+                        </p>
+                        <div className="space-y-2">
+                          {entregaveisEdit.map((item, idx) => (
+                            <div key={idx} className="flex items-start gap-2">
+                              <span className="pt-2 text-muted-foreground">•</span>
+                              <Textarea
+                                rows={1}
+                                value={item}
+                                onChange={(e) => {
+                                  const next = [...entregaveisEdit];
+                                  next[idx] = e.target.value;
+                                  setEntregaveisEdit(next);
+                                }}
+                                className="text-xs flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setEntregaveisEdit(entregaveisEdit.filter((_, i) => i !== idx))}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEntregaveisEdit([...entregaveisEdit, ''])}
+                          >
+                            <Plus className="w-4 h-4 mr-1" /> Adicionar entregável
+                          </Button>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Texto que será inserido no contrato</Label>
+                          <div className="text-sm bg-background border rounded-md p-2 whitespace-pre-wrap">
+                            {preview || <span className="text-muted-foreground">Nenhum entregável.</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={v} className="space-y-1">
                       <Label className="text-xs font-mono flex items-center gap-1">
