@@ -8,6 +8,7 @@ import { ParagraphWithStyle, HeadingWithStyle, TableWithStyle, TableRowWithStyle
 import { Color } from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import Image from '@tiptap/extension-image';
+import { Extension } from '@tiptap/core';
 import { ArrowLeft, Save, Loader2, Braces, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -33,6 +34,24 @@ export default function EditorContratoModelo() {
   const [insertVarOpen, setInsertVarOpen] = useState(false);
   const [novaVariavel, setNovaVariavel] = useState('');
   const [preencherOpen, setPreencherOpen] = useState(false);
+  const [imgSelecionada, setImgSelecionada] = useState<{ width?: string } | null>(null);
+
+  // Extensão de imagem com atributo de largura
+  const ImageResizable = Image.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        width: {
+          default: null,
+          parseHTML: (element) => element.getAttribute('width') || element.style.width || null,
+          renderHTML: (attrs) => {
+            if (!attrs.width) return {};
+            return { width: attrs.width, style: `width: ${attrs.width}` };
+          },
+        },
+      };
+    },
+  });
 
   const editor = useEditor({
     extensions: [
@@ -48,7 +67,7 @@ export default function EditorContratoModelo() {
       TableRowWithStyle,
       TableHeaderWithStyle,
       TableCellWithStyle,
-      Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'contrato-img' } }),
+      ImageResizable.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'contrato-img' } }),
     ],
     content: '<p>Carregando modelo...</p>',
     editorProps: {
