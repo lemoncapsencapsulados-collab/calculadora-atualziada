@@ -8,6 +8,7 @@ import { ParagraphWithStyle, HeadingWithStyle, TableWithStyle, TableRowWithStyle
 import { Color } from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
 import Image from '@tiptap/extension-image';
+import { Extension } from '@tiptap/core';
 import { ArrowLeft, Save, Loader2, Braces, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -33,6 +34,24 @@ export default function EditorContratoModelo() {
   const [insertVarOpen, setInsertVarOpen] = useState(false);
   const [novaVariavel, setNovaVariavel] = useState('');
   const [preencherOpen, setPreencherOpen] = useState(false);
+  const [imgSelecionada, setImgSelecionada] = useState<{ width?: string } | null>(null);
+
+  // Extensão de imagem com atributo de largura
+  const ImageResizable = Image.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        width: {
+          default: null,
+          parseHTML: (element) => element.getAttribute('width') || element.style.width || null,
+          renderHTML: (attrs) => {
+            if (!attrs.width) return {};
+            return { width: attrs.width, style: `width: ${attrs.width}` };
+          },
+        },
+      };
+    },
+  });
 
   const editor = useEditor({
     extensions: [
@@ -48,12 +67,12 @@ export default function EditorContratoModelo() {
       TableRowWithStyle,
       TableHeaderWithStyle,
       TableCellWithStyle,
-      Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'contrato-img' } }),
+      ImageResizable.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'contrato-img' } }),
     ],
     content: '<p>Carregando modelo...</p>',
     editorProps: {
       attributes: {
-        class: 'contrato-editor prose prose-sm max-w-none focus:outline-none min-h-[70vh] p-10 bg-white text-black shadow-inner',
+        class: 'contrato-editor prose prose-sm max-w-none focus:outline-none min-h-[70vh] px-10 pt-3 pb-10 bg-white text-black shadow-inner',
       },
       handlePaste: (view, event) => {
         const items = event.clipboardData?.items;
@@ -124,6 +143,30 @@ export default function EditorContratoModelo() {
     if (!editor) return [] as string[];
     return detectarVariaveis(editor.getHTML());
   }, [editor, editor?.state]);
+
+  // Detecta seleção de imagem
+  useEffect(() => {
+    if (!editor) return;
+    const atualizar = () => {
+      if (editor.isActive('image')) {
+        const attrs = editor.getAttributes('image') as { width?: string };
+        setImgSelecionada({ width: attrs.width || '' });
+      } else {
+        setImgSelecionada(null);
+      }
+    };
+    editor.on('selectionUpdate', atualizar);
+    editor.on('transaction', atualizar);
+    return () => {
+      editor.off('selectionUpdate', atualizar);
+      editor.off('transaction', atualizar);
+    };
+  }, [editor]);
+
+  const definirLarguraImg = (w: string | null) => {
+    if (!editor) return;
+    (editor.chain().focus() as any).updateAttributes('image', { width: w }).run();
+  };
 
   const salvar = async () => {
     if (!editor || !modelo) return;
@@ -204,6 +247,48 @@ export default function EditorContratoModelo() {
           )}
           {erroCarregar && (
             <div className="p-4 bg-destructive/10 text-destructive text-sm">{erroCarregar}</div>
+          )}
+          {imgSelecionada && (
+            <div className="flex flex-wrap items-center gap-2 border-b bg-primary/5 px-3 py-2 text-xs">
+              <span className="font-semibold text-primary">Imagem selecionada — tamanho:</span>
+              {[
+                { label: '25%', val: '25%' },
+                { label: '50%', val: '50%' },
+                { label: '75%', val: '75%' },
+                { label: '100%', val: '100%' },
+              ].map((opt) => (
+                <Button
+                  key={opt.val}
+                  size="sm"
+                  variant={imgSelecionada.width === opt.val ? 'default' : 'outline'}
+                  className="h-7 px-2"
+                  onClick={() => definirLarguraImg(opt.val)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => definirLarguraImg(null)}>
+                Original
+              </Button>
+              <div className="flex items-center gap-1 ml-2">
+                <Label className="text-xs">Personalizado:</Label>
+                <Input
+                  className="h-7 w-24 text-xs"
+                  placeholder="ex: 300px"
+                  defaultValue={imgSelecionada.width || ''}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    definirLarguraImg(v || null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const v = (e.target as HTMLInputElement).value.trim();
+                      definirLarguraImg(v || null);
+                    }
+                  }}
+                />
+              </div>
+            </div>
           )}
           <div className="max-h-[75vh] overflow-y-auto bg-muted/20">
             <EditorContent editor={editor} />
