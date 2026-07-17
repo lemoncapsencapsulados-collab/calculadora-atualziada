@@ -96,6 +96,8 @@ export function formatarInsumoContrato(insumo: { nome?: string; quantidade?: num
 }
 
 export function montarDadosZapSign(campos: ZapSignContratoCampos): ZapSignReplacement[] {
+  const hoje = new Date();
+  const dataDoDia = hoje.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return [
     par('{{RAZAO_SOCIAL_CONTRATANTE}}', campos.razao_social),
     par('{{RAZÃO_SOCIAL_CONTRATANTE}}', campos.razao_social),
