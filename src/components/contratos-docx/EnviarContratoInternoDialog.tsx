@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Download, Send, FileText, AlertTriangle, Mail } from 'lucide-react';
+import { Loader2, Download, Send, FileText, AlertTriangle, Mail, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratoModelosDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
 import { docxParaHtml, preencherDocxOriginal } from '@/lib/docxEditor';
@@ -34,6 +34,7 @@ interface Props {
   };
   condicoesPagamento?: CondicoesPagamento;
   valorTotalNumerico?: number;
+  entregaveisPadrao?: string[];
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
@@ -83,6 +84,7 @@ function formatarTelefone(input: string): string {
 function tipoVariavel(v: string): 'nome' | 'cep' | 'telefone' | 'endereco' | 'pagamento' | 'outro' {
   const k = v.toUpperCase();
   if (/CONDICAO_?PAGAMENTO|CONDIÇÃO_?PAGAMENTO|PAGAMENTO/.test(k)) return 'pagamento';
+  if (/ENTREGAV/.test(k)) return 'entregaveis' as any;
   if (/TELEFONE|CELULAR|WHATSAPP|PHONE/.test(k)) return 'telefone';
   if (/\bCEP\b/.test(k)) return 'cep';
   if (/ENDERECO|ENDEREÇO|LOGRADOURO/.test(k)) return 'endereco';
@@ -98,7 +100,11 @@ function formatarValor(v: string, valor: string): string {
   return valor;
 }
 
-export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contexto, condicoesPagamento, valorTotalNumerico }: Props) {
+function entregaveisParaTexto(items: string[]): string {
+  return items.map((s) => s.trim()).filter(Boolean).map((s) => `• ${s}`).join('\n');
+}
+
+export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contexto, condicoesPagamento, valorTotalNumerico, entregaveisPadrao }: Props) {
   const { data: modelos = [], isLoading } = useContratoModelosDocx();
   const [modeloId, setModeloId] = useState<string>('');
   const [valores, setValores] = useState<Record<string, string>>({});
@@ -111,6 +117,28 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
   const [cepStatus, setCepStatus] = useState<Record<string, 'ok' | 'invalido' | 'checando' | undefined>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [condEdit, setCondEdit] = useState<CondicoesPagamento>({});
+  const [entregaveisEdit, setEntregaveisEdit] = useState<string[]>([]);
+
+  // Sincroniza entregáveis ao abrir
+  useEffect(() => {
+    if (open) setEntregaveisEdit((entregaveisPadrao && entregaveisPadrao.length) ? [...entregaveisPadrao] : []);
+  }, [open, entregaveisPadrao?.join('|')]);
+
+  // Atualiza texto formatado em todas as variáveis de entregáveis quando a lista muda
+  useEffect(() => {
+    const texto = entregaveisParaTexto(entregaveisEdit);
+    setValores((prev) => {
+      const next = { ...prev };
+      let mudou = false;
+      for (const v of Object.keys(next)) {
+        if ((tipoVariavel(v) as any) === 'entregaveis' && next[v] !== texto) {
+          next[v] = texto;
+          mudou = true;
+        }
+      }
+      return mudou ? next : prev;
+    });
+  }, [entregaveisEdit]);
 
   // Sincroniza estrutura de condições ao abrir
   useEffect(() => {
@@ -177,6 +205,10 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
     setValores((prev) => {
       const next: Record<string, string> = {};
       for (const v of variaveis) {
+        if ((tipoVariavel(v) as any) === 'entregaveis') {
+          next[v] = prev[v] ?? entregaveisParaTexto(entregaveisEdit);
+          continue;
+        }
         const bruto = prev[v] ?? preencherAutomatico(v, mapaAuto);
         next[v] = formatarValor(v, bruto);
       }
