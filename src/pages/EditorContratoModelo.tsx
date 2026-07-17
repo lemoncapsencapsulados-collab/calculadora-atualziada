@@ -72,7 +72,7 @@ export default function EditorContratoModelo() {
     content: '<p>Carregando modelo...</p>',
     editorProps: {
       attributes: {
-        class: 'contrato-editor prose prose-sm max-w-none focus:outline-none min-h-[70vh] p-10 bg-white text-black shadow-inner',
+        class: 'contrato-editor prose prose-sm max-w-none focus:outline-none min-h-[70vh] px-10 pt-3 pb-10 bg-white text-black shadow-inner',
       },
       handlePaste: (view, event) => {
         const items = event.clipboardData?.items;
@@ -143,6 +143,30 @@ export default function EditorContratoModelo() {
     if (!editor) return [] as string[];
     return detectarVariaveis(editor.getHTML());
   }, [editor, editor?.state]);
+
+  // Detecta seleção de imagem
+  useEffect(() => {
+    if (!editor) return;
+    const atualizar = () => {
+      if (editor.isActive('image')) {
+        const attrs = editor.getAttributes('image') as { width?: string };
+        setImgSelecionada({ width: attrs.width || '' });
+      } else {
+        setImgSelecionada(null);
+      }
+    };
+    editor.on('selectionUpdate', atualizar);
+    editor.on('transaction', atualizar);
+    return () => {
+      editor.off('selectionUpdate', atualizar);
+      editor.off('transaction', atualizar);
+    };
+  }, [editor]);
+
+  const definirLarguraImg = (w: string | null) => {
+    if (!editor) return;
+    (editor.chain().focus() as any).updateAttributes('image', { width: w }).run();
+  };
 
   const salvar = async () => {
     if (!editor || !modelo) return;
@@ -223,6 +247,48 @@ export default function EditorContratoModelo() {
           )}
           {erroCarregar && (
             <div className="p-4 bg-destructive/10 text-destructive text-sm">{erroCarregar}</div>
+          )}
+          {imgSelecionada && (
+            <div className="flex flex-wrap items-center gap-2 border-b bg-primary/5 px-3 py-2 text-xs">
+              <span className="font-semibold text-primary">Imagem selecionada — tamanho:</span>
+              {[
+                { label: '25%', val: '25%' },
+                { label: '50%', val: '50%' },
+                { label: '75%', val: '75%' },
+                { label: '100%', val: '100%' },
+              ].map((opt) => (
+                <Button
+                  key={opt.val}
+                  size="sm"
+                  variant={imgSelecionada.width === opt.val ? 'default' : 'outline'}
+                  className="h-7 px-2"
+                  onClick={() => definirLarguraImg(opt.val)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => definirLarguraImg(null)}>
+                Original
+              </Button>
+              <div className="flex items-center gap-1 ml-2">
+                <Label className="text-xs">Personalizado:</Label>
+                <Input
+                  className="h-7 w-24 text-xs"
+                  placeholder="ex: 300px"
+                  defaultValue={imgSelecionada.width || ''}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    definirLarguraImg(v || null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const v = (e.target as HTMLInputElement).value.trim();
+                      definirLarguraImg(v || null);
+                    }
+                  }}
+                />
+              </div>
+            </div>
           )}
           <div className="max-h-[75vh] overflow-y-auto bg-muted/20">
             <EditorContent editor={editor} />
