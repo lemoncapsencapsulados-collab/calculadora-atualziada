@@ -1539,7 +1539,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           entregaveisPadrao={(orcamento.servicos_marca || []).flatMap((sv) =>
             (sv.entregaveis || [])
               .filter((e) => e.incluso)
-              .map((e) => (e.quantidade > 1 ? `${e.nome} (${e.quantidade}x)` : e.nome))
+              .map((e) => {
+                const nomeLimpo = (e.nome || '')
+                  .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                return e.quantidade > 1 ? `${nomeLimpo} (${e.quantidade}x)` : nomeLimpo;
+              })
           )}
           contexto={{
             consultorNome: orcamento.consultor_responsavel || undefined,
