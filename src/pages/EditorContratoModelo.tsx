@@ -7,6 +7,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import { ParagraphWithStyle, HeadingWithStyle, TableWithStyle, TableRowWithStyle, TableCellWithStyle, TableHeaderWithStyle, TextStyleAll } from '@/lib/tiptapPreserveStyle';
 import { Color } from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
+import Image from '@tiptap/extension-image';
 import { ArrowLeft, Save, Loader2, Braces, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -47,11 +48,51 @@ export default function EditorContratoModelo() {
       TableRowWithStyle,
       TableHeaderWithStyle,
       TableCellWithStyle,
+      Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'contrato-img' } }),
     ],
     content: '<p>Carregando modelo...</p>',
     editorProps: {
       attributes: {
         class: 'contrato-editor prose prose-sm max-w-none focus:outline-none min-h-[70vh] p-10 bg-white text-black shadow-inner',
+      },
+      handlePaste: (view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (!file) continue;
+            const reader = new FileReader();
+            reader.onload = () => {
+              const src = reader.result as string;
+              const { schema, tr } = view.state;
+              const node = schema.nodes.image?.create({ src });
+              if (node) view.dispatch(tr.replaceSelectionWith(node));
+            };
+            reader.readAsDataURL(file);
+            event.preventDefault();
+            return true;
+          }
+        }
+        return false;
+      },
+      handleDrop: (view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return false;
+        const imgs = Array.from(files).filter((f) => f.type.startsWith('image/'));
+        if (imgs.length === 0) return false;
+        event.preventDefault();
+        imgs.forEach((file) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const src = reader.result as string;
+            const { schema, tr } = view.state;
+            const node = schema.nodes.image?.create({ src });
+            if (node) view.dispatch(tr.replaceSelectionWith(node));
+          };
+          reader.readAsDataURL(file);
+        });
+        return true;
       },
     },
   });
