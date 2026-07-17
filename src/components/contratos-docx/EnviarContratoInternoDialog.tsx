@@ -594,7 +594,7 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
                 aria-hidden
                 style={{
                   position: 'sticky',
-                  top: 8,
+                  top: 80,
                   float: 'left',
                   marginLeft: 40,
                   width: 40,
