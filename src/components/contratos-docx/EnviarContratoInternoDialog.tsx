@@ -588,15 +588,9 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
               style={{ background: 'white' }}
             >
               <img
-                src={(new URL('../../assets/watermark-lemoncaps.png.asset.json', import.meta.url), '')}
-                data-src-json
+                src={watermarkAsset.url}
                 alt=""
                 aria-hidden
-                ref={(el) => {
-                  if (el && !el.src) {
-                    import('@/assets/watermark-lemoncaps.png.asset.json').then((m: any) => { el.src = m.default?.url || m.url; });
-                  }
-                }}
                 style={{
                   position: 'sticky',
                   top: 8,
