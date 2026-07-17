@@ -1737,7 +1737,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                             {sv.entregaveis && sv.entregaveis.length > 0 && (
                               <ul className="text-[10px] text-muted-foreground mt-0.5 grid grid-cols-2 gap-x-2">
                                 {sv.entregaveis.filter(e => e.incluso).map((e, k) => (
-                                  <li key={k}>✓ {e.nome} × {e.quantidade}</li>
+                                  <li key={k}>{e.nome} × {e.quantidade}</li>
                                 ))}
                               </ul>
                             )}
