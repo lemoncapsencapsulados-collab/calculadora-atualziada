@@ -20,6 +20,7 @@ import { fetchEnderecoPorCEP } from '@/lib/brasilData';
 import CondicoesPagamentoForm from '@/components/CondicoesPagamentoForm';
 import { formatarCondicoesParaContrato } from '@/lib/formatarPagamento';
 import type { CondicoesPagamento } from '@/types/orcamento';
+import watermarkAsset from '@/assets/watermark-lemoncaps.png.asset.json';
 
 interface Props {
   open: boolean;
