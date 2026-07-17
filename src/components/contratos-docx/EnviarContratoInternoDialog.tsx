@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Download, Send, FileText, AlertTriangle, Mail, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useContratoModelosDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
-import { docxParaHtml, preencherDocxOriginal } from '@/lib/docxEditor';
+import { docxParaHtml, preencherDocxOriginal, htmlComoDocxBlob } from '@/lib/docxEditor';
 import { preencherHtmlComVariaveis } from '@/lib/docxEditor';
 import { construirMapaAutoFill, preencherAutomatico } from '@/lib/contratoDocxAutoFill';
 import type { ZapSignContratoCampos } from '@/lib/zapsignContrato';
@@ -258,17 +258,20 @@ export function EnviarContratoInternoDialog({ open, onOpenChange, campos, contex
     return true;
   };
 
-  // Gera o DOCX preenchendo APENAS as variáveis {{...}} no arquivo Word ORIGINAL
-  // (via docxtemplater), preservando 100% da formatação: fontes, tamanhos,
-  // alinhamentos, cabeçalhos, tabelas — idêntico ao modelo enviado.
+  // Se o modelo foi editado no editor visual, gera o DOCX a partir do HTML salvo,
+  // para que o arquivo enviado por email seja exatamente o mesmo conteúdo do preview.
+  // Sem edição salva, usa o DOCX original para preservar 100% da formatação.
   const gerarBlob = async (): Promise<Blob | null> => {
     if (!modelo) {
       toast.error('Selecione um modelo.');
       return null;
     }
     try {
-      const buf = await baixarModeloArquivo(modelo.arquivo_url);
       const finais = aplicarComplementoEmEnderecos(valores);
+      if (modelo.html_editado && htmlBase) {
+        return await htmlComoDocxBlob(preencherHtmlComVariaveis(htmlBase, finais));
+      }
+      const buf = await baixarModeloArquivo(modelo.arquivo_url);
       return preencherDocxOriginal(buf, finais);
     } catch (e: any) {
       toast.error('Erro ao preencher modelo: ' + (e?.message || 'erro'));

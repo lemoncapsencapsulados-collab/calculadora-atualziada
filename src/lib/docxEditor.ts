@@ -461,8 +461,8 @@ function escapeHtml(s: string) {
     .replace(/\n/g, '<br/>');
 }
 
-export async function baixarHtmlComoDocx(html: string, nomeArquivo: string) {
-  const wrapped = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+function envolverHtmlParaDocx(html: string) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #000; }
     h1 { font-size: 18pt; margin: 12pt 0 6pt; }
     h2 { font-size: 14pt; margin: 10pt 0 6pt; }
@@ -478,8 +478,17 @@ export async function baixarHtmlComoDocx(html: string, nomeArquivo: string) {
     em, i { font-style: italic; }
     u { text-decoration: underline; }
   </style></head><body>${html}</body></html>`;
-  const result = await asBlob(wrapped);
-  const blob = result instanceof Blob ? result : new Blob([result as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+
+export async function htmlComoDocxBlob(html: string): Promise<Blob> {
+  const result = await asBlob(envolverHtmlParaDocx(html));
+  return result instanceof Blob
+    ? result
+    : new Blob([result as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+
+export async function baixarHtmlComoDocx(html: string, nomeArquivo: string) {
+  const blob = await htmlComoDocxBlob(html);
   saveAs(blob, nomeArquivo.endsWith('.docx') ? nomeArquivo : `${nomeArquivo}.docx`);
 }
 

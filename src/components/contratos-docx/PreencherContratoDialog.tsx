@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Download, FileText } from 'lucide-react';
 import { ContratoModeloDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
-import { preencherDocxOriginal } from '@/lib/docxEditor';
+import { preencherDocxOriginal, preencherHtmlComVariaveis, htmlComoDocxBlob } from '@/lib/docxEditor';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 
@@ -39,8 +39,9 @@ export function PreencherContratoDialog({ open, onOpenChange, modelo }: Props) {
     }
     setGerando(true);
     try {
-      const buf = await baixarModeloArquivo(modelo.arquivo_url);
-      const blob = preencherDocxOriginal(buf, valores);
+      const blob = modelo.html_editado
+        ? await htmlComoDocxBlob(preencherHtmlComVariaveis(modelo.html_editado, valores))
+        : preencherDocxOriginal(await baixarModeloArquivo(modelo.arquivo_url), valores);
       saveAs(blob, nomeArquivo.endsWith('.docx') ? nomeArquivo : `${nomeArquivo}.docx`);
       toast.success('Contrato gerado!');
       onOpenChange(false);
