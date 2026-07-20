@@ -780,11 +780,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
 interface PodItemDraft {
   nome_produto: string;
   tipo_produto: string;
-  plano: string;
-  preco_envio: string;
-  preco_tabelado: number | null;
-  preco_editado: boolean;
+  plano_selecionado: number | null;
   qtd_envios: string;
-  aviso: string;
   observacoes: string;
 }
