@@ -39,6 +39,53 @@ export function linhaPdfFrete(cotacao: FreteCotacao | null | undefined): { titul
   };
 }
 
+/** Bloco estruturado para renderização no PDF de orçamento / proposta. */
+export interface BlocoPdfFrete {
+  titulo: string;
+  tipo: 'estoque_proprio' | 'pod';
+  tipoProduto?: string | null;
+  nomeProduto?: string | null;
+  quantEnviosMedio?: number | null;
+  /** Para POD: lista { plano, preco_final } ordenada por plano. */
+  planos?: { plano: number; precoEnvio: number }[];
+  /** Para Estoque Próprio */
+  valorFrete?: number | null;
+  status?: string | null;
+  nota?: string;
+}
+
+export function blocoPdfFrete(cotacao: FreteCotacao | null | undefined): BlocoPdfFrete | null {
+  if (!cotacao) return null;
+  if (cotacao.tipo === 'estoque_proprio') {
+    return {
+      titulo: 'Cotação de Frete — Estoque Próprio',
+      tipo: 'estoque_proprio',
+      tipoProduto: cotacao.tipo_produto,
+      nomeProduto: cotacao.nome_produto,
+      valorFrete: cotacao.valor_frete,
+      status: cotacao.status === 'confirmado' ? 'Confirmado' : 'Pendente',
+      nota: cotacao.status === 'confirmado' ? undefined : 'Valor sujeito a confirmação após finalização da produção.',
+    };
+  }
+  const selecionados = Array.isArray((cotacao as any).pod_planos_selecionados)
+    ? ((cotacao as any).pod_planos_selecionados as { plano: number; preco_final: number }[])
+    : [];
+  const planos = (selecionados.length > 0
+    ? selecionados.map(s => ({ plano: Number(s.plano), precoEnvio: Number(s.preco_final) }))
+    : (cotacao.pod_plano != null
+      ? [{ plano: Number(cotacao.pod_plano), precoEnvio: Number(cotacao.pod_preco_por_envio || 0) }]
+      : [])
+  ).sort((a, b) => a.plano - b.plano);
+  return {
+    titulo: 'Cotação de Frete — Print on Demand',
+    tipo: 'pod',
+    tipoProduto: cotacao.tipo_produto,
+    nomeProduto: cotacao.nome_produto,
+    quantEnviosMedio: cotacao.pod_quantidade_envios_estimada,
+    planos,
+  };
+}
+
 export const IMPOSTO_POD_PADRAO = 12;
 
 export function resolverMargemPorEnvios(envios: number | null | undefined, faixas: FreteMargemFaixa[]): FreteMargemFaixa | null {
