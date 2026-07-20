@@ -823,7 +823,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           {tipo === 'estoque_proprio' && (
             <div>
               <Label>Tipo de Produto *</Label>
-              <Select value={tipoProduto} onValueChange={(v) => { setTipoProduto(v); if (tipo === 'pod') carregarPrecoTabelado(v, plano); }}>
+              <Select value={tipoProduto} onValueChange={(v) => setTipoProduto(v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
