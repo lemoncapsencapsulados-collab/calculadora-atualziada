@@ -527,6 +527,7 @@ interface DialogProps {
 }
 
 function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcamentos, saving }: DialogProps) {
+  const { data: todasCotacoes = [] } = useFreteCotacoes();
   const [tipo, setTipo] = useState<'estoque_proprio' | 'pod'>(editing?.tipo || tipoInicial);
   const [orcamentoId, setOrcamentoId] = useState(editing?.orcamento_id || '');
   const [tipoProduto, setTipoProduto] = useState<string>(editing?.tipo_produto || '');
@@ -610,16 +611,28 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       return;
     }
     const itens = (orcamentoSelecionado.itens_producao || []) as any[];
-    setPodItens(itens.map((it: any) => ({
-      nome_produto: it.nome_produto || 'Produto',
-      tipo_produto: mapTipoProduto(it.tipo_produto),
-      planos_selecionados: [],
-      qtd_envios: '',
-      observacoes: '',
-      margem_pct: null,
-      margem_override: false,
-    })));
-  }, [orcamentoSelecionado, tipo, editing]);
+    // Pré-carrega planos previamente selecionados por produto neste orçamento
+    const cotacoesDoOrc = todasCotacoes.filter(
+      c => c.orcamento_id === orcamentoSelecionado.id && c.tipo === 'pod'
+    );
+    setPodItens(itens.map((it: any) => {
+      const nomeProd = it.nome_produto || 'Produto';
+      const tp = mapTipoProduto(it.tipo_produto);
+      const previa = cotacoesDoOrc.find(c => (c.nome_produto || '') === nomeProd);
+      const planosPrev = previa && Array.isArray(previa.pod_planos_selecionados) && previa.pod_planos_selecionados.length > 0
+        ? previa.pod_planos_selecionados.map(s => Number(s.plano))
+        : (previa?.pod_plano != null ? [Number(previa.pod_plano)] : []);
+      return {
+        nome_produto: nomeProd,
+        tipo_produto: previa?.tipo_produto || tp,
+        planos_selecionados: planosPrev,
+        qtd_envios: previa?.pod_quantidade_envios_estimada != null ? String(previa.pod_quantidade_envios_estimada) : '',
+        observacoes: previa?.observacoes || '',
+        margem_pct: previa?.margem_override ? Number(previa.margem_percentual || 0) : null,
+        margem_override: !!previa?.margem_override,
+      };
+    }));
+  }, [orcamentoSelecionado, tipo, editing, todasCotacoes]);
 
   const atualizarItem = async (idx: number, patch: Partial<PodItemDraft>) => {
     setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
