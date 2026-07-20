@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,8 +39,31 @@ export default function Logistica() {
   const [deletando, setDeletando] = useState<FreteCotacao | null>(null);
   const [confirmSubstituicao, setConfirmSubstituicao] = useState<{ payload: FreteCotacaoInsert } | null>(null);
   const [confirmEdicaoConfirmada, setConfirmEdicaoConfirmada] = useState<FreteCotacao | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<FreteCotacao | null>(null);
+  const [produtorAberto, setProdutorAberto] = useState<{ produtor: string; cotacoes: FreteCotacao[] } | null>(null);
+  const [exportandoCotacao, setExportandoCotacao] = useState<FreteCotacao | null>(null);
+  const exportListaRef = useRef<HTMLDivElement | null>(null);
 
   const cotacoesFiltradas = useMemo(() => cotacoes.filter(c => c.tipo === tab), [cotacoes, tab]);
+
+  const gruposProdutor = useMemo(() => {
+    const map = new Map<string, { produtor: string; cotacoes: FreteCotacao[] }>();
+    cotacoesFiltradas.forEach(c => {
+      const orc = orcamentos.find(o => o.id === c.orcamento_id);
+      const produtor = orc?.nome_cliente || 'Sem produtor';
+      if (!map.has(produtor)) map.set(produtor, { produtor, cotacoes: [] });
+      map.get(produtor)!.cotacoes.push(c);
+    });
+    return Array.from(map.values()).sort((a, b) => a.produtor.localeCompare(b.produtor));
+  }, [cotacoesFiltradas, orcamentos]);
+
+  // Mantém dialog do produtor sincronizado quando cotações mudam
+  useEffect(() => {
+    if (!produtorAberto) return;
+    const atualizado = gruposProdutor.find(g => g.produtor === produtorAberto.produtor);
+    if (atualizado) setProdutorAberto(atualizado);
+    else setProdutorAberto(null);
+  }, [gruposProdutor]);
 
   const orcamentoLabel = (id: string | null) => {
     const o = orcamentos.find(x => x.id === id);
@@ -52,6 +75,10 @@ export default function Logistica() {
     setDialogOpen(true);
   };
 
+  const solicitarEdicao = (c: FreteCotacao) => {
+    setPendingEdit(c);
+  };
+
   const handleEditar = (c: FreteCotacao) => {
     if (c.tipo === 'estoque_proprio' && c.status === 'confirmado') {
       setConfirmEdicaoConfirmada(c);
@@ -59,6 +86,23 @@ export default function Logistica() {
     }
     setEditing(c);
     setDialogOpen(true);
+  };
+
+  const baixarImagemCotacao = async (c: FreteCotacao) => {
+    setExportandoCotacao(c);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await new Promise((r) => setTimeout(r, 60));
+    if (!exportListaRef.current) { setExportandoCotacao(null); return; }
+    const orc = orcamentos.find(o => o.id === c.orcamento_id);
+    const slug = `${orc?.numero_orcamento || 'cotacao'}_${c.nome_produto || c.tipo_produto || 'produto'}`.replace(/[^\w-]+/g, '_');
+    try {
+      await exportElementAsPng(exportListaRef.current, `frete_${slug}.png`);
+      toast.success('Imagem gerada');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao gerar imagem');
+    } finally {
+      setExportandoCotacao(null);
+    }
   };
 
   const proceedEdicao = () => {
