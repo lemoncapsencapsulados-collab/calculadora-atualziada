@@ -40,6 +40,7 @@ import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input'
 import { useFreteCotacoes } from '@/hooks/useFreteCotacoes';
 import { labelFreteCotacao } from '@/lib/freteHelpers';
 import { Truck } from 'lucide-react';
+import FreteOrcamentoDialog from '@/components/frete/FreteOrcamentoDialog';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -81,6 +82,7 @@ export default function Orcamentos() {
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
+  const [verFreteOrcamento, setVerFreteOrcamento] = useState<Orcamento | null>(null);
   const { data: resumosExistentes } = useResumosContratoExistentes();
 
   // State para popup de aprovação com proposta completa
@@ -98,8 +100,12 @@ export default function Orcamentos() {
   const consultores = useConsultoresDisponiveis();
   const { data: freteCotacoes = [] } = useFreteCotacoes();
   const freteMap = useMemo(() => {
-    const m = new Map<string, any>();
-    for (const c of freteCotacoes) m.set(c.orcamento_id, c);
+    const m = new Map<string, any[]>();
+    for (const c of freteCotacoes) {
+      const arr = m.get(c.orcamento_id) || [];
+      arr.push(c);
+      m.set(c.orcamento_id, arr);
+    }
     return m;
   }, [freteCotacoes]);
 
@@ -407,8 +413,9 @@ export default function Orcamentos() {
                                       </Badge>
                                     )}
                                     {(() => {
-                                      const cot = freteMap.get(orcamento.id);
-                                      if (!cot) return null;
+                                      const cots = freteMap.get(orcamento.id);
+                                      if (!cots || cots.length === 0) return null;
+                                      const cot = cots[0];
                                       const isEP = cot.tipo === 'estoque_proprio';
                                       const confirmado = cot.status === 'confirmado';
                                       const cls = isEP
@@ -416,11 +423,20 @@ export default function Orcamentos() {
                                             ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20'
                                             : 'border-yellow-500 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20')
                                         : 'border-sky-500 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/20';
+                                      const label = cots.length > 1
+                                        ? `Frete: ${cots.length} produtos vinculados`
+                                        : labelFreteCotacao(cot);
                                       return (
-                                        <Badge variant="outline" className={cls}>
-                                          <Truck className="w-3 h-3 mr-1" />
-                                          {labelFreteCotacao(cot)}
-                                        </Badge>
+                                        <button
+                                          type="button"
+                                          onClick={() => setVerFreteOrcamento(orcamento)}
+                                          title="Ver cotações de frete vinculadas"
+                                        >
+                                          <Badge variant="outline" className={`${cls} cursor-pointer hover:opacity-80`}>
+                                            <Truck className="w-3 h-3 mr-1" />
+                                            {label}
+                                          </Badge>
+                                        </button>
                                       );
                                     })()}
                                     {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
@@ -529,6 +545,16 @@ export default function Orcamentos() {
                               <Button variant="default" size="sm" className="flex-1 lg:flex-initial" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
                                 <FileCheck className="w-4 h-4 mr-2" />Projeto para Contrato
                               </Button>
+                              {(freteMap.get(orcamento.id)?.length || 0) > 0 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 lg:flex-initial border-sky-500 text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-900/20"
+                                  onClick={() => setVerFreteOrcamento(orcamento)}
+                                >
+                                  <Truck className="w-4 h-4 mr-2" />Ver Frete
+                                </Button>
+                              )}
                               {resumosExistentes?.has(orcamento.id) && (
                                 <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setVerResumoContrato(orcamento)}>
                                   <FileSignature className="w-4 h-4 mr-2" />Ver Projeto do Contrato
@@ -588,6 +614,15 @@ export default function Orcamentos() {
           orcamento={verResumoContrato}
           modo="visualizar"
           onClose={() => setVerResumoContrato(null)}
+        />
+      )}
+
+      {verFreteOrcamento && (
+        <FreteOrcamentoDialog
+          orcamentoId={verFreteOrcamento.id}
+          produtor={verFreteOrcamento.nome_cliente}
+          numeroOrcamento={verFreteOrcamento.numero_orcamento}
+          onClose={() => setVerFreteOrcamento(null)}
         />
       )}
 
