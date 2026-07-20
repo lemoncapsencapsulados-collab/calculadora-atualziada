@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +16,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { useFreteCotacoes, useCreateFreteCotacao, useUpdateFreteCotacao, useDeleteFreteCotacao, fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
 import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos';
+import { useTaxaManuseioMap } from '@/hooks/useFreteLogisticaConfig';
+import { exportElementAsPng } from '@/lib/freteImageExport';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
-import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
+import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS as FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
 import { toast } from 'sonner';
 
@@ -338,6 +340,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const [buscaOrc, setBuscaOrc] = useState('');
   const [orcOpen, setOrcOpen] = useState(false);
   const [podItens, setPodItens] = useState<PodItemDraft[]>([]);
+  const { data: todosPodPrecos = [] } = useFretePodPrecos();
+  const taxaMap = useTaxaManuseioMap();
+  const exportRef = useRef<HTMLDivElement | null>(null);
 
   const orcamentoSelecionado = useMemo(
     () => orcamentos.find(o => o.id === orcamentoId) || null,
@@ -379,12 +384,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
     setPodItens(itens.map((it: any) => ({
       nome_produto: it.nome_produto || 'Produto',
       tipo_produto: mapTipoProduto(it.tipo_produto),
-      plano: '',
-      preco_envio: '',
-      preco_tabelado: null,
-      preco_editado: false,
+      plano_selecionado: null,
       qtd_envios: '',
-      aviso: '',
       observacoes: '',
     })));
   }, [orcamentoSelecionado, tipo, editing]);
@@ -393,24 +394,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
     setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
   };
 
-  const recalcularPrecoItem = async (idx: number, tp: string, pl: string) => {
-    if (!tp || !pl) {
-      atualizarItem(idx, { preco_tabelado: null, aviso: '' });
-      return;
-    }
-    const p = await fetchPodPrecoAtivo(tp, Number(pl));
-    setPodItens(prev => prev.map((it, i) => {
-      if (i !== idx) return it;
-      const next: PodItemDraft = { ...it, preco_tabelado: p };
-      if (p == null) {
-        next.aviso = `Preço não cadastrado para ${tp} / Plano ${pl}. Cadastre em Painel Administrador → Preços POD.`;
-      } else {
-        next.aviso = '';
-        if (!it.preco_editado) next.preco_envio = String(p);
-      }
-      return next;
-    }));
-  };
+  /** Planos disponíveis (com preço) para um tipo de produto, ordenados. */
+  const planosDoTipo = (tp: string) =>
+    todosPodPrecos.filter(p => p.tipo_produto === tp).sort((a, b) => a.plano - b.plano);
 
   const carregarPrecoTabelado = async (tp: string, pl: string) => {
     if (!tp || !pl) { setPrecoTabelado(null); return; }
@@ -469,26 +455,42 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         return;
       }
       // Criação: uma cotação por item de produção
-      const validos = podItens.filter(it => it.tipo_produto && it.plano && it.preco_envio);
+      const validos = podItens.filter(it => it.tipo_produto && it.plano_selecionado != null);
       if (validos.length === 0) {
-        toast.error('Preencha tipo, plano e preço em ao menos um produto');
+        toast.error('Selecione um plano em ao menos um produto');
         return;
       }
       const payloads: FreteCotacaoInsert[] = validos.map(it => {
-        const editadoManual = it.preco_tabelado != null && Number(it.preco_envio) !== Number(it.preco_tabelado);
+        const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
+        const frete = Number(planoRow?.preco || 0);
+        const manuseio = Number(taxaMap[it.tipo_produto] || 0);
+        const precoFinal = frete + manuseio;
         return {
           tipo: 'pod',
           orcamento_id: orcamentoId,
           tipo_produto: it.tipo_produto,
           nome_produto: it.nome_produto,
-          pod_plano: Number(it.plano),
-          pod_preco_por_envio: Number(it.preco_envio),
-          pod_preco_editado_manualmente: it.preco_editado || editadoManual,
+          pod_plano: Number(it.plano_selecionado),
+          pod_preco_por_envio: precoFinal,
+          pod_preco_editado_manualmente: false,
           pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
           observacoes: it.observacoes || null,
         };
       });
       await onSave(payloads);
+    }
+  };
+
+  const baixarImagem = async () => {
+    if (!exportRef.current) return;
+    const nome = orcamentoSelecionado?.nome_cliente || 'produtor';
+    const num = orcamentoSelecionado?.numero_orcamento || '';
+    const slug = `${num}_${nome}`.replace(/[^\w-]+/g, '_');
+    try {
+      await exportElementAsPng(exportRef.current, `precos_pod_${slug}.png`);
+      toast.success('Imagem gerada');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao gerar imagem');
     }
   };
 
@@ -689,52 +691,78 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" onClick={baixarImagem} disabled={podItens.length === 0}>
+                      <ImageDown className="w-4 h-4 mr-2" />Baixar imagem (PNG)
+                    </Button>
+                  </div>
                   {podItens.map((it, idx) => {
-                    const total = (Number(it.preco_envio) || 0) * (Number(it.qtd_envios) || 0);
+                    const planos = planosDoTipo(it.tipo_produto);
+                    const manuseio = Number(taxaMap[it.tipo_produto] || 0);
                     return (
                       <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/20">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-medium text-sm">{it.nome_produto}</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Tipo de Produto *</Label>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Label className="text-xs">Tipo:</Label>
                             <Select
                               value={it.tipo_produto}
-                              onValueChange={(v) => { atualizarItem(idx, { tipo_produto: v, preco_editado: false }); recalcularPrecoItem(idx, v, it.plano); }}
+                              onValueChange={(v) => atualizarItem(idx, { tipo_produto: v, plano_selecionado: null })}
                             >
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
                                 {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                               </SelectContent>
                             </Select>
+                            <span className="text-muted-foreground">Manuseio: {formatBRL(manuseio)}</span>
                           </div>
-                          <div>
-                            <Label className="text-xs">Plano (nº de frascos) *</Label>
-                            <Select
-                              value={it.plano}
-                              onValueChange={(v) => { atualizarItem(idx, { plano: v, preco_editado: false }); recalcularPrecoItem(idx, it.tipo_produto, v); }}
-                            >
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                {FRETE_POD_PLANOS.map(p => <SelectItem key={p} value={String(p)}>{p}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                        </div>
+
+                        {!it.tipo_produto ? (
+                          <p className="text-xs text-muted-foreground">Selecione o tipo de produto para ver os planos disponíveis.</p>
+                        ) : planos.length === 0 ? (
+                          <p className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
+                            Nenhum plano cadastrado para {it.tipo_produto}. Cadastre em Painel Administrador → Logística.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-16">Escolher</TableHead>
+                                  <TableHead className="text-right">Plano</TableHead>
+                                  <TableHead className="text-right">Frete Médio</TableHead>
+                                  <TableHead className="text-right">+ Manuseio</TableHead>
+                                  <TableHead className="text-right">Preço/Envio</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {planos.map(p => {
+                                  const total = Number(p.preco) + manuseio;
+                                  const selected = it.plano_selecionado === p.plano;
+                                  return (
+                                    <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
+                                      <TableCell>
+                                        <input
+                                          type="radio"
+                                          name={`plano-${idx}`}
+                                          checked={selected}
+                                          onChange={() => atualizarItem(idx, { plano_selecionado: p.plano })}
+                                        />
+                                      </TableCell>
+                                      <TableCell className="text-right">{p.plano}</TableCell>
+                                      <TableCell className="text-right">{formatBRL(p.preco)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatBRL(manuseio)}</TableCell>
+                                      <TableCell className="text-right font-semibold">{formatBRL(total)}</TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
                           </div>
-                          <div>
-                            <Label className="text-xs">Preço por envio (R$) *</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={it.preco_envio}
-                              onChange={(e) => atualizarItem(idx, { preco_envio: e.target.value, preco_editado: true })}
-                              className={it.preco_tabelado != null && Number(it.preco_envio) !== Number(it.preco_tabelado) ? 'border-amber-500' : ''}
-                            />
-                            {it.preco_tabelado != null && (
-                              <p className="text-xs text-muted-foreground mt-1">Tabelado: {formatBRL(it.preco_tabelado)}</p>
-                            )}
-                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs">Qtd estimada de envios</Label>
                             <Input
@@ -743,22 +771,60 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               value={it.qtd_envios}
                               onChange={(e) => atualizarItem(idx, { qtd_envios: e.target.value })}
                             />
-                            {total > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1">Total: {formatBRL(total)}</p>
-                            )}
                           </div>
                         </div>
-                        {it.aviso && (
-                          <div className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
-                            {it.aviso}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
                   <div>
                     <Label>Observações gerais</Label>
                     <Textarea rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+                  </div>
+
+                  {/* Hidden export container */}
+                  <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
+                    <div ref={exportRef} style={{ padding: 24, background: '#fff', color: '#111', width: 720, fontFamily: 'system-ui, sans-serif' }}>
+                      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tabela de Preços — Print on Demand</h2>
+                      <p style={{ margin: '4px 0 16px', fontSize: 13, color: '#555' }}>
+                        Produtor: <strong>{orcamentoSelecionado?.nome_cliente || '—'}</strong> · Orçamento: <strong>{orcamentoSelecionado?.numero_orcamento || '—'}</strong> · {new Date().toLocaleDateString('pt-BR')}
+                      </p>
+                      {podItens.map((it, idx) => {
+                        const planos = planosDoTipo(it.tipo_produto);
+                        const manuseio = Number(taxaMap[it.tipo_produto] || 0);
+                        return (
+                          <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+                              <span>{it.nome_produto}</span>
+                              <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'} · Manuseio {formatBRL(manuseio)}</span>
+                            </div>
+                            {planos.length === 0 ? (
+                              <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
+                            ) : (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead>
+                                  <tr style={{ background: '#f5f5f5' }}>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {planos.map(p => (
+                                    <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
+                                      <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
+                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(manuseio)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(Number(p.preco) + manuseio)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -778,11 +844,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
 interface PodItemDraft {
   nome_produto: string;
   tipo_produto: string;
-  plano: string;
-  preco_envio: string;
-  preco_tabelado: number | null;
-  preco_editado: boolean;
+  plano_selecionado: number | null;
   qtd_envios: string;
-  aviso: string;
   observacoes: string;
 }

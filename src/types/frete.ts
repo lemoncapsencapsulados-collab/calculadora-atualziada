@@ -3,7 +3,10 @@ export type FreteStatus = 'pendente' | 'confirmado';
 export type FreteTipoProduto = 'Encapsulado' | 'Líquido' | 'Gummy' | 'Solúvel';
 
 export const FRETE_TIPOS_PRODUTO: FreteTipoProduto[] = ['Encapsulado', 'Líquido', 'Gummy', 'Solúvel'];
-export const FRETE_POD_PLANOS = [1, 2, 3, 5, 6, 8, 9, 10, 12, 20, 50] as const;
+/** Planos sugeridos ao criar um novo plano no admin. Planos reais vêm de `frete_pod_precos`. */
+export const FRETE_POD_PLANOS_SUGERIDOS = [1, 2, 3, 5, 6, 8, 9, 10, 12, 15, 20, 25, 50] as const;
+/** @deprecated Use os planos cadastrados em `frete_pod_precos` (via useFretePodPrecos). */
+export const FRETE_POD_PLANOS = FRETE_POD_PLANOS_SUGERIDOS;
 
 export interface FreteCotacao {
   id: string;
@@ -68,4 +71,12 @@ export interface FretePodPrecoHistorico {
   alterado_por: string | null;
   alterado_por_email: string | null;
   alterado_em: string;
+}
+
+export interface FreteLogisticaConfig {
+  id: string;
+  tipo_produto: string;
+  taxa_manuseio: number;
+  created_at: string;
+  updated_at: string;
 }
