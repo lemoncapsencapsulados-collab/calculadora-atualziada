@@ -527,6 +527,7 @@ interface DialogProps {
 }
 
 function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcamentos, saving }: DialogProps) {
+  const { data: todasCotacoes = [] } = useFreteCotacoes();
   const [tipo, setTipo] = useState<'estoque_proprio' | 'pod'>(editing?.tipo || tipoInicial);
   const [orcamentoId, setOrcamentoId] = useState(editing?.orcamento_id || '');
   const [tipoProduto, setTipoProduto] = useState<string>(editing?.tipo_produto || '');
@@ -610,16 +611,28 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       return;
     }
     const itens = (orcamentoSelecionado.itens_producao || []) as any[];
-    setPodItens(itens.map((it: any) => ({
-      nome_produto: it.nome_produto || 'Produto',
-      tipo_produto: mapTipoProduto(it.tipo_produto),
-      planos_selecionados: [],
-      qtd_envios: '',
-      observacoes: '',
-      margem_pct: null,
-      margem_override: false,
-    })));
-  }, [orcamentoSelecionado, tipo, editing]);
+    // Pré-carrega planos previamente selecionados por produto neste orçamento
+    const cotacoesDoOrc = todasCotacoes.filter(
+      c => c.orcamento_id === orcamentoSelecionado.id && c.tipo === 'pod'
+    );
+    setPodItens(itens.map((it: any) => {
+      const nomeProd = it.nome_produto || 'Produto';
+      const tp = mapTipoProduto(it.tipo_produto);
+      const previa = cotacoesDoOrc.find(c => (c.nome_produto || '') === nomeProd);
+      const planosPrev = previa && Array.isArray(previa.pod_planos_selecionados) && previa.pod_planos_selecionados.length > 0
+        ? previa.pod_planos_selecionados.map(s => Number(s.plano))
+        : (previa?.pod_plano != null ? [Number(previa.pod_plano)] : []);
+      return {
+        nome_produto: nomeProd,
+        tipo_produto: previa?.tipo_produto || tp,
+        planos_selecionados: planosPrev,
+        qtd_envios: previa?.pod_quantidade_envios_estimada != null ? String(previa.pod_quantidade_envios_estimada) : '',
+        observacoes: previa?.observacoes || '',
+        margem_pct: previa?.margem_override ? Number(previa.margem_percentual || 0) : null,
+        margem_override: !!previa?.margem_override,
+      };
+    }));
+  }, [orcamentoSelecionado, tipo, editing, todasCotacoes]);
 
   const atualizarItem = async (idx: number, patch: Partial<PodItemDraft>) => {
     setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
@@ -921,6 +934,22 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               <span className="text-muted-foreground"> ({margem.faixaLabel}) · Imposto {IMPOSTO_POD_PADRAO}%</span>
                             </div>
                             <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => atualizarItem(idx, { planos_selecionados: planos.map(p => p.plano) })}
+                              >
+                                Selecionar todos
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => atualizarItem(idx, { planos_selecionados: [] })}
+                              >
+                                Limpar seleção
+                              </Button>
                               {margem.override && (
                                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => atualizarItem(idx, { margem_override: false, margem_pct: null })}>
                                   Restaurar padrão
@@ -997,6 +1026,46 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             />
                           </div>
                         </div>
+
+                        {it.tipo_produto && planos.length > 0 && it.planos_selecionados.length > 0 && (() => {
+                          const envios = Number(it.qtd_envios) || 0;
+                          const rows = planos
+                            .filter(p => it.planos_selecionados.includes(p.plano))
+                            .map(p => {
+                              const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                              return { plano: p.plano, precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                            });
+                          const somaMensal = rows.reduce((a, r) => a + r.total, 0);
+                          return (
+                            <div className="border rounded-md p-3 bg-primary/5 space-y-2">
+                              <div className="flex items-center justify-between text-xs font-medium">
+                                <span>Planos selecionados ({rows.length})</span>
+                                {envios > 0 && (
+                                  <span className="text-muted-foreground">Base: {envios} envios/mês</span>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                {rows.map(r => (
+                                  <div key={r.plano} className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold">Plano {r.plano}</span>
+                                    <span>
+                                      <span className="text-muted-foreground">{formatBRL(r.precoFinal)}/envio</span>
+                                      {envios > 0 && (
+                                        <span className="ml-3 font-semibold">Total: {formatBRL(r.total)}</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              {envios > 0 && rows.length > 1 && (
+                                <div className="border-t pt-2 flex justify-between text-xs font-semibold">
+                                  <span>Soma mensal (todos os planos marcados)</span>
+                                  <span>{formatBRL(somaMensal)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -1015,6 +1084,14 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                       {podItens.map((it, idx) => {
                         const planos = planosDoTipo(it.tipo_produto);
                         const margem = margemEfetivaItem(it);
+                        const envios = Number(it.qtd_envios) || 0;
+                        const selecionadosRows = planos
+                          .filter(p => it.planos_selecionados.includes(p.plano))
+                          .map(p => {
+                            const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                            return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                          });
+                        const somaMensal = selecionadosRows.reduce((a, r) => a + r.total, 0);
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
@@ -1023,9 +1100,10 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             </div>
                             <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
                               Margem: <strong>{margem.pct}%</strong> ({margem.faixaLabel}) · Imposto: <strong>{IMPOSTO_POD_PADRAO}%</strong>
+                              {envios > 0 && <> · Envios/mês: <strong>{envios}</strong></>}
                             </p>
-                            {planos.length === 0 ? (
-                              <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
+                            {selecionadosRows.length === 0 ? (
+                              <p style={{ fontSize: 12, color: '#a15c00' }}>Nenhum plano selecionado.</p>
                             ) : (
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                                 <thead>
@@ -1033,26 +1111,26 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                     <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Margem</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Imposto</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
+                                    {envios > 0 && <th style={{ textAlign: 'right', padding: 6 }}>Total/mês</th>}
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {planos.map(p => {
-                                    const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                                    const sel = it.planos_selecionados.includes(p.plano);
-                                    return (
-                                      <tr key={p.id} style={{ borderTop: '1px solid #eee', background: sel ? '#fff8e1' : 'transparent' }}>
-                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 400 }}>{sel ? '★ ' : ''}{p.plano}</td>
-                                        <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.margemValor)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.impostoValor)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 600 }}>{formatBRL(calc.precoFinal)}</td>
-                                      </tr>
-                                    );
-                                  })}
+                                  {selecionadosRows.map(r => (
+                                    <tr key={r.plano} style={{ borderTop: '1px solid #eee' }}>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{r.plano}</td>
+                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(r.frete)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(r.manuseio)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(r.precoFinal)}</td>
+                                      {envios > 0 && <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(r.total)}</td>}
+                                    </tr>
+                                  ))}
+                                  {envios > 0 && selecionadosRows.length > 1 && (
+                                    <tr style={{ borderTop: '2px solid #ddd', background: '#fafafa' }}>
+                                      <td colSpan={4} style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>Soma mensal</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(somaMensal)}</td>
+                                    </tr>
+                                  )}
                                 </tbody>
                               </table>
                             )}
