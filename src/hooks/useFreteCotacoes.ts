@@ -54,6 +54,20 @@ export async function fetchFreteCotacaoByOrcamento(orcamentoId: string): Promise
   return (data && data[0]) ? (data[0] as FreteCotacao) : null;
 }
 
+export async function fetchFreteCotacoesByOrcamento(orcamentoId: string): Promise<FreteCotacao[]> {
+  const { data, error } = await (supabase as any)
+    .from('frete_cotacoes')
+    .select('*')
+    .eq('orcamento_id', orcamentoId)
+    .eq('ativa', true)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[frete] erro ao buscar cotações', error);
+    return [];
+  }
+  return (data || []) as FreteCotacao[];
+}
+
 export function useCreateFreteCotacao() {
   const qc = useQueryClient();
   return useMutation({
