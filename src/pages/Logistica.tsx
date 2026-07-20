@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
 import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -450,8 +450,6 @@ export default function Logistica() {
 }
 
 // ============ Card de exportação PNG ============
-
-import { forwardRef } from 'react';
 
 const CotacaoExportCard = forwardRef<HTMLDivElement, {
   cotacao: FreteCotacao;
