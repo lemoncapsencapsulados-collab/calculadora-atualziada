@@ -340,6 +340,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const [buscaOrc, setBuscaOrc] = useState('');
   const [orcOpen, setOrcOpen] = useState(false);
   const [podItens, setPodItens] = useState<PodItemDraft[]>([]);
+  const { data: todosPodPrecos = [] } = useFretePodPrecos();
+  const taxaMap = useTaxaManuseioMap();
+  const exportRef = useRef<HTMLDivElement | null>(null);
 
   const orcamentoSelecionado = useMemo(
     () => orcamentos.find(o => o.id === orcamentoId) || null,
@@ -381,12 +384,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
     setPodItens(itens.map((it: any) => ({
       nome_produto: it.nome_produto || 'Produto',
       tipo_produto: mapTipoProduto(it.tipo_produto),
-      plano: '',
-      preco_envio: '',
-      preco_tabelado: null,
-      preco_editado: false,
+      plano_selecionado: null,
       qtd_envios: '',
-      aviso: '',
       observacoes: '',
     })));
   }, [orcamentoSelecionado, tipo, editing]);
@@ -395,24 +394,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
     setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
   };
 
-  const recalcularPrecoItem = async (idx: number, tp: string, pl: string) => {
-    if (!tp || !pl) {
-      atualizarItem(idx, { preco_tabelado: null, aviso: '' });
-      return;
-    }
-    const p = await fetchPodPrecoAtivo(tp, Number(pl));
-    setPodItens(prev => prev.map((it, i) => {
-      if (i !== idx) return it;
-      const next: PodItemDraft = { ...it, preco_tabelado: p };
-      if (p == null) {
-        next.aviso = `Preço não cadastrado para ${tp} / Plano ${pl}. Cadastre em Painel Administrador → Preços POD.`;
-      } else {
-        next.aviso = '';
-        if (!it.preco_editado) next.preco_envio = String(p);
-      }
-      return next;
-    }));
-  };
+  /** Planos disponíveis (com preço) para um tipo de produto, ordenados. */
+  const planosDoTipo = (tp: string) =>
+    todosPodPrecos.filter(p => p.tipo_produto === tp).sort((a, b) => a.plano - b.plano);
 
   const carregarPrecoTabelado = async (tp: string, pl: string) => {
     if (!tp || !pl) { setPrecoTabelado(null); return; }
@@ -471,26 +455,42 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         return;
       }
       // Criação: uma cotação por item de produção
-      const validos = podItens.filter(it => it.tipo_produto && it.plano && it.preco_envio);
+      const validos = podItens.filter(it => it.tipo_produto && it.plano_selecionado != null);
       if (validos.length === 0) {
-        toast.error('Preencha tipo, plano e preço em ao menos um produto');
+        toast.error('Selecione um plano em ao menos um produto');
         return;
       }
       const payloads: FreteCotacaoInsert[] = validos.map(it => {
-        const editadoManual = it.preco_tabelado != null && Number(it.preco_envio) !== Number(it.preco_tabelado);
+        const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
+        const frete = Number(planoRow?.preco || 0);
+        const manuseio = Number(taxaMap[it.tipo_produto] || 0);
+        const precoFinal = frete + manuseio;
         return {
           tipo: 'pod',
           orcamento_id: orcamentoId,
           tipo_produto: it.tipo_produto,
           nome_produto: it.nome_produto,
-          pod_plano: Number(it.plano),
-          pod_preco_por_envio: Number(it.preco_envio),
-          pod_preco_editado_manualmente: it.preco_editado || editadoManual,
+          pod_plano: Number(it.plano_selecionado),
+          pod_preco_por_envio: precoFinal,
+          pod_preco_editado_manualmente: false,
           pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
           observacoes: it.observacoes || null,
         };
       });
       await onSave(payloads);
+    }
+  };
+
+  const baixarImagem = async () => {
+    if (!exportRef.current) return;
+    const nome = orcamentoSelecionado?.nome_cliente || 'produtor';
+    const num = orcamentoSelecionado?.numero_orcamento || '';
+    const slug = `${num}_${nome}`.replace(/[^\w-]+/g, '_');
+    try {
+      await exportElementAsPng(exportRef.current, `precos_pod_${slug}.png`);
+      toast.success('Imagem gerada');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao gerar imagem');
     }
   };
 
