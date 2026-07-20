@@ -952,6 +952,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          imposto_percentual: number
+          margem_override: boolean
+          margem_percentual: number | null
           nome_produto: string | null
           nome_produtor: string | null
           observacoes: string | null
@@ -973,6 +976,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          imposto_percentual?: number
+          margem_override?: boolean
+          margem_percentual?: number | null
           nome_produto?: string | null
           nome_produtor?: string | null
           observacoes?: string | null
@@ -994,6 +1000,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          imposto_percentual?: number
+          margem_override?: boolean
+          margem_percentual?: number | null
           nome_produto?: string | null
           nome_produtor?: string | null
           observacoes?: string | null
@@ -1019,6 +1028,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      frete_margem_faixas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          envios_max: number | null
+          envios_min: number
+          id: string
+          margem_percentual: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          envios_max?: number | null
+          envios_min: number
+          id?: string
+          margem_percentual: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          envios_max?: number | null
+          envios_min?: number
+          id?: string
+          margem_percentual?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       frete_pod_precos: {
         Row: {
