@@ -1084,6 +1084,14 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                       {podItens.map((it, idx) => {
                         const planos = planosDoTipo(it.tipo_produto);
                         const margem = margemEfetivaItem(it);
+                        const envios = Number(it.qtd_envios) || 0;
+                        const selecionadosRows = planos
+                          .filter(p => it.planos_selecionados.includes(p.plano))
+                          .map(p => {
+                            const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                            return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                          });
+                        const somaMensal = selecionadosRows.reduce((a, r) => a + r.total, 0);
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
@@ -1092,9 +1100,10 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             </div>
                             <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
                               Margem: <strong>{margem.pct}%</strong> ({margem.faixaLabel}) · Imposto: <strong>{IMPOSTO_POD_PADRAO}%</strong>
+                              {envios > 0 && <> · Envios/mês: <strong>{envios}</strong></>}
                             </p>
-                            {planos.length === 0 ? (
-                              <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
+                            {selecionadosRows.length === 0 ? (
+                              <p style={{ fontSize: 12, color: '#a15c00' }}>Nenhum plano selecionado.</p>
                             ) : (
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                                 <thead>
@@ -1102,26 +1111,26 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                     <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Margem</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Imposto</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
+                                    {envios > 0 && <th style={{ textAlign: 'right', padding: 6 }}>Total/mês</th>}
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {planos.map(p => {
-                                    const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                                    const sel = it.planos_selecionados.includes(p.plano);
-                                    return (
-                                      <tr key={p.id} style={{ borderTop: '1px solid #eee', background: sel ? '#fff8e1' : 'transparent' }}>
-                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 400 }}>{sel ? '★ ' : ''}{p.plano}</td>
-                                        <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.margemValor)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.impostoValor)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 600 }}>{formatBRL(calc.precoFinal)}</td>
-                                      </tr>
-                                    );
-                                  })}
+                                  {selecionadosRows.map(r => (
+                                    <tr key={r.plano} style={{ borderTop: '1px solid #eee' }}>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{r.plano}</td>
+                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(r.frete)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(r.manuseio)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(r.precoFinal)}</td>
+                                      {envios > 0 && <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(r.total)}</td>}
+                                    </tr>
+                                  ))}
+                                  {envios > 0 && selecionadosRows.length > 1 && (
+                                    <tr style={{ borderTop: '2px solid #ddd', background: '#fafafa' }}>
+                                      <td colSpan={4} style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>Soma mensal</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(somaMensal)}</td>
+                                    </tr>
+                                  )}
                                 </tbody>
                               </table>
                             )}
