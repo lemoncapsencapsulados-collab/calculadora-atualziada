@@ -209,14 +209,21 @@ export default function Logistica() {
                     </TableHeader>
                     <TableBody>
                       {cotacoesFiltradas.map(c => {
+                        const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
                         const total = (Number(c.pod_preco_por_envio) || 0) * (Number(c.pod_quantidade_envios_estimada) || 0);
+                        const planoLabel = selecionados.length > 1
+                          ? `${selecionados.length} planos: ${selecionados.map(s => s.plano).join(', ')}`
+                          : (c.pod_plano ?? '—');
+                        const precoLabel = selecionados.length > 1
+                          ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
+                          : formatBRL(c.pod_preco_por_envio);
                         return (
                           <TableRow key={c.id}>
                             <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
                             <TableCell>{c.tipo_produto || '—'}</TableCell>
-                            <TableCell className="text-right">{c.pod_plano ?? '—'}</TableCell>
+                            <TableCell className="text-right text-xs">{planoLabel}</TableCell>
                             <TableCell className={`text-right font-medium ${c.pod_preco_editado_manualmente ? 'text-amber-600' : ''}`}>
-                              {formatBRL(c.pod_preco_por_envio)}
+                              {precoLabel}
                               {c.pod_preco_editado_manualmente && <span className="ml-1 text-[10px] uppercase">manual</span>}
                             </TableCell>
                             <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
