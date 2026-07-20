@@ -52,19 +52,22 @@ export async function fetchPodPrecoAtivo(tipo_produto: string, plano: number): P
 export function useUpsertPodPreco() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { id?: string; tipo_produto: string; plano: number; preco: number; faixa_peso?: string | null; vigencia_inicio?: string }) => {
+    mutationFn: async (payload: { id?: string; tipo_produto: string; plano: number; preco: number; taxa_manuseio: number; faixa_peso?: string | null; vigencia_inicio?: string }) => {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
       let precoAnterior: number | null = null;
+      let taxaAnterior: number | null = null;
       let precoRow: any = null;
 
       if (payload.id) {
-        const { data: existing } = await (supabase as any).from(TABLE).select('preco').eq('id', payload.id).limit(1).single();
+        const { data: existing } = await (supabase as any).from(TABLE).select('preco, taxa_manuseio').eq('id', payload.id).limit(1).single();
         precoAnterior = existing ? Number(existing.preco) : null;
+        taxaAnterior = existing ? Number(existing.taxa_manuseio) : null;
         const { data, error } = await (supabase as any)
           .from(TABLE)
           .update({
             preco: payload.preco,
+            taxa_manuseio: payload.taxa_manuseio,
             faixa_peso: payload.faixa_peso ?? null,
             vigencia_inicio: payload.vigencia_inicio ?? new Date().toISOString().slice(0, 10),
           })
@@ -77,13 +80,14 @@ export function useUpsertPodPreco() {
         // Desativa preço ativo anterior para o mesmo tipo/plano se existir
         const { data: existingRows } = await (supabase as any)
           .from(TABLE)
-          .select('id, preco')
+          .select('id, preco, taxa_manuseio')
           .eq('tipo_produto', payload.tipo_produto)
           .eq('plano', payload.plano)
           .eq('ativo', true)
           .limit(1);
         if (existingRows && existingRows[0]) {
           precoAnterior = Number(existingRows[0].preco);
+          taxaAnterior = Number(existingRows[0].taxa_manuseio);
           await (supabase as any).from(TABLE).update({ ativo: false }).eq('id', existingRows[0].id);
         }
         const { data, error } = await (supabase as any)
@@ -92,6 +96,7 @@ export function useUpsertPodPreco() {
             tipo_produto: payload.tipo_produto,
             plano: payload.plano,
             preco: payload.preco,
+            taxa_manuseio: payload.taxa_manuseio,
             faixa_peso: payload.faixa_peso ?? null,
             vigencia_inicio: payload.vigencia_inicio ?? new Date().toISOString().slice(0, 10),
             ativo: true,
@@ -102,13 +107,19 @@ export function useUpsertPodPreco() {
         precoRow = data;
       }
 
-      if (precoRow && (precoAnterior === null || Number(precoAnterior) !== Number(payload.preco))) {
+      if (precoRow && (
+        precoAnterior === null ||
+        Number(precoAnterior) !== Number(payload.preco) ||
+        Number(taxaAnterior ?? 0) !== Number(payload.taxa_manuseio)
+      )) {
         await (supabase as any).from(HIST).insert([{
           preco_id: precoRow.id,
           tipo_produto: payload.tipo_produto,
           plano: payload.plano,
           preco_anterior: precoAnterior,
           preco_novo: payload.preco,
+          taxa_manuseio_anterior: taxaAnterior,
+          taxa_manuseio_nova: payload.taxa_manuseio,
           alterado_por: user?.id ?? null,
           alterado_por_email: user?.email ?? null,
         }]);
