@@ -961,6 +961,7 @@ export type Database = {
           observacoes_internas: string | null
           orcamento_id: string
           pod_plano: number | null
+          pod_planos_selecionados: Json
           pod_preco_editado_manualmente: boolean | null
           pod_preco_por_envio: number | null
           pod_quantidade_envios_estimada: number | null
@@ -985,6 +986,7 @@ export type Database = {
           observacoes_internas?: string | null
           orcamento_id: string
           pod_plano?: number | null
+          pod_planos_selecionados?: Json
           pod_preco_editado_manualmente?: boolean | null
           pod_preco_por_envio?: number | null
           pod_quantidade_envios_estimada?: number | null
@@ -1009,6 +1011,7 @@ export type Database = {
           observacoes_internas?: string | null
           orcamento_id?: string
           pod_plano?: number | null
+          pod_planos_selecionados?: Json
           pod_preco_editado_manualmente?: boolean | null
           pod_preco_por_envio?: number | null
           pod_quantidade_envios_estimada?: number | null

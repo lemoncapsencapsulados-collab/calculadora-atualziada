@@ -23,6 +23,17 @@ export function linhaPdfFrete(cotacao: FreteCotacao | null | undefined): { titul
       nota: 'Valor sujeito a confirmação após finalização da produção.',
     };
   }
+  const selecionados = Array.isArray((cotacao as any).pod_planos_selecionados)
+    ? ((cotacao as any).pod_planos_selecionados as { plano: number; preco_final: number }[])
+    : [];
+  if (selecionados.length > 1) {
+    const opcoes = [...selecionados].sort((a, b) => a.plano - b.plano)
+      .map(s => `Plano ${s.plano}: ${formatBRL(s.preco_final)}/envio`)
+      .join(' · ');
+    return {
+      titulo: `Logística (Print on Demand) — ${cotacao.tipo_produto || '-'} — Opções: ${opcoes}`,
+    };
+  }
   return {
     titulo: `Logística (Print on Demand) — ${cotacao.tipo_produto || '-'} / Plano ${cotacao.pod_plano || '-'} frascos: ${formatBRL(cotacao.pod_preco_por_envio)}/envio`,
   };

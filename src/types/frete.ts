@@ -30,6 +30,7 @@ export interface FreteCotacao {
   margem_percentual: number | null;
   margem_override: boolean | null;
   imposto_percentual: number | null;
+  pod_planos_selecionados?: PodPlanoSelecionado[] | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -53,6 +54,17 @@ export interface FreteCotacaoInsert {
   margem_percentual?: number | null;
   margem_override?: boolean | null;
   imposto_percentual?: number | null;
+  pod_planos_selecionados?: PodPlanoSelecionado[] | null;
+}
+
+export interface PodPlanoSelecionado {
+  plano: number;
+  preco: number;
+  taxa_manuseio: number;
+  margem_percentual: number;
+  imposto_percentual: number;
+  preco_final: number;
+  margem_override?: boolean;
 }
 
 export interface FretePodPreco {

@@ -22,6 +22,7 @@ import { exportElementAsPng } from '@/lib/freteImageExport';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS as FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
+import type { PodPlanoSelecionado } from '@/types/frete';
 import { formatBRL, calcularPrecoPod, resolverMargemPorEnvios, descreverFaixa, IMPOSTO_POD_PADRAO } from '@/lib/freteHelpers';
 import { toast } from 'sonner';
 
@@ -208,14 +209,21 @@ export default function Logistica() {
                     </TableHeader>
                     <TableBody>
                       {cotacoesFiltradas.map(c => {
+                        const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
                         const total = (Number(c.pod_preco_por_envio) || 0) * (Number(c.pod_quantidade_envios_estimada) || 0);
+                        const planoLabel = selecionados.length > 1
+                          ? `${selecionados.length} planos: ${selecionados.map(s => s.plano).join(', ')}`
+                          : (c.pod_plano ?? '—');
+                        const precoLabel = selecionados.length > 1
+                          ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
+                          : formatBRL(c.pod_preco_por_envio);
                         return (
                           <TableRow key={c.id}>
                             <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
                             <TableCell>{c.tipo_produto || '—'}</TableCell>
-                            <TableCell className="text-right">{c.pod_plano ?? '—'}</TableCell>
+                            <TableCell className="text-right text-xs">{planoLabel}</TableCell>
                             <TableCell className={`text-right font-medium ${c.pod_preco_editado_manualmente ? 'text-amber-600' : ''}`}>
-                              {formatBRL(c.pod_preco_por_envio)}
+                              {precoLabel}
                               {c.pod_preco_editado_manualmente && <span className="ml-1 text-[10px] uppercase">manual</span>}
                             </TableCell>
                             <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
@@ -386,7 +394,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
     setPodItens(itens.map((it: any) => ({
       nome_produto: it.nome_produto || 'Produto',
       tipo_produto: mapTipoProduto(it.tipo_produto),
-      plano_selecionado: null,
+      planos_selecionados: [],
       qtd_envios: '',
       observacoes: '',
       margem_pct: null,
@@ -472,30 +480,44 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         return;
       }
       // Criação: uma cotação por item de produção
-      const validos = podItens.filter(it => it.tipo_produto && it.plano_selecionado != null);
+      const validos = podItens.filter(it => it.tipo_produto && it.planos_selecionados.length > 0);
       if (validos.length === 0) {
-        toast.error('Selecione um plano em ao menos um produto');
+        toast.error('Selecione ao menos um plano em cada produto que deseja cotar');
         return;
       }
       const payloads: FreteCotacaoInsert[] = validos.map(it => {
-        const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
-        const frete = Number(planoRow?.preco || 0);
-        const manuseio = Number(planoRow?.taxa_manuseio || 0);
         const { pct: margemPct, override } = margemEfetivaItem(it);
-        const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+        const planosRows = planosDoTipo(it.tipo_produto).filter(p => it.planos_selecionados.includes(p.plano));
+        const ordenados = planosRows.sort((a, b) => a.plano - b.plano);
+        const selecionados: PodPlanoSelecionado[] = ordenados.map(p => {
+          const frete = Number(p.preco || 0);
+          const manuseio = Number(p.taxa_manuseio || 0);
+          const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+          return {
+            plano: p.plano,
+            preco: frete,
+            taxa_manuseio: manuseio,
+            margem_percentual: margemPct,
+            imposto_percentual: IMPOSTO_POD_PADRAO,
+            preco_final: precoFinal,
+            margem_override: override,
+          };
+        });
+        const principal = selecionados[0];
         return {
           tipo: 'pod',
           orcamento_id: orcamentoId,
           tipo_produto: it.tipo_produto,
           nome_produto: it.nome_produto,
-          pod_plano: Number(it.plano_selecionado),
-          pod_preco_por_envio: precoFinal,
+          pod_plano: principal.plano,
+          pod_preco_por_envio: principal.preco_final,
           pod_preco_editado_manualmente: false,
           pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
           observacoes: it.observacoes || null,
           margem_percentual: margemPct,
           margem_override: override,
           imposto_percentual: IMPOSTO_POD_PADRAO,
+          pod_planos_selecionados: selecionados,
         };
       });
       await onSave(payloads);
@@ -728,7 +750,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             <Label className="text-xs">Tipo:</Label>
                             <Select
                               value={it.tipo_produto}
-                              onValueChange={(v) => atualizarItem(idx, { tipo_produto: v, plano_selecionado: null })}
+                              onValueChange={(v) => atualizarItem(idx, { tipo_produto: v, planos_selecionados: [] })}
                             >
                               <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
@@ -782,15 +804,19 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                 {planos.map(p => {
                                   const manuseio = Number(p.taxa_manuseio || 0);
                                   const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio, margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                                  const selected = it.plano_selecionado === p.plano;
+                                  const selected = it.planos_selecionados.includes(p.plano);
                                   return (
                                     <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
                                       <TableCell>
                                         <input
-                                          type="radio"
-                                          name={`plano-${idx}`}
+                                          type="checkbox"
                                           checked={selected}
-                                          onChange={() => atualizarItem(idx, { plano_selecionado: p.plano })}
+                                          onChange={(e) => {
+                                            const next = e.target.checked
+                                              ? Array.from(new Set([...it.planos_selecionados, p.plano]))
+                                              : it.planos_selecionados.filter(pl => pl !== p.plano);
+                                            atualizarItem(idx, { planos_selecionados: next });
+                                          }}
                                         />
                                       </TableCell>
                                       <TableCell className="text-right">{p.plano}</TableCell>
@@ -862,14 +888,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                 <tbody>
                                   {planos.map(p => {
                                     const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                                    const sel = it.planos_selecionados.includes(p.plano);
                                     return (
-                                      <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
-                                        <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
+                                      <tr key={p.id} style={{ borderTop: '1px solid #eee', background: sel ? '#fff8e1' : 'transparent' }}>
+                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 400 }}>{sel ? '★ ' : ''}{p.plano}</td>
                                         <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
                                         <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
                                         <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.margemValor)}</td>
                                         <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.impostoValor)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(calc.precoFinal)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 600 }}>{formatBRL(calc.precoFinal)}</td>
                                       </tr>
                                     );
                                   })}
@@ -950,7 +977,7 @@ function MargemOverrideFlow({ idx, currentPct, onClose, onApply }: {
 interface PodItemDraft {
   nome_produto: string;
   tipo_produto: string;
-  plano_selecionado: number | null;
+  planos_selecionados: number[];
   qtd_envios: string;
   observacoes: string;
   margem_pct: number | null;
