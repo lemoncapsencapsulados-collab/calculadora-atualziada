@@ -5,7 +5,7 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
-import { linhaPdfFrete } from '@/lib/freteHelpers';
+import { linhaPdfFrete, blocoPdfFrete } from '@/lib/freteHelpers';
 import type { FreteCotacao } from '@/types/frete';
 
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
@@ -743,24 +743,62 @@ function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   
   yPos = renderSectionTitle(doc, 'Detalhamento de Frete', yPos);
 
-  // Linha de cotação vinculada (Estoque Próprio / POD)
-  const linhaCot = linhaPdfFrete(cotacao);
-  if (linhaCot) {
+  // Bloco da cotação vinculada (Estoque Próprio / POD)
+  const bloco = blocoPdfFrete(cotacao);
+  if (bloco) {
+    yPos = checkPageBreak(doc, yPos, 20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
     doc.setFontSize(LAYOUT.fontSize.body);
-    const linhas = doc.splitTextToSize(linhaCot.titulo, pageWidth - 2 * LAYOUT.margin);
-    doc.text(linhas, LAYOUT.margin, yPos);
-    yPos += LAYOUT.lineHeight * linhas.length;
-    if (linhaCot.nota) {
+    doc.text(bloco.titulo, LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight;
+
+    // Metadados (produto / tipo / envios)
+    const meta: string[] = [];
+    if (bloco.nomeProduto) meta.push(`Produto: ${bloco.nomeProduto}`);
+    if (bloco.tipoProduto) meta.push(`Tipo: ${bloco.tipoProduto}`);
+    if (bloco.tipo === 'pod' && bloco.quantEnviosMedio != null) {
+      meta.push(`Quant. envios mensais médio: ${bloco.quantEnviosMedio}`);
+    }
+    if (meta.length > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.textMedium);
+      doc.setFontSize(LAYOUT.fontSize.small);
+      const metaLinhas = doc.splitTextToSize(meta.join(' · '), pageWidth - 2 * LAYOUT.margin);
+      doc.text(metaLinhas, LAYOUT.margin, yPos);
+      yPos += (LAYOUT.lineHeight - 1) * metaLinhas.length;
+    }
+    yPos += 2;
+
+    if (bloco.tipo === 'pod' && bloco.planos && bloco.planos.length > 0) {
+      autoTable(doc, {
+        startY: yPos,
+        margin: { left: LAYOUT.margin, right: LAYOUT.margin },
+        head: [['Plano (frascos)', 'Preço / Envio']],
+        body: bloco.planos.map(p => [String(p.plano), formatCurrency(p.precoEnvio)]),
+        theme: 'grid',
+        headStyles: { fillColor: COLORS.darkGreen, textColor: COLORS.white, fontStyle: 'bold', halign: 'center' },
+        bodyStyles: { fontSize: LAYOUT.fontSize.body, textColor: COLORS.textDark, halign: 'center' },
+        columnStyles: { 0: { halign: 'center' }, 1: { halign: 'right', fontStyle: 'bold' } },
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 4;
+    } else if (bloco.tipo === 'estoque_proprio') {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.textDark);
+      doc.setFontSize(LAYOUT.fontSize.body);
+      doc.text(`Valor do frete: ${formatCurrency(Number(bloco.valorFrete || 0))}  ·  Status: ${bloco.status || '—'}`, LAYOUT.margin, yPos);
+      yPos += LAYOUT.lineHeight;
+    }
+
+    if (bloco.nota) {
       doc.setFont('helvetica', 'italic');
       doc.setTextColor(...COLORS.textLight);
       doc.setFontSize(LAYOUT.fontSize.small);
-      const notaLinhas = doc.splitTextToSize(linhaCot.nota, pageWidth - 2 * LAYOUT.margin);
+      const notaLinhas = doc.splitTextToSize(bloco.nota, pageWidth - 2 * LAYOUT.margin);
       doc.text(notaLinhas, LAYOUT.margin, yPos);
       yPos += (LAYOUT.lineHeight - 1) * notaLinhas.length;
     }
-    yPos += 3;
+    yPos += 4;
   }
 
   if (!frete || (frete.frete_lemon_caps === undefined && !frete.detalhamento_envio)) {
