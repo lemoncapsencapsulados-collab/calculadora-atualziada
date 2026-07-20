@@ -1,42 +1,68 @@
 ## Objetivo
 
-Trocar a "Taxa de Manuseio" por tipo de produto por uma **taxa de manuseio própria de cada plano**. A taxa por tipo deixa de existir.
+Adicionar margem de lucro por faixa de volume mensal na precificação POD, com override protegido por senha `0212` por orçamento, e aplicar 12% de imposto sobre o subtotal.
 
 ---
 
-## 1. Banco de dados
+## 1. Fórmula de preço POD
 
-- `frete_pod_precos`: adicionar coluna `taxa_manuseio numeric(15,6) NOT NULL DEFAULT 0`.
-- `frete_pod_precos_historico`: adicionar `taxa_manuseio_anterior` e `taxa_manuseio_nova` para rastrear alterações (opcional mas coerente com o histórico atual de preço).
-- `frete_logistica_config`: **remover** (drop table) — não é mais usada.
-- Backfill: para cada plano existente, copiar a taxa atual do respectivo tipo (se houver em `frete_logistica_config`) antes do drop.
+Base por envio, calculada por plano/produto:
 
-## 2. Painel Administrador → aba "Logística"
+```
+base       = taxa_manuseio + frete_medio
+margem_val = base * (margem_% / 100)
+subtotal   = base + margem_val
+preco_final = subtotal * 1.12         ← 12% de imposto sobre o subtotal
+```
 
-`LogisticaConfigCard.tsx`:
-- Remover o bloco `TaxaManuseioEditor` (taxa por tipo).
-- Na tabela de planos, transformar a coluna "+ Manuseio" numa coluna **"Taxa Manuseio"** editável e mostrar também "Total por envio" (frete médio + taxa).
-- `PlanoDialog`: adicionar campo obrigatório "Taxa de manuseio (R$)" ao lado de "Frete médio".
+`preco_final` substitui o valor hoje salvo em `frete_cotacoes.pod_preco_por_envio` e o que aparece na tabela de planos da "Nova Cotação" e no PNG exportado.
 
-Hooks:
-- `useFretePodPrecos`: `upsertPodPreco` passa a persistir `taxa_manuseio`.
-- Excluir `useFreteLogisticaConfig.ts` (e usos).
+## 2. Faixas padrão de margem (por envios/mês)
 
-Tipos:
-- `FretePodPreco`: adicionar `taxa_manuseio: number`.
-- Remover `FreteLogisticaConfig` de `src/types/frete.ts`.
+| Envios/mês | Margem |
+|---|---|
+| 0–50 | 15% |
+| 51–100 | 13% |
+| 101–200 | 11% |
+| 201–1.000 | 9% |
+| > 1.000 | 8% |
 
-## 3. Nova Cotação de Frete (POD) — `src/pages/Logistica.tsx`
+A faixa é escolhida a partir de `pod_quantidade_envios_estimada` do orçamento. Sem estimativa preenchida → assume faixa 0–50 (15%) e exibe aviso "estimativa ausente".
 
-- Remover leitura de `useTaxaManuseioMap`.
-- A tabela de planos por produto passa a usar `plano.taxa_manuseio` diretamente. Preço salvo em `pod_preco_por_envio` continua sendo `preco + taxa_manuseio` (agora do próprio plano).
-- Export PNG (`freteImageExport.ts`): passar a exibir a taxa vinda do plano; sem mudança na assinatura além de remover o parâmetro `taxaByTipo`.
+## 3. Configuração das faixas (Painel Administrador → Logística)
 
-## 4. Compatibilidade
+Nova tabela `frete_margem_faixas` com colunas: `envios_min`, `envios_max` (nullable = infinito), `margem_percentual`, `ativo`. Seed com as 5 faixas acima.
 
-- Cotações já salvas seguem válidas (só usam `pod_preco_por_envio`).
-- Planos existentes ficam com `taxa_manuseio` migrada do tipo antigo (ou 0 se não havia).
+Bloco novo em `LogisticaConfigCard.tsx` acima da tabela de planos: lista editável das faixas (min, max, %). Mesmo padrão de UX dos demais cards. Sem senha para editar aqui (é área admin já protegida).
 
-## Fora de escopo
+## 4. Override por orçamento (com senha)
 
-- Alterações em PDF, contrato ou modo "Estoque Próprio".
+Em `frete_cotacoes`, adicionar:
+- `margem_percentual numeric(6,3) NULL` — margem efetivamente aplicada
+- `margem_override boolean NOT NULL DEFAULT false` — indica edição manual
+- `imposto_percentual numeric(6,3) NOT NULL DEFAULT 12`
+
+Em `src/pages/Logistica.tsx` (dialog Nova Cotação, por produto):
+- Mostrar a margem calculada da faixa (ex.: "Margem: 13% — faixa 51–100 envios/mês") acima da tabela de planos.
+- Botão "Editar margem" abre um `AdminPasswordDialog` (senha `0212`). Após liberar, campo numérico permite alterar a margem só daquele produto/orçamento, marcando `margem_override = true`.
+- A tabela de planos recalcula em tempo real usando a fórmula da seção 1.
+
+Ao salvar a cotação POD, persistir `margem_percentual`, `margem_override` e `imposto_percentual` (12) junto com `pod_preco_por_envio` já com o preço final.
+
+## 5. Exibição
+
+- Tabela de planos na cotação: colunas **Frete médio**, **Taxa manuseio**, **Margem (R$)**, **Imposto 12% (R$)**, **Preço final/envio**.
+- PNG exportado (`freteImageExport.ts`): incluir a linha de margem aplicada e imposto no rodapé de cada produto.
+- PDF do orçamento / linha de frete em `freteHelpers.ts`: mantém apenas o `preco_final` (usuário final não vê breakdown), sem mudanças de layout.
+
+## 6. Fora de escopo
+
+- Recalcular cotações antigas: seguem com o valor salvo.
+- Alterar precificação de produto/fórmula (calculadora principal) — mudança é somente no fluxo de frete POD.
+
+## Detalhes técnicos
+
+- Migrações: `frete_margem_faixas` (com GRANTs + RLS `authenticated`), colunas novas em `frete_cotacoes`, seed das 5 faixas.
+- Novo hook `useFreteMargemFaixas` (CRUD) e helper `resolverMargemPorEnvios(envios, faixas)`.
+- Helper puro `calcularPrecoPod({ frete, manuseio, margemPct, impostoPct })` reutilizado no dialog e no PNG export.
+- Reaproveitar `AdminPasswordDialog` existente (senha `0212`) para o gate de edição da margem.
