@@ -888,14 +888,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                 <tbody>
                                   {planos.map(p => {
                                     const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                                    const sel = it.planos_selecionados.includes(p.plano);
                                     return (
-                                      <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
-                                        <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
+                                      <tr key={p.id} style={{ borderTop: '1px solid #eee', background: sel ? '#fff8e1' : 'transparent' }}>
+                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 400 }}>{sel ? '★ ' : ''}{p.plano}</td>
                                         <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
                                         <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
                                         <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.margemValor)}</td>
                                         <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.impostoValor)}</td>
-                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(calc.precoFinal)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: sel ? 700 : 600 }}>{formatBRL(calc.precoFinal)}</td>
                                       </tr>
                                     );
                                   })}
