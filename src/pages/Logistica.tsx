@@ -232,7 +232,7 @@ export default function Logistica() {
             <TabsContent value="pod" className="mt-4">
               {isLoading ? (
                 <p className="text-muted-foreground text-sm">Carregando...</p>
-              ) : cotacoesFiltradas.length === 0 ? (
+              ) : gruposProdutor.length === 0 ? (
                 <div className="py-12 text-center border rounded-lg bg-muted/30 text-muted-foreground">
                   Nenhuma cotação POD registrada.
                 </div>
@@ -241,47 +241,42 @@ export default function Logistica() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Orçamento</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="text-right">Plano</TableHead>
-                        <TableHead className="text-right">Preço/envio</TableHead>
-                        <TableHead className="text-right">Qtd Envios</TableHead>
-                        <TableHead className="text-right">Total Estimado</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead className="w-32">Ações</TableHead>
+                        <TableHead>Produtor</TableHead>
+                        <TableHead className="text-right">Orçamentos</TableHead>
+                        <TableHead className="text-right">Produtos</TableHead>
+                        <TableHead className="text-right">Preço/envio (faixa)</TableHead>
+                        <TableHead>Última cotação</TableHead>
+                        <TableHead className="w-40">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cotacoesFiltradas.map(c => {
-                        const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
-                        const total = (Number(c.pod_preco_por_envio) || 0) * (Number(c.pod_quantidade_envios_estimada) || 0);
-                        const planoLabel = selecionados.length > 1
-                          ? `${selecionados.length} planos: ${selecionados.map(s => s.plano).join(', ')}`
-                          : (c.pod_plano ?? '—');
-                        const precoLabel = selecionados.length > 1
-                          ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
-                          : formatBRL(c.pod_preco_por_envio);
+                      {gruposProdutor.map(g => {
+                        const orcamentosSet = new Set(g.cotacoes.map(c => c.orcamento_id));
+                        const precos: number[] = [];
+                        g.cotacoes.forEach(c => {
+                          const sel = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
+                          if (sel.length > 0) sel.forEach(s => precos.push(Number(s.preco_final)));
+                          else if (c.pod_preco_por_envio != null) precos.push(Number(c.pod_preco_por_envio));
+                        });
+                        const min = precos.length ? Math.min(...precos) : null;
+                        const max = precos.length ? Math.max(...precos) : null;
+                        const ultima = g.cotacoes.reduce((acc, c) => c.created_at > acc ? c.created_at : acc, g.cotacoes[0].created_at);
                         return (
-                          <TableRow key={c.id}>
-                            <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
-                            <TableCell>{c.tipo_produto || '—'}</TableCell>
-                            <TableCell className="text-right text-xs">{planoLabel}</TableCell>
-                            <TableCell className={`text-right font-medium ${c.pod_preco_editado_manualmente ? 'text-amber-600' : ''}`}>
-                              {precoLabel}
-                              {c.pod_preco_editado_manualmente && <span className="ml-1 text-[10px] uppercase">manual</span>}
+                          <TableRow key={g.produtor}>
+                            <TableCell className="font-medium flex items-center gap-2">
+                              <Users className="w-4 h-4 text-muted-foreground" />
+                              {g.produtor}
                             </TableCell>
-                            <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
-                            <TableCell className="text-right">{total > 0 ? formatBRL(total) : '—'}</TableCell>
-                            <TableCell className="text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                            <TableCell className="text-right">{orcamentosSet.size}</TableCell>
+                            <TableCell className="text-right">{g.cotacoes.length}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {min == null ? '—' : min === max ? formatBRL(min) : `${formatBRL(min)} – ${formatBRL(max)}`}
+                            </TableCell>
+                            <TableCell className="text-xs">{new Date(ultima).toLocaleDateString('pt-BR')}</TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" onClick={() => handleEditar(c)}>
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" onClick={() => setDeletando(c)}>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </div>
+                              <Button size="sm" variant="outline" onClick={() => setProdutorAberto(g)}>
+                                <Eye className="w-4 h-4 mr-2" />Ver produtos
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
