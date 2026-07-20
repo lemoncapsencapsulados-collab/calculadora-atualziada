@@ -1020,6 +1020,30 @@ export type Database = {
           },
         ]
       }
+      frete_logistica_config: {
+        Row: {
+          created_at: string
+          id: string
+          taxa_manuseio: number
+          tipo_produto: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          taxa_manuseio?: number
+          tipo_produto: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          taxa_manuseio?: number
+          tipo_produto?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       frete_pod_precos: {
         Row: {
           ativo: boolean
