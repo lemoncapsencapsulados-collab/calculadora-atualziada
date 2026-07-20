@@ -1,0 +1,187 @@
+import { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Plus, Pencil, Trash2, Truck, Save } from 'lucide-react';
+import { useFretePodPrecos, useUpsertPodPreco, useDesativarPodPreco } from '@/hooks/useFretePodPrecos';
+import { useFreteLogisticaConfig, useUpsertTaxaManuseio } from '@/hooks/useFreteLogisticaConfig';
+import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS, FretePodPreco } from '@/types/frete';
+import { formatBRL } from '@/lib/freteHelpers';
+
+export function LogisticaConfigCard() {
+  const { data: precos = [], isLoading } = useFretePodPrecos();
+  const { data: config = [] } = useFreteLogisticaConfig();
+  const upsertPreco = useUpsertPodPreco();
+  const upsertTaxa = useUpsertTaxaManuseio();
+  const desativarPreco = useDesativarPodPreco();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<FretePodPreco | null>(null);
+  const [tipoNovo, setTipoNovo] = useState<string>('');
+
+  const taxaByTipo = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const t of FRETE_TIPOS_PRODUTO) map[t] = 0;
+    for (const c of config) map[c.tipo_produto] = Number(c.taxa_manuseio) || 0;
+    return map;
+  }, [config]);
+
+  const precosByTipo = useMemo(() => {
+    const g: Record<string, FretePodPreco[]> = {};
+    for (const t of FRETE_TIPOS_PRODUTO) g[t] = [];
+    for (const p of precos) (g[p.tipo_produto] ||= []).push(p);
+    for (const t of Object.keys(g)) g[t].sort((a, b) => a.plano - b.plano);
+    return g;
+  }, [precos]);
+
+  const abrirNovo = (tipo: string) => { setEditing(null); setTipoNovo(tipo); setDialogOpen(true); };
+  const abrirEditar = (p: FretePodPreco) => { setEditing(p); setTipoNovo(p.tipo_produto); setDialogOpen(true); };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Truck className="w-5 h-5 text-primary" />Logística</CardTitle>
+        <CardDescription>Taxa de manuseio e tabela de frete médio por plano, para cada tipo de produto</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue={FRETE_TIPOS_PRODUTO[0]}>
+          <TabsList>
+            {FRETE_TIPOS_PRODUTO.map(t => <TabsTrigger key={t} value={t}>{t}</TabsTrigger>)}
+          </TabsList>
+          {FRETE_TIPOS_PRODUTO.map(tipo => (
+            <TabsContent key={tipo} value={tipo} className="mt-4 space-y-4">
+              <TaxaManuseioEditor
+                tipo={tipo}
+                valorAtual={taxaByTipo[tipo]}
+                onSalvar={(v) => upsertTaxa.mutateAsync({ tipo_produto: tipo, taxa_manuseio: v })}
+                salvando={upsertTaxa.isPending}
+              />
+
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-sm">Planos cadastrados</h4>
+                <Button size="sm" onClick={() => abrirNovo(tipo)}><Plus className="w-4 h-4 mr-2" />Novo Plano</Button>
+              </div>
+
+              {isLoading ? (
+                <p className="text-muted-foreground text-sm">Carregando...</p>
+              ) : precosByTipo[tipo].length === 0 ? (
+                <p className="text-muted-foreground text-sm border rounded p-3 bg-muted/30">Nenhum plano cadastrado. Clique em "Novo Plano".</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">Plano (frascos)</TableHead>
+                        <TableHead className="text-right">Frete Médio</TableHead>
+                        <TableHead className="text-right">+ Manuseio</TableHead>
+                        <TableHead className="w-32">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {precosByTipo[tipo].map(p => (
+                        <TableRow key={p.id}>
+                          <TableCell className="text-right">{p.plano}</TableCell>
+                          <TableCell className="text-right font-medium">{formatBRL(p.preco)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{formatBRL(Number(p.preco) + taxaByTipo[tipo])}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button size="icon" variant="ghost" onClick={() => abrirEditar(p)}><Pencil className="w-4 h-4" /></Button>
+                              <Button size="icon" variant="ghost" onClick={() => desativarPreco.mutate(p.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </CardContent>
+
+      {dialogOpen && (
+        <PlanoDialog
+          open={dialogOpen}
+          editing={editing}
+          tipoInicial={tipoNovo}
+          planosExistentes={precosByTipo[tipoNovo]?.map(p => p.plano) || []}
+          onClose={() => { setDialogOpen(false); setEditing(null); }}
+          onSave={async (payload) => {
+            await upsertPreco.mutateAsync(payload);
+            setDialogOpen(false); setEditing(null);
+          }}
+          saving={upsertPreco.isPending}
+        />
+      )}
+    </Card>
+  );
+}
+
+function TaxaManuseioEditor({ tipo, valorAtual, onSalvar, salvando }: {
+  tipo: string; valorAtual: number; onSalvar: (v: number) => Promise<any>; salvando: boolean;
+}) {
+  const [valor, setValor] = useState(String(valorAtual));
+  const dirty = Number(valor) !== Number(valorAtual);
+  return (
+    <div className="border rounded-lg p-3 bg-muted/30 flex flex-col sm:flex-row sm:items-end gap-3">
+      <div className="flex-1">
+        <Label>Taxa de Manuseio — {tipo} (R$)</Label>
+        <Input type="number" step="0.01" min="0" value={valor} onChange={(e) => setValor(e.target.value)} />
+        <p className="text-xs text-muted-foreground mt-1">Aplicada a cada envio, somada ao frete médio do plano.</p>
+      </div>
+      <Button size="sm" disabled={!dirty || salvando} onClick={async () => { await onSalvar(Number(valor) || 0); }}>
+        <Save className="w-4 h-4 mr-2" />Salvar
+      </Button>
+    </div>
+  );
+}
+
+function PlanoDialog({ open, editing, tipoInicial, planosExistentes, onClose, onSave, saving }: {
+  open: boolean;
+  editing: FretePodPreco | null;
+  tipoInicial: string;
+  planosExistentes: number[];
+  onClose: () => void;
+  onSave: (payload: { id?: string; tipo_produto: string; plano: number; preco: number; vigencia_inicio?: string }) => Promise<void>;
+  saving: boolean;
+}) {
+  const [plano, setPlano] = useState(editing ? String(editing.plano) : '');
+  const [preco, setPreco] = useState(editing ? String(editing.preco) : '');
+  const sugestoes = FRETE_POD_PLANOS_SUGERIDOS.filter(s => !planosExistentes.includes(s) || (editing && editing.plano === s));
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editing ? `Editar Plano — ${tipoInicial}` : `Novo Plano — ${tipoInicial}`}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Plano (nº de frascos) *</Label>
+            <Input type="number" min="1" step="1" value={plano} onChange={(e) => setPlano(e.target.value)} disabled={!!editing} />
+            {!editing && sugestoes.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {sugestoes.map(s => (
+                  <button key={s} type="button" onClick={() => setPlano(String(s))} className="text-xs border rounded px-2 py-0.5 hover:bg-muted">{s}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <Label>Frete médio (R$) *</Label>
+            <Input type="number" step="0.01" min="0" value={preco} onChange={(e) => setPreco(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button disabled={saving || !plano || !preco} onClick={() => onSave({ id: editing?.id, tipo_produto: tipoInicial, plano: Number(plano), preco: Number(preco) })}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
