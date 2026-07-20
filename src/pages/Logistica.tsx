@@ -988,7 +988,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <Label className="text-xs">Qtd estimada de envios</Label>
+                            <Label className="text-xs">Quant. Envios Mensais médio</Label>
                             <Input
                               type="number"
                               min="0"
