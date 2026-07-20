@@ -589,7 +589,23 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
 
   // Ao mudar orçamento no modo POD, pré-carrega uma linha por item de produção
   useEffect(() => {
-    if (editing || tipo !== 'pod' || !orcamentoSelecionado) {
+    if (editing && tipo === 'pod') {
+      // Modo edição POD: carrega um único item com os planos já salvos
+      const jaSelecionados = Array.isArray(editing.pod_planos_selecionados) && editing.pod_planos_selecionados.length > 0
+        ? editing.pod_planos_selecionados.map(s => Number(s.plano))
+        : (editing.pod_plano != null ? [Number(editing.pod_plano)] : []);
+      setPodItens([{
+        nome_produto: editing.nome_produto || 'Produto',
+        tipo_produto: editing.tipo_produto || '',
+        planos_selecionados: jaSelecionados,
+        qtd_envios: editing.pod_quantidade_envios_estimada != null ? String(editing.pod_quantidade_envios_estimada) : '',
+        observacoes: editing.observacoes || '',
+        margem_pct: editing.margem_override ? Number(editing.margem_percentual || 0) : null,
+        margem_override: !!editing.margem_override,
+      }]);
+      return;
+    }
+    if (tipo !== 'pod' || !orcamentoSelecionado) {
       setPodItens([]);
       return;
     }
