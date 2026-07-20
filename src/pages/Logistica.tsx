@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { useFreteCotacoes, useCreateFreteCotacao, useUpdateFreteCotacao, useDeleteFreteCotacao, fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
 import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos';
+import { useFreteMargemFaixas } from '@/hooks/useFreteMargemFaixas';
+import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { exportElementAsPng } from '@/lib/freteImageExport';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS as FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
-import { formatBRL } from '@/lib/freteHelpers';
+import { formatBRL, calcularPrecoPod, resolverMargemPorEnvios, descreverFaixa, IMPOSTO_POD_PADRAO } from '@/lib/freteHelpers';
 import { toast } from 'sonner';
 
 export default function Logistica() {
@@ -340,7 +342,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const [orcOpen, setOrcOpen] = useState(false);
   const [podItens, setPodItens] = useState<PodItemDraft[]>([]);
   const { data: todosPodPrecos = [] } = useFretePodPrecos();
+  const { data: faixasMargem = [] } = useFreteMargemFaixas();
   const exportRef = useRef<HTMLDivElement | null>(null);
+  const [passwordItemIdx, setPasswordItemIdx] = useState<number | null>(null);
 
   const orcamentoSelecionado = useMemo(
     () => orcamentos.find(o => o.id === orcamentoId) || null,
@@ -385,11 +389,26 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       plano_selecionado: null,
       qtd_envios: '',
       observacoes: '',
+      margem_pct: null,
+      margem_override: false,
     })));
   }, [orcamentoSelecionado, tipo, editing]);
 
   const atualizarItem = async (idx: number, patch: Partial<PodItemDraft>) => {
     setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+
+  const margemEfetivaItem = (it: PodItemDraft): { pct: number; faixaLabel: string; override: boolean } => {
+    if (it.margem_override && it.margem_pct != null) {
+      return { pct: Number(it.margem_pct), faixaLabel: 'edição manual', override: true };
+    }
+    const envios = it.qtd_envios ? Number(it.qtd_envios) : 0;
+    const faixa = resolverMargemPorEnvios(envios, faixasMargem);
+    return {
+      pct: faixa ? Number(faixa.margem_percentual) : 0,
+      faixaLabel: descreverFaixa(faixa),
+      override: false,
+    };
   };
 
   /** Planos disponíveis (com preço) para um tipo de produto, ordenados. */
@@ -462,7 +481,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
         const frete = Number(planoRow?.preco || 0);
         const manuseio = Number(planoRow?.taxa_manuseio || 0);
-        const precoFinal = frete + manuseio;
+        const { pct: margemPct, override } = margemEfetivaItem(it);
+        const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
         return {
           tipo: 'pod',
           orcamento_id: orcamentoId,
@@ -473,6 +493,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           pod_preco_editado_manualmente: false,
           pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
           observacoes: it.observacoes || null,
+          margem_percentual: margemPct,
+          margem_override: override,
+          imposto_percentual: IMPOSTO_POD_PADRAO,
         };
       });
       await onSave(payloads);
@@ -696,6 +719,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                   </div>
                   {podItens.map((it, idx) => {
                     const planos = planosDoTipo(it.tipo_produto);
+                    const margem = margemEfetivaItem(it);
                     return (
                       <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/20">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -714,6 +738,26 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                           </div>
                         </div>
 
+                        {it.tipo_produto && planos.length > 0 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 border border-dashed rounded p-2 bg-background/60">
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">Margem aplicada: </span>
+                              <strong className={margem.override ? 'text-amber-600' : ''}>{margem.pct}%</strong>
+                              <span className="text-muted-foreground"> ({margem.faixaLabel}) · Imposto {IMPOSTO_POD_PADRAO}%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {margem.override && (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => atualizarItem(idx, { margem_override: false, margem_pct: null })}>
+                                  Restaurar padrão
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPasswordItemIdx(idx)}>
+                                <Lock className="w-3 h-3 mr-1" />Editar margem
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         {!it.tipo_produto ? (
                           <p className="text-xs text-muted-foreground">Selecione o tipo de produto para ver os planos disponíveis.</p>
                         ) : planos.length === 0 ? (
@@ -729,13 +773,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   <TableHead className="text-right">Plano</TableHead>
                                   <TableHead className="text-right">Frete Médio</TableHead>
                                   <TableHead className="text-right">+ Manuseio</TableHead>
+                                  <TableHead className="text-right">Margem ({margem.pct}%)</TableHead>
+                                  <TableHead className="text-right">Imposto ({IMPOSTO_POD_PADRAO}%)</TableHead>
                                   <TableHead className="text-right">Preço/Envio</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {planos.map(p => {
                                   const manuseio = Number(p.taxa_manuseio || 0);
-                                  const total = Number(p.preco) + manuseio;
+                                  const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio, margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
                                   const selected = it.plano_selecionado === p.plano;
                                   return (
                                     <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
@@ -750,7 +796,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                       <TableCell className="text-right">{p.plano}</TableCell>
                                       <TableCell className="text-right">{formatBRL(p.preco)}</TableCell>
                                       <TableCell className="text-right text-muted-foreground">{formatBRL(manuseio)}</TableCell>
-                                      <TableCell className="text-right font-semibold">{formatBRL(total)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.margemValor)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.impostoValor)}</TableCell>
+                                      <TableCell className="text-right font-semibold">{formatBRL(calc.precoFinal)}</TableCell>
                                     </TableRow>
                                   );
                                 })}
@@ -787,12 +835,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                       </p>
                       {podItens.map((it, idx) => {
                         const planos = planosDoTipo(it.tipo_produto);
+                        const margem = margemEfetivaItem(it);
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
                               <span>{it.nome_produto}</span>
                               <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'}</span>
                             </div>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
+                              Margem: <strong>{margem.pct}%</strong> ({margem.faixaLabel}) · Imposto: <strong>{IMPOSTO_POD_PADRAO}%</strong>
+                            </p>
                             {planos.length === 0 ? (
                               <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
                             ) : (
@@ -802,18 +854,25 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                     <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Margem</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Imposto</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {planos.map(p => (
-                                    <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
-                                      <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
-                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(Number(p.preco) + Number(p.taxa_manuseio || 0))}</td>
-                                    </tr>
-                                  ))}
+                                  {planos.map(p => {
+                                    const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                                    return (
+                                      <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
+                                        <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
+                                        <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.margemValor)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.impostoValor)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(calc.precoFinal)}</td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             )}
@@ -833,7 +892,58 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           <Button onClick={handleSubmit} disabled={saving}>{editing ? 'Salvar' : 'Criar Cotação'}</Button>
         </DialogFooter>
       </DialogContent>
+      {passwordItemIdx !== null && (
+        <MargemOverrideFlow
+          idx={passwordItemIdx}
+          currentPct={margemEfetivaItem(podItens[passwordItemIdx]).pct}
+          onClose={() => setPasswordItemIdx(null)}
+          onApply={(pct) => {
+            atualizarItem(passwordItemIdx, { margem_override: true, margem_pct: pct });
+            setPasswordItemIdx(null);
+          }}
+        />
+      )}
     </Dialog>
+  );
+}
+
+function MargemOverrideFlow({ idx, currentPct, onClose, onApply }: {
+  idx: number;
+  currentPct: number;
+  onClose: () => void;
+  onApply: (pct: number) => void;
+}) {
+  const [passOpen, setPassOpen] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [novaMargem, setNovaMargem] = useState<string>(String(currentPct));
+
+  return (
+    <>
+      <AdminPasswordDialog
+        open={passOpen}
+        onOpenChange={(o) => { if (!o) { setPassOpen(false); if (!editOpen) onClose(); } }}
+        title="Editar margem de lucro"
+        description="Alterar a margem de um orçamento POD exige senha do administrador."
+        actionLabel="Liberar edição"
+        onConfirm={() => { setPassOpen(false); setEditOpen(true); }}
+      />
+      <Dialog open={editOpen} onOpenChange={(o) => { if (!o) { setEditOpen(false); onClose(); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Margem de lucro (item {idx + 1})</DialogTitle>
+            <DialogDescription>Defina a margem personalizada para este produto.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Margem (%)</Label>
+            <Input type="number" min="0" step="0.01" value={novaMargem} onChange={(e) => setNovaMargem(e.target.value)} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditOpen(false); onClose(); }}>Cancelar</Button>
+            <Button disabled={novaMargem === ''} onClick={() => { onApply(Number(novaMargem)); setEditOpen(false); }}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -843,4 +953,6 @@ interface PodItemDraft {
   plano_selecionado: number | null;
   qtd_envios: string;
   observacoes: string;
+  margem_pct: number | null;
+  margem_override: boolean;
 }

@@ -27,6 +27,9 @@ export interface FreteCotacao {
   pod_preco_editado_manualmente: boolean | null;
   pod_quantidade_envios_estimada: number | null;
   observacoes: string | null;
+  margem_percentual: number | null;
+  margem_override: boolean | null;
+  imposto_percentual: number | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -47,6 +50,9 @@ export interface FreteCotacaoInsert {
   pod_preco_editado_manualmente?: boolean | null;
   pod_quantidade_envios_estimada?: number | null;
   observacoes?: string | null;
+  margem_percentual?: number | null;
+  margem_override?: boolean | null;
+  imposto_percentual?: number | null;
 }
 
 export interface FretePodPreco {
@@ -74,4 +80,14 @@ export interface FretePodPrecoHistorico {
   alterado_por: string | null;
   alterado_por_email: string | null;
   alterado_em: string;
+}
+
+export interface FreteMargemFaixa {
+  id: string;
+  envios_min: number;
+  envios_max: number | null;
+  margem_percentual: number;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
 }
