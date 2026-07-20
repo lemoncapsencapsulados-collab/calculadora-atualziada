@@ -1,52 +1,96 @@
-# Editor de Contratos DOCX no sistema
+## Nova seção: Logística
 
-Nova área **Contratos → Editor de Modelos** que permite subir DOCX, editar visualmente (estilo Word) no navegador, detectar variáveis `{{...}}` automaticamente, preencher com dados do orçamento e exportar DOCX/PDF final — tudo sem depender da ZapSign.
+Adiciona uma seção dedicada de cotações de frete, com dois modelos (Estoque Próprio e Print on Demand), vinculáveis a orçamentos existentes e refletidas no PDF do orçamento e na Proposta de Contrato.
 
-## Fluxo do usuário
+---
 
-1. **Biblioteca de Modelos** (nova aba em Configuração de Contratos)
-   - Upload de arquivos `.docx`
-   - Lista com nome, descrição, data, botões Editar / Duplicar / Excluir / Usar
-2. **Editor Visual** (rich-text estilo Word)
-   - Converte o DOCX para HTML editável
-   - Barra de ferramentas: negrito, itálico, sublinhado, títulos, listas, alinhamento, tabelas, cor, tamanho de fonte
-   - Painel lateral direito: lista de variáveis `{{VARIAVEL}}` detectadas no texto, com botão "Inserir" para colocar novas
-   - Salva alterações no modelo (versão do template)
-3. **Gerar Contrato a partir de um Orçamento**
-   - Escolher orçamento/pedido → escolher modelo → sistema pré-preenche todas as variáveis com os dados existentes (nome, CNPJ, endereço, produtos, valores, condições de pagamento, cores, sabores etc.)
-   - Tela de revisão: cada variável em um campo editável (mesma lógica que já existe hoje na revisão ZapSign)
-   - Botões: **Baixar DOCX**, **Baixar PDF**, **Salvar cópia no pedido**
+### 1. Navegação
 
-## Peças técnicas
+- Novo item **"Logística"** em `src/components/Navigation.tsx`, imediatamente após "Orçamentos".
+- Nova rota `/logistica` registrada em `src/App.tsx` apontando para `src/pages/Logistica.tsx`.
+- Página com duas tabs: **Estoque Próprio** e **Print on Demand**.
 
-**Backend (Supabase)**
-- Nova tabela `contrato_modelos_docx` (id, nome, descricao, arquivo_url, html_editado, variaveis_detectadas jsonb, versao, created_at, updated_at)
-- Bucket privado `contratos-modelos` para os `.docx` originais
-- Bucket `contratos-gerados` para os contratos finais
-- Edge function `gerar-contrato-docx`: recebe `{ modelo_id, variaveis }`, aplica no template DOCX usando **docxtemplater**, devolve URL do DOCX preenchido
-- Edge function `docx-para-pdf`: converte via LibreOffice headless (ou biblioteca puppeteer no PDF do HTML editado)
+---
 
-**Frontend**
-- Bibliotecas: `mammoth` (DOCX → HTML), `@tiptap/react` + extensões (editor rich-text), `docx` (montar DOCX de volta do HTML quando o usuário edita), `docxtemplater` + `pizzip` (merge das variáveis)
-- Nova página `/contratos/modelos` com listagem
-- Página `/contratos/modelos/:id/editar` com o editor TipTap ocupando a tela
-- Componente `PreencherContratoDialog` reutilizando a lógica do `RevisaoContratoZapSignDialog`
-- Botão **"Gerar contrato interno"** em Orçamentos e Pedidos, ao lado do "Enviar para ZapSign"
+### 2. Modelo de dados (migrations)
 
-## Detecção automática de variáveis
+**Tabela `frete_cotacoes`** (comum aos dois modelos):
+- `id`, `tipo` (`estoque_proprio` | `pod`), `orcamento_id` (FK → `orcamentos`)
+- `ativa` (boolean, default true — permite soft-archive ao substituir)
+- Estoque Próprio: `nome_produtor`, `nome_produto`, `tipo_produto` (Encapsulado/Líquido/Gummy/Solúvel), `quantidade_unidades`, `valor_frete`, `status` (`pendente` | `confirmado`), `observacoes_internas`
+- POD: `tipo_produto`, `plano` (int: 1/2/3/5/6/8/9/10/12/20/50), `preco_por_envio`, `preco_editado_manualmente` (bool), `quantidade_envios_estimada`, `observacoes`
+- `created_at`, `updated_at`, timestamps padrão + trigger `update_updated_at_column`
 
-- Regex `/\{\{\s*([A-Z0-9_]+)\s*\}\}/g` roda toda vez que o modelo é salvo
-- Mapeia contra o mesmo dicionário de aliases que já existe em `src/lib/zapsignContrato.ts` — assim os mesmos dados do orçamento (nome, CNPJ, endereço, valor, produtos, condições de pagamento, cores/sabores) preenchem tanto o contrato ZapSign quanto o interno
-- Variáveis novas que não estejam no dicionário aparecem no painel para preenchimento manual
+**Tabela `frete_pod_precos`** (tabela de preços interna POD):
+- `id`, `tipo_produto`, `plano` (int), `preco` (numeric), `faixa_peso` (texto informativo), `vigencia_inicio` (date), `ativo` (bool)
+- Unique `(tipo_produto, plano, ativo=true)`
+- Seed inicial: apenas Líquido e Encapsulado com valores da tabela fornecida. Gummy e Solúvel serão cadastrados manualmente pelo admin.
 
-## Limitações honestas
+**Tabela `frete_pod_precos_historico`**:
+- Registra alterações: `preco_id`, `preco_anterior`, `preco_novo`, `alterado_por`, `alterado_em`.
 
-- Editor visual **não é 100% fiel ao Word**: formatações muito específicas (numeração multi-nível complexa, campos de mesclagem antigos, quebras de seção incomuns) podem perder no vai-e-vem HTML↔DOCX. Solução: manter o DOCX original intocado e, ao gerar o contrato, aplicar as variáveis no arquivo original (via docxtemplater) — o editor visual serve pra ajustar texto/parágrafos e definir onde ficam as `{{variaveis}}`, não pra recriar layouts complexos
-- Conversão DOCX→PDF exata precisa de LibreOffice em edge function (mais pesada). Alternativa mais leve: gerar PDF a partir do HTML do editor com jsPDF/html2pdf, que é fiel ao que o usuário vê no editor mas não ao Word original
+**RLS/GRANTs**: leitura e escrita para `authenticated`; `service_role` full. Sem `anon`.
 
-## Escopo desta implementação (proposta)
+---
 
-**Fase 1 (agora):** upload de modelo, editor TipTap, detecção de variáveis, biblioteca de modelos, gerar DOCX preenchido, baixar DOCX
-**Fase 2 (depois):** exportar PDF, salvar cópia no pedido, versionamento de modelos
+### 3. Página `/logistica`
 
-Confirma que posso seguir com a Fase 1 assim? Ou quer ajustar algo (ex.: já incluir PDF, remover a biblioteca e deixar só upload avulso, etc.)?
+**Tab Estoque Próprio**
+- Botão "Nova Cotação" abre dialog com os campos do formulário (produtor, produto, tipo, quantidade, valor frete, seletor de orçamento, observações).
+- Tabela: Produtor | Produto | Tipo | Qtd | Frete Médio | Orçamento | Status | Ações.
+- Badge de status: verde (Confirmado) / amarelo (Pendente).
+- Edição livre do valor quando "Pendente"; ao confirmar, exibe `AlertDialog` antes de permitir nova edição.
+- Seletor de orçamento usa `useOrcamentos` filtrando por código + nome do cliente.
+
+**Tab Print on Demand**
+- Botão "Nova Cotação" abre dialog com seletor de orçamento, tipo de produto, plano (dropdown com os valores fixos), preço por envio (auto-preenchido da tabela `frete_pod_precos`, com destaque visual quando sobrescrito manualmente), quantidade estimada de envios (mostra total estimado abaixo), observações.
+- Tabela: Orçamento | Tipo | Plano | Preço/envio | Qtd estimada | Total estimado | Data | Ações.
+- Se Gummy/Solúvel selecionado e não houver preço cadastrado → mensagem orientando admin a cadastrar via configuração.
+
+**Regra de exclusividade**: ao criar/vincular cotação em orçamento que já tem uma ativa, exibir dialog perguntando se deseja substituir. Ao confirmar, a antiga vira `ativa=false` (mantida no histórico) e a nova é marcada ativa.
+
+---
+
+### 4. Tela de configuração (Painel Administrativo)
+
+Novo card `FretePodPrecosCard.tsx` em `src/pages/PainelAdministrador.tsx`, protegido pelo `AdminPasswordGate` já existente (senha 0212):
+- Tabela editável de preços POD (tipo × plano × preço × vigência).
+- Adicionar/editar/desativar preços.
+- Cadastro dos valores Gummy e Solúvel.
+- Aba de histórico exibindo alterações (data, usuário, valor antes/depois).
+
+---
+
+### 5. Integrações com fluxos existentes
+
+**Listagem de Orçamentos (`src/pages/Orcamentos.tsx`)**:
+- Nova coluna "Frete" exibindo: `EP - R$ X (status)` ou `POD - Tipo/Plano X - R$ Y/envio` ou "Sem cotação".
+
+**PDF do Orçamento (`src/lib/orcamentoGenerator.ts`)**:
+- Ao gerar, buscar cotação ativa em `frete_cotacoes` para o `orcamento_id`.
+- Estoque Próprio: linha `"Frete estimado (Estoque Próprio): R$ X,XX"` com rodapé `"Valor sujeito a confirmação após finalização da produção."`.
+- POD: linha `"Logística (Print on Demand) — [Tipo] / Plano [X] frascos: R$ Y,YY/envio"`.
+
+**Proposta de Contrato (`src/lib/propostaGenerator.ts` e `PropostaCompletaDialog.tsx`)**:
+- Mesma linha adicional exibida no preview e no export.
+
+**Painel do orçamento** (dialogs de detalhes): indicador visual de frete vinculado.
+
+---
+
+### 6. Hook e helpers
+
+- `src/hooks/useFreteCotacoes.ts` — CRUD + query por orçamento (filtrando `ativa=true`).
+- `src/hooks/useFretePodPrecos.ts` — CRUD da tabela de preços + histórico.
+- `src/lib/freteHelpers.ts` — formatação de labels de frete (para tabela de orçamentos e PDFs) e função `buscarPrecoPodTabelado(tipo, plano)`.
+
+---
+
+### Detalhes técnicos
+
+- Todos os valores monetários em `numeric(15,6)` para consistência com o padrão do projeto.
+- Datas em ISO (YYYY-MM-DD).
+- Upserts com `.limit(1)`.
+- Componentes shadcn existentes (Dialog, Table, Tabs, Select, AlertDialog, Badge).
+- Tipos TypeScript em `src/types/frete.ts`.
+- Sem alteração no `src/integrations/supabase/client.ts` nem `types.ts` (auto-gen após migration).
