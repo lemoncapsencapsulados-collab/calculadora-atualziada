@@ -23,6 +23,7 @@ import VhsysLogs from "./pages/VhsysLogs";
 import AsaasLogs from "./pages/AsaasLogs";
 import EmailLogs from "./pages/EmailLogs";
 import InvestimentoAnuncios from "./pages/InvestimentoAnuncios";
+import Logistica from "./pages/Logistica";
 import { useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -86,6 +87,7 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/precificacao" element={<Precificacao />} />
           <Route path="/orcamentos" element={<Orcamentos />} />
+          <Route path="/logistica" element={<Logistica />} />
           <Route path="/leads-orcamento" element={<LeadsOrcamento />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/sucesso-cliente" element={<SucessoCliente />} />

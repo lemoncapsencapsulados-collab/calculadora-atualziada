@@ -9,6 +9,7 @@ import { RelatorioComissoes } from '@/components/admin/RelatorioComissoes';
 import { OverheadConfigCard } from '@/components/admin/OverheadConfigCard';
 import { WebhooksConfigCard } from '@/components/admin/WebhooksConfigCard';
 import { ApiKeysCard } from '@/components/admin/ApiKeysCard';
+import { FretePodPrecosCard } from '@/components/admin/FretePodPrecosCard';
 import { isAdminUnlocked, lockAdmin } from '@/lib/adminConfig';
 
 export default function PainelAdministrador() {
@@ -54,6 +55,7 @@ export default function PainelAdministrador() {
           <TabsTrigger value="historico">Histórico de Alterações</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
           <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsTrigger value="frete-pod">Preços POD</TabsTrigger>
         </TabsList>
         <TabsContent value="consultores">
           <ConsultoresAdmin />
@@ -73,6 +75,9 @@ export default function PainelAdministrador() {
         </TabsContent>
         <TabsContent value="api-keys">
           <ApiKeysCard />
+        </TabsContent>
+        <TabsContent value="frete-pod">
+          <FretePodPrecosCard />
         </TabsContent>
       </Tabs>
     </div>
