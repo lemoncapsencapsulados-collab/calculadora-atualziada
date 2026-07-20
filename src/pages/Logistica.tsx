@@ -65,25 +65,31 @@ export default function Logistica() {
     }
   };
 
-  const handleSalvar = async (payload: FreteCotacaoInsert) => {
+  const handleSalvar = async (payloads: FreteCotacaoInsert[]) => {
+    if (payloads.length === 0) return;
     if (editing) {
-      await updateMut.mutateAsync({ id: editing.id, updates: payload as any });
+      await updateMut.mutateAsync({ id: editing.id, updates: payloads[0] as any });
       setDialogOpen(false);
       setEditing(null);
       return;
     }
-    const existente = await fetchFreteCotacaoByOrcamento(payload.orcamento_id);
+    const existente = await fetchFreteCotacaoByOrcamento(payloads[0].orcamento_id);
     if (existente) {
-      setConfirmSubstituicao({ payload });
+      setConfirmSubstituicao({ payload: payloads as any });
       return;
     }
-    await createMut.mutateAsync({ cotacao: payload });
+    for (const p of payloads) {
+      await createMut.mutateAsync({ cotacao: p });
+    }
     setDialogOpen(false);
   };
 
   const confirmarSubstituicao = async () => {
     if (!confirmSubstituicao) return;
-    await createMut.mutateAsync({ cotacao: confirmSubstituicao.payload, substituir: true });
+    const list = confirmSubstituicao.payload as unknown as FreteCotacaoInsert[];
+    for (let i = 0; i < list.length; i++) {
+      await createMut.mutateAsync({ cotacao: list[i], substituir: i === 0 });
+    }
     setConfirmSubstituicao(null);
     setDialogOpen(false);
   };
