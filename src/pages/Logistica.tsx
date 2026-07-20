@@ -835,12 +835,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                       </p>
                       {podItens.map((it, idx) => {
                         const planos = planosDoTipo(it.tipo_produto);
+                        const margem = margemEfetivaItem(it);
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
                               <span>{it.nome_produto}</span>
                               <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'}</span>
                             </div>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
+                              Margem: <strong>{margem.pct}%</strong> ({margem.faixaLabel}) · Imposto: <strong>{IMPOSTO_POD_PADRAO}%</strong>
+                            </p>
                             {planos.length === 0 ? (
                               <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
                             ) : (
@@ -850,18 +854,25 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                     <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Margem</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Imposto</th>
                                     <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {planos.map(p => (
-                                    <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
-                                      <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
-                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(Number(p.preco) + Number(p.taxa_manuseio || 0))}</td>
-                                    </tr>
-                                  ))}
+                                  {planos.map(p => {
+                                    const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                                    return (
+                                      <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
+                                        <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
+                                        <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.margemValor)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(calc.impostoValor)}</td>
+                                        <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(calc.precoFinal)}</td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             )}
@@ -881,7 +892,58 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           <Button onClick={handleSubmit} disabled={saving}>{editing ? 'Salvar' : 'Criar Cotação'}</Button>
         </DialogFooter>
       </DialogContent>
+      {passwordItemIdx !== null && (
+        <MargemOverrideFlow
+          idx={passwordItemIdx}
+          currentPct={margemEfetivaItem(podItens[passwordItemIdx]).pct}
+          onClose={() => setPasswordItemIdx(null)}
+          onApply={(pct) => {
+            atualizarItem(passwordItemIdx, { margem_override: true, margem_pct: pct });
+            setPasswordItemIdx(null);
+          }}
+        />
+      )}
     </Dialog>
+  );
+}
+
+function MargemOverrideFlow({ idx, currentPct, onClose, onApply }: {
+  idx: number;
+  currentPct: number;
+  onClose: () => void;
+  onApply: (pct: number) => void;
+}) {
+  const [passOpen, setPassOpen] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
+  const [novaMargem, setNovaMargem] = useState<string>(String(currentPct));
+
+  return (
+    <>
+      <AdminPasswordDialog
+        open={passOpen}
+        onOpenChange={(o) => { if (!o) { setPassOpen(false); if (!editOpen) onClose(); } }}
+        title="Editar margem de lucro"
+        description="Alterar a margem de um orçamento POD exige senha do administrador."
+        actionLabel="Liberar edição"
+        onConfirm={() => { setPassOpen(false); setEditOpen(true); }}
+      />
+      <Dialog open={editOpen} onOpenChange={(o) => { if (!o) { setEditOpen(false); onClose(); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Margem de lucro (item {idx + 1})</DialogTitle>
+            <DialogDescription>Defina a margem personalizada para este produto.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Margem (%)</Label>
+            <Input type="number" min="0" step="0.01" value={novaMargem} onChange={(e) => setNovaMargem(e.target.value)} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setEditOpen(false); onClose(); }}>Cancelar</Button>
+            <Button disabled={novaMargem === ''} onClick={() => { onApply(Number(novaMargem)); setEditOpen(false); }}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
