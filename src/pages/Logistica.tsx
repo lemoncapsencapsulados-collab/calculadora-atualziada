@@ -305,7 +305,7 @@ export default function Logistica() {
 interface DialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (payload: FreteCotacaoInsert) => Promise<void> | void;
+  onSave: (payloads: FreteCotacaoInsert[]) => Promise<void> | void;
   editing: FreteCotacao | null;
   tipoInicial: 'estoque_proprio' | 'pod';
   orcamentos: any[];
@@ -331,6 +331,86 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const [observacoes, setObservacoes] = useState(editing?.observacoes || '');
   const [precoTabelado, setPrecoTabelado] = useState<number | null>(null);
   const [avisoSemPreco, setAvisoSemPreco] = useState('');
+
+  // POD multi-item state (uma linha por produto do orçamento)
+  const consultores = useConsultoresDisponiveis();
+  const [consultorFiltro, setConsultorFiltro] = useState<string>('');
+  const [buscaOrc, setBuscaOrc] = useState('');
+  const [orcOpen, setOrcOpen] = useState(false);
+  const [podItens, setPodItens] = useState<PodItemDraft[]>([]);
+
+  const orcamentoSelecionado = useMemo(
+    () => orcamentos.find(o => o.id === orcamentoId) || null,
+    [orcamentos, orcamentoId]
+  );
+
+  const orcamentosFiltrados = useMemo(() => {
+    let list = orcamentos;
+    if (consultorFiltro) list = list.filter((o: any) => o.consultor_responsavel === consultorFiltro);
+    if (buscaOrc.trim()) {
+      const q = buscaOrc.trim().toLowerCase();
+      list = list.filter((o: any) =>
+        (o.numero_orcamento || '').toLowerCase().includes(q) ||
+        (o.nome_cliente || '').toLowerCase().includes(q) ||
+        (o.consultor_responsavel || '').toLowerCase().includes(q)
+      );
+    }
+    return list.slice(0, 100);
+  }, [orcamentos, consultorFiltro, buscaOrc]);
+
+  // Mapeia tipo_produto do item para valores válidos de FRETE_TIPOS_PRODUTO
+  const mapTipoProduto = (raw?: string): string => {
+    if (!raw) return '';
+    const s = raw.toLowerCase();
+    if (s.includes('encaps')) return 'Encapsulado';
+    if (s.includes('líquid') || s.includes('liquid')) return 'Líquido';
+    if (s.includes('gummy') || s.includes('gomas') || s.includes('goma')) return 'Gummy';
+    if (s.includes('solúv') || s.includes('soluv') || s.includes('sachê') || s.includes('sache')) return 'Solúvel';
+    return '';
+  };
+
+  // Ao mudar orçamento no modo POD, pré-carrega uma linha por item de produção
+  useEffect(() => {
+    if (editing || tipo !== 'pod' || !orcamentoSelecionado) {
+      setPodItens([]);
+      return;
+    }
+    const itens = (orcamentoSelecionado.itens_producao || []) as any[];
+    setPodItens(itens.map((it: any) => ({
+      nome_produto: it.nome_produto || 'Produto',
+      tipo_produto: mapTipoProduto(it.tipo_produto),
+      plano: '',
+      preco_envio: '',
+      preco_tabelado: null,
+      preco_editado: false,
+      qtd_envios: '',
+      aviso: '',
+      observacoes: '',
+    })));
+  }, [orcamentoSelecionado, tipo, editing]);
+
+  const atualizarItem = async (idx: number, patch: Partial<PodItemDraft>) => {
+    setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+
+  const recalcularPrecoItem = async (idx: number, tp: string, pl: string) => {
+    if (!tp || !pl) {
+      atualizarItem(idx, { preco_tabelado: null, aviso: '' });
+      return;
+    }
+    const p = await fetchPodPrecoAtivo(tp, Number(pl));
+    setPodItens(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const next: PodItemDraft = { ...it, preco_tabelado: p };
+      if (p == null) {
+        next.aviso = `Preço não cadastrado para ${tp} / Plano ${pl}. Cadastre em Painel Administrador → Preços POD.`;
+      } else {
+        next.aviso = '';
+        if (!it.preco_editado) next.preco_envio = String(p);
+      }
+      return next;
+    }));
+  };
 
   const carregarPrecoTabelado = async (tp: string, pl: string) => {
     if (!tp || !pl) { setPrecoTabelado(null); return; }
@@ -366,24 +446,49 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         status,
         observacoes_internas: observacoesInternas || null,
       };
-      await onSave(payload);
+      await onSave([payload]);
     } else {
-      if (!tipoProduto || !plano || !precoEnvio) {
-        toast.error('Preencha tipo, plano e preço');
+      // Editando: envia uma única cotação POD com os campos legados
+      if (editing) {
+        if (!tipoProduto || !plano || !precoEnvio) {
+          toast.error('Preencha tipo, plano e preço');
+          return;
+        }
+        const editadoManual = precoTabelado != null && Number(precoEnvio) !== Number(precoTabelado);
+        const payload: FreteCotacaoInsert = {
+          tipo: 'pod',
+          orcamento_id: orcamentoId,
+          tipo_produto: tipoProduto,
+          pod_plano: Number(plano),
+          pod_preco_por_envio: Number(precoEnvio),
+          pod_preco_editado_manualmente: precoEditado || editadoManual,
+          pod_quantidade_envios_estimada: qtdEnvios ? Number(qtdEnvios) : null,
+          observacoes: observacoes || null,
+        };
+        await onSave([payload]);
         return;
       }
-      const editadoManual = precoTabelado != null && Number(precoEnvio) !== Number(precoTabelado);
-      const payload: FreteCotacaoInsert = {
-        tipo: 'pod',
-        orcamento_id: orcamentoId,
-        tipo_produto: tipoProduto,
-        pod_plano: Number(plano),
-        pod_preco_por_envio: Number(precoEnvio),
-        pod_preco_editado_manualmente: precoEditado || editadoManual,
-        pod_quantidade_envios_estimada: qtdEnvios ? Number(qtdEnvios) : null,
-        observacoes: observacoes || null,
-      };
-      await onSave(payload);
+      // Criação: uma cotação por item de produção
+      const validos = podItens.filter(it => it.tipo_produto && it.plano && it.preco_envio);
+      if (validos.length === 0) {
+        toast.error('Preencha tipo, plano e preço em ao menos um produto');
+        return;
+      }
+      const payloads: FreteCotacaoInsert[] = validos.map(it => {
+        const editadoManual = it.preco_tabelado != null && Number(it.preco_envio) !== Number(it.preco_tabelado);
+        return {
+          tipo: 'pod',
+          orcamento_id: orcamentoId,
+          tipo_produto: it.tipo_produto,
+          nome_produto: it.nome_produto,
+          pod_plano: Number(it.plano),
+          pod_preco_por_envio: Number(it.preco_envio),
+          pod_preco_editado_manualmente: it.preco_editado || editadoManual,
+          pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
+          observacoes: it.observacoes || null,
+        };
+      });
+      await onSave(payloads);
     }
   };
 
@@ -409,27 +514,79 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
             </div>
           )}
 
-          <div>
-            <Label>Orçamento vinculado *</Label>
-            <Select value={orcamentoId} onValueChange={setOrcamentoId} disabled={!!editing}>
-              <SelectTrigger><SelectValue placeholder="Selecione um orçamento" /></SelectTrigger>
-              <SelectContent className="max-h-[300px]">
-                {orcamentos.map(o => (
-                  <SelectItem key={o.id} value={o.id}>{o.numero_orcamento} — {o.nome_cliente}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {tipo === 'pod' && !editing ? (
+            <div className="space-y-2">
+              <Label>Orçamento vinculado *</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-2">
+                <Select value={consultorFiltro || '__all__'} onValueChange={(v) => setConsultorFiltro(v === '__all__' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="Todos consultores" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todos consultores</SelectItem>
+                    {consultores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Popover open={orcOpen} onOpenChange={setOrcOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className={cn('justify-between font-normal', !orcamentoId && 'text-muted-foreground')}>
+                      {orcamentoSelecionado
+                        ? `${orcamentoSelecionado.numero_orcamento} — ${orcamentoSelecionado.nome_cliente}`
+                        : 'Buscar orçamento...'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder="Buscar por nº, cliente ou consultor..." value={buscaOrc} onValueChange={setBuscaOrc} />
+                      <CommandList>
+                        <CommandEmpty>Nenhum orçamento encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {orcamentosFiltrados.map((o: any) => (
+                            <CommandItem
+                              key={o.id}
+                              value={o.id}
+                              onSelect={() => { setOrcamentoId(o.id); setOrcOpen(false); }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', orcamentoId === o.id ? 'opacity-100' : 'opacity-0')} />
+                              <div className="flex flex-col">
+                                <span className="text-sm">{o.numero_orcamento} — {o.nome_cliente}</span>
+                                {o.consultor_responsavel && (
+                                  <span className="text-xs text-muted-foreground">Consultor: {o.consultor_responsavel}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label>Orçamento vinculado *</Label>
+              <Select value={orcamentoId} onValueChange={setOrcamentoId} disabled={!!editing}>
+                <SelectTrigger><SelectValue placeholder="Selecione um orçamento" /></SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {orcamentos.map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.numero_orcamento} — {o.nome_cliente}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-          <div>
-            <Label>Tipo de Produto *</Label>
-            <Select value={tipoProduto} onValueChange={(v) => { setTipoProduto(v); if (tipo === 'pod') carregarPrecoTabelado(v, plano); }}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {(tipo === 'estoque_proprio' || editing) && (
+            <div>
+              <Label>Tipo de Produto *</Label>
+              <Select value={tipoProduto} onValueChange={(v) => { setTipoProduto(v); if (tipo === 'pod') carregarPrecoTabelado(v, plano); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {tipo === 'estoque_proprio' && (
             <>
@@ -468,7 +625,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
             </>
           )}
 
-          {tipo === 'pod' && (
+          {tipo === 'pod' && editing && (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -513,6 +670,100 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
               </div>
             </>
           )}
+
+          {tipo === 'pod' && !editing && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Produtos do orçamento</Label>
+                {orcamentoSelecionado && (
+                  <span className="text-xs text-muted-foreground">{podItens.length} item(ns)</span>
+                )}
+              </div>
+              {!orcamentoSelecionado ? (
+                <div className="text-sm text-muted-foreground border rounded-lg p-4 bg-muted/30">
+                  Selecione um orçamento acima para carregar os produtos automaticamente.
+                </div>
+              ) : podItens.length === 0 ? (
+                <div className="text-sm text-muted-foreground border rounded-lg p-4 bg-muted/30">
+                  Este orçamento não possui itens de produção.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {podItens.map((it, idx) => {
+                    const total = (Number(it.preco_envio) || 0) * (Number(it.qtd_envios) || 0);
+                    return (
+                      <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">{it.nome_produto}</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Tipo de Produto *</Label>
+                            <Select
+                              value={it.tipo_produto}
+                              onValueChange={(v) => { atualizarItem(idx, { tipo_produto: v, preco_editado: false }); recalcularPrecoItem(idx, v, it.plano); }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Plano (nº de frascos) *</Label>
+                            <Select
+                              value={it.plano}
+                              onValueChange={(v) => { atualizarItem(idx, { plano: v, preco_editado: false }); recalcularPrecoItem(idx, it.tipo_produto, v); }}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                {FRETE_POD_PLANOS.map(p => <SelectItem key={p} value={String(p)}>{p}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Preço por envio (R$) *</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={it.preco_envio}
+                              onChange={(e) => atualizarItem(idx, { preco_envio: e.target.value, preco_editado: true })}
+                              className={it.preco_tabelado != null && Number(it.preco_envio) !== Number(it.preco_tabelado) ? 'border-amber-500' : ''}
+                            />
+                            {it.preco_tabelado != null && (
+                              <p className="text-xs text-muted-foreground mt-1">Tabelado: {formatBRL(it.preco_tabelado)}</p>
+                            )}
+                          </div>
+                          <div>
+                            <Label className="text-xs">Qtd estimada de envios</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={it.qtd_envios}
+                              onChange={(e) => atualizarItem(idx, { qtd_envios: e.target.value })}
+                            />
+                            {total > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">Total: {formatBRL(total)}</p>
+                            )}
+                          </div>
+                        </div>
+                        {it.aviso && (
+                          <div className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
+                            {it.aviso}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div>
+                    <Label>Observações gerais</Label>
+                    <Textarea rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -522,4 +773,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       </DialogContent>
     </Dialog>
   );
+}
+
+interface PodItemDraft {
+  nome_produto: string;
+  tipo_produto: string;
+  plano: string;
+  preco_envio: string;
+  preco_tabelado: number | null;
+  preco_editado: boolean;
+  qtd_envios: string;
+  aviso: string;
+  observacoes: string;
 }
