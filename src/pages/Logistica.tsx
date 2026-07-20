@@ -346,9 +346,113 @@ export default function Logistica() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Senha para editar */}
+      {pendingEdit && (
+        <AdminPasswordDialog
+          open={!!pendingEdit}
+          onOpenChange={(o) => { if (!o) setPendingEdit(null); }}
+          title="Editar cotação de frete"
+          description="Alterar uma cotação POD exige senha do administrador."
+          actionLabel="Liberar edição"
+          onConfirm={() => {
+            const c = pendingEdit;
+            setPendingEdit(null);
+            if (c) handleEditar(c);
+          }}
+        />
+      )}
+
+      {/* Drill-down por produtor */}
+      <Dialog open={!!produtorAberto} onOpenChange={(o) => !o && setProdutorAberto(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              {produtorAberto?.produtor}
+            </DialogTitle>
+            <DialogDescription>
+              Orçamentos de frete por produto deste produtor.
+            </DialogDescription>
+          </DialogHeader>
+          {produtorAberto && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Orçamento</TableHead>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead className="text-right">Planos</TableHead>
+                    <TableHead className="text-right">Preço/envio</TableHead>
+                    <TableHead className="text-right">Quant. Envios Mensais médio</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="w-44">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {produtorAberto.cotacoes.map(c => {
+                    const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
+                    const planoLabel = selecionados.length > 0
+                      ? selecionados.map(s => s.plano).join(', ')
+                      : (c.pod_plano ?? '—');
+                    const precoLabel = selecionados.length > 1
+                      ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
+                      : formatBRL(selecionados[0]?.preco_final ?? c.pod_preco_por_envio);
+                    return (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
+                        <TableCell className="text-xs">{c.nome_produto || '—'}</TableCell>
+                        <TableCell className="text-xs">{c.tipo_produto || '—'}</TableCell>
+                        <TableCell className="text-right text-xs">{planoLabel}</TableCell>
+                        <TableCell className="text-right font-medium">{precoLabel}</TableCell>
+                        <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
+                        <TableCell className="text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" title="Editar (senha)" onClick={() => solicitarEdicao(c)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Baixar imagem" onClick={() => baixarImagemCotacao(c)}>
+                              <ImageDown className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Excluir" onClick={() => setDeletando(c)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProdutorAberto(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Container escondido para exportar PNG */}
+      {exportandoCotacao && (
+        <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
+          <CotacaoExportCard
+            ref={exportListaRef}
+            cotacao={exportandoCotacao}
+            produtor={orcamentos.find(o => o.id === exportandoCotacao.orcamento_id)?.nome_cliente || 'Sem produtor'}
+            numeroOrc={orcamentos.find(o => o.id === exportandoCotacao.orcamento_id)?.numero_orcamento || '—'}
+          />
+        </div>
+      )}
     </div>
   );
 }
+
+// ============ Card de exportação PNG ============
+
+const CotacaoExportCard = ({ cotacao, produtor, numeroOrc, ref: _ }: any) => null;
+// Substituído logo abaixo por versão com forwardRef.
 
 // ============ Dialog ============
 
