@@ -820,7 +820,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
             </div>
           )}
 
-          {(tipo === 'estoque_proprio' || editing) && (
+          {tipo === 'estoque_proprio' && (
             <div>
               <Label>Tipo de Produto *</Label>
               <Select value={tipoProduto} onValueChange={(v) => { setTipoProduto(v); if (tipo === 'pod') carregarPrecoTabelado(v, plano); }}>
@@ -869,61 +869,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
             </>
           )}
 
-          {tipo === 'pod' && editing && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Plano (nº de frascos) *</Label>
-                  <Select value={plano} onValueChange={(v) => { setPlano(v); carregarPrecoTabelado(tipoProduto, v); }}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {FRETE_POD_PLANOS.map(p => <SelectItem key={p} value={String(p)}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Preço por envio (R$) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={precoEnvio}
-                    onChange={(e) => { setPrecoEnvio(e.target.value); setPrecoEditado(true); }}
-                    className={precoTabelado != null && Number(precoEnvio) !== Number(precoTabelado) ? 'border-amber-500' : ''}
-                  />
-                  {precoTabelado != null && (
-                    <p className="text-xs text-muted-foreground mt-1">Tabelado: {formatBRL(precoTabelado)}</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Quantidade estimada de envios</Label>
-                  <Input type="number" min="0" value={qtdEnvios} onChange={(e) => setQtdEnvios(e.target.value)} />
-                  {totalEstimado > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">Total estimado: {formatBRL(totalEstimado)}</p>
-                  )}
-                </div>
-              </div>
-              {avisoSemPreco && (
-                <div className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
-                  {avisoSemPreco}
-                </div>
-              )}
-              <div>
-                <Label>Observações</Label>
-                <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
-              </div>
-            </>
-          )}
-
-          {tipo === 'pod' && !editing && (
+          {tipo === 'pod' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-base">Produtos do orçamento</Label>
-                {orcamentoSelecionado && (
+                <Label className="text-base">{editing ? 'Produto' : 'Produtos do orçamento'}</Label>
+                {orcamentoSelecionado && !editing && (
                   <span className="text-xs text-muted-foreground">{podItens.length} item(ns)</span>
                 )}
               </div>
-              {!orcamentoSelecionado ? (
+              {!orcamentoSelecionado && !editing ? (
                 <div className="text-sm text-muted-foreground border rounded-lg p-4 bg-muted/30">
                   Selecione um orçamento acima para carregar os produtos automaticamente.
                 </div>
