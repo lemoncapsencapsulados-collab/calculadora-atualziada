@@ -387,7 +387,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
     setPodItens(itens.map((it: any) => ({
       nome_produto: it.nome_produto || 'Produto',
       tipo_produto: mapTipoProduto(it.tipo_produto),
-      plano_selecionado: null,
+      planos_selecionados: [],
       qtd_envios: '',
       observacoes: '',
       margem_pct: null,
@@ -473,30 +473,44 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         return;
       }
       // Criação: uma cotação por item de produção
-      const validos = podItens.filter(it => it.tipo_produto && it.plano_selecionado != null);
+      const validos = podItens.filter(it => it.tipo_produto && it.planos_selecionados.length > 0);
       if (validos.length === 0) {
-        toast.error('Selecione um plano em ao menos um produto');
+        toast.error('Selecione ao menos um plano em cada produto que deseja cotar');
         return;
       }
       const payloads: FreteCotacaoInsert[] = validos.map(it => {
-        const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
-        const frete = Number(planoRow?.preco || 0);
-        const manuseio = Number(planoRow?.taxa_manuseio || 0);
         const { pct: margemPct, override } = margemEfetivaItem(it);
-        const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+        const planosRows = planosDoTipo(it.tipo_produto).filter(p => it.planos_selecionados.includes(p.plano));
+        const ordenados = planosRows.sort((a, b) => a.plano - b.plano);
+        const selecionados: PodPlanoSelecionado[] = ordenados.map(p => {
+          const frete = Number(p.preco || 0);
+          const manuseio = Number(p.taxa_manuseio || 0);
+          const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+          return {
+            plano: p.plano,
+            preco: frete,
+            taxa_manuseio: manuseio,
+            margem_percentual: margemPct,
+            imposto_percentual: IMPOSTO_POD_PADRAO,
+            preco_final: precoFinal,
+            margem_override: override,
+          };
+        });
+        const principal = selecionados[0];
         return {
           tipo: 'pod',
           orcamento_id: orcamentoId,
           tipo_produto: it.tipo_produto,
           nome_produto: it.nome_produto,
-          pod_plano: Number(it.plano_selecionado),
-          pod_preco_por_envio: precoFinal,
+          pod_plano: principal.plano,
+          pod_preco_por_envio: principal.preco_final,
           pod_preco_editado_manualmente: false,
           pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
           observacoes: it.observacoes || null,
           margem_percentual: margemPct,
           margem_override: override,
           imposto_percentual: IMPOSTO_POD_PADRAO,
+          pod_planos_selecionados: selecionados,
         };
       });
       await onSave(payloads);
@@ -783,15 +797,19 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                 {planos.map(p => {
                                   const manuseio = Number(p.taxa_manuseio || 0);
                                   const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio, margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                                  const selected = it.plano_selecionado === p.plano;
+                                  const selected = it.planos_selecionados.includes(p.plano);
                                   return (
                                     <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
                                       <TableCell>
                                         <input
-                                          type="radio"
-                                          name={`plano-${idx}`}
+                                          type="checkbox"
                                           checked={selected}
-                                          onChange={() => atualizarItem(idx, { plano_selecionado: p.plano })}
+                                          onChange={(e) => {
+                                            const next = e.target.checked
+                                              ? Array.from(new Set([...it.planos_selecionados, p.plano]))
+                                              : it.planos_selecionados.filter(pl => pl !== p.plano);
+                                            atualizarItem(idx, { planos_selecionados: next });
+                                          }}
                                         />
                                       </TableCell>
                                       <TableCell className="text-right">{p.plano}</TableCell>
@@ -951,7 +969,7 @@ function MargemOverrideFlow({ idx, currentPct, onClose, onApply }: {
 interface PodItemDraft {
   nome_produto: string;
   tipo_produto: string;
-  plano_selecionado: number | null;
+  planos_selecionados: number[];
   qtd_envios: string;
   observacoes: string;
   margem_pct: number | null;
