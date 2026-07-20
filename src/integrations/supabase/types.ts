@@ -1020,30 +1020,6 @@ export type Database = {
           },
         ]
       }
-      frete_logistica_config: {
-        Row: {
-          created_at: string
-          id: string
-          taxa_manuseio: number
-          tipo_produto: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          taxa_manuseio?: number
-          tipo_produto: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          taxa_manuseio?: number
-          tipo_produto?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       frete_pod_precos: {
         Row: {
           ativo: boolean
@@ -1052,6 +1028,7 @@ export type Database = {
           id: string
           plano: number
           preco: number
+          taxa_manuseio: number
           tipo_produto: string
           updated_at: string
           vigencia_inicio: string
@@ -1063,6 +1040,7 @@ export type Database = {
           id?: string
           plano: number
           preco: number
+          taxa_manuseio?: number
           tipo_produto: string
           updated_at?: string
           vigencia_inicio?: string
@@ -1074,6 +1052,7 @@ export type Database = {
           id?: string
           plano?: number
           preco?: number
+          taxa_manuseio?: number
           tipo_produto?: string
           updated_at?: string
           vigencia_inicio?: string
@@ -1090,6 +1069,8 @@ export type Database = {
           preco_anterior: number | null
           preco_id: string | null
           preco_novo: number
+          taxa_manuseio_anterior: number | null
+          taxa_manuseio_nova: number | null
           tipo_produto: string
         }
         Insert: {
@@ -1101,6 +1082,8 @@ export type Database = {
           preco_anterior?: number | null
           preco_id?: string | null
           preco_novo: number
+          taxa_manuseio_anterior?: number | null
+          taxa_manuseio_nova?: number | null
           tipo_produto: string
         }
         Update: {
@@ -1112,6 +1095,8 @@ export type Database = {
           preco_anterior?: number | null
           preco_id?: string | null
           preco_novo?: number
+          taxa_manuseio_anterior?: number | null
+          taxa_manuseio_nova?: number | null
           tipo_produto?: string
         }
         Relationships: [
