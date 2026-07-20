@@ -743,7 +743,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             <Label className="text-xs">Tipo:</Label>
                             <Select
                               value={it.tipo_produto}
-                              onValueChange={(v) => atualizarItem(idx, { tipo_produto: v, plano_selecionado: null })}
+                              onValueChange={(v) => atualizarItem(idx, { tipo_produto: v, planos_selecionados: [] })}
                             >
                               <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
