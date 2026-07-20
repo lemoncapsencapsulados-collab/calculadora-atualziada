@@ -719,6 +719,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                   </div>
                   {podItens.map((it, idx) => {
                     const planos = planosDoTipo(it.tipo_produto);
+                    const margem = margemEfetivaItem(it);
                     return (
                       <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/20">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -737,6 +738,26 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                           </div>
                         </div>
 
+                        {it.tipo_produto && planos.length > 0 && (
+                          <div className="flex flex-wrap items-center justify-between gap-2 border border-dashed rounded p-2 bg-background/60">
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">Margem aplicada: </span>
+                              <strong className={margem.override ? 'text-amber-600' : ''}>{margem.pct}%</strong>
+                              <span className="text-muted-foreground"> ({margem.faixaLabel}) · Imposto {IMPOSTO_POD_PADRAO}%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {margem.override && (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => atualizarItem(idx, { margem_override: false, margem_pct: null })}>
+                                  Restaurar padrão
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPasswordItemIdx(idx)}>
+                                <Lock className="w-3 h-3 mr-1" />Editar margem
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         {!it.tipo_produto ? (
                           <p className="text-xs text-muted-foreground">Selecione o tipo de produto para ver os planos disponíveis.</p>
                         ) : planos.length === 0 ? (
@@ -752,13 +773,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   <TableHead className="text-right">Plano</TableHead>
                                   <TableHead className="text-right">Frete Médio</TableHead>
                                   <TableHead className="text-right">+ Manuseio</TableHead>
+                                  <TableHead className="text-right">Margem ({margem.pct}%)</TableHead>
+                                  <TableHead className="text-right">Imposto ({IMPOSTO_POD_PADRAO}%)</TableHead>
                                   <TableHead className="text-right">Preço/Envio</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {planos.map(p => {
                                   const manuseio = Number(p.taxa_manuseio || 0);
-                                  const total = Number(p.preco) + manuseio;
+                                  const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio, margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
                                   const selected = it.plano_selecionado === p.plano;
                                   return (
                                     <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
@@ -773,7 +796,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                       <TableCell className="text-right">{p.plano}</TableCell>
                                       <TableCell className="text-right">{formatBRL(p.preco)}</TableCell>
                                       <TableCell className="text-right text-muted-foreground">{formatBRL(manuseio)}</TableCell>
-                                      <TableCell className="text-right font-semibold">{formatBRL(total)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.margemValor)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.impostoValor)}</TableCell>
+                                      <TableCell className="text-right font-semibold">{formatBRL(calc.precoFinal)}</TableCell>
                                     </TableRow>
                                   );
                                 })}
