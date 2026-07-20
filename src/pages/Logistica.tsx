@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,8 +39,31 @@ export default function Logistica() {
   const [deletando, setDeletando] = useState<FreteCotacao | null>(null);
   const [confirmSubstituicao, setConfirmSubstituicao] = useState<{ payload: FreteCotacaoInsert } | null>(null);
   const [confirmEdicaoConfirmada, setConfirmEdicaoConfirmada] = useState<FreteCotacao | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<FreteCotacao | null>(null);
+  const [produtorAberto, setProdutorAberto] = useState<{ produtor: string; cotacoes: FreteCotacao[] } | null>(null);
+  const [exportandoCotacao, setExportandoCotacao] = useState<FreteCotacao | null>(null);
+  const exportListaRef = useRef<HTMLDivElement | null>(null);
 
   const cotacoesFiltradas = useMemo(() => cotacoes.filter(c => c.tipo === tab), [cotacoes, tab]);
+
+  const gruposProdutor = useMemo(() => {
+    const map = new Map<string, { produtor: string; cotacoes: FreteCotacao[] }>();
+    cotacoesFiltradas.forEach(c => {
+      const orc = orcamentos.find(o => o.id === c.orcamento_id);
+      const produtor = orc?.nome_cliente || 'Sem produtor';
+      if (!map.has(produtor)) map.set(produtor, { produtor, cotacoes: [] });
+      map.get(produtor)!.cotacoes.push(c);
+    });
+    return Array.from(map.values()).sort((a, b) => a.produtor.localeCompare(b.produtor));
+  }, [cotacoesFiltradas, orcamentos]);
+
+  // Mantém dialog do produtor sincronizado quando cotações mudam
+  useEffect(() => {
+    if (!produtorAberto) return;
+    const atualizado = gruposProdutor.find(g => g.produtor === produtorAberto.produtor);
+    if (atualizado) setProdutorAberto(atualizado);
+    else setProdutorAberto(null);
+  }, [gruposProdutor]);
 
   const orcamentoLabel = (id: string | null) => {
     const o = orcamentos.find(x => x.id === id);
@@ -52,6 +75,10 @@ export default function Logistica() {
     setDialogOpen(true);
   };
 
+  const solicitarEdicao = (c: FreteCotacao) => {
+    setPendingEdit(c);
+  };
+
   const handleEditar = (c: FreteCotacao) => {
     if (c.tipo === 'estoque_proprio' && c.status === 'confirmado') {
       setConfirmEdicaoConfirmada(c);
@@ -59,6 +86,23 @@ export default function Logistica() {
     }
     setEditing(c);
     setDialogOpen(true);
+  };
+
+  const baixarImagemCotacao = async (c: FreteCotacao) => {
+    setExportandoCotacao(c);
+    await new Promise((r) => requestAnimationFrame(() => r(null)));
+    await new Promise((r) => setTimeout(r, 60));
+    if (!exportListaRef.current) { setExportandoCotacao(null); return; }
+    const orc = orcamentos.find(o => o.id === c.orcamento_id);
+    const slug = `${orc?.numero_orcamento || 'cotacao'}_${c.nome_produto || c.tipo_produto || 'produto'}`.replace(/[^\w-]+/g, '_');
+    try {
+      await exportElementAsPng(exportListaRef.current, `frete_${slug}.png`);
+      toast.success('Imagem gerada');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao gerar imagem');
+    } finally {
+      setExportandoCotacao(null);
+    }
   };
 
   const proceedEdicao = () => {
@@ -169,7 +213,7 @@ export default function Logistica() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
-                              <Button size="icon" variant="ghost" onClick={() => handleEditar(c)}>
+                              <Button size="icon" variant="ghost" onClick={() => solicitarEdicao(c)}>
                                 <Pencil className="w-4 h-4" />
                               </Button>
                               <Button size="icon" variant="ghost" onClick={() => setDeletando(c)}>
@@ -188,7 +232,7 @@ export default function Logistica() {
             <TabsContent value="pod" className="mt-4">
               {isLoading ? (
                 <p className="text-muted-foreground text-sm">Carregando...</p>
-              ) : cotacoesFiltradas.length === 0 ? (
+              ) : gruposProdutor.length === 0 ? (
                 <div className="py-12 text-center border rounded-lg bg-muted/30 text-muted-foreground">
                   Nenhuma cotação POD registrada.
                 </div>
@@ -197,47 +241,42 @@ export default function Logistica() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Orçamento</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead className="text-right">Plano</TableHead>
-                        <TableHead className="text-right">Preço/envio</TableHead>
-                        <TableHead className="text-right">Qtd Envios</TableHead>
-                        <TableHead className="text-right">Total Estimado</TableHead>
-                        <TableHead>Data</TableHead>
-                        <TableHead className="w-32">Ações</TableHead>
+                        <TableHead>Produtor</TableHead>
+                        <TableHead className="text-right">Orçamentos</TableHead>
+                        <TableHead className="text-right">Produtos</TableHead>
+                        <TableHead className="text-right">Preço/envio (faixa)</TableHead>
+                        <TableHead>Última cotação</TableHead>
+                        <TableHead className="w-40">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {cotacoesFiltradas.map(c => {
-                        const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
-                        const total = (Number(c.pod_preco_por_envio) || 0) * (Number(c.pod_quantidade_envios_estimada) || 0);
-                        const planoLabel = selecionados.length > 1
-                          ? `${selecionados.length} planos: ${selecionados.map(s => s.plano).join(', ')}`
-                          : (c.pod_plano ?? '—');
-                        const precoLabel = selecionados.length > 1
-                          ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
-                          : formatBRL(c.pod_preco_por_envio);
+                      {gruposProdutor.map(g => {
+                        const orcamentosSet = new Set(g.cotacoes.map(c => c.orcamento_id));
+                        const precos: number[] = [];
+                        g.cotacoes.forEach(c => {
+                          const sel = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
+                          if (sel.length > 0) sel.forEach(s => precos.push(Number(s.preco_final)));
+                          else if (c.pod_preco_por_envio != null) precos.push(Number(c.pod_preco_por_envio));
+                        });
+                        const min = precos.length ? Math.min(...precos) : null;
+                        const max = precos.length ? Math.max(...precos) : null;
+                        const ultima = g.cotacoes.reduce((acc, c) => c.created_at > acc ? c.created_at : acc, g.cotacoes[0].created_at);
                         return (
-                          <TableRow key={c.id}>
-                            <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
-                            <TableCell>{c.tipo_produto || '—'}</TableCell>
-                            <TableCell className="text-right text-xs">{planoLabel}</TableCell>
-                            <TableCell className={`text-right font-medium ${c.pod_preco_editado_manualmente ? 'text-amber-600' : ''}`}>
-                              {precoLabel}
-                              {c.pod_preco_editado_manualmente && <span className="ml-1 text-[10px] uppercase">manual</span>}
+                          <TableRow key={g.produtor}>
+                            <TableCell className="font-medium flex items-center gap-2">
+                              <Users className="w-4 h-4 text-muted-foreground" />
+                              {g.produtor}
                             </TableCell>
-                            <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
-                            <TableCell className="text-right">{total > 0 ? formatBRL(total) : '—'}</TableCell>
-                            <TableCell className="text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                            <TableCell className="text-right">{orcamentosSet.size}</TableCell>
+                            <TableCell className="text-right">{g.cotacoes.length}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {min == null ? '—' : min === max ? formatBRL(min) : `${formatBRL(min)} – ${formatBRL(max)}`}
+                            </TableCell>
+                            <TableCell className="text-xs">{new Date(ultima).toLocaleDateString('pt-BR')}</TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" onClick={() => handleEditar(c)}>
-                                  <Pencil className="w-4 h-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" onClick={() => setDeletando(c)}>
-                                  <Trash2 className="w-4 h-4 text-destructive" />
-                                </Button>
-                              </div>
+                              <Button size="sm" variant="outline" onClick={() => setProdutorAberto(g)}>
+                                <Eye className="w-4 h-4 mr-2" />Ver produtos
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -307,9 +346,173 @@ export default function Logistica() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Senha para editar */}
+      {pendingEdit && (
+        <AdminPasswordDialog
+          open={!!pendingEdit}
+          onOpenChange={(o) => { if (!o) setPendingEdit(null); }}
+          title="Editar cotação de frete"
+          description="Alterar uma cotação POD exige senha do administrador."
+          actionLabel="Liberar edição"
+          onConfirm={() => {
+            const c = pendingEdit;
+            setPendingEdit(null);
+            if (c) handleEditar(c);
+          }}
+        />
+      )}
+
+      {/* Drill-down por produtor */}
+      <Dialog open={!!produtorAberto} onOpenChange={(o) => !o && setProdutorAberto(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              {produtorAberto?.produtor}
+            </DialogTitle>
+            <DialogDescription>
+              Orçamentos de frete por produto deste produtor.
+            </DialogDescription>
+          </DialogHeader>
+          {produtorAberto && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Orçamento</TableHead>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead className="text-right">Planos</TableHead>
+                    <TableHead className="text-right">Preço/envio</TableHead>
+                    <TableHead className="text-right">Quant. Envios Mensais médio</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="w-44">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {produtorAberto.cotacoes.map(c => {
+                    const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
+                    const planoLabel = selecionados.length > 0
+                      ? selecionados.map(s => s.plano).join(', ')
+                      : (c.pod_plano ?? '—');
+                    const precoLabel = selecionados.length > 1
+                      ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
+                      : formatBRL(selecionados[0]?.preco_final ?? c.pod_preco_por_envio);
+                    return (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
+                        <TableCell className="text-xs">{c.nome_produto || '—'}</TableCell>
+                        <TableCell className="text-xs">{c.tipo_produto || '—'}</TableCell>
+                        <TableCell className="text-right text-xs">{planoLabel}</TableCell>
+                        <TableCell className="text-right font-medium">{precoLabel}</TableCell>
+                        <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
+                        <TableCell className="text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" title="Editar (senha)" onClick={() => solicitarEdicao(c)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Baixar imagem" onClick={() => baixarImagemCotacao(c)}>
+                              <ImageDown className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" title="Excluir" onClick={() => setDeletando(c)}>
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProdutorAberto(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Container escondido para exportar PNG */}
+      {exportandoCotacao && (
+        <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
+          <CotacaoExportCard
+            ref={exportListaRef}
+            cotacao={exportandoCotacao}
+            produtor={orcamentos.find(o => o.id === exportandoCotacao.orcamento_id)?.nome_cliente || 'Sem produtor'}
+            numeroOrc={orcamentos.find(o => o.id === exportandoCotacao.orcamento_id)?.numero_orcamento || '—'}
+          />
+        </div>
+      )}
     </div>
   );
 }
+
+// ============ Card de exportação PNG ============
+
+const CotacaoExportCard = forwardRef<HTMLDivElement, {
+  cotacao: FreteCotacao;
+  produtor: string;
+  numeroOrc: string;
+}>(({ cotacao, produtor, numeroOrc }, ref) => {
+  const selecionados = Array.isArray(cotacao.pod_planos_selecionados) && cotacao.pod_planos_selecionados.length > 0
+    ? cotacao.pod_planos_selecionados
+    : cotacao.pod_plano != null
+      ? [{
+          plano: cotacao.pod_plano,
+          preco: Number(cotacao.pod_preco_por_envio || 0),
+          taxa_manuseio: 0,
+          margem_percentual: Number(cotacao.margem_percentual || 0),
+          imposto_percentual: Number(cotacao.imposto_percentual || IMPOSTO_POD_PADRAO),
+          preco_final: Number(cotacao.pod_preco_por_envio || 0),
+        } as PodPlanoSelecionado]
+      : [];
+  return (
+    <div ref={ref} style={{ padding: 24, background: '#fff', color: '#111', width: 720, fontFamily: 'system-ui, sans-serif' }}>
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Custo de Frete — Print on Demand</h2>
+      <p style={{ margin: '4px 0 16px', fontSize: 13, color: '#555' }}>
+        Produtor: <strong>{produtor}</strong> · Orçamento: <strong>{numeroOrc}</strong> · {new Date().toLocaleDateString('pt-BR')}
+      </p>
+      <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+          <span>{cotacao.nome_produto || 'Produto'}</span>
+          <span style={{ color: '#666', fontWeight: 400 }}>{cotacao.tipo_produto || '—'}</span>
+        </div>
+        <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
+          Margem: <strong>{Number(cotacao.margem_percentual || 0)}%</strong> · Imposto: <strong>{Number(cotacao.imposto_percentual || IMPOSTO_POD_PADRAO)}%</strong> · Quant. Envios Mensais médio: <strong>{cotacao.pod_quantidade_envios_estimada ?? '—'}</strong>
+        </p>
+        {selecionados.length === 0 ? (
+          <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos.</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: '#f5f5f5' }}>
+                <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
+                <th style={{ textAlign: 'right', padding: 6 }}>Frete</th>
+                <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
+                <th style={{ textAlign: 'right', padding: 6 }}>Margem</th>
+                <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selecionados.map(s => (
+                <tr key={s.plano} style={{ borderTop: '1px solid #eee' }}>
+                  <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{s.plano}</td>
+                  <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(s.preco)}</td>
+                  <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(s.taxa_manuseio)}</td>
+                  <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{s.margem_percentual}%</td>
+                  <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(s.preco_final)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+});
+CotacaoExportCard.displayName = 'CotacaoExportCard';
 
 // ============ Dialog ============
 
@@ -386,7 +589,23 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
 
   // Ao mudar orçamento no modo POD, pré-carrega uma linha por item de produção
   useEffect(() => {
-    if (editing || tipo !== 'pod' || !orcamentoSelecionado) {
+    if (editing && tipo === 'pod') {
+      // Modo edição POD: carrega um único item com os planos já salvos
+      const jaSelecionados = Array.isArray(editing.pod_planos_selecionados) && editing.pod_planos_selecionados.length > 0
+        ? editing.pod_planos_selecionados.map(s => Number(s.plano))
+        : (editing.pod_plano != null ? [Number(editing.pod_plano)] : []);
+      setPodItens([{
+        nome_produto: editing.nome_produto || 'Produto',
+        tipo_produto: editing.tipo_produto || '',
+        planos_selecionados: jaSelecionados,
+        qtd_envios: editing.pod_quantidade_envios_estimada != null ? String(editing.pod_quantidade_envios_estimada) : '',
+        observacoes: editing.observacoes || '',
+        margem_pct: editing.margem_override ? Number(editing.margem_percentual || 0) : null,
+        margem_override: !!editing.margem_override,
+      }]);
+      return;
+    }
+    if (tipo !== 'pod' || !orcamentoSelecionado) {
       setPodItens([]);
       return;
     }
@@ -459,27 +678,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       };
       await onSave([payload]);
     } else {
-      // Editando: envia uma única cotação POD com os campos legados
-      if (editing) {
-        if (!tipoProduto || !plano || !precoEnvio) {
-          toast.error('Preencha tipo, plano e preço');
-          return;
-        }
-        const editadoManual = precoTabelado != null && Number(precoEnvio) !== Number(precoTabelado);
-        const payload: FreteCotacaoInsert = {
-          tipo: 'pod',
-          orcamento_id: orcamentoId,
-          tipo_produto: tipoProduto,
-          pod_plano: Number(plano),
-          pod_preco_por_envio: Number(precoEnvio),
-          pod_preco_editado_manualmente: precoEditado || editadoManual,
-          pod_quantidade_envios_estimada: qtdEnvios ? Number(qtdEnvios) : null,
-          observacoes: observacoes || null,
-        };
-        await onSave([payload]);
-        return;
-      }
-      // Criação: uma cotação por item de produção
+      // POD criação e edição: usam a mesma estrutura multi-plano por item
       const validos = podItens.filter(it => it.tipo_produto && it.planos_selecionados.length > 0);
       if (validos.length === 0) {
         toast.error('Selecione ao menos um plano em cada produto que deseja cotar');
@@ -621,10 +820,10 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
             </div>
           )}
 
-          {(tipo === 'estoque_proprio' || editing) && (
+          {tipo === 'estoque_proprio' && (
             <div>
               <Label>Tipo de Produto *</Label>
-              <Select value={tipoProduto} onValueChange={(v) => { setTipoProduto(v); if (tipo === 'pod') carregarPrecoTabelado(v, plano); }}>
+              <Select value={tipoProduto} onValueChange={(v) => setTipoProduto(v)}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -670,61 +869,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
             </>
           )}
 
-          {tipo === 'pod' && editing && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Plano (nº de frascos) *</Label>
-                  <Select value={plano} onValueChange={(v) => { setPlano(v); carregarPrecoTabelado(tipoProduto, v); }}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {FRETE_POD_PLANOS.map(p => <SelectItem key={p} value={String(p)}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Preço por envio (R$) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={precoEnvio}
-                    onChange={(e) => { setPrecoEnvio(e.target.value); setPrecoEditado(true); }}
-                    className={precoTabelado != null && Number(precoEnvio) !== Number(precoTabelado) ? 'border-amber-500' : ''}
-                  />
-                  {precoTabelado != null && (
-                    <p className="text-xs text-muted-foreground mt-1">Tabelado: {formatBRL(precoTabelado)}</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Quantidade estimada de envios</Label>
-                  <Input type="number" min="0" value={qtdEnvios} onChange={(e) => setQtdEnvios(e.target.value)} />
-                  {totalEstimado > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">Total estimado: {formatBRL(totalEstimado)}</p>
-                  )}
-                </div>
-              </div>
-              {avisoSemPreco && (
-                <div className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
-                  {avisoSemPreco}
-                </div>
-              )}
-              <div>
-                <Label>Observações</Label>
-                <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
-              </div>
-            </>
-          )}
-
-          {tipo === 'pod' && !editing && (
+          {tipo === 'pod' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-base">Produtos do orçamento</Label>
-                {orcamentoSelecionado && (
+                <Label className="text-base">{editing ? 'Produto' : 'Produtos do orçamento'}</Label>
+                {orcamentoSelecionado && !editing && (
                   <span className="text-xs text-muted-foreground">{podItens.length} item(ns)</span>
                 )}
               </div>
-              {!orcamentoSelecionado ? (
+              {!orcamentoSelecionado && !editing ? (
                 <div className="text-sm text-muted-foreground border rounded-lg p-4 bg-muted/30">
                   Selecione um orçamento acima para carregar os produtos automaticamente.
                 </div>
@@ -835,7 +988,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <Label className="text-xs">Qtd estimada de envios</Label>
+                            <Label className="text-xs">Quant. Envios Mensais médio</Label>
                             <Input
                               type="number"
                               min="0"

@@ -1,34 +1,35 @@
 ## Objetivo
 
-Permitir selecionar **múltiplos planos por produto** ao montar a Nova Cotação de Frete, gerando **uma cotação por produto** contendo a lista de planos escolhidos (ex.: 30, 60 e 90 frascos) — exibidos juntos no PNG exportado e no PDF do orçamento como opções para o produtor comparar.
+Reorganizar a página **Logística** para agrupar cotações POD por **Produtor** (não por produto), com drill-down para ver produtos individualmente, exigir senha `0212` para editar planos, ajustar rótulos e adicionar exportação de imagem também na listagem.
 
-## Mudanças
+## Mudanças em `src/pages/Logistica.tsx`
 
-### 1. Banco (`frete_cotacoes`)
-Nova coluna para armazenar múltiplos planos por cotação POD:
-- `pod_planos_selecionados jsonb` — array de objetos `{ plano, preco, taxa_manuseio, margem_percentual, preco_final, margem_override }`.
-- Mantém `pod_plano` / `pod_preco_por_envio` como "plano principal" (o primeiro selecionado) para compatibilidade com listagens e o PDF existente.
+### 1. Agrupamento por Produtor (aba POD)
+- Substituir a tabela atual (uma linha por cotação/produto) por uma tabela agrupada por produtor (derivado de `orcamento.nome_cliente`).
+- Colunas do agrupamento: Produtor · Nº Orçamentos · Nº Produtos · Faixa de preço/envio (menor–maior) · Data mais recente · Ações (Ver produtos / Baixar imagem).
+- Botão **"Ver orçamentos por produto"** por linha abre um `Dialog` listando cada produto individualmente (uma linha por cotação), com os botões Editar / Excluir / Baixar PNG por produto.
 
-### 2. Tipos (`src/types/frete.ts`)
-- Adicionar `PodPlanoSelecionado` interface e campo `pod_planos_selecionados` em `FreteCotacao` / `FreteCotacaoInsert`.
+### 2. Senha `0212` obrigatória para editar
+- Ao clicar em **Editar** (tanto na lista agrupada quanto no dialog de produtos), abrir `AdminPasswordDialog` (já existente, senha `0212`). Somente após confirmar, abre o `FreteCotacaoDialog` de edição.
+- Aplica-se a POD e Estoque Próprio.
 
-### 3. Dialog "Nova Cotação de Frete" (`src/pages/Logistica.tsx`)
-No card de cada produto do orçamento:
-- Trocar a linha atual de "plano único" por **checkboxes** ao lado de cada linha da tabela de planos (Plano / Frete / Manuseio / Margem / Preço Final).
-- Rodapé do card mostra: nº de planos marcados + soma/média de referência.
-- Botão de override de margem (senha `0212`) continua por plano na tabela.
-- `handleSubmit` insere **1 cotação por produto** com `pod_planos_selecionados` preenchido; o "plano principal" salvo em `pod_plano`/`pod_preco_por_envio` é o menor plano marcado.
+### 3. Ajustes de rótulos e colunas (aba POD)
+- Remover coluna **"Total Estimado"** da tabela detalhada (drill-down).
+- Renomear **"Qtd Envios"** → **"Quant. Envios Mensais médio"**.
+- Adicionar botão **"Baixar imagem"** (ícone `ImageDown`) em cada linha de produto no drill-down, gerando o PNG de custo de frete via `exportElementAsPng` (mesmo template já usado no dialog de criação, renderizado off-screen para essa cotação específica).
 
-### 4. Exibição / Export
-- **Tabela de cotações** em Logística: quando houver múltiplos planos, exibir "3 planos: 30, 60, 90 · a partir de R$ X,XX".
-- **PNG export** (`src/lib/freteImageExport.ts`): renderizar tabela comparativa com todas as linhas de `pod_planos_selecionados`.
-- **PDF do orçamento** (`src/lib/orcamentoGenerator.ts` / `freteHelpers.linhaPdfFrete`): quando houver múltiplos planos, listar todas as opções (plano → preço/envio) em vez de uma única linha.
+### 4. Edição com todos os planos visíveis
+- No `FreteCotacaoDialog` em modo edição de uma cotação POD, renderizar a tabela completa de planos do tipo de produto (via `useFretePodPrecos`) com **checkboxes marcados** conforme `pod_planos_selecionados` — permitindo marcar/desmarcar qualquer plano.
+- Cada linha continua editável (preço, manuseio, margem via override protegido por senha) e ao salvar reconstrói `pod_planos_selecionados` + define `pod_plano`/`pod_preco_por_envio` a partir do menor plano marcado (mesma regra já usada na criação).
 
-### 5. Retro-compatibilidade
-Cotações antigas sem `pod_planos_selecionados` continuam renderizando pelo caminho atual (fallback para `pod_plano` + `pod_preco_por_envio`).
+## Retro-compatibilidade
+
+- Estrutura de dados **não muda** — apenas UI/UX.
+- Cotações sem `pod_planos_selecionados` continuam renderizando pela lógica atual (fallback ao `pod_plano`/`pod_preco_por_envio`).
+- Aba **Estoque Próprio** permanece igual, apenas ganhando o gate de senha na edição.
 
 ## Detalhes técnicos
 
-- Validação: exigir ≥1 plano marcado por produto antes de habilitar "Salvar cotações".
-- Margem: `resolverMargemPorEnvios` é aplicada individualmente por linha; override via `AdminPasswordDialog` afeta apenas a linha editada e marca `margem_override: true` naquele item do array.
-- Imposto 12% permanece embutido no `preco_final` de cada linha.
+- Agrupamento por produtor usa `orcamento.nome_cliente` (e `cliente_id` quando disponível como chave estável). Cotações sem orçamento vinculado caem em grupo "Sem produtor".
+- `AdminPasswordDialog` já existe (`src/components/admin/AdminPasswordDialog.tsx`, senha `0212`) — reutilizar.
+- PNG por produto: renderizar container escondido (`position:absolute; left:-99999px`) com layout já usado (`exportRef`) e chamar `exportElementAsPng`.
