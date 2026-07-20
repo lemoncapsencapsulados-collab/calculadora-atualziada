@@ -1,0 +1,1 @@
+ALTER TABLE public.frete_cotacoes ADD COLUMN IF NOT EXISTS pod_planos_selecionados jsonb NOT NULL DEFAULT '[]'::jsonb;
