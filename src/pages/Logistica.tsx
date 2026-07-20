@@ -1085,46 +1085,34 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
                             return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
                           });
-                        const somaMensal = selecionadosRows.reduce((a, r) => a + r.total, 0);
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
                               <span>{it.nome_produto}</span>
                               <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'}</span>
                             </div>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
-                              Margem: <strong>{margem.pct}%</strong> ({margem.faixaLabel}) · Imposto: <strong>{IMPOSTO_POD_PADRAO}%</strong>
-                              {envios > 0 && <> · Envios/mês: <strong>{envios}</strong></>}
-                            </p>
+                            {envios > 0 && (
+                              <p style={{ margin: '0 0 8px', fontSize: 11, color: '#555' }}>
+                                Quant. Envios Mensais médio: <strong>{envios}</strong>
+                              </p>
+                            )}
                             {selecionadosRows.length === 0 ? (
                               <p style={{ fontSize: 12, color: '#a15c00' }}>Nenhum plano selecionado.</p>
                             ) : (
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                 <thead>
                                   <tr style={{ background: '#f5f5f5' }}>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
-                                    <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
-                                    {envios > 0 && <th style={{ textAlign: 'right', padding: 6 }}>Total/mês</th>}
+                                    <th style={{ textAlign: 'center', padding: 8 }}>Plano (frascos)</th>
+                                    <th style={{ textAlign: 'right', padding: 8 }}>Preço / Envio</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {selecionadosRows.map(r => (
                                     <tr key={r.plano} style={{ borderTop: '1px solid #eee' }}>
-                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{r.plano}</td>
-                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(r.frete)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(r.manuseio)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(r.precoFinal)}</td>
-                                      {envios > 0 && <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(r.total)}</td>}
+                                      <td style={{ textAlign: 'center', padding: 8, fontWeight: 700 }}>{r.plano}</td>
+                                      <td style={{ textAlign: 'right', padding: 8, fontWeight: 700 }}>{formatBRL(r.precoFinal)}</td>
                                     </tr>
                                   ))}
-                                  {envios > 0 && selecionadosRows.length > 1 && (
-                                    <tr style={{ borderTop: '2px solid #ddd', background: '#fafafa' }}>
-                                      <td colSpan={4} style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>Soma mensal</td>
-                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 700 }}>{formatBRL(somaMensal)}</td>
-                                    </tr>
-                                  )}
                                 </tbody>
                               </table>
                             )}
