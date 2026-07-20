@@ -342,7 +342,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const [orcOpen, setOrcOpen] = useState(false);
   const [podItens, setPodItens] = useState<PodItemDraft[]>([]);
   const { data: todosPodPrecos = [] } = useFretePodPrecos();
+  const { data: faixasMargem = [] } = useFreteMargemFaixas();
   const exportRef = useRef<HTMLDivElement | null>(null);
+  const [passwordItemIdx, setPasswordItemIdx] = useState<number | null>(null);
 
   const orcamentoSelecionado = useMemo(
     () => orcamentos.find(o => o.id === orcamentoId) || null,
@@ -387,11 +389,26 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       plano_selecionado: null,
       qtd_envios: '',
       observacoes: '',
+      margem_pct: null,
+      margem_override: false,
     })));
   }, [orcamentoSelecionado, tipo, editing]);
 
   const atualizarItem = async (idx: number, patch: Partial<PodItemDraft>) => {
     setPodItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+
+  const margemEfetivaItem = (it: PodItemDraft): { pct: number; faixaLabel: string; override: boolean } => {
+    if (it.margem_override && it.margem_pct != null) {
+      return { pct: Number(it.margem_pct), faixaLabel: 'edição manual', override: true };
+    }
+    const envios = it.qtd_envios ? Number(it.qtd_envios) : 0;
+    const faixa = resolverMargemPorEnvios(envios, faixasMargem);
+    return {
+      pct: faixa ? Number(faixa.margem_percentual) : 0,
+      faixaLabel: descreverFaixa(faixa),
+      override: false,
+    };
   };
 
   /** Planos disponíveis (com preço) para um tipo de produto, ordenados. */
@@ -464,7 +481,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
         const frete = Number(planoRow?.preco || 0);
         const manuseio = Number(planoRow?.taxa_manuseio || 0);
-        const precoFinal = frete + manuseio;
+        const { pct: margemPct, override } = margemEfetivaItem(it);
+        const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
         return {
           tipo: 'pod',
           orcamento_id: orcamentoId,
@@ -475,6 +493,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           pod_preco_editado_manualmente: false,
           pod_quantidade_envios_estimada: it.qtd_envios ? Number(it.qtd_envios) : null,
           observacoes: it.observacoes || null,
+          margem_percentual: margemPct,
+          margem_override: override,
+          imposto_percentual: IMPOSTO_POD_PADRAO,
         };
       });
       await onSave(payloads);
