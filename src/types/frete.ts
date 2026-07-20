@@ -54,6 +54,7 @@ export interface FretePodPreco {
   tipo_produto: string;
   plano: number;
   preco: number;
+  taxa_manuseio: number;
   faixa_peso: string | null;
   vigencia_inicio: string;
   ativo: boolean;
@@ -68,15 +69,9 @@ export interface FretePodPrecoHistorico {
   plano: number;
   preco_anterior: number | null;
   preco_novo: number;
+  taxa_manuseio_anterior: number | null;
+  taxa_manuseio_nova: number | null;
   alterado_por: string | null;
   alterado_por_email: string | null;
   alterado_em: string;
-}
-
-export interface FreteLogisticaConfig {
-  id: string;
-  tipo_produto: string;
-  taxa_manuseio: number;
-  created_at: string;
-  updated_at: string;
 }
