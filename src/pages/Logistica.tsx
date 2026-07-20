@@ -866,4 +866,6 @@ interface PodItemDraft {
   plano_selecionado: number | null;
   qtd_envios: string;
   observacoes: string;
+  margem_pct: number | null;
+  margem_override: boolean;
 }
