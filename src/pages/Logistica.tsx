@@ -16,7 +16,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { useFreteCotacoes, useCreateFreteCotacao, useUpdateFreteCotacao, useDeleteFreteCotacao, fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
 import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos';
-import { useTaxaManuseioMap } from '@/hooks/useFreteLogisticaConfig';
 import { exportElementAsPng } from '@/lib/freteImageExport';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
@@ -341,7 +340,6 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const [orcOpen, setOrcOpen] = useState(false);
   const [podItens, setPodItens] = useState<PodItemDraft[]>([]);
   const { data: todosPodPrecos = [] } = useFretePodPrecos();
-  const taxaMap = useTaxaManuseioMap();
   const exportRef = useRef<HTMLDivElement | null>(null);
 
   const orcamentoSelecionado = useMemo(
@@ -463,7 +461,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       const payloads: FreteCotacaoInsert[] = validos.map(it => {
         const planoRow = planosDoTipo(it.tipo_produto).find(p => p.plano === it.plano_selecionado);
         const frete = Number(planoRow?.preco || 0);
-        const manuseio = Number(taxaMap[it.tipo_produto] || 0);
+        const manuseio = Number(planoRow?.taxa_manuseio || 0);
         const precoFinal = frete + manuseio;
         return {
           tipo: 'pod',

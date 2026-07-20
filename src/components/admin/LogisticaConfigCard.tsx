@@ -6,29 +6,19 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Truck, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, Truck } from 'lucide-react';
 import { useFretePodPrecos, useUpsertPodPreco, useDesativarPodPreco } from '@/hooks/useFretePodPrecos';
-import { useFreteLogisticaConfig, useUpsertTaxaManuseio } from '@/hooks/useFreteLogisticaConfig';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS, FretePodPreco } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
 
 export function LogisticaConfigCard() {
   const { data: precos = [], isLoading } = useFretePodPrecos();
-  const { data: config = [] } = useFreteLogisticaConfig();
   const upsertPreco = useUpsertPodPreco();
-  const upsertTaxa = useUpsertTaxaManuseio();
   const desativarPreco = useDesativarPodPreco();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<FretePodPreco | null>(null);
   const [tipoNovo, setTipoNovo] = useState<string>('');
-
-  const taxaByTipo = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const t of FRETE_TIPOS_PRODUTO) map[t] = 0;
-    for (const c of config) map[c.tipo_produto] = Number(c.taxa_manuseio) || 0;
-    return map;
-  }, [config]);
 
   const precosByTipo = useMemo(() => {
     const g: Record<string, FretePodPreco[]> = {};
@@ -45,7 +35,7 @@ export function LogisticaConfigCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Truck className="w-5 h-5 text-primary" />Logística</CardTitle>
-        <CardDescription>Taxa de manuseio e tabela de frete médio por plano, para cada tipo de produto</CardDescription>
+        <CardDescription>Frete médio e taxa de manuseio por plano, para cada tipo de produto</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={FRETE_TIPOS_PRODUTO[0]}>
@@ -54,13 +44,6 @@ export function LogisticaConfigCard() {
           </TabsList>
           {FRETE_TIPOS_PRODUTO.map(tipo => (
             <TabsContent key={tipo} value={tipo} className="mt-4 space-y-4">
-              <TaxaManuseioEditor
-                tipo={tipo}
-                valorAtual={taxaByTipo[tipo]}
-                onSalvar={(v) => upsertTaxa.mutateAsync({ tipo_produto: tipo, taxa_manuseio: v })}
-                salvando={upsertTaxa.isPending}
-              />
-
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold text-sm">Planos cadastrados</h4>
                 <Button size="sm" onClick={() => abrirNovo(tipo)}><Plus className="w-4 h-4 mr-2" />Novo Plano</Button>
@@ -77,7 +60,8 @@ export function LogisticaConfigCard() {
                       <TableRow>
                         <TableHead className="text-right">Plano (frascos)</TableHead>
                         <TableHead className="text-right">Frete Médio</TableHead>
-                        <TableHead className="text-right">+ Manuseio</TableHead>
+                        <TableHead className="text-right">Taxa Manuseio</TableHead>
+                        <TableHead className="text-right">Total/Envio</TableHead>
                         <TableHead className="w-32">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -86,7 +70,8 @@ export function LogisticaConfigCard() {
                         <TableRow key={p.id}>
                           <TableCell className="text-right">{p.plano}</TableCell>
                           <TableCell className="text-right font-medium">{formatBRL(p.preco)}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{formatBRL(Number(p.preco) + taxaByTipo[tipo])}</TableCell>
+                          <TableCell className="text-right">{formatBRL(p.taxa_manuseio)}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatBRL(Number(p.preco) + Number(p.taxa_manuseio || 0))}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button size="icon" variant="ghost" onClick={() => abrirEditar(p)}><Pencil className="w-4 h-4" /></Button>
@@ -122,36 +107,18 @@ export function LogisticaConfigCard() {
   );
 }
 
-function TaxaManuseioEditor({ tipo, valorAtual, onSalvar, salvando }: {
-  tipo: string; valorAtual: number; onSalvar: (v: number) => Promise<any>; salvando: boolean;
-}) {
-  const [valor, setValor] = useState(String(valorAtual));
-  const dirty = Number(valor) !== Number(valorAtual);
-  return (
-    <div className="border rounded-lg p-3 bg-muted/30 flex flex-col sm:flex-row sm:items-end gap-3">
-      <div className="flex-1">
-        <Label>Taxa de Manuseio — {tipo} (R$)</Label>
-        <Input type="number" step="0.01" min="0" value={valor} onChange={(e) => setValor(e.target.value)} />
-        <p className="text-xs text-muted-foreground mt-1">Aplicada a cada envio, somada ao frete médio do plano.</p>
-      </div>
-      <Button size="sm" disabled={!dirty || salvando} onClick={async () => { await onSalvar(Number(valor) || 0); }}>
-        <Save className="w-4 h-4 mr-2" />Salvar
-      </Button>
-    </div>
-  );
-}
-
 function PlanoDialog({ open, editing, tipoInicial, planosExistentes, onClose, onSave, saving }: {
   open: boolean;
   editing: FretePodPreco | null;
   tipoInicial: string;
   planosExistentes: number[];
   onClose: () => void;
-  onSave: (payload: { id?: string; tipo_produto: string; plano: number; preco: number; vigencia_inicio?: string }) => Promise<void>;
+  onSave: (payload: { id?: string; tipo_produto: string; plano: number; preco: number; taxa_manuseio: number; vigencia_inicio?: string }) => Promise<void>;
   saving: boolean;
 }) {
   const [plano, setPlano] = useState(editing ? String(editing.plano) : '');
   const [preco, setPreco] = useState(editing ? String(editing.preco) : '');
+  const [taxa, setTaxa] = useState(editing ? String(editing.taxa_manuseio ?? 0) : '0');
   const sugestoes = FRETE_POD_PLANOS_SUGERIDOS.filter(s => !planosExistentes.includes(s) || (editing && editing.plano === s));
 
   return (
@@ -172,14 +139,21 @@ function PlanoDialog({ open, editing, tipoInicial, planosExistentes, onClose, on
               </div>
             )}
           </div>
-          <div>
-            <Label>Frete médio (R$) *</Label>
-            <Input type="number" step="0.01" min="0" value={preco} onChange={(e) => setPreco(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Frete médio (R$) *</Label>
+              <Input type="number" step="0.01" min="0" value={preco} onChange={(e) => setPreco(e.target.value)} />
+            </div>
+            <div>
+              <Label>Taxa de manuseio (R$) *</Label>
+              <Input type="number" step="0.01" min="0" value={taxa} onChange={(e) => setTaxa(e.target.value)} />
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground">Total por envio = frete médio + taxa de manuseio: <strong>{formatBRL((Number(preco) || 0) + (Number(taxa) || 0))}</strong></p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button disabled={saving || !plano || !preco} onClick={() => onSave({ id: editing?.id, tipo_produto: tipoInicial, plano: Number(plano), preco: Number(preco) })}>Salvar</Button>
+          <Button disabled={saving || !plano || !preco || taxa === ''} onClick={() => onSave({ id: editing?.id, tipo_produto: tipoInicial, plano: Number(plano), preco: Number(preco), taxa_manuseio: Number(taxa) || 0 })}>Salvar</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
