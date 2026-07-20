@@ -934,6 +934,22 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               <span className="text-muted-foreground"> ({margem.faixaLabel}) · Imposto {IMPOSTO_POD_PADRAO}%</span>
                             </div>
                             <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => atualizarItem(idx, { planos_selecionados: planos.map(p => p.plano) })}
+                              >
+                                Selecionar todos
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() => atualizarItem(idx, { planos_selecionados: [] })}
+                              >
+                                Limpar seleção
+                              </Button>
                               {margem.override && (
                                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => atualizarItem(idx, { margem_override: false, margem_pct: null })}>
                                   Restaurar padrão
@@ -1010,6 +1026,46 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             />
                           </div>
                         </div>
+
+                        {it.tipo_produto && planos.length > 0 && it.planos_selecionados.length > 0 && (() => {
+                          const envios = Number(it.qtd_envios) || 0;
+                          const rows = planos
+                            .filter(p => it.planos_selecionados.includes(p.plano))
+                            .map(p => {
+                              const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
+                              return { plano: p.plano, precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                            });
+                          const somaMensal = rows.reduce((a, r) => a + r.total, 0);
+                          return (
+                            <div className="border rounded-md p-3 bg-primary/5 space-y-2">
+                              <div className="flex items-center justify-between text-xs font-medium">
+                                <span>Planos selecionados ({rows.length})</span>
+                                {envios > 0 && (
+                                  <span className="text-muted-foreground">Base: {envios} envios/mês</span>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                {rows.map(r => (
+                                  <div key={r.plano} className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold">Plano {r.plano}</span>
+                                    <span>
+                                      <span className="text-muted-foreground">{formatBRL(r.precoFinal)}/envio</span>
+                                      {envios > 0 && (
+                                        <span className="ml-3 font-semibold">Total: {formatBRL(r.total)}</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              {envios > 0 && rows.length > 1 && (
+                                <div className="border-t pt-2 flex justify-between text-xs font-semibold">
+                                  <span>Soma mensal (todos os planos marcados)</span>
+                                  <span>{formatBRL(somaMensal)}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
