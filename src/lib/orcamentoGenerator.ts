@@ -4,6 +4,9 @@ import { Orcamento, DadosCliente, DetalhamentoFrete, CondicoesPagamento, FormaPa
 import { formatCurrency } from '@/lib/unitConversion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
+import { linhaPdfFrete } from '@/lib/freteHelpers';
+import type { FreteCotacao } from '@/types/frete';
 
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
@@ -731,13 +734,38 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 
 function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   const frete = orcamento.detalhamento_frete;
-  if (!frete || (frete.frete_lemon_caps === undefined && !frete.detalhamento_envio)) {
+  const cotacao = (orcamento as any).__freteCotacao as FreteCotacao | null | undefined;
+  if (!cotacao && (!frete || (frete.frete_lemon_caps === undefined && !frete.detalhamento_envio))) {
     return yPos;
   }
 
   const pageWidth = getPageWidth(doc);
   
   yPos = renderSectionTitle(doc, 'Detalhamento de Frete', yPos);
+
+  // Linha de cotação vinculada (Estoque Próprio / POD)
+  const linhaCot = linhaPdfFrete(cotacao);
+  if (linhaCot) {
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.setFontSize(LAYOUT.fontSize.body);
+    const linhas = doc.splitTextToSize(linhaCot.titulo, pageWidth - 2 * LAYOUT.margin);
+    doc.text(linhas, LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight * linhas.length;
+    if (linhaCot.nota) {
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...COLORS.textLight);
+      doc.setFontSize(LAYOUT.fontSize.small);
+      const notaLinhas = doc.splitTextToSize(linhaCot.nota, pageWidth - 2 * LAYOUT.margin);
+      doc.text(notaLinhas, LAYOUT.margin, yPos);
+      yPos += (LAYOUT.lineHeight - 1) * notaLinhas.length;
+    }
+    yPos += 3;
+  }
+
+  if (!frete || (frete.frete_lemon_caps === undefined && !frete.detalhamento_envio)) {
+    return yPos + LAYOUT.sectionGap;
+  }
 
   doc.setFontSize(LAYOUT.fontSize.body);
   const labelWidth = 45;
@@ -1159,6 +1187,14 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
   console.log(`[PDF] Gerando orçamento: ${orcamento.numero_orcamento} - Modo: Premium expandido`);
 
   try {
+    // Busca cotação de frete vinculada (Estoque Próprio ou POD) — opcional
+    try {
+      const cot = await fetchFreteCotacaoByOrcamento(orcamento.id);
+      (orcamento as any).__freteCotacao = cot;
+    } catch (e) {
+      console.warn('[PDF] Não foi possível carregar cotação de frete', e);
+    }
+
     // Renderizar seções em ordem
     let yPos = renderHeader(doc, orcamento);
     yPos = renderConsultor(doc, orcamento, yPos);

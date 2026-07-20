@@ -946,6 +946,160 @@ export type Database = {
           },
         ]
       }
+      frete_cotacoes: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          nome_produto: string | null
+          nome_produtor: string | null
+          observacoes: string | null
+          observacoes_internas: string | null
+          orcamento_id: string
+          pod_plano: number | null
+          pod_preco_editado_manualmente: boolean | null
+          pod_preco_por_envio: number | null
+          pod_quantidade_envios_estimada: number | null
+          quantidade_unidades: number | null
+          status: string | null
+          tipo: string
+          tipo_produto: string | null
+          updated_at: string
+          valor_frete: number | null
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome_produto?: string | null
+          nome_produtor?: string | null
+          observacoes?: string | null
+          observacoes_internas?: string | null
+          orcamento_id: string
+          pod_plano?: number | null
+          pod_preco_editado_manualmente?: boolean | null
+          pod_preco_por_envio?: number | null
+          pod_quantidade_envios_estimada?: number | null
+          quantidade_unidades?: number | null
+          status?: string | null
+          tipo: string
+          tipo_produto?: string | null
+          updated_at?: string
+          valor_frete?: number | null
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome_produto?: string | null
+          nome_produtor?: string | null
+          observacoes?: string | null
+          observacoes_internas?: string | null
+          orcamento_id?: string
+          pod_plano?: number | null
+          pod_preco_editado_manualmente?: boolean | null
+          pod_preco_por_envio?: number | null
+          pod_quantidade_envios_estimada?: number | null
+          quantidade_unidades?: number | null
+          status?: string | null
+          tipo?: string
+          tipo_produto?: string | null
+          updated_at?: string
+          valor_frete?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frete_cotacoes_orcamento_id_fkey"
+            columns: ["orcamento_id"]
+            isOneToOne: false
+            referencedRelation: "orcamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      frete_pod_precos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          faixa_peso: string | null
+          id: string
+          plano: number
+          preco: number
+          tipo_produto: string
+          updated_at: string
+          vigencia_inicio: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          faixa_peso?: string | null
+          id?: string
+          plano: number
+          preco: number
+          tipo_produto: string
+          updated_at?: string
+          vigencia_inicio?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          faixa_peso?: string | null
+          id?: string
+          plano?: number
+          preco?: number
+          tipo_produto?: string
+          updated_at?: string
+          vigencia_inicio?: string
+        }
+        Relationships: []
+      }
+      frete_pod_precos_historico: {
+        Row: {
+          alterado_em: string
+          alterado_por: string | null
+          alterado_por_email: string | null
+          id: string
+          plano: number
+          preco_anterior: number | null
+          preco_id: string | null
+          preco_novo: number
+          tipo_produto: string
+        }
+        Insert: {
+          alterado_em?: string
+          alterado_por?: string | null
+          alterado_por_email?: string | null
+          id?: string
+          plano: number
+          preco_anterior?: number | null
+          preco_id?: string | null
+          preco_novo: number
+          tipo_produto: string
+        }
+        Update: {
+          alterado_em?: string
+          alterado_por?: string | null
+          alterado_por_email?: string | null
+          id?: string
+          plano?: number
+          preco_anterior?: number | null
+          preco_id?: string | null
+          preco_novo?: number
+          tipo_produto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "frete_pod_precos_historico_preco_id_fkey"
+            columns: ["preco_id"]
+            isOneToOne: false
+            referencedRelation: "frete_pod_precos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historico_configuracao_custos: {
         Row: {
           configuracao_id: string | null
