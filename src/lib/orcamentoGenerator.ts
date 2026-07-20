@@ -4,7 +4,7 @@ import { Orcamento, DadosCliente, DetalhamentoFrete, CondicoesPagamento, FormaPa
 import { formatCurrency } from '@/lib/unitConversion';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
+import { fetchFreteCotacaoByOrcamento, fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 import { linhaPdfFrete, blocoPdfFrete } from '@/lib/freteHelpers';
 import type { FreteCotacao } from '@/types/frete';
 
@@ -734,8 +734,8 @@ function renderServicos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
 
 function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   const frete = orcamento.detalhamento_frete;
-  const cotacao = (orcamento as any).__freteCotacao as FreteCotacao | null | undefined;
-  if (!cotacao && (!frete || (frete.frete_lemon_caps === undefined && !frete.detalhamento_envio))) {
+  const cotacoes = ((orcamento as any).__freteCotacoes as FreteCotacao[] | undefined) || [];
+  if (cotacoes.length === 0 && (!frete || (frete.frete_lemon_caps === undefined && !frete.detalhamento_envio))) {
     return yPos;
   }
 
@@ -743,9 +743,10 @@ function renderFrete(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
   
   yPos = renderSectionTitle(doc, 'Detalhamento de Frete', yPos);
 
-  // Bloco da cotação vinculada (Estoque Próprio / POD)
-  const bloco = blocoPdfFrete(cotacao);
-  if (bloco) {
+  // Um bloco por cotação vinculada (um por produto), Estoque Próprio ou POD
+  for (const cotacao of cotacoes) {
+    const bloco = blocoPdfFrete(cotacao);
+    if (!bloco) continue;
     yPos = checkPageBreak(doc, yPos, 20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
@@ -1227,8 +1228,9 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
   try {
     // Busca cotação de frete vinculada (Estoque Próprio ou POD) — opcional
     try {
-      const cot = await fetchFreteCotacaoByOrcamento(orcamento.id);
-      (orcamento as any).__freteCotacao = cot;
+      const cots = await fetchFreteCotacoesByOrcamento(orcamento.id);
+      (orcamento as any).__freteCotacoes = cots;
+      (orcamento as any).__freteCotacao = cots[0] || null;
     } catch (e) {
       console.warn('[PDF] Não foi possível carregar cotação de frete', e);
     }
