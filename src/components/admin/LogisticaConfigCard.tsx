@@ -11,6 +11,7 @@ import { useFretePodPrecos, useUpsertPodPreco, useDesativarPodPreco } from '@/ho
 import { useFreteMargemFaixas, useUpsertMargemFaixa, useDeleteMargemFaixa } from '@/hooks/useFreteMargemFaixas';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS, FretePodPreco } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
+import { FreteMargemFaixa } from '@/types/frete';
 
 export function LogisticaConfigCard() {
   const { data: precos = [], isLoading } = useFretePodPrecos();
@@ -107,6 +108,125 @@ export function LogisticaConfigCard() {
         />
       )}
     </Card>
+  );
+}
+
+function MargemFaixasEditor() {
+  const { data: faixas = [], isLoading } = useFreteMargemFaixas();
+  const upsert = useUpsertMargemFaixa();
+  const remove = useDeleteMargemFaixa();
+  const [editing, setEditing] = useState<FreteMargemFaixa | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const abrirNovo = () => { setEditing(null); setDialogOpen(true); };
+  const abrirEditar = (f: FreteMargemFaixa) => { setEditing(f); setDialogOpen(true); };
+
+  return (
+    <div className="border rounded-lg p-4 bg-muted/20 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold text-sm">Margem de lucro por volume mensal (POD)</h4>
+          <p className="text-xs text-muted-foreground">Determina a margem padrão aplicada em cada cotação de frete conforme a estimativa de envios/mês do orçamento.</p>
+        </div>
+        <Button size="sm" onClick={abrirNovo}><Plus className="w-4 h-4 mr-2" />Nova Faixa</Button>
+      </div>
+      {isLoading ? (
+        <p className="text-muted-foreground text-sm">Carregando...</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-right">Envios/mês (mín)</TableHead>
+                <TableHead className="text-right">Envios/mês (máx)</TableHead>
+                <TableHead className="text-right">Margem (%)</TableHead>
+                <TableHead>Ativo</TableHead>
+                <TableHead className="w-24">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {faixas.map(f => (
+                <TableRow key={f.id}>
+                  <TableCell className="text-right">{f.envios_min}</TableCell>
+                  <TableCell className="text-right">{f.envios_max ?? '∞'}</TableCell>
+                  <TableCell className="text-right font-semibold">{Number(f.margem_percentual)}%</TableCell>
+                  <TableCell>{f.ativo ? 'Sim' : 'Não'}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => abrirEditar(f)}><Pencil className="w-4 h-4" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => remove.mutate(f.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {dialogOpen && (
+        <MargemFaixaDialog
+          open={dialogOpen}
+          editing={editing}
+          onClose={() => { setDialogOpen(false); setEditing(null); }}
+          onSave={async (payload) => { await upsert.mutateAsync(payload); setDialogOpen(false); setEditing(null); }}
+          saving={upsert.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function MargemFaixaDialog({ open, editing, onClose, onSave, saving }: {
+  open: boolean;
+  editing: FreteMargemFaixa | null;
+  onClose: () => void;
+  onSave: (p: { id?: string; envios_min: number; envios_max: number | null; margem_percentual: number; ativo: boolean }) => Promise<void>;
+  saving: boolean;
+}) {
+  const [min, setMin] = useState(editing ? String(editing.envios_min) : '');
+  const [max, setMax] = useState(editing?.envios_max != null ? String(editing.envios_max) : '');
+  const [margem, setMargem] = useState(editing ? String(editing.margem_percentual) : '');
+  const [ativo, setAtivo] = useState<boolean>(editing?.ativo ?? true);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{editing ? 'Editar Faixa' : 'Nova Faixa de Margem'}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Envios/mês (mínimo) *</Label>
+              <Input type="number" min="0" step="1" value={min} onChange={(e) => setMin(e.target.value)} />
+            </div>
+            <div>
+              <Label>Envios/mês (máximo)</Label>
+              <Input type="number" min="0" step="1" value={max} onChange={(e) => setMax(e.target.value)} placeholder="Vazio = ∞" />
+            </div>
+          </div>
+          <div>
+            <Label>Margem de lucro (%) *</Label>
+            <Input type="number" min="0" step="0.01" value={margem} onChange={(e) => setMargem(e.target.value)} />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
+            Faixa ativa
+          </label>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button disabled={saving || min === '' || margem === ''} onClick={() => onSave({
+            id: editing?.id,
+            envios_min: Number(min),
+            envios_max: max === '' ? null : Number(max),
+            margem_percentual: Number(margem),
+            ativo,
+          })}>Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
