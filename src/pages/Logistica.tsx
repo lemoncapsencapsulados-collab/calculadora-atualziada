@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Lock } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { useFreteCotacoes, useCreateFreteCotacao, useUpdateFreteCotacao, useDeleteFreteCotacao, fetchFreteCotacaoByOrcamento } from '@/hooks/useFreteCotacoes';
 import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
+import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
 import { toast } from 'sonner';
