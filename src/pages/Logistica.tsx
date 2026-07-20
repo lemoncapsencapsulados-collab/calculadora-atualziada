@@ -691,52 +691,78 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" onClick={baixarImagem} disabled={podItens.length === 0}>
+                      <ImageDown className="w-4 h-4 mr-2" />Baixar imagem (PNG)
+                    </Button>
+                  </div>
                   {podItens.map((it, idx) => {
-                    const total = (Number(it.preco_envio) || 0) * (Number(it.qtd_envios) || 0);
+                    const planos = planosDoTipo(it.tipo_produto);
+                    const manuseio = Number(taxaMap[it.tipo_produto] || 0);
                     return (
                       <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/20">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="font-medium text-sm">{it.nome_produto}</span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <Label className="text-xs">Tipo de Produto *</Label>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Label className="text-xs">Tipo:</Label>
                             <Select
                               value={it.tipo_produto}
-                              onValueChange={(v) => { atualizarItem(idx, { tipo_produto: v, preco_editado: false }); recalcularPrecoItem(idx, v, it.plano); }}
+                              onValueChange={(v) => atualizarItem(idx, { tipo_produto: v, plano_selecionado: null })}
                             >
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectTrigger className="h-8 w-40"><SelectValue placeholder="Selecione" /></SelectTrigger>
                               <SelectContent>
                                 {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                               </SelectContent>
                             </Select>
+                            <span className="text-muted-foreground">Manuseio: {formatBRL(manuseio)}</span>
                           </div>
-                          <div>
-                            <Label className="text-xs">Plano (nº de frascos) *</Label>
-                            <Select
-                              value={it.plano}
-                              onValueChange={(v) => { atualizarItem(idx, { plano: v, preco_editado: false }); recalcularPrecoItem(idx, it.tipo_produto, v); }}
-                            >
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                {FRETE_POD_PLANOS.map(p => <SelectItem key={p} value={String(p)}>{p}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                        </div>
+
+                        {!it.tipo_produto ? (
+                          <p className="text-xs text-muted-foreground">Selecione o tipo de produto para ver os planos disponíveis.</p>
+                        ) : planos.length === 0 ? (
+                          <p className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
+                            Nenhum plano cadastrado para {it.tipo_produto}. Cadastre em Painel Administrador → Logística.
+                          </p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-16">Escolher</TableHead>
+                                  <TableHead className="text-right">Plano</TableHead>
+                                  <TableHead className="text-right">Frete Médio</TableHead>
+                                  <TableHead className="text-right">+ Manuseio</TableHead>
+                                  <TableHead className="text-right">Preço/Envio</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {planos.map(p => {
+                                  const total = Number(p.preco) + manuseio;
+                                  const selected = it.plano_selecionado === p.plano;
+                                  return (
+                                    <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
+                                      <TableCell>
+                                        <input
+                                          type="radio"
+                                          name={`plano-${idx}`}
+                                          checked={selected}
+                                          onChange={() => atualizarItem(idx, { plano_selecionado: p.plano })}
+                                        />
+                                      </TableCell>
+                                      <TableCell className="text-right">{p.plano}</TableCell>
+                                      <TableCell className="text-right">{formatBRL(p.preco)}</TableCell>
+                                      <TableCell className="text-right text-muted-foreground">{formatBRL(manuseio)}</TableCell>
+                                      <TableCell className="text-right font-semibold">{formatBRL(total)}</TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
                           </div>
-                          <div>
-                            <Label className="text-xs">Preço por envio (R$) *</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={it.preco_envio}
-                              onChange={(e) => atualizarItem(idx, { preco_envio: e.target.value, preco_editado: true })}
-                              className={it.preco_tabelado != null && Number(it.preco_envio) !== Number(it.preco_tabelado) ? 'border-amber-500' : ''}
-                            />
-                            {it.preco_tabelado != null && (
-                              <p className="text-xs text-muted-foreground mt-1">Tabelado: {formatBRL(it.preco_tabelado)}</p>
-                            )}
-                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs">Qtd estimada de envios</Label>
                             <Input
@@ -745,22 +771,60 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               value={it.qtd_envios}
                               onChange={(e) => atualizarItem(idx, { qtd_envios: e.target.value })}
                             />
-                            {total > 0 && (
-                              <p className="text-xs text-muted-foreground mt-1">Total: {formatBRL(total)}</p>
-                            )}
                           </div>
                         </div>
-                        {it.aviso && (
-                          <div className="text-xs text-amber-600 border border-amber-300 bg-amber-50 dark:bg-amber-950/20 rounded p-2">
-                            {it.aviso}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
                   <div>
                     <Label>Observações gerais</Label>
                     <Textarea rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+                  </div>
+
+                  {/* Hidden export container */}
+                  <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
+                    <div ref={exportRef} style={{ padding: 24, background: '#fff', color: '#111', width: 720, fontFamily: 'system-ui, sans-serif' }}>
+                      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tabela de Preços — Print on Demand</h2>
+                      <p style={{ margin: '4px 0 16px', fontSize: 13, color: '#555' }}>
+                        Produtor: <strong>{orcamentoSelecionado?.nome_cliente || '—'}</strong> · Orçamento: <strong>{orcamentoSelecionado?.numero_orcamento || '—'}</strong> · {new Date().toLocaleDateString('pt-BR')}
+                      </p>
+                      {podItens.map((it, idx) => {
+                        const planos = planosDoTipo(it.tipo_produto);
+                        const manuseio = Number(taxaMap[it.tipo_produto] || 0);
+                        return (
+                          <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+                              <span>{it.nome_produto}</span>
+                              <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'} · Manuseio {formatBRL(manuseio)}</span>
+                            </div>
+                            {planos.length === 0 ? (
+                              <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
+                            ) : (
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead>
+                                  <tr style={{ background: '#f5f5f5' }}>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Plano</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Frete Médio</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>+ Manuseio</th>
+                                    <th style={{ textAlign: 'right', padding: 6 }}>Preço/Envio</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {planos.map(p => (
+                                    <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
+                                      <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
+                                      <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(manuseio)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(Number(p.preco) + manuseio)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
