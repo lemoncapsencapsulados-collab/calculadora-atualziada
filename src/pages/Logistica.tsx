@@ -696,7 +696,6 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                   </div>
                   {podItens.map((it, idx) => {
                     const planos = planosDoTipo(it.tipo_produto);
-                    const manuseio = Number(taxaMap[it.tipo_produto] || 0);
                     return (
                       <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/20">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -712,7 +711,6 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                 {FRETE_TIPOS_PRODUTO.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                               </SelectContent>
                             </Select>
-                            <span className="text-muted-foreground">Manuseio: {formatBRL(manuseio)}</span>
                           </div>
                         </div>
 
@@ -736,6 +734,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               </TableHeader>
                               <TableBody>
                                 {planos.map(p => {
+                                  const manuseio = Number(p.taxa_manuseio || 0);
                                   const total = Number(p.preco) + manuseio;
                                   const selected = it.plano_selecionado === p.plano;
                                   return (
@@ -788,12 +787,11 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                       </p>
                       {podItens.map((it, idx) => {
                         const planos = planosDoTipo(it.tipo_produto);
-                        const manuseio = Number(taxaMap[it.tipo_produto] || 0);
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
                               <span>{it.nome_produto}</span>
-                              <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'} · Manuseio {formatBRL(manuseio)}</span>
+                              <span style={{ color: '#666', fontWeight: 400 }}>{it.tipo_produto || '—'}</span>
                             </div>
                             {planos.length === 0 ? (
                               <p style={{ fontSize: 12, color: '#a15c00' }}>Sem planos cadastrados.</p>
@@ -812,8 +810,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                     <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
                                       <td style={{ textAlign: 'right', padding: 6 }}>{p.plano}</td>
                                       <td style={{ textAlign: 'right', padding: 6 }}>{formatBRL(p.preco)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(manuseio)}</td>
-                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(Number(p.preco) + manuseio)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, color: '#666' }}>{formatBRL(p.taxa_manuseio)}</td>
+                                      <td style={{ textAlign: 'right', padding: 6, fontWeight: 600 }}>{formatBRL(Number(p.preco) + Number(p.taxa_manuseio || 0))}</td>
                                     </tr>
                                   ))}
                                 </tbody>
