@@ -678,27 +678,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
       };
       await onSave([payload]);
     } else {
-      // Editando: envia uma única cotação POD com os campos legados
-      if (editing) {
-        if (!tipoProduto || !plano || !precoEnvio) {
-          toast.error('Preencha tipo, plano e preço');
-          return;
-        }
-        const editadoManual = precoTabelado != null && Number(precoEnvio) !== Number(precoTabelado);
-        const payload: FreteCotacaoInsert = {
-          tipo: 'pod',
-          orcamento_id: orcamentoId,
-          tipo_produto: tipoProduto,
-          pod_plano: Number(plano),
-          pod_preco_por_envio: Number(precoEnvio),
-          pod_preco_editado_manualmente: precoEditado || editadoManual,
-          pod_quantidade_envios_estimada: qtdEnvios ? Number(qtdEnvios) : null,
-          observacoes: observacoes || null,
-        };
-        await onSave([payload]);
-        return;
-      }
-      // Criação: uma cotação por item de produção
+      // POD criação e edição: usam a mesma estrutura multi-plano por item
       const validos = podItens.filter(it => it.tipo_produto && it.planos_selecionados.length > 0);
       if (validos.length === 0) {
         toast.error('Selecione ao menos um plano em cada produto que deseja cotar');
