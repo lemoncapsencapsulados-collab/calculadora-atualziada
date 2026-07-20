@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2, Truck } from 'lucide-react';
 import { useFretePodPrecos, useUpsertPodPreco, useDesativarPodPreco } from '@/hooks/useFretePodPrecos';
+import { useFreteMargemFaixas, useUpsertMargemFaixa, useDeleteMargemFaixa } from '@/hooks/useFreteMargemFaixas';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS, FretePodPreco } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
 
@@ -38,6 +39,8 @@ export function LogisticaConfigCard() {
         <CardDescription>Frete médio e taxa de manuseio por plano, para cada tipo de produto</CardDescription>
       </CardHeader>
       <CardContent>
+        <MargemFaixasEditor />
+        <div className="h-4" />
         <Tabs defaultValue={FRETE_TIPOS_PRODUTO[0]}>
           <TabsList>
             {FRETE_TIPOS_PRODUTO.map(t => <TabsTrigger key={t} value={t}>{t}</TabsTrigger>)}
