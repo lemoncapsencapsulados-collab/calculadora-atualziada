@@ -37,6 +37,9 @@ import AprovacaoOrcamentoDialog from '@/components/AprovacaoOrcamentoDialog';
 import OrcamentoKanbanView from '@/components/OrcamentoKanbanView';
 import { useResumosContratoExistentes } from '@/hooks/useResumoContrato';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
+import { useFreteCotacoes } from '@/hooks/useFreteCotacoes';
+import { labelFreteCotacao } from '@/lib/freteHelpers';
+import { Truck } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -93,6 +96,12 @@ export default function Orcamentos() {
   const [dataAno, setDataAno] = useState('');
 
   const consultores = useConsultoresDisponiveis();
+  const { data: freteCotacoes = [] } = useFreteCotacoes();
+  const freteMap = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const c of freteCotacoes) m.set(c.orcamento_id, c);
+    return m;
+  }, [freteCotacoes]);
 
   const { orcamentos, totalCount, totalPages, isLoading: listLoading } = useOrcamentosPaginados({
     page: currentPage,
@@ -397,6 +406,23 @@ export default function Orcamentos() {
                                         VHSys liquidado · aguardando contrato
                                       </Badge>
                                     )}
+                                    {(() => {
+                                      const cot = freteMap.get(orcamento.id);
+                                      if (!cot) return null;
+                                      const isEP = cot.tipo === 'estoque_proprio';
+                                      const confirmado = cot.status === 'confirmado';
+                                      const cls = isEP
+                                        ? (confirmado
+                                            ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20'
+                                            : 'border-yellow-500 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20')
+                                        : 'border-sky-500 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/20';
+                                      return (
+                                        <Badge variant="outline" className={cls}>
+                                          <Truck className="w-3 h-3 mr-1" />
+                                          {labelFreteCotacao(cot)}
+                                        </Badge>
+                                      );
+                                    })()}
                                     {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
                                   </div>
                                   <p className="text-muted-foreground text-sm mt-1">
