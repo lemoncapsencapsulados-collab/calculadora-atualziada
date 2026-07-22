@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users, FileArchive, Loader2 } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Unlock, RotateCcw, Eye, Users, FileArchive, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
