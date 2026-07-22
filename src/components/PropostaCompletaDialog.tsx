@@ -32,6 +32,8 @@ import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 import { EnviarContratoInternoDialog } from '@/components/contratos-docx/EnviarContratoInternoDialog';
+import FreteOrcamentoDialog from '@/components/frete/FreteOrcamentoDialog';
+import { fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -155,6 +157,16 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
+  const [freteVinculadoCount, setFreteVinculadoCount] = useState<number>(0);
+  const [freteDialogAberto, setFreteDialogAberto] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetchFreteCotacoesByOrcamento(orcamento.id).then(list => {
+      if (alive) setFreteVinculadoCount(list.length);
+    });
+    return () => { alive = false; };
+  }, [orcamento.id]);
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
   const { data: resumoSalvo, isLoading: loadingResumo } = useResumoContrato(orcamento.id);
   const salvarResumoMutation = useSalvarResumoContrato();
