@@ -2227,6 +2227,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           </Button>
         </DialogFooter>
       </DialogContent>
+      {freteDialogAberto && (
+        <FreteOrcamentoDialog
+          orcamentoId={orcamento.id}
+          produtor={dadosCliente.nome_completo || orcamento.nome_cliente || 'Produtor'}
+          numeroOrcamento={orcamento.numero_orcamento || '—'}
+          onClose={() => setFreteDialogAberto(false)}
+        />
+      )}
     </Dialog>
   );
 }
