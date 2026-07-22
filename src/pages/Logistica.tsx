@@ -1287,4 +1287,8 @@ interface PodItemDraft {
   observacoes: string;
   margem_pct: number | null;
   margem_override: boolean;
+  /** Preços/Envio editados manualmente por plano (chave = plano). */
+  precos_editados: Record<number, number>;
+  /** True quando o admin já liberou edição de preço/margem para este item. */
+  preco_unlocked: boolean;
 }
