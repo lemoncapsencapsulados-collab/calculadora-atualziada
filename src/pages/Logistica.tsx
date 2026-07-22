@@ -176,24 +176,26 @@ export default function Logistica() {
               </CardTitle>
               <CardDescription>Cotações de frete por orçamento — Estoque Próprio ou Print on Demand</CardDescription>
             </div>
-            <Button onClick={handleAbrirNovo}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Cotação
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleBaixarZip(cotacoesFiltradas, `cotacoes_frete_${tab}`)}
-              disabled={zipBusy || cotacoesFiltradas.length === 0}
-              title="Baixa todas as cotações da aba atual como imagens PNG dentro de um .zip"
-            >
-              {zipBusy ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <FileArchive className="w-4 h-4 mr-2" />
-              )}
-              Baixar todas (ZIP)
-              {zipProgress && ` ${zipProgress.done}/${zipProgress.total}`}
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => handleBaixarZip(cotacoesFiltradas, `cotacoes_frete_${tab}`)}
+                disabled={zipBusy || cotacoesFiltradas.length === 0}
+                title="Baixa todas as cotações da aba atual como imagens PNG dentro de um .zip"
+              >
+                {zipBusy ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileArchive className="w-4 h-4 mr-2" />
+                )}
+                Baixar todas (ZIP)
+                {zipProgress && ` ${zipProgress.done}/${zipProgress.total}`}
+              </Button>
+              <Button onClick={handleAbrirNovo}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Cotação
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 p-3 sm:p-6">
