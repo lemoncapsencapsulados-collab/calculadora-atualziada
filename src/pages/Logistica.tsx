@@ -689,6 +689,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         observacoes: editing.observacoes || '',
         margem_pct: editing.margem_override ? Number(editing.margem_percentual || 0) : null,
         margem_override: !!editing.margem_override,
+        precos_editados: (() => {
+          const map: Record<number, number> = {};
+          if (Array.isArray(editing.pod_planos_selecionados)) {
+            editing.pod_planos_selecionados.forEach(s => {
+              if (s.margem_override) map[Number(s.plano)] = Number(s.preco_final);
+            });
+          }
+          return map;
+        })(),
+        preco_unlocked: false,
       }]);
       return;
     }
@@ -716,6 +726,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         observacoes: previa?.observacoes || '',
         margem_pct: previa?.margem_override ? Number(previa.margem_percentual || 0) : null,
         margem_override: !!previa?.margem_override,
+        precos_editados: (() => {
+          const map: Record<number, number> = {};
+          if (previa && Array.isArray(previa.pod_planos_selecionados)) {
+            previa.pod_planos_selecionados.forEach(s => {
+              if (s.margem_override) map[Number(s.plano)] = Number(s.preco_final);
+            });
+          }
+          return map;
+        })(),
+        preco_unlocked: false,
       };
     }));
   }, [orcamentoSelecionado, tipo, editing, todasCotacoes]);
