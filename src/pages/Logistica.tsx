@@ -1061,6 +1061,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   Restaurar padrão
                                 </Button>
                               )}
+                              {it.preco_unlocked ? (
+                                <span className="text-[11px] text-emerald-600 font-medium inline-flex items-center gap-1">
+                                  <Unlock className="w-3 h-3" /> Preços liberados
+                                </span>
+                              ) : (
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPasswordPrecoIdx(idx)}>
+                                  <Lock className="w-3 h-3 mr-1" />Editar preços
+                                </Button>
+                              )}
                               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPasswordItemIdx(idx)}>
                                 <Lock className="w-3 h-3 mr-1" />Editar margem
                               </Button>
