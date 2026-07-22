@@ -1217,7 +1217,10 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               <div className="space-y-1">
                                 {rows.map(r => (
                                   <div key={r.plano} className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">Plano {r.plano}</span>
+                                    <span className="font-semibold">
+                                      Plano {r.plano}
+                                      {r.editado && <span className="ml-1 text-amber-600">(editado)</span>}
+                                    </span>
                                     <span>
                                       <span className="text-muted-foreground">{formatBRL(r.precoFinal)}/envio</span>
                                       {envios > 0 && (
