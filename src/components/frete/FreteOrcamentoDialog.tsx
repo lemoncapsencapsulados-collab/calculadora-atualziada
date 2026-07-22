@@ -8,7 +8,6 @@ import { fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 import { FreteCotacao } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
 import CotacaoPreviewDialog from './CotacaoPreviewDialog';
-import { toast } from 'sonner';
 
 interface Props {
   orcamentoId: string;
