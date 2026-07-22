@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users, FileArchive, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos
 import { useFreteMargemFaixas } from '@/hooks/useFreteMargemFaixas';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { exportElementAsPng } from '@/lib/freteImageExport';
+import { exportCotacoesAsZip, CotacaoZipItem } from '@/lib/freteZipExport';
 import CotacaoPreviewDialog from '@/components/frete/CotacaoPreviewDialog';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
@@ -43,6 +44,8 @@ export default function Logistica() {
   const [pendingEdit, setPendingEdit] = useState<FreteCotacao | null>(null);
   const [produtorAberto, setProdutorAberto] = useState<{ produtor: string; cotacoes: FreteCotacao[] } | null>(null);
   const [previewCotacao, setPreviewCotacao] = useState<FreteCotacao | null>(null);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
 
   const cotacoesFiltradas = useMemo(() => cotacoes.filter(c => c.tipo === tab), [cotacoes, tab]);
 
@@ -68,6 +71,38 @@ export default function Logistica() {
   const orcamentoLabel = (id: string | null) => {
     const o = orcamentos.find(x => x.id === id);
     return o ? `${o.numero_orcamento} — ${o.nome_cliente}` : '—';
+  };
+
+  const buildZipItems = (list: FreteCotacao[]): CotacaoZipItem[] =>
+    list.map(c => {
+      const o = orcamentos.find(x => x.id === c.orcamento_id);
+      return {
+        cotacao: c,
+        produtor: o?.nome_cliente || 'Sem produtor',
+        numeroOrc: o?.numero_orcamento || '—',
+      };
+    });
+
+  const handleBaixarZip = async (list: FreteCotacao[], filename: string) => {
+    if (list.length === 0) {
+      toast.warning('Nenhuma cotação para exportar');
+      return;
+    }
+    setZipBusy(true);
+    setZipProgress({ done: 0, total: list.length });
+    const toastId = toast.loading(`Gerando 0/${list.length} imagens...`);
+    try {
+      await exportCotacoesAsZip(buildZipItems(list), filename, (done, total) => {
+        setZipProgress({ done, total });
+        toast.loading(`Gerando ${done}/${total} imagens...`, { id: toastId });
+      });
+      toast.success(`ZIP com ${list.length} cotações gerado`, { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao gerar ZIP', { id: toastId });
+    } finally {
+      setZipBusy(false);
+      setZipProgress(null);
+    }
   };
 
   const handleAbrirNovo = () => {
@@ -141,10 +176,26 @@ export default function Logistica() {
               </CardTitle>
               <CardDescription>Cotações de frete por orçamento — Estoque Próprio ou Print on Demand</CardDescription>
             </div>
-            <Button onClick={handleAbrirNovo}>
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Cotação
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={() => handleBaixarZip(cotacoesFiltradas, `cotacoes_frete_${tab}`)}
+                disabled={zipBusy || cotacoesFiltradas.length === 0}
+                title="Baixa todas as cotações da aba atual como imagens PNG dentro de um .zip"
+              >
+                {zipBusy ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileArchive className="w-4 h-4 mr-2" />
+                )}
+                Baixar todas (ZIP)
+                {zipProgress && ` ${zipProgress.done}/${zipProgress.total}`}
+              </Button>
+              <Button onClick={handleAbrirNovo}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Cotação
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 p-3 sm:p-6">
@@ -359,63 +410,120 @@ export default function Logistica() {
               {produtorAberto?.produtor}
             </DialogTitle>
             <DialogDescription>
-              Orçamentos de frete por produto deste produtor.
+              Orçamentos de frete por produto deste produtor, com preço detalhado por plano.
             </DialogDescription>
           </DialogHeader>
           {produtorAberto && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Orçamento</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead className="text-right">Planos</TableHead>
-                    <TableHead className="text-right">Preço/envio</TableHead>
-                    <TableHead className="text-right">Quant. Envios Mensais médio</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="w-44">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {produtorAberto.cotacoes.map(c => {
-                    const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
-                    const planoLabel = selecionados.length > 0
-                      ? selecionados.map(s => s.plano).join(', ')
-                      : (c.pod_plano ?? '—');
-                    const precoLabel = selecionados.length > 1
-                      ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
-                      : formatBRL(selecionados[0]?.preco_final ?? c.pod_preco_por_envio);
-                    return (
-                      <TableRow key={c.id}>
-                        <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
-                        <TableCell className="text-xs">{c.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-xs">{c.tipo_produto || '—'}</TableCell>
-                        <TableCell className="text-right text-xs">{planoLabel}</TableCell>
-                        <TableCell className="text-right font-medium">{precoLabel}</TableCell>
-                        <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
-                        <TableCell className="text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" title="Editar (senha)" onClick={() => solicitarEdicao(c)}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Baixar imagem" onClick={() => baixarImagemCotacao(c)}>
-                              <ImageDown className="w-4 h-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Excluir" onClick={() => setDeletando(c)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            <div className="space-y-4">
+              {produtorAberto.cotacoes.map(c => {
+                const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
+                const planosOrdenados = [...selecionados].sort((a, b) => a.plano - b.plano);
+                const isEP = c.tipo === 'estoque_proprio';
+                return (
+                  <div key={c.id} className="border rounded-lg p-4 space-y-3 bg-card">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Package className="w-4 h-4 text-primary" />
+                          <span className="font-semibold">{c.nome_produto || 'Produto'}</span>
+                          <Badge variant="outline">{c.tipo_produto || '—'}</Badge>
+                          <Badge variant={isEP ? 'secondary' : 'default'}>
+                            {isEP ? 'Estoque Próprio' : 'POD'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Orçamento: <span className="font-medium">{orcamentoLabel(c.orcamento_id)}</span>
+                          {' · '}Data: {new Date(c.created_at).toLocaleDateString('pt-BR')}
+                          {!isEP && (
+                            <> {' · '}Quant. Envios Mensais médio:{' '}
+                              <span className="font-medium">{c.pod_quantidade_envios_estimada ?? '—'}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" title="Editar (senha)" onClick={() => solicitarEdicao(c)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" title="Baixar PNG" onClick={() => baixarImagemCotacao(c)}>
+                          <ImageDown className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" title="Excluir" onClick={() => setDeletando(c)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {isEP ? (
+                      <div className="text-sm flex items-center gap-2">
+                        <span>Valor do frete:</span>
+                        <span className="font-semibold">{formatBRL(c.valor_frete)}</span>
+                        {c.status === 'confirmado' ? (
+                          <Badge className="bg-green-500 hover:bg-green-500">Confirmado</Badge>
+                        ) : (
+                          <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">Pendente</Badge>
+                        )}
+                      </div>
+                    ) : planosOrdenados.length === 0 ? (
+                      c.pod_plano != null ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-center">Plano (frascos)</TableHead>
+                              <TableHead className="text-right">Preço / Envio</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell className="text-center font-semibold">{c.pod_plano}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatBRL(c.pod_preco_por_envio)}</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-xs text-amber-600">Sem planos selecionados.</p>
+                      )
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-center">Plano (frascos)</TableHead>
+                            <TableHead className="text-right">Preço / Envio</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {planosOrdenados.map(s => (
+                            <TableRow key={s.plano}>
+                              <TableCell className="text-center font-semibold">{s.plano}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatBRL(s.preco_final)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
+            {produtorAberto && (
+              <Button
+                variant="outline"
+                onClick={() => handleBaixarZip(
+                  produtorAberto.cotacoes,
+                  `cotacoes_frete_${produtorAberto.produtor.replace(/[^\w-]+/g, '_')}`,
+                )}
+                disabled={zipBusy || produtorAberto.cotacoes.length === 0}
+              >
+                {zipBusy ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileArchive className="w-4 h-4 mr-2" />
+                )}
+                Baixar todas deste produtor (ZIP)
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setProdutorAberto(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>

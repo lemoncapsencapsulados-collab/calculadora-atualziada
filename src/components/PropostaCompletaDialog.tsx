@@ -32,6 +32,8 @@ import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 import { EnviarContratoInternoDialog } from '@/components/contratos-docx/EnviarContratoInternoDialog';
+import FreteOrcamentoDialog from '@/components/frete/FreteOrcamentoDialog';
+import { fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 
 interface PropostaCompletaDialogProps {
   orcamento: Orcamento;
@@ -155,6 +157,16 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 
 export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
+  const [freteVinculadoCount, setFreteVinculadoCount] = useState<number>(0);
+  const [freteDialogAberto, setFreteDialogAberto] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetchFreteCotacoesByOrcamento(orcamento.id).then(list => {
+      if (alive) setFreteVinculadoCount(list.length);
+    });
+    return () => { alive = false; };
+  }, [orcamento.id]);
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
   const { data: resumoSalvo, isLoading: loadingResumo } = useResumoContrato(orcamento.id);
   const salvarResumoMutation = useSalvarResumoContrato();
@@ -2106,10 +2118,23 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           {/* 4. Detalhamento de Frete */}
           <Card>
             <CardHeader className="py-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Truck className="w-4 h-4" />
-                4. Detalhamento de Frete
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Truck className="w-4 h-4" />
+                  4. Detalhamento de Frete
+                </CardTitle>
+                {freteVinculadoCount > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setFreteDialogAberto(true)}
+                  >
+                    <Truck className="w-4 h-4 mr-2" />
+                    Ver Cotações de Frete ({freteVinculadoCount})
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
@@ -2202,6 +2227,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           </Button>
         </DialogFooter>
       </DialogContent>
+      {freteDialogAberto && (
+        <FreteOrcamentoDialog
+          orcamentoId={orcamento.id}
+          produtor={dadosCliente.nome_completo || orcamento.nome_cliente || 'Produtor'}
+          numeroOrcamento={orcamento.numero_orcamento || '—'}
+          onClose={() => setFreteDialogAberto(false)}
+        />
+      )}
     </Dialog>
   );
 }
