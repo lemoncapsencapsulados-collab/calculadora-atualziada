@@ -811,15 +811,19 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         const selecionados: PodPlanoSelecionado[] = ordenados.map(p => {
           const frete = Number(p.preco || 0);
           const manuseio = Number(p.taxa_manuseio || 0);
-          const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+          const { precoFinal: precoCalculado } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+          const editado = it.precos_editados[p.plano];
+          const precoFinal = editado != null ? Number(editado) : precoCalculado;
+          const foiEditado = editado != null;
+          const margResult = calcularMargemPorPreco({ precoFinal, frete, manuseio, impostoPct: IMPOSTO_POD_PADRAO });
           return {
             plano: p.plano,
             preco: frete,
             taxa_manuseio: manuseio,
-            margem_percentual: margemPct,
+            margem_percentual: foiEditado ? margResult.margemPercentual : margemPct,
             imposto_percentual: IMPOSTO_POD_PADRAO,
             preco_final: precoFinal,
-            margem_override: override,
+            margem_override: foiEditado || override,
           };
         });
         const principal = selecionados[0];
