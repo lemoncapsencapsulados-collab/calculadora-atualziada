@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,9 +7,7 @@ import { Truck, ImageDown, Loader2 } from 'lucide-react';
 import { fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 import { FreteCotacao } from '@/types/frete';
 import { formatBRL } from '@/lib/freteHelpers';
-import { exportElementAsPng } from '@/lib/freteImageExport';
-import CotacaoExportCard from './CotacaoExportCard';
-import { toast } from 'sonner';
+import CotacaoPreviewDialog from './CotacaoPreviewDialog';
 
 interface Props {
   orcamentoId: string;
@@ -20,8 +18,7 @@ interface Props {
 
 export default function FreteOrcamentoDialog({ orcamentoId, produtor, numeroOrcamento, onClose }: Props) {
   const [cotacoes, setCotacoes] = useState<FreteCotacao[] | null>(null);
-  const [exportando, setExportando] = useState<FreteCotacao | null>(null);
-  const exportRef = useRef<HTMLDivElement | null>(null);
+  const [preview, setPreview] = useState<FreteCotacao | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -29,21 +26,7 @@ export default function FreteOrcamentoDialog({ orcamentoId, produtor, numeroOrca
     return () => { alive = false; };
   }, [orcamentoId]);
 
-  const baixarPng = async (c: FreteCotacao) => {
-    setExportando(c);
-    await new Promise(r => requestAnimationFrame(() => r(null)));
-    await new Promise(r => setTimeout(r, 60));
-    if (!exportRef.current) { setExportando(null); return; }
-    const slug = `${numeroOrcamento}_${c.nome_produto || c.tipo_produto || 'produto'}`.replace(/[^\w-]+/g, '_');
-    try {
-      await exportElementAsPng(exportRef.current, `frete_${slug}.png`);
-      toast.success('Imagem gerada');
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao gerar imagem');
-    } finally {
-      setExportando(null);
-    }
-  };
+  const baixarPng = (c: FreteCotacao) => setPreview(c);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -92,7 +75,7 @@ export default function FreteOrcamentoDialog({ orcamentoId, produtor, numeroOrca
                     </div>
                     <Button size="sm" variant="outline" onClick={() => baixarPng(c)}>
                       <ImageDown className="w-4 h-4 mr-2" />
-                      Baixar PNG
+                      Ver / Baixar PNG
                     </Button>
                   </div>
 
@@ -130,16 +113,13 @@ export default function FreteOrcamentoDialog({ orcamentoId, produtor, numeroOrca
           <Button variant="outline" onClick={onClose}>Fechar</Button>
         </DialogFooter>
 
-        {/* Container escondido para exportar PNG */}
-        {exportando && (
-          <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
-            <CotacaoExportCard
-              ref={exportRef}
-              cotacao={exportando}
-              produtor={produtor}
-              numeroOrc={numeroOrcamento}
-            />
-          </div>
+        {preview && (
+          <CotacaoPreviewDialog
+            cotacao={preview}
+            produtor={produtor}
+            numeroOrc={numeroOrcamento}
+            onClose={() => setPreview(null)}
+          />
         )}
       </DialogContent>
     </Dialog>

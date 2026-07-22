@@ -19,6 +19,7 @@ import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos
 import { useFreteMargemFaixas } from '@/hooks/useFreteMargemFaixas';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { exportElementAsPng } from '@/lib/freteImageExport';
+import CotacaoPreviewDialog from '@/components/frete/CotacaoPreviewDialog';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS as FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
@@ -41,8 +42,7 @@ export default function Logistica() {
   const [confirmEdicaoConfirmada, setConfirmEdicaoConfirmada] = useState<FreteCotacao | null>(null);
   const [pendingEdit, setPendingEdit] = useState<FreteCotacao | null>(null);
   const [produtorAberto, setProdutorAberto] = useState<{ produtor: string; cotacoes: FreteCotacao[] } | null>(null);
-  const [exportandoCotacao, setExportandoCotacao] = useState<FreteCotacao | null>(null);
-  const exportListaRef = useRef<HTMLDivElement | null>(null);
+  const [previewCotacao, setPreviewCotacao] = useState<FreteCotacao | null>(null);
 
   const cotacoesFiltradas = useMemo(() => cotacoes.filter(c => c.tipo === tab), [cotacoes, tab]);
 
@@ -88,21 +88,8 @@ export default function Logistica() {
     setDialogOpen(true);
   };
 
-  const baixarImagemCotacao = async (c: FreteCotacao) => {
-    setExportandoCotacao(c);
-    await new Promise((r) => requestAnimationFrame(() => r(null)));
-    await new Promise((r) => setTimeout(r, 60));
-    if (!exportListaRef.current) { setExportandoCotacao(null); return; }
-    const orc = orcamentos.find(o => o.id === c.orcamento_id);
-    const slug = `${orc?.numero_orcamento || 'cotacao'}_${c.nome_produto || c.tipo_produto || 'produto'}`.replace(/[^\w-]+/g, '_');
-    try {
-      await exportElementAsPng(exportListaRef.current, `frete_${slug}.png`);
-      toast.success('Imagem gerada');
-    } catch (e: any) {
-      toast.error(e.message || 'Erro ao gerar imagem');
-    } finally {
-      setExportandoCotacao(null);
-    }
+  const baixarImagemCotacao = (c: FreteCotacao) => {
+    setPreviewCotacao(c);
   };
 
   const proceedEdicao = () => {
@@ -434,16 +421,13 @@ export default function Logistica() {
         </DialogContent>
       </Dialog>
 
-      {/* Container escondido para exportar PNG */}
-      {exportandoCotacao && (
-        <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
-          <CotacaoExportCard
-            ref={exportListaRef}
-            cotacao={exportandoCotacao}
-            produtor={orcamentos.find(o => o.id === exportandoCotacao.orcamento_id)?.nome_cliente || 'Sem produtor'}
-            numeroOrc={orcamentos.find(o => o.id === exportandoCotacao.orcamento_id)?.numero_orcamento || '—'}
-          />
-        </div>
+      {previewCotacao && (
+        <CotacaoPreviewDialog
+          cotacao={previewCotacao}
+          produtor={orcamentos.find(o => o.id === previewCotacao.orcamento_id)?.nome_cliente || 'Sem produtor'}
+          numeroOrc={orcamentos.find(o => o.id === previewCotacao.orcamento_id)?.numero_orcamento || '—'}
+          onClose={() => setPreviewCotacao(null)}
+        />
       )}
     </div>
   );
