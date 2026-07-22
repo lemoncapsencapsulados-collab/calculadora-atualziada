@@ -1,41 +1,32 @@
 ## Objetivo
 
-1. Incluir a cotação de frete (POD ou Estoque Próprio) como uma **seção dedicada** no PDF de "Orçamento" enviado ao cliente e no PDF de "Proposta para Contrato" — sem depender do preview manual, apenas do vínculo com o orçamento.
-2. Simplificar o PNG baixado em Logística: mostrar apenas planos + preço/envio + dados gerais (produto, tipo, produtor, data e nº do orçamento). Remover colunas de Margem, Imposto, Frete e Manuseio separados.
+Ao clicar em "Baixar imagem (PNG)" na página **Logística** (tanto na listagem por produtor quanto no drill-down "Ver produtos"), abrir um **PopUp de prévia** com a cotação renderizada e dois botões: **Copiar imagem** e **Baixar imagem**.
 
 ## Mudanças
 
-### 1. `src/lib/freteHelpers.ts` — novo helper de bloco para PDF
-- Adicionar `blocoPdfFrete(cotacao)` que retorna estrutura pronta para render em jsPDF:
-  - Cabeçalho: "Cotação de Frete — POD" ou "Estoque Próprio", com Produtor, Nº Orçamento e Data.
-  - Para POD: tabela dos planos selecionados (`pod_planos_selecionados`) com colunas **Plano** e **Preço/Envio** apenas.
-  - Para Estoque Próprio: linha única com valor do frete e status.
-  - Rodapé com `Tipo de produto` e `Quant. envios mensais médio` (quando POD).
-- Manter `linhaPdfFrete` como está (retrocompatibilidade), mas o PDF de orçamento passará a chamar o novo bloco.
+### 1. `src/components/frete/CotacaoPreviewDialog.tsx` — novo componente
+- Dialog (`max-w-3xl`) que recebe `cotacao`, `produtor`, `numeroOrc` e `onClose`.
+- Renderiza `<CotacaoExportCard>` visível (dentro de um container scrollável, escala reduzida para caber no dialog) usando `ref` para captura.
+- Ao montar, gera o PNG via `html2canvas` (mesma config do `freteImageExport`) e guarda o `canvas`/`dataUrl` + `Blob` em state, mostrando spinner enquanto processa.
+- Botões no footer:
+  - **Copiar imagem**: usa `navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])`. Fallback com toast de erro caso a Clipboard API não suporte `image/png`.
+  - **Baixar imagem**: dispara download do mesmo blob (nome `frete_<numeroOrc>_<produto>.png`, mesma regra atual).
+  - **Fechar**.
+- Toasts de sucesso/erro via `sonner`.
 
-### 2. `src/lib/orcamentoGenerator.ts` — seção completa no PDF do orçamento
-- Substituir o parágrafo curto atual gerado a partir de `linhaPdfFrete` por uma **seção "Cotação de Frete"** renderizada logo após "Detalhamento de Frete/Envio":
-  - Título + tabela (via `autoTable`) com colunas **Plano** e **Preço/Envio** para POD.
-  - Para Estoque Próprio: linha simples com valor + status.
-  - Se não houver cotação vinculada, seção é omitida (comportamento atual).
-- Manter a busca já existente via `fetchFreteCotacaoByOrcamento(orcamento.id)`.
+### 2. `src/lib/freteImageExport.ts` — pequena extensão
+- Adicionar `renderElementToPngBlob(el)` que retorna `{ blob, dataUrl }` a partir do `html2canvas` (reutilizado pelo novo dialog). Manter `exportElementAsPng` como está para retrocompatibilidade.
 
-### 3. `src/lib/propostaGenerator.ts` — nova seção na Proposta para Contrato
-- Importar `fetchFreteCotacaoByOrcamento` e `blocoPdfFrete`.
-- Antes de finalizar o PDF (após "Condições de Pagamento" / antes das assinaturas), buscar a cotação vinculada ao orçamento e renderizar a mesma seção "Cotação de Frete" (POD ou Estoque Próprio) usando `autoTable` no mesmo padrão do orçamento.
-- Se não existir cotação, seção é omitida.
+### 3. `src/pages/Logistica.tsx` — trocar download direto por prévia
+- Substituir a chamada atual de `baixarImagem(cotacao)` (que renderiza off-screen e dispara download) por abrir o novo `CotacaoPreviewDialog`.
+- Aplicar nos dois pontos onde o botão "Baixar imagem (PNG)" aparece hoje:
+  - Card do produtor (lista principal).
+  - Drill-down "Ver produtos" por cotação.
+- Remover o container off-screen usado só para exportação; o dialog agora hospeda o `CotacaoExportCard`.
 
-### 4. `src/pages/Logistica.tsx` — PNG simplificado (`CotacaoExportCard`)
-- Remover do card exportado:
-  - Colunas **Frete**, **+ Manuseio**, **Margem**.
-  - Linha de "Margem: X% · Imposto: Y%".
-- Manter/adicionar:
-  - Título "Cotação de Frete — Print on Demand".
-  - **Produtor**, **Nº do Orçamento**, **Data do orçamento** (usar `cotacao.created_at`, não a data atual), **Tipo de produto**, **Nome do produto**, **Quant. envios mensais médio**.
-  - Tabela com apenas duas colunas: **Plano** e **Preço/Envio**.
+### 4. `src/components/frete/FreteOrcamentoDialog.tsx` — mesma prévia em Orçamentos
+- Trocar o atual "Baixar PNG" (download direto) por abrir `CotacaoPreviewDialog`, mantendo o mesmo componente compartilhado.
 
 ## Fora do escopo
-
-- Nenhuma mudança de schema: continua usando `frete_cotacoes` já vinculada por `orcamento_id`, e `pod_planos_selecionados` como fonte dos planos.
-- Sem alteração no fluxo de envio de e-mail do Financeiro (já usa o `orcamentoGenerator` atualizado).
-- Sem alteração na aba Estoque Próprio da UI de Logística.
+- Nenhuma mudança em PDFs, schema, ou no `CotacaoExportCard` (layout do PNG continua idêntico).
+- Sem alteração no fluxo de criação/edição de cotações.
