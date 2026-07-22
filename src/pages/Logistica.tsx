@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users, FileArchive, Loader2 } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Unlock, RotateCcw, Eye, Users, FileArchive, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,7 @@ import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
 import { FRETE_TIPOS_PRODUTO, FRETE_POD_PLANOS_SUGERIDOS as FRETE_POD_PLANOS, FreteCotacao, FreteCotacaoInsert, FreteStatus, FreteTipoProduto } from '@/types/frete';
 import type { PodPlanoSelecionado } from '@/types/frete';
-import { formatBRL, calcularPrecoPod, resolverMargemPorEnvios, descreverFaixa, IMPOSTO_POD_PADRAO } from '@/lib/freteHelpers';
+import { formatBRL, calcularPrecoPod, calcularMargemPorPreco, resolverMargemPorEnvios, descreverFaixa, IMPOSTO_POD_PADRAO } from '@/lib/freteHelpers';
 import { toast } from 'sonner';
 
 export default function Logistica() {
@@ -643,6 +643,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const { data: faixasMargem = [] } = useFreteMargemFaixas();
   const exportRef = useRef<HTMLDivElement | null>(null);
   const [passwordItemIdx, setPasswordItemIdx] = useState<number | null>(null);
+  const [passwordPrecoIdx, setPasswordPrecoIdx] = useState<number | null>(null);
 
   const orcamentoSelecionado = useMemo(
     () => orcamentos.find(o => o.id === orcamentoId) || null,
@@ -689,6 +690,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         observacoes: editing.observacoes || '',
         margem_pct: editing.margem_override ? Number(editing.margem_percentual || 0) : null,
         margem_override: !!editing.margem_override,
+        precos_editados: (() => {
+          const map: Record<number, number> = {};
+          if (Array.isArray(editing.pod_planos_selecionados)) {
+            editing.pod_planos_selecionados.forEach(s => {
+              if (s.margem_override) map[Number(s.plano)] = Number(s.preco_final);
+            });
+          }
+          return map;
+        })(),
+        preco_unlocked: false,
       }]);
       return;
     }
@@ -716,6 +727,16 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         observacoes: previa?.observacoes || '',
         margem_pct: previa?.margem_override ? Number(previa.margem_percentual || 0) : null,
         margem_override: !!previa?.margem_override,
+        precos_editados: (() => {
+          const map: Record<number, number> = {};
+          if (previa && Array.isArray(previa.pod_planos_selecionados)) {
+            previa.pod_planos_selecionados.forEach(s => {
+              if (s.margem_override) map[Number(s.plano)] = Number(s.preco_final);
+            });
+          }
+          return map;
+        })(),
+        preco_unlocked: false,
       };
     }));
   }, [orcamentoSelecionado, tipo, editing, todasCotacoes]);
@@ -790,15 +811,19 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
         const selecionados: PodPlanoSelecionado[] = ordenados.map(p => {
           const frete = Number(p.preco || 0);
           const manuseio = Number(p.taxa_manuseio || 0);
-          const { precoFinal } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+          const { precoFinal: precoCalculado } = calcularPrecoPod({ frete, manuseio, margemPct, impostoPct: IMPOSTO_POD_PADRAO });
+          const editado = it.precos_editados[p.plano];
+          const precoFinal = editado != null ? Number(editado) : precoCalculado;
+          const foiEditado = editado != null;
+          const margResult = calcularMargemPorPreco({ precoFinal, frete, manuseio, impostoPct: IMPOSTO_POD_PADRAO });
           return {
             plano: p.plano,
             preco: frete,
             taxa_manuseio: manuseio,
-            margem_percentual: margemPct,
+            margem_percentual: foiEditado ? margResult.margemPercentual : margemPct,
             imposto_percentual: IMPOSTO_POD_PADRAO,
             preco_final: precoFinal,
-            margem_override: override,
+            margem_override: foiEditado || override,
           };
         });
         const principal = selecionados[0];
@@ -1041,6 +1066,15 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   Restaurar padrão
                                 </Button>
                               )}
+                              {it.preco_unlocked ? (
+                                <span className="text-[11px] text-emerald-600 font-medium inline-flex items-center gap-1">
+                                  <Unlock className="w-3 h-3" /> Preços liberados
+                                </span>
+                              ) : (
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPasswordPrecoIdx(idx)}>
+                                  <Lock className="w-3 h-3 mr-1" />Editar preços
+                                </Button>
+                              )}
                               <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPasswordItemIdx(idx)}>
                                 <Lock className="w-3 h-3 mr-1" />Editar margem
                               </Button>
@@ -1063,9 +1097,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   <TableHead className="text-right">Plano</TableHead>
                                   <TableHead className="text-right">Frete Médio</TableHead>
                                   <TableHead className="text-right">+ Manuseio</TableHead>
-                                  <TableHead className="text-right">Margem ({margem.pct}%)</TableHead>
-                                  <TableHead className="text-right">Imposto ({IMPOSTO_POD_PADRAO}%)</TableHead>
                                   <TableHead className="text-right">Preço/Envio</TableHead>
+                                  <TableHead className="text-right">Margem resultante</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1073,6 +1106,14 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   const manuseio = Number(p.taxa_manuseio || 0);
                                   const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio, margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
                                   const selected = it.planos_selecionados.includes(p.plano);
+                                  const precoEditado = it.precos_editados[p.plano];
+                                  const precoAtivo = precoEditado != null ? Number(precoEditado) : calc.precoFinal;
+                                  const margResult = calcularMargemPorPreco({ precoFinal: precoAtivo, frete: Number(p.preco), manuseio, impostoPct: IMPOSTO_POD_PADRAO });
+                                  const corMargem = margResult.margemPercentual < 0
+                                    ? 'text-destructive'
+                                    : margResult.margemPercentual + 0.0001 < margem.pct
+                                      ? 'text-amber-600'
+                                      : 'text-emerald-600';
                                   return (
                                     <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
                                       <TableCell>
@@ -1090,9 +1131,54 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                       <TableCell className="text-right">{p.plano}</TableCell>
                                       <TableCell className="text-right">{formatBRL(p.preco)}</TableCell>
                                       <TableCell className="text-right text-muted-foreground">{formatBRL(manuseio)}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.margemValor)}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.impostoValor)}</TableCell>
-                                      <TableCell className="text-right font-semibold">{formatBRL(calc.precoFinal)}</TableCell>
+                                      <TableCell className="text-right">
+                                        {it.preco_unlocked ? (
+                                          <div className="flex items-center gap-1 justify-end">
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              min="0"
+                                              value={precoEditado != null ? String(precoEditado) : precoAtivo.toFixed(2)}
+                                              onChange={(e) => {
+                                                const v = e.target.value;
+                                                const map = { ...it.precos_editados };
+                                                if (v === '') delete map[p.plano];
+                                                else map[p.plano] = Number(v);
+                                                atualizarItem(idx, { precos_editados: map });
+                                              }}
+                                              className="h-8 w-24 text-right"
+                                            />
+                                            {precoEditado != null && (
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-7 w-7"
+                                                title="Restaurar calculado"
+                                                onClick={() => {
+                                                  const map = { ...it.precos_editados };
+                                                  delete map[p.plano];
+                                                  atualizarItem(idx, { precos_editados: map });
+                                                }}
+                                              >
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1 justify-end">
+                                            <span className="font-semibold">{formatBRL(precoAtivo)}</span>
+                                            {precoEditado != null && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0">editado</Badge>
+                                            )}
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className={`text-right font-medium ${corMargem}`}>
+                                        <div className="flex flex-col items-end leading-tight">
+                                          <span>{margResult.margemPercentual.toFixed(1)}%</span>
+                                          <span className="text-[11px] opacity-80">{formatBRL(margResult.margemValor)}</span>
+                                        </div>
+                                      </TableCell>
                                     </TableRow>
                                   );
                                 })}
@@ -1119,7 +1205,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                             .filter(p => it.planos_selecionados.includes(p.plano))
                             .map(p => {
                               const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                              return { plano: p.plano, precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                              const editado = it.precos_editados[p.plano];
+                              const precoFinal = editado != null ? Number(editado) : calc.precoFinal;
+                              return { plano: p.plano, precoFinal, total: precoFinal * envios, editado: editado != null };
                             });
                           const somaMensal = rows.reduce((a, r) => a + r.total, 0);
                           return (
@@ -1133,7 +1221,10 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                               <div className="space-y-1">
                                 {rows.map(r => (
                                   <div key={r.plano} className="flex items-center justify-between text-xs">
-                                    <span className="font-semibold">Plano {r.plano}</span>
+                                    <span className="font-semibold">
+                                      Plano {r.plano}
+                                      {r.editado && <span className="ml-1 text-amber-600">(editado)</span>}
+                                    </span>
                                     <span>
                                       <span className="text-muted-foreground">{formatBRL(r.precoFinal)}/envio</span>
                                       {envios > 0 && (
@@ -1175,7 +1266,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                           .filter(p => it.planos_selecionados.includes(p.plano))
                           .map(p => {
                             const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                            return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                            const editado = it.precos_editados[p.plano];
+                            const precoFinal = editado != null ? Number(editado) : calc.precoFinal;
+                            return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal, total: precoFinal * envios };
                           });
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
@@ -1235,6 +1328,20 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           }}
         />
       )}
+      {passwordPrecoIdx !== null && (
+        <AdminPasswordDialog
+          open
+          onOpenChange={(o) => { if (!o) setPasswordPrecoIdx(null); }}
+          title="Editar preço/envio"
+          description="Digite a senha de administrador para editar manualmente o Preço/Envio de cada plano e ver a margem resultante."
+          actionLabel="Liberar edição"
+          onConfirm={() => {
+            const idx = passwordPrecoIdx;
+            if (idx !== null) atualizarItem(idx, { preco_unlocked: true });
+            setPasswordPrecoIdx(null);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
@@ -1287,4 +1394,8 @@ interface PodItemDraft {
   observacoes: string;
   margem_pct: number | null;
   margem_override: boolean;
+  /** Preços/Envio editados manualmente por plano (chave = plano). */
+  precos_editados: Record<number, number>;
+  /** True quando o admin já liberou edição de preço/margem para este item. */
+  preco_unlocked: boolean;
 }

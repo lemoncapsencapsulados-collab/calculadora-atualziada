@@ -122,6 +122,37 @@ export function calcularPrecoPod({ frete, manuseio, margemPct, impostoPct = IMPO
   return { base, margemValor, subtotal, impostoValor, precoFinal };
 }
 
+/**
+ * Inverso de calcularPrecoPod: dado um preço final desejado, calcula qual
+ * margem sobra depois de descontar imposto, frete e manuseio.
+ *   precoLiquido = precoFinal / (1 + imposto%)
+ *   margemValor  = precoLiquido − frete − manuseio
+ *   margemPct    = margemValor / precoLiquido × 100
+ */
+export interface MargemPorPrecoInput {
+  precoFinal: number;
+  frete: number;
+  manuseio: number;
+  impostoPct?: number;
+}
+export interface MargemPorPrecoResult {
+  precoLiquido: number;
+  base: number;
+  impostoValor: number;
+  margemValor: number;
+  margemPercentual: number;
+}
+export function calcularMargemPorPreco({ precoFinal, frete, manuseio, impostoPct = IMPOSTO_POD_PADRAO }: MargemPorPrecoInput): MargemPorPrecoResult {
+  const preco = Number(precoFinal || 0);
+  const imp = Number(impostoPct || 0) / 100;
+  const precoLiquido = preco / (1 + imp);
+  const impostoValor = preco - precoLiquido;
+  const base = Number(frete || 0) + Number(manuseio || 0);
+  const margemValor = precoLiquido - base;
+  const margemPercentual = precoLiquido > 0 ? (margemValor / precoLiquido) * 100 : 0;
+  return { precoLiquido, base, impostoValor, margemValor, margemPercentual };
+}
+
 export function descreverFaixa(f: FreteMargemFaixa | null): string {
   if (!f) return '—';
   const max = f.envios_max ?? null;
