@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, forwardRef } from 'react';
-import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users } from 'lucide-react';
+import { Truck, Plus, Pencil, Trash2, Package, Check, ChevronsUpDown, Search, ImageDown, Lock, Eye, Users, FileArchive, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { useFretePodPrecos, fetchPodPrecoAtivo } from '@/hooks/useFretePodPrecos
 import { useFreteMargemFaixas } from '@/hooks/useFreteMargemFaixas';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { exportElementAsPng } from '@/lib/freteImageExport';
+import { exportCotacoesAsZip, CotacaoZipItem } from '@/lib/freteZipExport';
 import CotacaoPreviewDialog from '@/components/frete/CotacaoPreviewDialog';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
@@ -43,6 +44,8 @@ export default function Logistica() {
   const [pendingEdit, setPendingEdit] = useState<FreteCotacao | null>(null);
   const [produtorAberto, setProdutorAberto] = useState<{ produtor: string; cotacoes: FreteCotacao[] } | null>(null);
   const [previewCotacao, setPreviewCotacao] = useState<FreteCotacao | null>(null);
+  const [zipBusy, setZipBusy] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number } | null>(null);
 
   const cotacoesFiltradas = useMemo(() => cotacoes.filter(c => c.tipo === tab), [cotacoes, tab]);
 
@@ -68,6 +71,38 @@ export default function Logistica() {
   const orcamentoLabel = (id: string | null) => {
     const o = orcamentos.find(x => x.id === id);
     return o ? `${o.numero_orcamento} — ${o.nome_cliente}` : '—';
+  };
+
+  const buildZipItems = (list: FreteCotacao[]): CotacaoZipItem[] =>
+    list.map(c => {
+      const o = orcamentos.find(x => x.id === c.orcamento_id);
+      return {
+        cotacao: c,
+        produtor: o?.nome_cliente || 'Sem produtor',
+        numeroOrc: o?.numero_orcamento || '—',
+      };
+    });
+
+  const handleBaixarZip = async (list: FreteCotacao[], filename: string) => {
+    if (list.length === 0) {
+      toast.warning('Nenhuma cotação para exportar');
+      return;
+    }
+    setZipBusy(true);
+    setZipProgress({ done: 0, total: list.length });
+    const toastId = toast.loading(`Gerando 0/${list.length} imagens...`);
+    try {
+      await exportCotacoesAsZip(buildZipItems(list), filename, (done, total) => {
+        setZipProgress({ done, total });
+        toast.loading(`Gerando ${done}/${total} imagens...`, { id: toastId });
+      });
+      toast.success(`ZIP com ${list.length} cotações gerado`, { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao gerar ZIP', { id: toastId });
+    } finally {
+      setZipBusy(false);
+      setZipProgress(null);
+    }
   };
 
   const handleAbrirNovo = () => {
@@ -144,6 +179,20 @@ export default function Logistica() {
             <Button onClick={handleAbrirNovo}>
               <Plus className="w-4 h-4 mr-2" />
               Nova Cotação
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleBaixarZip(cotacoesFiltradas, `cotacoes_frete_${tab}`)}
+              disabled={zipBusy || cotacoesFiltradas.length === 0}
+              title="Baixa todas as cotações da aba atual como imagens PNG dentro de um .zip"
+            >
+              {zipBusy ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <FileArchive className="w-4 h-4 mr-2" />
+              )}
+              Baixar todas (ZIP)
+              {zipProgress && ` ${zipProgress.done}/${zipProgress.total}`}
             </Button>
           </div>
         </CardHeader>
