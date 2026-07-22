@@ -2118,10 +2118,23 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
           {/* 4. Detalhamento de Frete */}
           <Card>
             <CardHeader className="py-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Truck className="w-4 h-4" />
-                4. Detalhamento de Frete
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Truck className="w-4 h-4" />
+                  4. Detalhamento de Frete
+                </CardTitle>
+                {freteVinculadoCount > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setFreteDialogAberto(true)}
+                  >
+                    <Truck className="w-4 h-4 mr-2" />
+                    Ver Cotações de Frete ({freteVinculadoCount})
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
