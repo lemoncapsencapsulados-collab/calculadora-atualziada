@@ -1266,7 +1266,9 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                           .filter(p => it.planos_selecionados.includes(p.plano))
                           .map(p => {
                             const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
-                            return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal: calc.precoFinal, total: calc.precoFinal * envios };
+                            const editado = it.precos_editados[p.plano];
+                            const precoFinal = editado != null ? Number(editado) : calc.precoFinal;
+                            return { plano: p.plano, frete: Number(p.preco), manuseio: Number(p.taxa_manuseio || 0), precoFinal, total: precoFinal * envios };
                           });
                         return (
                           <div key={idx} style={{ marginBottom: 18, border: '1px solid #e5e5e5', borderRadius: 8, padding: 12 }}>
