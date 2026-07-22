@@ -1093,9 +1093,8 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   <TableHead className="text-right">Plano</TableHead>
                                   <TableHead className="text-right">Frete Médio</TableHead>
                                   <TableHead className="text-right">+ Manuseio</TableHead>
-                                  <TableHead className="text-right">Margem ({margem.pct}%)</TableHead>
-                                  <TableHead className="text-right">Imposto ({IMPOSTO_POD_PADRAO}%)</TableHead>
                                   <TableHead className="text-right">Preço/Envio</TableHead>
+                                  <TableHead className="text-right">Margem resultante</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1103,6 +1102,14 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                   const manuseio = Number(p.taxa_manuseio || 0);
                                   const calc = calcularPrecoPod({ frete: Number(p.preco), manuseio, margemPct: margem.pct, impostoPct: IMPOSTO_POD_PADRAO });
                                   const selected = it.planos_selecionados.includes(p.plano);
+                                  const precoEditado = it.precos_editados[p.plano];
+                                  const precoAtivo = precoEditado != null ? Number(precoEditado) : calc.precoFinal;
+                                  const margResult = calcularMargemPorPreco({ precoFinal: precoAtivo, frete: Number(p.preco), manuseio, impostoPct: IMPOSTO_POD_PADRAO });
+                                  const corMargem = margResult.margemPercentual < 0
+                                    ? 'text-destructive'
+                                    : margResult.margemPercentual + 0.0001 < margem.pct
+                                      ? 'text-amber-600'
+                                      : 'text-emerald-600';
                                   return (
                                     <TableRow key={p.id} className={selected ? 'bg-primary/5' : ''}>
                                       <TableCell>
@@ -1120,9 +1127,54 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
                                       <TableCell className="text-right">{p.plano}</TableCell>
                                       <TableCell className="text-right">{formatBRL(p.preco)}</TableCell>
                                       <TableCell className="text-right text-muted-foreground">{formatBRL(manuseio)}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.margemValor)}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground">{formatBRL(calc.impostoValor)}</TableCell>
-                                      <TableCell className="text-right font-semibold">{formatBRL(calc.precoFinal)}</TableCell>
+                                      <TableCell className="text-right">
+                                        {it.preco_unlocked ? (
+                                          <div className="flex items-center gap-1 justify-end">
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              min="0"
+                                              value={precoEditado != null ? String(precoEditado) : precoAtivo.toFixed(2)}
+                                              onChange={(e) => {
+                                                const v = e.target.value;
+                                                const map = { ...it.precos_editados };
+                                                if (v === '') delete map[p.plano];
+                                                else map[p.plano] = Number(v);
+                                                atualizarItem(idx, { precos_editados: map });
+                                              }}
+                                              className="h-8 w-24 text-right"
+                                            />
+                                            {precoEditado != null && (
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-7 w-7"
+                                                title="Restaurar calculado"
+                                                onClick={() => {
+                                                  const map = { ...it.precos_editados };
+                                                  delete map[p.plano];
+                                                  atualizarItem(idx, { precos_editados: map });
+                                                }}
+                                              >
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1 justify-end">
+                                            <span className="font-semibold">{formatBRL(precoAtivo)}</span>
+                                            {precoEditado != null && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0">editado</Badge>
+                                            )}
+                                          </div>
+                                        )}
+                                      </TableCell>
+                                      <TableCell className={`text-right font-medium ${corMargem}`}>
+                                        <div className="flex flex-col items-end leading-tight">
+                                          <span>{margResult.margemPercentual.toFixed(1)}%</span>
+                                          <span className="text-[11px] opacity-80">{formatBRL(margResult.margemValor)}</span>
+                                        </div>
+                                      </TableCell>
                                     </TableRow>
                                   );
                                 })}
