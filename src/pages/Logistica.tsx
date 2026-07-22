@@ -643,6 +643,7 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
   const { data: faixasMargem = [] } = useFreteMargemFaixas();
   const exportRef = useRef<HTMLDivElement | null>(null);
   const [passwordItemIdx, setPasswordItemIdx] = useState<number | null>(null);
+  const [passwordPrecoIdx, setPasswordPrecoIdx] = useState<number | null>(null);
 
   const orcamentoSelecionado = useMemo(
     () => orcamentos.find(o => o.id === orcamentoId) || null,
