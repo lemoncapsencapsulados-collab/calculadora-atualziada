@@ -410,63 +410,120 @@ export default function Logistica() {
               {produtorAberto?.produtor}
             </DialogTitle>
             <DialogDescription>
-              Orçamentos de frete por produto deste produtor.
+              Orçamentos de frete por produto deste produtor, com preço detalhado por plano.
             </DialogDescription>
           </DialogHeader>
           {produtorAberto && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Orçamento</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead className="text-right">Planos</TableHead>
-                    <TableHead className="text-right">Preço/envio</TableHead>
-                    <TableHead className="text-right">Quant. Envios Mensais médio</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="w-44">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {produtorAberto.cotacoes.map(c => {
-                    const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
-                    const planoLabel = selecionados.length > 0
-                      ? selecionados.map(s => s.plano).join(', ')
-                      : (c.pod_plano ?? '—');
-                    const precoLabel = selecionados.length > 1
-                      ? `a partir de ${formatBRL(Math.min(...selecionados.map(s => Number(s.preco_final))))}`
-                      : formatBRL(selecionados[0]?.preco_final ?? c.pod_preco_por_envio);
-                    return (
-                      <TableRow key={c.id}>
-                        <TableCell className="text-xs">{orcamentoLabel(c.orcamento_id)}</TableCell>
-                        <TableCell className="text-xs">{c.nome_produto || '—'}</TableCell>
-                        <TableCell className="text-xs">{c.tipo_produto || '—'}</TableCell>
-                        <TableCell className="text-right text-xs">{planoLabel}</TableCell>
-                        <TableCell className="text-right font-medium">{precoLabel}</TableCell>
-                        <TableCell className="text-right">{c.pod_quantidade_envios_estimada ?? '—'}</TableCell>
-                        <TableCell className="text-xs">{new Date(c.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" title="Editar (senha)" onClick={() => solicitarEdicao(c)}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Baixar imagem" onClick={() => baixarImagemCotacao(c)}>
-                              <ImageDown className="w-4 h-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" title="Excluir" onClick={() => setDeletando(c)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+            <div className="space-y-4">
+              {produtorAberto.cotacoes.map(c => {
+                const selecionados = Array.isArray(c.pod_planos_selecionados) ? c.pod_planos_selecionados : [];
+                const planosOrdenados = [...selecionados].sort((a, b) => a.plano - b.plano);
+                const isEP = c.tipo === 'estoque_proprio';
+                return (
+                  <div key={c.id} className="border rounded-lg p-4 space-y-3 bg-card">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Package className="w-4 h-4 text-primary" />
+                          <span className="font-semibold">{c.nome_produto || 'Produto'}</span>
+                          <Badge variant="outline">{c.tipo_produto || '—'}</Badge>
+                          <Badge variant={isEP ? 'secondary' : 'default'}>
+                            {isEP ? 'Estoque Próprio' : 'POD'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Orçamento: <span className="font-medium">{orcamentoLabel(c.orcamento_id)}</span>
+                          {' · '}Data: {new Date(c.created_at).toLocaleDateString('pt-BR')}
+                          {!isEP && (
+                            <> {' · '}Quant. Envios Mensais médio:{' '}
+                              <span className="font-medium">{c.pod_quantidade_envios_estimada ?? '—'}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" title="Editar (senha)" onClick={() => solicitarEdicao(c)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" title="Baixar PNG" onClick={() => baixarImagemCotacao(c)}>
+                          <ImageDown className="w-4 h-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" title="Excluir" onClick={() => setDeletando(c)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {isEP ? (
+                      <div className="text-sm flex items-center gap-2">
+                        <span>Valor do frete:</span>
+                        <span className="font-semibold">{formatBRL(c.valor_frete)}</span>
+                        {c.status === 'confirmado' ? (
+                          <Badge className="bg-green-500 hover:bg-green-500">Confirmado</Badge>
+                        ) : (
+                          <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">Pendente</Badge>
+                        )}
+                      </div>
+                    ) : planosOrdenados.length === 0 ? (
+                      c.pod_plano != null ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-center">Plano (frascos)</TableHead>
+                              <TableHead className="text-right">Preço / Envio</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell className="text-center font-semibold">{c.pod_plano}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatBRL(c.pod_preco_por_envio)}</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <p className="text-xs text-amber-600">Sem planos selecionados.</p>
+                      )
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-center">Plano (frascos)</TableHead>
+                            <TableHead className="text-right">Preço / Envio</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {planosOrdenados.map(s => (
+                            <TableRow key={s.plano}>
+                              <TableCell className="text-center font-semibold">{s.plano}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatBRL(s.preco_final)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
+            {produtorAberto && (
+              <Button
+                variant="outline"
+                onClick={() => handleBaixarZip(
+                  produtorAberto.cotacoes,
+                  `cotacoes_frete_${produtorAberto.produtor.replace(/[^\w-]+/g, '_')}`,
+                )}
+                disabled={zipBusy || produtorAberto.cotacoes.length === 0}
+              >
+                {zipBusy ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileArchive className="w-4 h-4 mr-2" />
+                )}
+                Baixar todas deste produtor (ZIP)
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setProdutorAberto(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
