@@ -1328,6 +1328,20 @@ function FreteCotacaoDialog({ open, onClose, onSave, editing, tipoInicial, orcam
           }}
         />
       )}
+      {passwordPrecoIdx !== null && (
+        <AdminPasswordDialog
+          open
+          onOpenChange={(o) => { if (!o) setPasswordPrecoIdx(null); }}
+          title="Editar preço/envio"
+          description="Digite a senha de administrador para editar manualmente o Preço/Envio de cada plano e ver a margem resultante."
+          actionLabel="Liberar edição"
+          onConfirm={() => {
+            const idx = passwordPrecoIdx;
+            if (idx !== null) atualizarItem(idx, { preco_unlocked: true });
+            setPasswordPrecoIdx(null);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
