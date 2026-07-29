@@ -1,54 +1,37 @@
 ## Objetivo
 
-Na página de Pedidos, cada linha de cliente ganha um botão **"Demandas de Marca"**. Ao clicar, abre um pop-up para criar/visualizar demandas de 4 tipos: **Rótulo**, **Criativos**, **Banner** e **Conta Monetizze**. Cada demanda fica salva no banco (com data de criação e status) e pode ser baixada como briefing em PDF para enviar no WhatsApp.
+Fazer com que o popup "Demandas de Marca" já traga os produtos fechados do pedido, com todos os detalhes (nome, tipo, segmento, dose diária, doses por pote, quantidade por dose, cor do pote/tampa, quantidade de potes), e que Rótulo, Criativos, Banner e Monetizze usem esses produtos já preenchidos.
 
-## Pop-up "Demandas de Marca"
+## O que muda
 
-Cabeçalho fixo com **Cliente**, **Vendedor responsável** (do orçamento vinculado) e número do pedido — obrigatórios em toda demanda e impressos no PDF.
+### 1. Extração completa dos produtos do pedido
+Hoje só são lidos 3 campos do snapshot do orçamento (nome, tipo, quantidade). O snapshot já guarda muito mais: segmento, `quantidade_doses`, `quantidade_por_pote`, `quantidade_por_dose`, `unidade_por_dose`, `dose_diaria_sugerida`, `detalhes_producao` (cor do pote e da tampa), preço unitário e insumos da fórmula.
 
-Abaixo, 4 botões/abas de serviço. Cada um pode ser preenchido ou deixado de fora. Uma lista das demandas já criadas aparece embaixo, com tipo, data de criação, status (Pendente / Em andamento / Concluída) e ações (ver, editar, baixar PDF).
+Passa a ser lido tudo isso e disponibilizado para todos os formulários.
 
-### 1. RÓTULO — Demanda Designer
-- Tipo de papel: Metalizado, Perolizado, Transparente
-- Nome da marca: campo de texto + opção "Sem marca ainda"
-- Posicionamento da marca: Premium, Intermediária, Popular
-- Estrutura de rótulo: Minimalista, Moderno, Clássico
-- Upload: arquivo de referência (múltiplos) e arquivo da marca/logo (preferência vetor)
-- **Lista de produtos** (adicionar quantos precisar), cada um com:
-  - Tipo de produto: Encapsulado, Líquido, Gummy, Solúvel
-  - Nome do produto (ou "Nome indefinido ainda")
-  - Quantidade de potes
-  - Segmento (Emagrecimento, Libido, Foco e concentração, Sono, Imunidade, Beleza/Cabelo-pele-unha, Energia, Saúde intestinal, Outro)
-- Os produtos vêm pré-preenchidos a partir dos itens do pedido (tipo, nome e quantidade), podendo ser editados/removidos.
+### 2. Novo painel "Produtos do pedido" no popup
+Logo abaixo do cabeçalho (Cliente / Vendedor), um bloco recolhível listando cada produto fechado com:
+- Nome do produto e badge do tipo (Encapsulado, Gummy, Solúvel, Líquido)
+- Segmento
+- Quantidade de potes/unidades contratada
+- Dose diária sugerida, unidades por dose e por pote, doses por pote
+- Cor do pote e da tampa
+- Botão "Ver detalhes" abrindo a ficha completa do produto (incluindo composição, com a regra de ofuscação de ingredientes confidenciais aplicada)
 
-### 2. CRIATIVOS — Demanda Designer
-- Por produto do pedido: quantidade desejada (1 a 3, máximo 3)
-- Um objetivo por criativo: Venda de produto, Informações do produto, Lançamento da marca/produto
-- Validação impede passar de 3 criativos por produto
+### 3. Pré-preenchimento dos formulários
+- **Rótulo:** produtos já criados com nome, tipo e quantidade de potes vindos do pedido; **segmento também pré-preenchido** a partir do snapshot (hoje vem vazio). Cada card de produto mostra um resumo somente-leitura (dose diária, unidades por pote, cores) para o designer. Campos continuam editáveis e é possível adicionar/remover produtos.
+- **Criativos:** cada produto listado já com tipo, segmento e dose diária visíveis junto ao nome.
+- **Banner:** mesmos produtos do pedido pré-carregados com resumo.
+- **Monetizze:** checklist já gerado por produto (como hoje), agora com o resumo do produto exibido para conferência na criação do plano/checkout.
 
-### 3. BANNER — Demanda Designer
-- Lista de produtos com checkbox de seleção
-- Para cada produto selecionado, gera automaticamente a demanda de **1 banner vertical + 1 banner horizontal** (checkboxes marcados por padrão, podendo desmarcar um dos formatos)
-
-### 4. CRIAÇÃO DE CONTA MONETIZZE — Demanda T.I
-Checklist de etapas, pré-marcadas como pendentes:
-- Criar a conta
-- Criar cada produto do pedido (lista os produtos individualmente)
-- Criar 1 plano para cada produto
-- Criar checkout do plano
-- Colocar banner no checkout
-- Gerar link de divulgação e enviar ao vendedor responsável (campo para colar o link gerado)
-
-## Saída e acompanhamento
-
-- Tudo visível dentro do sistema, na lista do pop-up, com data de criação e status editável.
-- Botão **"Baixar briefing (PDF)"** por demanda e **"Baixar todas as demandas do pedido (PDF)"** — layout limpo, com cabeçalho de cliente/vendedor/pedido, seções por serviço e links dos arquivos anexados, pronto para enviar no WhatsApp.
+### 4. Briefing em PDF
+Os PDFs (individual, "Baixar todas" e o consolidado do painel de acompanhamento) passam a incluir a ficha dos produtos do pedido (nome, tipo, segmento, dose diária, unidades por pote, cores, quantidade), para o designer/T.I ter tudo sem abrir o sistema.
 
 ## Detalhes técnicos
 
-- Nova tabela `demandas_marca`: `id`, `pedido_id`, `tipo` (`rotulo` | `criativos` | `banner` | `monetizze`), `status`, `cliente_nome`, `vendedor_nome`, `dados jsonb` (todo o formulário específico do tipo), `arquivos jsonb` (paths no storage), `created_at`, `updated_at`, `created_by`. Com GRANTs para `authenticated`/`service_role` e RLS para usuários autenticados.
-- Novo bucket privado `demandas-marca` + políticas em `storage.objects`; uploads em `demandas-marca/{pedido_id}/{demanda_id}/...` e download via URL assinada.
-- Novos arquivos: `src/hooks/useDemandasMarca.ts`, `src/types/demandaMarca.ts`, `src/components/pedidos/DemandasMarcaDialog.tsx` (shell com abas/lista) e formulários `FormRotulo.tsx`, `FormCriativos.tsx`, `FormBanner.tsx`, `FormMonetizze.tsx` em `src/components/pedidos/demandas/`.
-- `src/lib/demandasMarcaPdf.ts` para o briefing em PDF, reutilizando o padrão jsPDF já usado em `relatoriosPedidos.ts`.
-- Em `src/pages/Pedidos.tsx`: botão "Demandas de Marca" na linha do pedido (com badge de contagem de pendentes) abrindo o dialog; produtos e vendedor lidos de `orcamento_snapshot` (`itens_producao`, `consultor_responsavel`).
-- Nada muda fora da página de Pedidos.
+- `src/components/pedidos/DemandasMarcaDialog.tsx`: ampliar o `useMemo` de `produtosPedido` para mapear todos os campos do snapshot; novo tipo `ProdutoPedido` estendido.
+- Mover o tipo `ProdutoPedido` de `FormRotulo.tsx` para `src/types/demandaMarca.ts` (campos novos opcionais, mantendo compatibilidade com demandas já salvas).
+- Novo componente `src/components/pedidos/demandas/ProdutosPedidoResumo.tsx` (painel + card de resumo reutilizado nos formulários).
+- Ajustes de pré-preenchimento em `FormRotulo.tsx`, `FormCriativos.tsx`, `FormBanner.tsx`, `FormMonetizze.tsx`.
+- `src/lib/demandasMarcaPdf.ts`: nova seção "Produtos do pedido"; os dados dos produtos são gravados no `dados` da demanda no momento do salvamento, garantindo que o PDF de demandas antigas continue funcionando.
+- Sem alteração de banco de dados.
