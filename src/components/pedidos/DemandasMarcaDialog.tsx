@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +16,10 @@ import { useDemandasMarca } from '@/hooks/useDemandasMarca';
 import {
   ArquivoDemanda, DemandaMarca, DemandaStatus, DemandaTipo,
   DEMANDA_STATUS_LABELS, DEMANDA_TIPO_LABELS, DEMANDA_TIPO_SETOR,
-  ProdutoPedido, SEGMENTOS,
+  ProdutoPedido,
 } from '@/types/demandaMarca';
+import { extrairProdutosPedido, produtosPedidoIguais } from '@/lib/produtosPedidoDemanda';
+import { usePedidoAtual } from '@/hooks/usePedidoAtual';
 import { gerarBriefingDemandasPDF } from '@/lib/demandasMarcaPdf';
 import FormRotulo from './demandas/FormRotulo';
 import FormCriativos from './demandas/FormCriativos';
@@ -45,59 +47,43 @@ const STATUS_CLASSES: Record<DemandaStatus, string> = {
   concluida: 'bg-green-100 text-green-800 border-green-300',
 };
 
-function mapearTipoProduto(item: any): string {
-  const raw = `${item?.tipo_produto || ''} ${item?.segmento || ''}`.toLowerCase();
-  if (raw.includes('gummy')) return 'Gummy';
-  if (raw.includes('sol')) return 'Solúvel';
-  if (raw.includes('líquid') || raw.includes('liquid')) return 'Líquido';
-  return 'Encapsulado';
-}
-
-/** O snapshot às vezes guarda em `segmento` o tipo do produto; só aproveitamos
- *  quando o valor bate com um segmento de marca conhecido. */
-function mapearSegmento(item: any): string {
-  const bruto = String(item?.segmento || '').trim().toLowerCase();
-  if (!bruto) return '';
-  const achado = SEGMENTOS.find((s) => s.toLowerCase() === bruto);
-  return achado || '';
-}
-
 const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props) => {
   const pedidoId = pedido?.id ?? null;
-  const { demandas, criarDemanda, atualizarDemanda, removerDemanda, salvando } = useDemandasMarca(pedidoId);
+  const {
+    demandas, criarDemanda, atualizarDemanda, removerDemanda, atualizarDemandaSilencioso, salvando,
+  } = useDemandasMarca(pedidoId);
+  const { pedido: pedidoLive } = usePedidoAtual(pedidoId, open);
   const [criando, setCriando] = useState<DemandaTipo | null>(null);
   const [editando, setEditando] = useState<DemandaMarca | null>(null);
   const [confirmarExclusao, setConfirmarExclusao] = useState<DemandaMarca | null>(null);
 
-  const snap = pedido?.orcamento_snapshot;
+  // Prioriza a versão em tempo real do pedido (atualiza sozinho quando o pedido muda)
+  const pedidoAtual = pedidoLive ?? pedido;
+  const snap = pedidoAtual?.orcamento_snapshot;
   const vendedorNome: string = snap?.consultor_responsavel || 'Não informado';
-  const numeroPedido: string = pedido?.numero_pedido || '';
+  const numeroPedido: string = pedidoAtual?.numero_pedido || '';
 
-  const produtosPedido: ProdutoPedido[] = useMemo(() => {
-    const itens = (snap?.itens_producao || []) as any[];
-    return itens.map((i) => ({
-      nome_produto: i.nome_produto || 'Produto',
-      tipo_produto: mapearTipoProduto(i),
-      quantidade: Number(i.pod_consumo_quantidade) || Number(i.quantidade) || 0,
-      segmento: mapearSegmento(i),
-      quantidade_doses: Number(i.quantidade_doses) || undefined,
-      quantidade_por_pote: Number(i.quantidade_por_pote) || undefined,
-      quantidade_por_dose: Number(i.quantidade_por_dose) || undefined,
-      unidade_por_dose: i.unidade_por_dose || undefined,
-      unidade_por_pote: i.unidade_por_pote || i.unidade_por_dose || undefined,
-      dose_diaria_sugerida: i.dose_diaria_sugerida || undefined,
-      cor_pote: i.detalhes_producao?.cor_pote || undefined,
-      cor_tampa: i.detalhes_producao?.cor_tampa || undefined,
-      preco_unitario: Number(i.preco_unitario) || undefined,
-      insumos: Array.isArray(i.insumos_formula)
-        ? i.insumos_formula.map((ins: any) => ({
-            nome: ins?.nome || '',
-            quantidade: Number(ins?.quantidade) || undefined,
-            unidade: ins?.unidade || undefined,
-          }))
-        : undefined,
-    }));
-  }, [snap]);
+  const produtosPedido: ProdutoPedido[] = useMemo(() => extrairProdutosPedido(snap), [snap]);
+
+  // Sincronização automática: sempre que o pedido mudar, atualiza os dados dos
+  // produtos gravados nas demandas já criadas (sem exigir recarregar a tela).
+  const sincronizando = useRef(false);
+  useEffect(() => {
+    if (!open || !pedidoId || !produtosPedido.length || sincronizando.current) return;
+    const desatualizadas = demandas.filter(
+      (d) => !produtosPedidoIguais(d.dados?.produtos_pedido || [], produtosPedido),
+    );
+    if (!desatualizadas.length) return;
+    sincronizando.current = true;
+    (async () => {
+      for (const d of desatualizadas) {
+        await atualizarDemandaSilencioso(d.id, {
+          dados: { ...(d.dados || {}), produtos_pedido: produtosPedido },
+        });
+      }
+      sincronizando.current = false;
+    })();
+  }, [open, pedidoId, produtosPedido, demandas, atualizarDemandaSilencioso]);
 
   const ctxPdf = { numeroPedido, clienteNome, vendedorNome };
 
@@ -108,10 +94,7 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
 
   const salvar = async (tipo: DemandaTipo, dados: any, arquivos: ArquivoDemanda[] = []) => {
     if (!pedidoId) return;
-    const dadosComProdutos = {
-      ...dados,
-      produtos_pedido: (editando?.dados?.produtos_pedido?.length ? editando.dados.produtos_pedido : produtosPedido),
-    };
+    const dadosComProdutos = { ...dados, produtos_pedido: produtosPedido };
     if (editando) {
       await atualizarDemanda({ id: editando.id, dados: dadosComProdutos, arquivos });
     } else {

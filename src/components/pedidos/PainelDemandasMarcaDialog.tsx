@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
   DEMANDA_STATUS_LABELS, DEMANDA_TIPO_LABELS, DEMANDA_TIPO_SETOR,
 } from '@/types/demandaMarca';
 import { gerarBriefingConsolidadoPDF, gerarBriefingDemandasPDF, GrupoBriefing } from '@/lib/demandasMarcaPdf';
+import { extrairProdutosPedido, produtosPedidoIguais } from '@/lib/produtosPedidoDemanda';
 
 interface Props {
   open: boolean;
@@ -35,7 +36,7 @@ const STATUS_CLASSES: Record<DemandaStatus, string> = {
 };
 
 const PainelDemandasMarcaDialog = ({ open, onOpenChange, pedidos }: Props) => {
-  const { demandas, atualizarDemanda, isLoading } = useDemandasMarca();
+  const { demandas, atualizarDemanda, atualizarDemandaSilencioso, isLoading } = useDemandasMarca();
   const [filtroStatus, setFiltroStatus] = useState<'todos' | DemandaStatus>('todos');
   const [filtroTipo, setFiltroTipo] = useState<'todos' | DemandaTipo>('todos');
   const [busca, setBusca] = useState('');
@@ -48,6 +49,32 @@ const PainelDemandasMarcaDialog = ({ open, onOpenChange, pedidos }: Props) => {
     pedidos.forEach((p) => m.set(p.id, p.numero_pedido || ''));
     return m;
   }, [pedidos]);
+
+  // Sincronização automática dos produtos de cada demanda com o pedido atual
+  const produtosPorPedido = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof extrairProdutosPedido>>();
+    pedidos.forEach((p) => m.set(p.id, extrairProdutosPedido(p.orcamento_snapshot)));
+    return m;
+  }, [pedidos]);
+
+  const sincronizando = useRef(false);
+  useEffect(() => {
+    if (!open || sincronizando.current || !demandas.length) return;
+    const pendentes = demandas.filter((d) => {
+      const atuais = produtosPorPedido.get(d.pedido_id);
+      return !!atuais?.length && !produtosPedidoIguais(d.dados?.produtos_pedido || [], atuais);
+    });
+    if (!pendentes.length) return;
+    sincronizando.current = true;
+    (async () => {
+      for (const d of pendentes) {
+        await atualizarDemandaSilencioso(d.id, {
+          dados: { ...(d.dados || {}), produtos_pedido: produtosPorPedido.get(d.pedido_id) },
+        });
+      }
+      sincronizando.current = false;
+    })();
+  }, [open, demandas, produtosPorPedido, atualizarDemandaSilencioso]);
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
