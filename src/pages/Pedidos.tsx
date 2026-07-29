@@ -65,6 +65,7 @@ import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialo
 import AdicionarMarcaDialog from '@/components/AdicionarMarcaDialog';
 import { Tag, Plus } from 'lucide-react';
 import DemandasMarcaDialog from '@/components/pedidos/DemandasMarcaDialog';
+import PainelDemandasMarcaDialog from '@/components/pedidos/PainelDemandasMarcaDialog';
 import { useDemandasMarca } from '@/hooks/useDemandasMarca';
 import { Sparkles } from 'lucide-react';
 
@@ -188,6 +189,7 @@ const Pedidos = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
   const [demandasPedido, setDemandasPedido] = useState<any>(null);
+  const [painelDemandasAberto, setPainelDemandasAberto] = useState(false);
   const [filtroMarca, setFiltroMarca] = useState<string>('todas');
   const { demandas: todasDemandasMarca } = useDemandasMarca();
 
@@ -1041,6 +1043,15 @@ const Pedidos = () => {
               <FileSpreadsheet className="h-4 w-4 mr-1" />
               Exportar CSV
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setPainelDemandasAberto(true)}>
+              <Sparkles className="h-4 w-4 mr-1" />
+              Demandas de Marca (acompanhamento)
+              {todasDemandasMarca.filter((d) => d.status !== 'concluida').length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                  {todasDemandasMarca.filter((d) => d.status !== 'concluida').length}
+                </Badge>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -1325,6 +1336,12 @@ const Pedidos = () => {
         onOpenChange={(o) => !o && setDemandasPedido(null)}
         pedido={demandasPedido}
         clienteNome={demandasPedido ? getRazaoSocialOuNome(demandasPedido) : ''}
+      />
+
+      <PainelDemandasMarcaDialog
+        open={painelDemandasAberto}
+        onOpenChange={setPainelDemandasAberto}
+        pedidos={pedidos}
       />
     </div>
   );
