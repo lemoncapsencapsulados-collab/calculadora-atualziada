@@ -160,3 +160,91 @@ export function gerarBriefingDemandasPDF(demandas: DemandaMarca[], ctx: Contexto
   const base = nomeArquivo || `demandas-${ctx.numeroPedido}`;
   doc.save(`${base.replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`);
 }
+
+export interface GrupoBriefing {
+  ctx: Contexto;
+  demandas: DemandaMarca[];
+}
+
+export function gerarBriefingConsolidadoPDF(
+  grupos: GrupoBriefing[],
+  filtros: string[] = [],
+  nomeArquivo?: string,
+) {
+  const doc = new jsPDF();
+  const larguraUtil = doc.internal.pageSize.getWidth() - MARGEM * 2;
+
+  doc.setFillColor(23, 37, 84);
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Briefing Consolidado — Demandas de Marca', MARGEM, 12);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const totalDemandas = grupos.reduce((s, g) => s + g.demandas.length, 0);
+  doc.text(
+    `${totalDemandas} demanda(s) em ${grupos.length} pedido(s)${filtros.length ? '  •  ' + filtros.join('  •  ') : ''}`,
+    MARGEM,
+    19,
+  );
+  doc.setTextColor(0, 0, 0);
+  let y = 34;
+
+  if (grupos.length === 0) {
+    doc.setFontSize(10);
+    doc.text('Nenhuma demanda encontrada para os filtros selecionados.', MARGEM, y);
+  }
+
+  grupos.forEach((g) => {
+    if (y > doc.internal.pageSize.getHeight() - 60) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFillColor(23, 37, 84);
+    doc.rect(MARGEM, y - 5, larguraUtil, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(
+      `Pedido ${g.ctx.numeroPedido} — ${g.ctx.clienteNome}`,
+      MARGEM + 2,
+      y + 1.5,
+    );
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(
+      `Vendedor: ${g.ctx.vendedorNome}`,
+      doc.internal.pageSize.getWidth() - MARGEM - 2,
+      y + 1.5,
+      { align: 'right' },
+    );
+    doc.setTextColor(0, 0, 0);
+    y += 13;
+
+    g.demandas.forEach((d) => {
+      y = secaoDemanda(doc, d, y);
+    });
+    y += 4;
+  });
+
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(
+      `Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+      MARGEM,
+      doc.internal.pageSize.getHeight() - 8,
+    );
+    doc.text(
+      `Página ${i} de ${total}`,
+      doc.internal.pageSize.getWidth() - MARGEM,
+      doc.internal.pageSize.getHeight() - 8,
+      { align: 'right' },
+    );
+  }
+
+  doc.save(`${(nomeArquivo || 'demandas-marca-consolidado').replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`);
+}
