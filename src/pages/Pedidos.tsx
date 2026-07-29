@@ -189,6 +189,28 @@ const Pedidos = () => {
   const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
   const [demandasPedido, setDemandasPedido] = useState<any>(null);
   const [filtroMarca, setFiltroMarca] = useState<string>('todas');
+  const { demandas: todasDemandasMarca } = useDemandasMarca();
+
+  const contarDemandasPendentes = (pedidoId: string) =>
+    todasDemandasMarca.filter((d) => d.pedido_id === pedidoId && d.status !== 'concluida').length;
+
+  const renderBotaoDemandas = (pedido: any, className?: string) => {
+    const pendentes = contarDemandasPendentes(pedido.id);
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className={className}
+        onClick={() => setDemandasPedido(pedido)}
+        title="Demandas de Marca"
+      >
+        <Sparkles className="h-4 w-4 mr-1" /> Demandas de Marca
+        {pendentes > 0 && (
+          <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{pendentes}</Badge>
+        )}
+      </Button>
+    );
+  };
 
   const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
     if (sortBy === col) {
