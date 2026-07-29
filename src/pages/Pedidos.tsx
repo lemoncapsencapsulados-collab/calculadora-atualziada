@@ -1081,7 +1081,7 @@ const Pedidos = () => {
                       Valor Faturado {renderSortIcon('valor_faturado')}
                     </span>
                   </TableHead>
-                  <TableHead className="text-right w-[200px]">Detalhes</TableHead>
+                  <TableHead className="text-right w-[380px]">Detalhes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1105,6 +1105,7 @@ const Pedidos = () => {
                       <TableCell className="text-right font-semibold">{formatCurrency(valor)}</TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1 justify-end">
+                          {renderBotaoDemandas(pedido)}
                           <Button variant="outline" size="sm" onClick={() => setPedidoDetalhe(pedido)}>
                             <Info className="h-4 w-4 mr-1" /> Detalhes
                           </Button>
@@ -1146,6 +1147,9 @@ const Pedidos = () => {
                         <Info className="h-4 w-4 mr-1" /> Detalhes
                       </Button>
                       {renderAcoesMenu(pedido)}
+                    </div>
+                    <div className="flex pt-1">
+                      {renderBotaoDemandas(pedido, 'w-full')}
                     </div>
                   </CardContent>
                 </Card>
