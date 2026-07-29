@@ -64,6 +64,9 @@ import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
 import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialog';
 import AdicionarMarcaDialog from '@/components/AdicionarMarcaDialog';
 import { Tag, Plus } from 'lucide-react';
+import DemandasMarcaDialog from '@/components/pedidos/DemandasMarcaDialog';
+import { useDemandasMarca } from '@/hooks/useDemandasMarca';
+import { Sparkles } from 'lucide-react';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -184,7 +187,30 @@ const Pedidos = () => {
   const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
+  const [demandasPedido, setDemandasPedido] = useState<any>(null);
   const [filtroMarca, setFiltroMarca] = useState<string>('todas');
+  const { demandas: todasDemandasMarca } = useDemandasMarca();
+
+  const contarDemandasPendentes = (pedidoId: string) =>
+    todasDemandasMarca.filter((d) => d.pedido_id === pedidoId && d.status !== 'concluida').length;
+
+  const renderBotaoDemandas = (pedido: any, className?: string) => {
+    const pendentes = contarDemandasPendentes(pedido.id);
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className={className}
+        onClick={() => setDemandasPedido(pedido)}
+        title="Demandas de Marca"
+      >
+        <Sparkles className="h-4 w-4 mr-1" /> Demandas de Marca
+        {pendentes > 0 && (
+          <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{pendentes}</Badge>
+        )}
+      </Button>
+    );
+  };
 
   const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
     if (sortBy === col) {
@@ -1055,7 +1081,7 @@ const Pedidos = () => {
                       Valor Faturado {renderSortIcon('valor_faturado')}
                     </span>
                   </TableHead>
-                  <TableHead className="text-right w-[200px]">Detalhes</TableHead>
+                  <TableHead className="text-right w-[380px]">Detalhes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1079,6 +1105,7 @@ const Pedidos = () => {
                       <TableCell className="text-right font-semibold">{formatCurrency(valor)}</TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1 justify-end">
+                          {renderBotaoDemandas(pedido)}
                           <Button variant="outline" size="sm" onClick={() => setPedidoDetalhe(pedido)}>
                             <Info className="h-4 w-4 mr-1" /> Detalhes
                           </Button>
@@ -1120,6 +1147,9 @@ const Pedidos = () => {
                         <Info className="h-4 w-4 mr-1" /> Detalhes
                       </Button>
                       {renderAcoesMenu(pedido)}
+                    </div>
+                    <div className="flex pt-1">
+                      {renderBotaoDemandas(pedido, 'w-full')}
                     </div>
                   </CardContent>
                 </Card>
@@ -1288,6 +1318,13 @@ const Pedidos = () => {
         clienteId={marcaDialog?.clienteId ?? null}
         razaoSocial={marcaDialog?.razaoSocial ?? ''}
         marcaAtual={marcaDialog?.marcaAtual}
+      />
+
+      <DemandasMarcaDialog
+        open={!!demandasPedido}
+        onOpenChange={(o) => !o && setDemandasPedido(null)}
+        pedido={demandasPedido}
+        clienteNome={demandasPedido ? getRazaoSocialOuNome(demandasPedido) : ''}
       />
     </div>
   );

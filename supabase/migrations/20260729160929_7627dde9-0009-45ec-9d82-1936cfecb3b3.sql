@@ -1,0 +1,4 @@
+CREATE POLICY "Authenticated can read demandas-marca files" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'demandas-marca');
+CREATE POLICY "Authenticated can upload demandas-marca files" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'demandas-marca');
+CREATE POLICY "Authenticated can update demandas-marca files" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'demandas-marca') WITH CHECK (bucket_id = 'demandas-marca');
+CREATE POLICY "Authenticated can delete demandas-marca files" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'demandas-marca');
