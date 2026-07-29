@@ -1319,6 +1319,13 @@ const Pedidos = () => {
         razaoSocial={marcaDialog?.razaoSocial ?? ''}
         marcaAtual={marcaDialog?.marcaAtual}
       />
+
+      <DemandasMarcaDialog
+        open={!!demandasPedido}
+        onOpenChange={(o) => !o && setDemandasPedido(null)}
+        pedido={demandasPedido}
+        clienteNome={demandasPedido ? getRazaoSocialOuNome(demandasPedido) : ''}
+      />
     </div>
   );
 };
