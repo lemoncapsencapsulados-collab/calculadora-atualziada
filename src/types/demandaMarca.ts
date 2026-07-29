@@ -48,6 +48,30 @@ export interface ArquivoDemanda {
   categoria: 'referencia' | 'logo';
 }
 
+export interface InsumoProdutoPedido {
+  nome: string;
+  quantidade?: number;
+  unidade?: string;
+}
+
+/** Produto fechado no pedido (extraído do snapshot do orçamento) */
+export interface ProdutoPedido {
+  nome_produto: string;
+  tipo_produto: string;
+  quantidade: number;
+  segmento?: string;
+  quantidade_doses?: number;
+  quantidade_por_pote?: number;
+  quantidade_por_dose?: number;
+  unidade_por_dose?: string;
+  unidade_por_pote?: string;
+  dose_diaria_sugerida?: string;
+  cor_pote?: string;
+  cor_tampa?: string;
+  preco_unitario?: number;
+  insumos?: InsumoProdutoPedido[];
+}
+
 export interface ProdutoRotulo {
   tipo_produto: string;
   nome_produto: string;
