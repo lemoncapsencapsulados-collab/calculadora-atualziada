@@ -64,6 +64,9 @@ import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
 import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialog';
 import AdicionarMarcaDialog from '@/components/AdicionarMarcaDialog';
 import { Tag, Plus } from 'lucide-react';
+import DemandasMarcaDialog from '@/components/pedidos/DemandasMarcaDialog';
+import { useDemandasMarca } from '@/hooks/useDemandasMarca';
+import { Sparkles } from 'lucide-react';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -184,6 +187,7 @@ const Pedidos = () => {
   const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
+  const [demandasPedido, setDemandasPedido] = useState<any>(null);
   const [filtroMarca, setFiltroMarca] = useState<string>('todas');
 
   const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
