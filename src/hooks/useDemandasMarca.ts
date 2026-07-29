@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -22,6 +23,21 @@ export const useDemandasMarca = (pedidoId?: string | null) => {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['demandas_marca'] });
   };
+
+  // Realtime: mantém as demandas sincronizadas entre abas/usuários
+  useEffect(() => {
+    const channel = supabase
+      .channel(`demandas-marca-rt-${pedidoId ?? 'all'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'demandas_marca' },
+        () => queryClient.invalidateQueries({ queryKey: ['demandas_marca'] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pedidoId, queryClient]);
 
   const criar = useMutation({
     mutationFn: async (input: DemandaMarcaInput) => {
@@ -75,12 +91,24 @@ export const useDemandasMarca = (pedidoId?: string | null) => {
     onError: (e: any) => toast.error('Erro ao remover demanda: ' + (e?.message || String(e))),
   });
 
+  /** Atualização em segundo plano (sincronização automática), sem toast */
+  const atualizarSilencioso = async (id: string, patch: Record<string, any>) => {
+    const { error } = await supabase.from('demandas_marca').update(patch as any).eq('id', id);
+    if (error) {
+      console.error('Erro ao sincronizar demanda:', error);
+      return false;
+    }
+    queryClient.invalidateQueries({ queryKey: ['demandas_marca'] });
+    return true;
+  };
+
   return {
     demandas,
     isLoading,
     criarDemanda: criar.mutateAsync,
     atualizarDemanda: atualizar.mutateAsync,
     removerDemanda: remover.mutateAsync,
+    atualizarDemandaSilencioso: atualizarSilencioso,
     salvando: criar.isPending || atualizar.isPending,
   };
 };
