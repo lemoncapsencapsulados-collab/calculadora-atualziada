@@ -195,6 +195,8 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
             <p><span className="text-muted-foreground">Vendedor responsável:</span> <strong>{vendedorNome}</strong></p>
           </div>
 
+          <ProdutosPedidoResumo produtos={produtosPedido} defaultOpen={!tipoAtivo} />
+
           {tipoAtivo ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
