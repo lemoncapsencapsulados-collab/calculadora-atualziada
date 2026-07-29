@@ -758,6 +758,48 @@ export type Database = {
           },
         ]
       }
+      demandas_marca: {
+        Row: {
+          arquivos: Json
+          cliente_nome: string
+          created_at: string
+          created_by: string | null
+          dados: Json
+          id: string
+          pedido_id: string
+          status: string
+          tipo: string
+          updated_at: string
+          vendedor_nome: string
+        }
+        Insert: {
+          arquivos?: Json
+          cliente_nome: string
+          created_at?: string
+          created_by?: string | null
+          dados?: Json
+          id?: string
+          pedido_id: string
+          status?: string
+          tipo: string
+          updated_at?: string
+          vendedor_nome: string
+        }
+        Update: {
+          arquivos?: Json
+          cliente_nome?: string
+          created_at?: string
+          created_by?: string | null
+          dados?: Json
+          id?: string
+          pedido_id?: string
+          status?: string
+          tipo?: string
+          updated_at?: string
+          vendedor_nome?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
