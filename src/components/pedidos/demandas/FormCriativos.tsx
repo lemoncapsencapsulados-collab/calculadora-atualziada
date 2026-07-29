@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CriativoProduto, DadosCriativos, OBJETIVOS_CRIATIVO } from '@/types/demandaMarca';
-import type { ProdutoPedido } from './FormRotulo';
+import type { ProdutoPedido } from '@/types/demandaMarca';
+import { ResumoProdutoLinha } from './ProdutosPedidoResumo';
 
 interface Props {
   produtosPedido: ProdutoPedido[];
@@ -32,6 +33,8 @@ const FormCriativos = ({ produtosPedido, valorInicial, salvando, onCancelar, onS
 
   const setProduto = (idx: number, patch: Partial<CriativoProduto>) =>
     setDados((d) => ({ ...d, produtos: d.produtos.map((p, i) => (i === idx ? { ...p, ...patch } : p)) }));
+
+  const infoProduto = (nome: string) => produtosPedido.find((x) => x.nome_produto === nome);
 
   const setQuantidade = (idx: number, qtd: number) => {
     const q = Math.max(0, Math.min(MAX, qtd));
@@ -60,7 +63,10 @@ const FormCriativos = ({ produtosPedido, valorInicial, salvando, onCancelar, onS
         {dados.produtos.map((p, idx) => (
           <div key={idx} className="border rounded-lg p-3 space-y-3 bg-muted/30">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium truncate">{p.nome_produto}</span>
+              <div className="min-w-0">
+                <span className="text-sm font-medium truncate">{p.nome_produto}</span>
+                <ResumoProdutoLinha produto={infoProduto(p.nome_produto)} />
+              </div>
               <div className="flex items-center gap-2">
                 <Label className="text-xs whitespace-nowrap">Quantidade</Label>
                 <Select value={String(p.quantidade)} onValueChange={(v) => setQuantidade(idx, Number(v))}>

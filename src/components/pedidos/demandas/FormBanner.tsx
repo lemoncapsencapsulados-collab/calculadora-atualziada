@@ -6,7 +6,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { BannerProduto, DadosBanner } from '@/types/demandaMarca';
-import type { ProdutoPedido } from './FormRotulo';
+import type { ProdutoPedido } from '@/types/demandaMarca';
+import { ResumoProdutoLinha } from './ProdutosPedidoResumo';
 
 interface Props {
   produtosPedido: ProdutoPedido[];
@@ -32,6 +33,8 @@ const FormBanner = ({ produtosPedido, valorInicial, salvando, onCancelar, onSalv
   const setProduto = (idx: number, patch: Partial<BannerProduto>) =>
     setDados((d) => ({ ...d, produtos: d.produtos.map((p, i) => (i === idx ? { ...p, ...patch } : p)) }));
 
+  const infoProduto = (nome: string) => produtosPedido.find((x) => x.nome_produto === nome);
+
   const submeter = () => {
     const ativos = dados.produtos.filter((p) => p.selecionado && (p.vertical || p.horizontal));
     if (!ativos.length) return toast.error('Selecione ao menos um produto com um formato de banner.');
@@ -51,6 +54,9 @@ const FormBanner = ({ produtosPedido, valorInicial, salvando, onCancelar, onSalv
               <Checkbox checked={p.selecionado} onCheckedChange={(v) => setProduto(idx, { selecionado: !!v })} />
               <span className="text-sm font-medium">{p.nome_produto}</span>
             </label>
+            <div className="pl-6 -mt-1">
+              <ResumoProdutoLinha produto={infoProduto(p.nome_produto)} />
+            </div>
             {p.selecionado && (
               <div className="flex flex-wrap gap-4 pl-6">
                 <label className="flex items-center gap-2 text-xs cursor-pointer">

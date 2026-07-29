@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { DadosMonetizze, EtapaMonetizze } from '@/types/demandaMarca';
-import type { ProdutoPedido } from './FormRotulo';
+import type { ProdutoPedido } from '@/types/demandaMarca';
+import { resumoProdutoTexto } from './ProdutosPedidoResumo';
 
 interface Props {
   produtosPedido: ProdutoPedido[];
@@ -46,6 +47,18 @@ const FormMonetizze = ({ produtosPedido, vendedorNome, valorInicial, salvando, o
   return (
     <div className="space-y-5">
       <p className="text-xs text-muted-foreground">Checklist da demanda de T.I para criação da conta e checkouts.</p>
+
+      {produtosPedido.length > 0 && (
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+          <p className="text-xs font-semibold">Produtos do pedido</p>
+          {produtosPedido.map((p, i) => (
+            <div key={i}>
+              <p className="text-sm">{p.nome_produto}</p>
+              <p className="text-[11px] text-muted-foreground">{resumoProdutoTexto(p)}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-1">
         {dados.etapas.map((e, idx) => (

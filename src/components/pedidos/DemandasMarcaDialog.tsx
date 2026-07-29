@@ -16,12 +16,14 @@ import { useDemandasMarca } from '@/hooks/useDemandasMarca';
 import {
   ArquivoDemanda, DemandaMarca, DemandaStatus, DemandaTipo,
   DEMANDA_STATUS_LABELS, DEMANDA_TIPO_LABELS, DEMANDA_TIPO_SETOR,
+  ProdutoPedido, SEGMENTOS,
 } from '@/types/demandaMarca';
 import { gerarBriefingDemandasPDF } from '@/lib/demandasMarcaPdf';
-import FormRotulo, { ProdutoPedido } from './demandas/FormRotulo';
+import FormRotulo from './demandas/FormRotulo';
 import FormCriativos from './demandas/FormCriativos';
 import FormBanner from './demandas/FormBanner';
 import FormMonetizze from './demandas/FormMonetizze';
+import ProdutosPedidoResumo from './demandas/ProdutosPedidoResumo';
 
 interface Props {
   open: boolean;
@@ -51,6 +53,15 @@ function mapearTipoProduto(item: any): string {
   return 'Encapsulado';
 }
 
+/** O snapshot às vezes guarda em `segmento` o tipo do produto; só aproveitamos
+ *  quando o valor bate com um segmento de marca conhecido. */
+function mapearSegmento(item: any): string {
+  const bruto = String(item?.segmento || '').trim().toLowerCase();
+  if (!bruto) return '';
+  const achado = SEGMENTOS.find((s) => s.toLowerCase() === bruto);
+  return achado || '';
+}
+
 const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props) => {
   const pedidoId = pedido?.id ?? null;
   const { demandas, criarDemanda, atualizarDemanda, removerDemanda, salvando } = useDemandasMarca(pedidoId);
@@ -68,6 +79,23 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
       nome_produto: i.nome_produto || 'Produto',
       tipo_produto: mapearTipoProduto(i),
       quantidade: Number(i.pod_consumo_quantidade) || Number(i.quantidade) || 0,
+      segmento: mapearSegmento(i),
+      quantidade_doses: Number(i.quantidade_doses) || undefined,
+      quantidade_por_pote: Number(i.quantidade_por_pote) || undefined,
+      quantidade_por_dose: Number(i.quantidade_por_dose) || undefined,
+      unidade_por_dose: i.unidade_por_dose || undefined,
+      unidade_por_pote: i.unidade_por_pote || i.unidade_por_dose || undefined,
+      dose_diaria_sugerida: i.dose_diaria_sugerida || undefined,
+      cor_pote: i.detalhes_producao?.cor_pote || undefined,
+      cor_tampa: i.detalhes_producao?.cor_tampa || undefined,
+      preco_unitario: Number(i.preco_unitario) || undefined,
+      insumos: Array.isArray(i.insumos_formula)
+        ? i.insumos_formula.map((ins: any) => ({
+            nome: ins?.nome || '',
+            quantidade: Number(ins?.quantidade) || undefined,
+            unidade: ins?.unidade || undefined,
+          }))
+        : undefined,
     }));
   }, [snap]);
 
@@ -80,15 +108,19 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
 
   const salvar = async (tipo: DemandaTipo, dados: any, arquivos: ArquivoDemanda[] = []) => {
     if (!pedidoId) return;
+    const dadosComProdutos = {
+      ...dados,
+      produtos_pedido: (editando?.dados?.produtos_pedido?.length ? editando.dados.produtos_pedido : produtosPedido),
+    };
     if (editando) {
-      await atualizarDemanda({ id: editando.id, dados, arquivos });
+      await atualizarDemanda({ id: editando.id, dados: dadosComProdutos, arquivos });
     } else {
       await criarDemanda({
         pedido_id: pedidoId,
         tipo,
         cliente_nome: clienteNome,
         vendedor_nome: vendedorNome,
-        dados,
+        dados: dadosComProdutos,
         arquivos,
       });
     }
@@ -162,6 +194,8 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
             <p><span className="text-muted-foreground">Cliente:</span> <strong>{clienteNome}</strong></p>
             <p><span className="text-muted-foreground">Vendedor responsável:</span> <strong>{vendedorNome}</strong></p>
           </div>
+
+          <ProdutosPedidoResumo produtos={produtosPedido} defaultOpen={!tipoAtivo} />
 
           {tipoAtivo ? (
             <div className="space-y-4">

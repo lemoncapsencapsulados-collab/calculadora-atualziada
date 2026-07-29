@@ -11,6 +11,7 @@ import {
   DadosCriativos,
   DadosMonetizze,
   DadosRotulo,
+  ProdutoPedido,
 } from '@/types/demandaMarca';
 
 interface Contexto {
@@ -63,6 +64,24 @@ function secaoDemanda(doc: jsPDF, d: DemandaMarca, y: number): number {
 
   const linhas: string[][] = [];
   const dados = d.dados || {};
+
+  const produtosPedido: ProdutoPedido[] = Array.isArray(dados.produtos_pedido) ? dados.produtos_pedido : [];
+  produtosPedido.forEach((p, i) => {
+    const detalhes = [
+      p.tipo_produto,
+      p.segmento ? `Segmento: ${p.segmento}` : '',
+      p.dose_diaria_sugerida ? `Dose diária: ${p.dose_diaria_sugerida}` : '',
+      p.quantidade_por_pote ? `${p.quantidade_por_pote} ${p.unidade_por_pote || 'un'}/pote` : '',
+      p.quantidade_doses ? `${p.quantidade_doses} doses/pote` : '',
+      p.cor_pote ? `Pote: ${p.cor_pote}` : '',
+      p.cor_tampa ? `Tampa: ${p.cor_tampa}` : '',
+      p.quantidade ? `${p.quantidade} un. contratadas` : '',
+    ].filter(Boolean).join(' | ');
+    linhas.push([
+      `Produto do pedido ${produtosPedido.length > 1 ? i + 1 : ''}`.trim(),
+      `${p.nome_produto}\n${detalhes}`,
+    ]);
+  });
 
   if (d.tipo === 'rotulo') {
     const r = dados as DadosRotulo;
