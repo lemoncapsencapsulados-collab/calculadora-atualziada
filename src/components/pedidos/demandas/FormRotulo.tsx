@@ -9,15 +9,12 @@ import { Plus, Trash2, Upload, FileDown, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ArquivoDemanda, DadosRotulo, ESTRUTURAS_ROTULO, POSICIONAMENTOS,
-  ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
+  ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
 } from '@/types/demandaMarca';
 import { baixarArquivoDemanda, removerArquivoDemanda, uploadArquivoDemanda } from '@/hooks/useDemandasMarca';
+import { ResumoProdutoLinha } from './ProdutosPedidoResumo';
 
-export interface ProdutoPedido {
-  nome_produto: string;
-  tipo_produto: string;
-  quantidade: number;
-}
+export type { ProdutoPedido };
 
 interface Props {
   pedidoId: string;
@@ -53,7 +50,7 @@ const FormRotulo = ({
             nome_produto: p.nome_produto,
             nome_indefinido: false,
             quantidade_potes: p.quantidade,
-            segmento: '',
+            segmento: p.segmento || '',
           }))
         : [novoProduto()],
       observacoes: '',
@@ -61,6 +58,8 @@ const FormRotulo = ({
   );
   const [arquivos, setArquivos] = useState<ArquivoDemanda[]>(arquivosIniciais ?? []);
   const [enviando, setEnviando] = useState(false);
+
+  const infoProduto = (nome: string) => produtosPedido.find((x) => x.nome_produto === nome);
 
   const setProduto = (idx: number, patch: Partial<ProdutoRotulo>) => {
     setDados((d) => ({
@@ -192,6 +191,7 @@ const FormRotulo = ({
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
+              <ResumoProdutoLinha produto={infoProduto(p.nome_produto)} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label className="text-xs">Tipo de produto</Label>
