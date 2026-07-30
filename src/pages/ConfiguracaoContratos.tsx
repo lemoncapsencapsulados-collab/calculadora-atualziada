@@ -303,6 +303,10 @@ export default function ConfiguracaoContratos() {
         <ClickUpRotuloConfigCard />
       </div>
 
+      <div className="mt-6">
+        <ClickUpDemandasConfigCard />
+      </div>
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
