@@ -346,6 +346,45 @@ export type Database = {
         }
         Relationships: []
       }
+      clickup_demandas_config: {
+        Row: {
+          assignee_ids: Json
+          assignee_nomes: Json
+          ativo: boolean
+          created_at: string
+          id: string
+          list_id: string | null
+          list_nome: string | null
+          prefixo_nome: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_ids?: Json
+          assignee_nomes?: Json
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          list_id?: string | null
+          list_nome?: string | null
+          prefixo_nome?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_ids?: Json
+          assignee_nomes?: Json
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          list_id?: string | null
+          list_nome?: string | null
+          prefixo_nome?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clickup_rotulo_config: {
         Row: {
           assignee_ids: Json
@@ -761,6 +800,9 @@ export type Database = {
       demandas_marca: {
         Row: {
           arquivos: Json
+          clickup_enviado_em: string | null
+          clickup_task_id: string | null
+          clickup_task_url: string | null
           cliente_nome: string
           created_at: string
           created_by: string | null
@@ -774,6 +816,9 @@ export type Database = {
         }
         Insert: {
           arquivos?: Json
+          clickup_enviado_em?: string | null
+          clickup_task_id?: string | null
+          clickup_task_url?: string | null
           cliente_nome: string
           created_at?: string
           created_by?: string | null
@@ -787,6 +832,9 @@ export type Database = {
         }
         Update: {
           arquivos?: Json
+          clickup_enviado_em?: string | null
+          clickup_task_id?: string | null
+          clickup_task_url?: string | null
           cliente_nome?: string
           created_at?: string
           created_by?: string | null

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClipboardList, FileDown, Tag, Image, LayoutTemplate, CreditCard, ArrowUpDown } from 'lucide-react';
+import { ClipboardList, FileDown, Tag, Image, LayoutTemplate, CreditCard, ArrowUpDown, Send, ExternalLink, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useDemandasMarca } from '@/hooks/useDemandasMarca';
@@ -15,6 +15,7 @@ import {
 } from '@/types/demandaMarca';
 import { gerarBriefingConsolidadoPDF, gerarBriefingDemandasPDF, GrupoBriefing } from '@/lib/demandasMarcaPdf';
 import { extrairProdutosPedido, produtosPedidoIguais } from '@/lib/produtosPedidoDemanda';
+import { enviarDemandaClickUp } from '@/lib/clickupDemandas';
 
 interface Props {
   open: boolean;
@@ -43,6 +44,8 @@ const PainelDemandasMarcaDialog = ({ open, onOpenChange, pedidos }: Props) => {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [ordem, setOrdem] = useState<'desc' | 'asc'>('desc');
+  const [enviandoClickUp, setEnviandoClickUp] = useState<string | null>(null);
+  const [enviandoLote, setEnviandoLote] = useState(false);
 
   const numeroPorPedido = useMemo(() => {
     const m = new Map<string, string>();
@@ -241,6 +244,20 @@ const PainelDemandasMarcaDialog = ({ open, onOpenChange, pedidos }: Props) => {
                   >
                     <FileDown className="h-3.5 w-3.5 mr-1" /> PDF do pedido
                   </Button>
+                  <Button
+                    variant="outline" size="sm"
+                    disabled={enviandoLote || g.demandas.every((d: any) => d.clickup_task_url)}
+                    onClick={async () => {
+                      setEnviandoLote(true);
+                      for (const d of g.demandas as any[]) {
+                        if (!d.clickup_task_url) await enviarDemandaClickUp(d.id, g.ctx.numeroPedido);
+                      }
+                      setEnviandoLote(false);
+                    }}
+                  >
+                    {enviandoLote ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+                    Enviar ao ClickUp
+                  </Button>
                 </div>
                 <div className="divide-y">
                   {g.demandas.map((d) => {
@@ -276,6 +293,28 @@ const PainelDemandasMarcaDialog = ({ open, onOpenChange, pedidos }: Props) => {
                         >
                           <FileDown className="h-4 w-4" />
                         </Button>
+                        {(d as any).clickup_task_url ? (
+                          <Button
+                            variant="ghost" size="sm" title="Abrir task no ClickUp"
+                            onClick={() => window.open((d as any).clickup_task_url, '_blank')}
+                          >
+                            <ExternalLink className="h-4 w-4 text-green-600" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost" size="sm" title="Enviar para o ClickUp"
+                            disabled={enviandoClickUp === d.id}
+                            onClick={async () => {
+                              setEnviandoClickUp(d.id);
+                              await enviarDemandaClickUp(d.id, ctxDe(d).numeroPedido);
+                              setEnviandoClickUp(null);
+                            }}
+                          >
+                            {enviandoClickUp === d.id
+                              ? <Loader2 className="h-4 w-4 animate-spin" />
+                              : <Send className="h-4 w-4" />}
+                          </Button>
+                        )}
                       </div>
                     );
                   })}
