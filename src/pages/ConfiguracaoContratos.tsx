@@ -14,6 +14,7 @@ import { useContratoModelos, useSalvarContratoModelo, useExcluirContratoModelo, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ClickUpRotuloConfigCard } from '@/components/admin/ClickUpRotuloConfigCard';
+import { ClickUpDemandasConfigCard } from '@/components/admin/ClickUpDemandasConfigCard';
 
 const EMPTY = { nome: '', template_id: '', ambiente: 'producao' as 'producao' | 'sandbox', descricao: '', is_padrao: false, email_envio: '', nome_envio: '' };
 
