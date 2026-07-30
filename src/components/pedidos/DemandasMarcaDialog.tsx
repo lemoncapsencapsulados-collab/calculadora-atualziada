@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Sparkles, Tag, Image, LayoutTemplate, CreditCard, FileDown, Pencil, Trash2, ArrowLeft, Plus,
+  Send, ExternalLink, Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,6 +22,7 @@ import {
 import { extrairProdutosPedido, produtosPedidoIguais } from '@/lib/produtosPedidoDemanda';
 import { usePedidoAtual } from '@/hooks/usePedidoAtual';
 import { gerarBriefingDemandasPDF } from '@/lib/demandasMarcaPdf';
+import { enviarDemandaClickUp } from '@/lib/clickupDemandas';
 import FormRotulo from './demandas/FormRotulo';
 import FormCriativos from './demandas/FormCriativos';
 import FormBanner from './demandas/FormBanner';
@@ -56,6 +58,7 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
   const [criando, setCriando] = useState<DemandaTipo | null>(null);
   const [editando, setEditando] = useState<DemandaMarca | null>(null);
   const [confirmarExclusao, setConfirmarExclusao] = useState<DemandaMarca | null>(null);
+  const [enviandoClickUp, setEnviandoClickUp] = useState<string | null>(null);
 
   // Prioriza a versão em tempo real do pedido (atualiza sozinho quando o pedido muda)
   const pedidoAtual = pedidoLive ?? pedido;
@@ -264,6 +267,28 @@ const DemandasMarcaDialog = ({ open, onOpenChange, pedido, clienteNome }: Props)
                           </SelectContent>
                         </Select>
                         <div className="flex gap-1">
+                          {(d as any).clickup_task_url ? (
+                            <Button
+                              variant="ghost" size="sm" title="Abrir task no ClickUp"
+                              onClick={() => window.open((d as any).clickup_task_url, '_blank')}
+                            >
+                              <ExternalLink className="h-4 w-4 text-green-600" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost" size="sm" title="Enviar para o ClickUp"
+                              disabled={enviandoClickUp === d.id}
+                              onClick={async () => {
+                                setEnviandoClickUp(d.id);
+                                await enviarDemandaClickUp(d.id, numeroPedido);
+                                setEnviandoClickUp(null);
+                              }}
+                            >
+                              {enviandoClickUp === d.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Send className="h-4 w-4" />}
+                            </Button>
+                          )}
                           <Button
                             variant="ghost" size="sm" title="Baixar briefing (PDF)"
                             onClick={() => gerarBriefingDemandasPDF([d], ctxPdf, `${d.tipo}-${numeroPedido}`)}
