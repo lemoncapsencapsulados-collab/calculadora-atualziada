@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const token = Deno.env.get('CLICKUP_API_TOKEN');
+    const token = (Deno.env.get('CLICKUP_API_TOKEN') || '').trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '');
     if (!token) return json({ error: 'CLICKUP_API_TOKEN não configurado' }, 500);
 
     const authHeader = req.headers.get('Authorization');

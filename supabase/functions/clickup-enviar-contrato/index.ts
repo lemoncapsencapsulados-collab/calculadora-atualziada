@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const token = Deno.env.get('CLICKUP_API_TOKEN');
+    const token = (Deno.env.get('CLICKUP_API_TOKEN') || '').trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '');
     const listId = Deno.env.get('CLICKUP_LIST_CONTRATOS_ID');
     if (!token || !listId) return jsonResponse({ error: 'ClickUp não configurado' }, 500);
 
