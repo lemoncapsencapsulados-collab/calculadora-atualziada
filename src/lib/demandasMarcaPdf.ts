@@ -89,6 +89,8 @@ function secaoDemanda(doc: jsPDF, d: DemandaMarca, y: number): number {
     linhas.push(['Nome da marca', r.sem_marca ? 'Sem marca ainda' : r.nome_marca || '-']);
     linhas.push(['Posicionamento', r.posicionamento || '-']);
     linhas.push(['Estrutura do rótulo', r.estrutura || '-']);
+    linhas.push(['Orçamento de marca pensado em', r.orcamento_qtd_rotulos ? `${r.orcamento_qtd_rotulos} rótulos comprados` : '-']);
+    linhas.push(['Produção pensada em', (r.locais_producao || []).join(', ') || '-']);
     (r.produtos || []).forEach((p, i) => {
       linhas.push([
         `Produto ${i + 1}`,
