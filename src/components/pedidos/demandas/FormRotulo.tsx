@@ -178,6 +178,42 @@ const FormRotulo = ({
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Orçamento de marca pensado em (rótulos comprados) *</Label>
+          <Input
+            type="number" min={0}
+            value={dados.orcamento_qtd_rotulos || ''}
+            placeholder="Ex.: 1000"
+            onChange={(e) => setDados({ ...dados, orcamento_qtd_rotulos: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Orçamento de rótulo pensado na produção feita em *</Label>
+          <div className="mt-2 flex flex-wrap gap-4">
+            {LOCAIS_PRODUCAO.map((local) => {
+              const marcado = (dados.locais_producao || []).includes(local);
+              return (
+                <label key={local} className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={marcado}
+                    onCheckedChange={(v) =>
+                      setDados({
+                        ...dados,
+                        locais_producao: v
+                          ? [...(dados.locais_producao || []), local]
+                          : (dados.locais_producao || []).filter((x) => x !== local),
+                      })
+                    }
+                  />
+                  {local}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-xs font-semibold">Produtos do rótulo *</Label>
@@ -209,7 +245,7 @@ const FormRotulo = ({
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Quantidade de potes</Label>
+                  <Label className="text-xs">Quantidade de Potes Vendidos</Label>
                   <Input
                     type="number" min={0} value={p.quantidade_potes || ''}
                     onChange={(e) => setProduto(idx, { quantidade_potes: Number(e.target.value) || 0 })}
