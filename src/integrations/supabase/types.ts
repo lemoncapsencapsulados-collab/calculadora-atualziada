@@ -356,6 +356,7 @@ export type Database = {
           list_id: string | null
           list_nome: string | null
           prefixo_nome: string | null
+          status_inicial: string | null
           tipo: string
           updated_at: string
         }
@@ -368,6 +369,7 @@ export type Database = {
           list_id?: string | null
           list_nome?: string | null
           prefixo_nome?: string | null
+          status_inicial?: string | null
           tipo: string
           updated_at?: string
         }
@@ -380,6 +382,7 @@ export type Database = {
           list_id?: string | null
           list_nome?: string | null
           prefixo_nome?: string | null
+          status_inicial?: string | null
           tipo?: string
           updated_at?: string
         }

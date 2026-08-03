@@ -1,0 +1,1 @@
+ALTER TABLE public.clickup_demandas_config ADD COLUMN IF NOT EXISTS status_inicial text;
