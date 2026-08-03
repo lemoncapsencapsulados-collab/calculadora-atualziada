@@ -89,12 +89,14 @@ function secaoDemanda(doc: jsPDF, d: DemandaMarca, y: number): number {
     linhas.push(['Nome da marca', r.sem_marca ? 'Sem marca ainda' : r.nome_marca || '-']);
     linhas.push(['Posicionamento', r.posicionamento || '-']);
     linhas.push(['Estrutura do rótulo', r.estrutura || '-']);
-    linhas.push(['Orçamento de marca pensado em', r.orcamento_qtd_rotulos ? `${r.orcamento_qtd_rotulos} rótulos comprados` : '-']);
-    linhas.push(['Produção pensada em', (r.locais_producao || []).join(', ') || '-']);
     (r.produtos || []).forEach((p, i) => {
+      const orcRot = p.orcamento_qtd_rotulos ?? r.orcamento_qtd_rotulos;
+      const locais = (p.locais_producao?.length ? p.locais_producao : r.locais_producao) || [];
       linhas.push([
         `Produto ${i + 1}`,
-        `${p.nome_indefinido ? 'Nome indefinido ainda' : p.nome_produto || '-'} | ${p.tipo_produto || '-'} | ${p.quantidade_potes || 0} potes | Segmento: ${p.segmento || '-'}`,
+        `${p.nome_indefinido ? 'Nome indefinido ainda' : p.nome_produto || '-'} | ${p.tipo_produto || '-'} | ${p.quantidade_potes || 0} potes | Segmento: ${p.segmento || '-'}\n` +
+          `Orçamento de marca pensado em: ${orcRot ? `${orcRot} rótulos comprados` : '-'}\n` +
+          `Produção pensada em: ${locais.join(', ') || '-'}`,
       ]);
     });
     if (r.observacoes) linhas.push(['Observações', r.observacoes]);

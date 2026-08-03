@@ -9,7 +9,7 @@ import { Plus, Trash2, Upload, FileDown, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ArquivoDemanda, DadosRotulo, ESTRUTURAS_ROTULO, POSICIONAMENTOS,
-  LOCAIS_PRODUCAO, ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
+  LOCAIS_PRODUCAO, minimoRotulos, ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
 } from '@/types/demandaMarca';
 import { baixarArquivoDemanda, removerArquivoDemanda, uploadArquivoDemanda } from '@/hooks/useDemandasMarca';
 import { ResumoProdutoLinha } from './ProdutosPedidoResumo';
@@ -32,20 +32,32 @@ const novoProduto = (): ProdutoRotulo => ({
   nome_indefinido: false,
   quantidade_potes: 0,
   segmento: '',
+  orcamento_qtd_rotulos: 0,
+  locais_producao: [],
 });
 
 const FormRotulo = ({
   pedidoId, produtosPedido, valorInicial, arquivosIniciais, salvando, onCancelar, onSalvar,
 }: Props) => {
-  const [dados, setDados] = useState<DadosRotulo>(
-    valorInicial ?? {
+  const [dados, setDados] = useState<DadosRotulo>(() => {
+    if (valorInicial) {
+      // Compatibilidade: demandas antigas guardavam esses campos no nível global
+      return {
+        ...valorInicial,
+        produtos: (valorInicial.produtos || []).map((p) => ({
+          ...p,
+          orcamento_qtd_rotulos:
+            p.orcamento_qtd_rotulos ?? valorInicial.orcamento_qtd_rotulos ?? minimoRotulos(p.quantidade_potes),
+          locais_producao: p.locais_producao ?? valorInicial.locais_producao ?? [],
+        })),
+      };
+    }
+    return {
       tipo_papel: '',
       nome_marca: '',
       sem_marca: false,
       posicionamento: '',
       estrutura: '',
-      orcamento_qtd_rotulos: 0,
-      locais_producao: [],
       produtos: produtosPedido.length
         ? produtosPedido.map((p) => ({
             tipo_produto: p.tipo_produto,
@@ -53,11 +65,13 @@ const FormRotulo = ({
             nome_indefinido: false,
             quantidade_potes: p.quantidade,
             segmento: p.segmento || '',
+            orcamento_qtd_rotulos: minimoRotulos(p.quantidade),
+            locais_producao: [] as string[],
           }))
         : [novoProduto()],
       observacoes: '',
-    },
-  );
+    };
+  });
   const [arquivos, setArquivos] = useState<ArquivoDemanda[]>(arquivosIniciais ?? []);
   const [enviando, setEnviando] = useState(false);
 
@@ -101,15 +115,19 @@ const FormRotulo = ({
     if (!dados.sem_marca && !dados.nome_marca.trim()) return toast.error('Informe o nome da marca ou marque "Sem marca ainda".');
     if (!dados.posicionamento) return toast.error('Selecione o posicionamento da marca.');
     if (!dados.estrutura) return toast.error('Selecione a estrutura do rótulo.');
-    if (!dados.orcamento_qtd_rotulos || dados.orcamento_qtd_rotulos <= 0)
-      return toast.error('Informe em quantos rótulos comprados o orçamento de marca foi pensado.');
-    if (!dados.locais_producao?.length)
-      return toast.error('Selecione ao menos um local de produção considerado no orçamento do rótulo.');
     if (!dados.produtos.length) return toast.error('Adicione ao menos um produto.');
-    for (const p of dados.produtos) {
+    for (const [i, p] of dados.produtos.entries()) {
+      const rotulo = p.nome_indefinido || !p.nome_produto ? `Produto ${i + 1}` : p.nome_produto;
       if (!p.nome_indefinido && !p.nome_produto.trim()) return toast.error('Informe o nome de cada produto ou marque "Nome indefinido".');
       if (!p.segmento) return toast.error('Selecione o segmento de cada produto.');
       if (!p.quantidade_potes || p.quantidade_potes <= 0) return toast.error('Informe a quantidade de potes de cada produto.');
+      const minimo = minimoRotulos(p.quantidade_potes);
+      if (!p.orcamento_qtd_rotulos || p.orcamento_qtd_rotulos <= 0)
+        return toast.error(`${rotulo}: informe o orçamento de rótulos comprados (mínimo ${minimo}).`);
+      if (p.orcamento_qtd_rotulos < minimo)
+        return toast.error(`${rotulo}: o orçamento de rótulos precisa ser de no mínimo ${minimo} (50% a mais que ${p.quantidade_potes} potes vendidos).`);
+      if (!p.locais_producao?.length)
+        return toast.error(`${rotulo}: selecione ao menos um local de produção considerado no orçamento.`);
     }
     onSalvar(dados, arquivos);
   };
@@ -178,42 +196,6 @@ const FormRotulo = ({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label className="text-xs">Orçamento de marca pensado em (rótulos comprados) *</Label>
-          <Input
-            type="number" min={0}
-            value={dados.orcamento_qtd_rotulos || ''}
-            placeholder="Ex.: 1000"
-            onChange={(e) => setDados({ ...dados, orcamento_qtd_rotulos: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Orçamento de rótulo pensado na produção feita em *</Label>
-          <div className="mt-2 flex flex-wrap gap-4">
-            {LOCAIS_PRODUCAO.map((local) => {
-              const marcado = (dados.locais_producao || []).includes(local);
-              return (
-                <label key={local} className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox
-                    checked={marcado}
-                    onCheckedChange={(v) =>
-                      setDados({
-                        ...dados,
-                        locais_producao: v
-                          ? [...(dados.locais_producao || []), local]
-                          : (dados.locais_producao || []).filter((x) => x !== local),
-                      })
-                    }
-                  />
-                  {local}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-xs font-semibold">Produtos do rótulo *</Label>
@@ -248,7 +230,16 @@ const FormRotulo = ({
                   <Label className="text-xs">Quantidade de Potes Vendidos</Label>
                   <Input
                     type="number" min={0} value={p.quantidade_potes || ''}
-                    onChange={(e) => setProduto(idx, { quantidade_potes: Number(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const potes = Number(e.target.value) || 0;
+                      const minAnterior = minimoRotulos(p.quantidade_potes);
+                      const ajustar =
+                        !p.orcamento_qtd_rotulos || p.orcamento_qtd_rotulos === minAnterior;
+                      setProduto(idx, {
+                        quantidade_potes: potes,
+                        ...(ajustar ? { orcamento_qtd_rotulos: minimoRotulos(potes) } : {}),
+                      });
+                    }}
                   />
                 </div>
                 <div>
@@ -274,6 +265,49 @@ const FormRotulo = ({
                       {SEGMENTOS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Orçamento de marca pensado em (rótulos comprados) *</Label>
+                  <Input
+                    type="number" min={0}
+                    value={p.orcamento_qtd_rotulos || ''}
+                    placeholder={`Mín. ${minimoRotulos(p.quantidade_potes)}`}
+                    onChange={(e) => setProduto(idx, { orcamento_qtd_rotulos: Number(e.target.value) || 0 })}
+                  />
+                  {(() => {
+                    const minimo = minimoRotulos(p.quantidade_potes);
+                    const abaixo = !!p.orcamento_qtd_rotulos && p.orcamento_qtd_rotulos < minimo;
+                    return (
+                      <p className={`mt-1 text-[11px] ${abaixo ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                        {abaixo
+                          ? `Abaixo do mínimo: precisa ser pelo menos ${minimo} rótulos (50% a mais que ${p.quantidade_potes} potes).`
+                          : `Mínimo permitido: ${minimo} rótulos (50% a mais que ${p.quantidade_potes || 0} potes vendidos).`}
+                      </p>
+                    );
+                  })()}
+                </div>
+                <div>
+                  <Label className="text-xs">Orçamento de rótulo pensado na produção feita em *</Label>
+                  <div className="mt-2 flex flex-wrap gap-4">
+                    {LOCAIS_PRODUCAO.map((local) => {
+                      const marcado = (p.locais_producao || []).includes(local);
+                      return (
+                        <label key={local} className="flex items-center gap-2 text-xs cursor-pointer">
+                          <Checkbox
+                            checked={marcado}
+                            onCheckedChange={(v) =>
+                              setProduto(idx, {
+                                locais_producao: v
+                                  ? [...(p.locais_producao || []), local]
+                                  : (p.locais_producao || []).filter((x) => x !== local),
+                              })
+                            }
+                          />
+                          {local}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
