@@ -79,7 +79,14 @@ export interface ProdutoRotulo {
   nome_indefinido: boolean;
   quantidade_potes: number;
   segmento: string;
+  /** Orçamento de rótulos comprados pensado para este produto (mín. potes x 1,5) */
+  orcamento_qtd_rotulos?: number;
+  /** Locais de produção considerados no orçamento deste produto */
+  locais_producao?: string[];
 }
+
+/** Mínimo de rótulos exigido: 50% a mais que os potes vendidos */
+export const minimoRotulos = (potes: number) => Math.ceil((Number(potes) || 0) * 1.5);
 
 export interface DadosRotulo {
   tipo_papel: string;
@@ -87,7 +94,9 @@ export interface DadosRotulo {
   sem_marca: boolean;
   posicionamento: string;
   estrutura: string;
+  /** @deprecated mantido para compatibilidade — agora é por produto */
   orcamento_qtd_rotulos?: number;
+  /** @deprecated mantido para compatibilidade — agora é por produto */
   locais_producao?: string[];
   produtos: ProdutoRotulo[];
   observacoes?: string;
