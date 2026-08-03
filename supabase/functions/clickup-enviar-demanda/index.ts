@@ -126,6 +126,7 @@ Deno.serve(async (req) => {
       name: nomeTask,
       markdown_description: descricaoMarkdown(demanda, numero_pedido || ''),
     };
+    if (cfg?.status_inicial) payload.status = cfg.status_inicial;
     const assignees = Array.isArray(cfg?.assignee_ids) ? (cfg!.assignee_ids as any[]).map(Number).filter(Number.isFinite) : [];
     if (assignees.length) payload.assignees = assignees;
 
