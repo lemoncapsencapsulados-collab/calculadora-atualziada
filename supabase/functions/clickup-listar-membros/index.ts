@@ -53,7 +53,24 @@ Deno.serve(async (req) => {
       color: m.color,
       profilePicture: m.profilePicture,
     }));
-    return jsonResponse({ members });
+
+    // Status disponíveis na lista (colunas do quadro)
+    let statuses: { status: string; color?: string }[] = [];
+    let listName: string | null = null;
+    try {
+      const listRes = await fetch(`https://api.clickup.com/api/v2/list/${listId}`, {
+        headers: { Authorization: token, accept: 'application/json' },
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        listName = listData?.name ?? null;
+        statuses = (listData?.statuses || []).map((s: any) => ({ status: s.status, color: s.color }));
+      }
+    } catch (e) {
+      console.error('Falha ao buscar status da lista', String(e));
+    }
+
+    return jsonResponse({ members, statuses, listName });
   } catch (e) {
     return jsonResponse({ error: String(e) }, 500);
   }
