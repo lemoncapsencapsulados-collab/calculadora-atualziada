@@ -7,22 +7,24 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, RefreshCw, Save, Sparkles, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DEMANDA_TIPO_LABELS, DEMANDA_TIPO_SETOR, DemandaTipo } from '@/types/demandaMarca';
 
 interface Membro { id: number; username: string; email?: string; profilePicture?: string | null }
+interface StatusLista { status: string; color?: string }
 interface Cfg {
   id?: string; tipo: DemandaTipo; ativo: boolean; list_id: string; list_nome: string;
-  prefixo_nome: string; assignee_ids: number[];
+  prefixo_nome: string; assignee_ids: number[]; status_inicial: string;
 }
 
 const TIPOS = Object.keys(DEMANDA_TIPO_LABELS) as DemandaTipo[];
 
 const vazio = (tipo: DemandaTipo): Cfg => ({
   tipo, ativo: true, list_id: '', list_nome: '',
-  prefixo_nome: `${DEMANDA_TIPO_LABELS[tipo]} - `, assignee_ids: [],
+  prefixo_nome: `${DEMANDA_TIPO_LABELS[tipo]} - `, assignee_ids: [], status_inicial: '',
 });
 
 export function ClickUpDemandasConfigCard() {
@@ -31,6 +33,7 @@ export function ClickUpDemandasConfigCard() {
   const [loadingMembros, setLoadingMembros] = useState(false);
   const [configs, setConfigs] = useState<Record<string, Cfg>>({});
   const [membros, setMembros] = useState<Record<string, Membro[]>>({});
+  const [statuses, setStatuses] = useState<Record<string, StatusLista[]>>({});
 
   useEffect(() => {
     (async () => {
@@ -43,6 +46,7 @@ export function ClickUpDemandasConfigCard() {
           list_id: row.list_id || '', list_nome: row.list_nome || '',
           prefixo_nome: row.prefixo_nome || `${DEMANDA_TIPO_LABELS[row.tipo as DemandaTipo]} - `,
           assignee_ids: Array.isArray(row.assignee_ids) ? row.assignee_ids.map(Number) : [],
+          status_inicial: row.status_inicial || '',
         };
       });
       setConfigs(base);
@@ -67,7 +71,8 @@ export function ClickUpDemandasConfigCard() {
       const data = await resp.json();
       if (!resp.ok) { toast.error(`Falha ao buscar membros: ${data?.error || resp.statusText}`); return; }
       setMembros((m) => ({ ...m, [tipo]: data.members || [] }));
-      toast.success(`${(data.members || []).length} membros carregados`);
+      setStatuses((s) => ({ ...s, [tipo]: data.statuses || [] }));
+      toast.success(`${(data.members || []).length} membros e ${(data.statuses || []).length} status carregados`);
     } catch (e: any) {
       toast.error(`Erro: ${e?.message}`);
     } finally {
@@ -84,6 +89,7 @@ export function ClickUpDemandasConfigCard() {
       const payload = {
         tipo, ativo: cfg.ativo, list_id: cfg.list_id.trim(), list_nome: cfg.list_nome.trim() || null,
         prefixo_nome: cfg.prefixo_nome, assignee_ids: cfg.assignee_ids, assignee_nomes: nomes,
+        status_inicial: cfg.status_inicial || null,
         updated_at: new Date().toISOString(),
       };
       const { data, error } = await supabase
@@ -130,6 +136,7 @@ export function ClickUpDemandasConfigCard() {
           {TIPOS.map((tipo) => {
             const cfg = configs[tipo];
             const lista = membros[tipo] || [];
+            const listaStatus = statuses[tipo] || [];
             return (
               <TabsContent key={tipo} value={tipo} className="space-y-4 pt-4">
                 <div className="flex items-center justify-between border rounded-lg p-3">
@@ -168,6 +175,38 @@ export function ClickUpDemandasConfigCard() {
                   <Input value={cfg.prefixo_nome} onChange={(e) => set(tipo, { prefixo_nome: e.target.value })} />
                   <p className="text-[11px] text-muted-foreground">
                     A task ficará como: <span className="font-mono">{cfg.prefixo_nome}Nome do cliente (PED-000)</span>
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Status inicial (coluna do quadro)</Label>
+                  {listaStatus.length === 0 ? (
+                    <Input
+                      value={cfg.status_inicial}
+                      onChange={(e) => set(tipo, { status_inicial: e.target.value })}
+                      placeholder="Ex.: DEMANDA VENDEDORES"
+                    />
+                  ) : (
+                    <Select
+                      value={cfg.status_inicial || '__default__'}
+                      onValueChange={(v) => set(tipo, { status_inicial: v === '__default__' ? '' : v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Status padrão da lista" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Status padrão da lista</SelectItem>
+                        {listaStatus.map((s) => (
+                          <SelectItem key={s.status} value={s.status}>
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full" style={{ background: s.color || 'currentColor' }} />
+                              {s.status}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    A task cai direto nessa coluna do quadro (ex.: <strong>DEMANDA VENDEDORES</strong>). Clique em atualizar a lista para carregar as colunas.
                   </p>
                 </div>
 
