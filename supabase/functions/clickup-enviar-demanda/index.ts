@@ -60,10 +60,12 @@ function descricaoMarkdown(d: any, numeroPedido: string) {
     L.push(`- **Nome da marca:** ${dados.sem_marca ? 'Sem marca ainda' : dados.nome_marca || '—'}`);
     L.push(`- **Posicionamento:** ${dados.posicionamento || '—'}`);
     L.push(`- **Estrutura:** ${dados.estrutura || '—'}`);
-    L.push(`- **Orçamento de marca pensado em:** ${dados.orcamento_qtd_rotulos ? `${dados.orcamento_qtd_rotulos} rótulos comprados` : '—'}`);
-    L.push(`- **Produção pensada em:** ${(dados.locais_producao || []).join(', ') || '—'}`);
     (dados.produtos || []).forEach((p: any, i: number) => {
+      const orcRot = p.orcamento_qtd_rotulos ?? dados.orcamento_qtd_rotulos;
+      const locais = (p.locais_producao?.length ? p.locais_producao : dados.locais_producao) || [];
       L.push(`- **Produto ${i + 1}:** ${p.nome_indefinido ? 'Nome indefinido ainda' : p.nome_produto || '—'} | ${p.tipo_produto || '—'} | ${p.quantidade_potes || 0} potes vendidos | Segmento: ${p.segmento || '—'}`);
+      L.push(`  - Orçamento de marca pensado em: ${orcRot ? `${orcRot} rótulos comprados` : '—'}`);
+      L.push(`  - Produção pensada em: ${locais.join(', ') || '—'}`);
     });
   } else if (d.tipo === 'criativos') {
     (dados.produtos || []).forEach((p: any) => {
