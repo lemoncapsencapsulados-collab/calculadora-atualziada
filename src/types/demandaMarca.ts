@@ -21,7 +21,8 @@ export const DEMANDA_STATUS_LABELS: Record<DemandaStatus, string> = {
   concluida: 'Concluída',
 };
 
-export const TIPOS_PAPEL = ['Metalizado', 'Perolizado', 'Transparente'] as const;
+export const TIPOS_PAPEL = ['Metalizado', 'Perolizado', 'Transparente', 'Personalizado'] as const;
+export const LOCAIS_PRODUCAO = ['Cuiabá', 'Sergio', 'São Paulo Premium'] as const;
 export const TIPOS_PRODUTO = ['Encapsulado', 'Líquido', 'Gummy', 'Solúvel'] as const;
 export const POSICIONAMENTOS = ['Premium', 'Intermediária', 'Popular'] as const;
 export const ESTRUTURAS_ROTULO = ['Minimalista', 'Moderno', 'Clássico'] as const;
@@ -86,6 +87,8 @@ export interface DadosRotulo {
   sem_marca: boolean;
   posicionamento: string;
   estrutura: string;
+  orcamento_qtd_rotulos?: number;
+  locais_producao?: string[];
   produtos: ProdutoRotulo[];
   observacoes?: string;
 }

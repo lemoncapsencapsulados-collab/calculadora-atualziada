@@ -9,7 +9,7 @@ import { Plus, Trash2, Upload, FileDown, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ArquivoDemanda, DadosRotulo, ESTRUTURAS_ROTULO, POSICIONAMENTOS,
-  ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
+  LOCAIS_PRODUCAO, ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
 } from '@/types/demandaMarca';
 import { baixarArquivoDemanda, removerArquivoDemanda, uploadArquivoDemanda } from '@/hooks/useDemandasMarca';
 import { ResumoProdutoLinha } from './ProdutosPedidoResumo';
@@ -44,6 +44,8 @@ const FormRotulo = ({
       sem_marca: false,
       posicionamento: '',
       estrutura: '',
+      orcamento_qtd_rotulos: 0,
+      locais_producao: [],
       produtos: produtosPedido.length
         ? produtosPedido.map((p) => ({
             tipo_produto: p.tipo_produto,
@@ -99,6 +101,10 @@ const FormRotulo = ({
     if (!dados.sem_marca && !dados.nome_marca.trim()) return toast.error('Informe o nome da marca ou marque "Sem marca ainda".');
     if (!dados.posicionamento) return toast.error('Selecione o posicionamento da marca.');
     if (!dados.estrutura) return toast.error('Selecione a estrutura do rótulo.');
+    if (!dados.orcamento_qtd_rotulos || dados.orcamento_qtd_rotulos <= 0)
+      return toast.error('Informe em quantos rótulos comprados o orçamento de marca foi pensado.');
+    if (!dados.locais_producao?.length)
+      return toast.error('Selecione ao menos um local de produção considerado no orçamento do rótulo.');
     if (!dados.produtos.length) return toast.error('Adicione ao menos um produto.');
     for (const p of dados.produtos) {
       if (!p.nome_indefinido && !p.nome_produto.trim()) return toast.error('Informe o nome de cada produto ou marque "Nome indefinido".');
@@ -172,6 +178,42 @@ const FormRotulo = ({
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Orçamento de marca pensado em (rótulos comprados) *</Label>
+          <Input
+            type="number" min={0}
+            value={dados.orcamento_qtd_rotulos || ''}
+            placeholder="Ex.: 1000"
+            onChange={(e) => setDados({ ...dados, orcamento_qtd_rotulos: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div>
+          <Label className="text-xs">Orçamento de rótulo pensado na produção feita em *</Label>
+          <div className="mt-2 flex flex-wrap gap-4">
+            {LOCAIS_PRODUCAO.map((local) => {
+              const marcado = (dados.locais_producao || []).includes(local);
+              return (
+                <label key={local} className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox
+                    checked={marcado}
+                    onCheckedChange={(v) =>
+                      setDados({
+                        ...dados,
+                        locais_producao: v
+                          ? [...(dados.locais_producao || []), local]
+                          : (dados.locais_producao || []).filter((x) => x !== local),
+                      })
+                    }
+                  />
+                  {local}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-xs font-semibold">Produtos do rótulo *</Label>
@@ -203,7 +245,7 @@ const FormRotulo = ({
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Quantidade de potes</Label>
+                  <Label className="text-xs">Quantidade de Potes Vendidos</Label>
                   <Input
                     type="number" min={0} value={p.quantidade_potes || ''}
                     onChange={(e) => setProduto(idx, { quantidade_potes: Number(e.target.value) || 0 })}
