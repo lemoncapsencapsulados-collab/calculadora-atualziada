@@ -9,7 +9,7 @@ import { Plus, Trash2, Upload, FileDown, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   ArquivoDemanda, DadosRotulo, ESTRUTURAS_ROTULO, POSICIONAMENTOS,
-  LOCAIS_PRODUCAO, ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
+  LOCAIS_PRODUCAO, minimoRotulos, ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,
 } from '@/types/demandaMarca';
 import { baixarArquivoDemanda, removerArquivoDemanda, uploadArquivoDemanda } from '@/hooks/useDemandasMarca';
 import { ResumoProdutoLinha } from './ProdutosPedidoResumo';
@@ -32,20 +32,32 @@ const novoProduto = (): ProdutoRotulo => ({
   nome_indefinido: false,
   quantidade_potes: 0,
   segmento: '',
+  orcamento_qtd_rotulos: 0,
+  locais_producao: [],
 });
 
 const FormRotulo = ({
   pedidoId, produtosPedido, valorInicial, arquivosIniciais, salvando, onCancelar, onSalvar,
 }: Props) => {
-  const [dados, setDados] = useState<DadosRotulo>(
-    valorInicial ?? {
+  const [dados, setDados] = useState<DadosRotulo>(() => {
+    if (valorInicial) {
+      // Compatibilidade: demandas antigas guardavam esses campos no nível global
+      return {
+        ...valorInicial,
+        produtos: (valorInicial.produtos || []).map((p) => ({
+          ...p,
+          orcamento_qtd_rotulos:
+            p.orcamento_qtd_rotulos ?? valorInicial.orcamento_qtd_rotulos ?? minimoRotulos(p.quantidade_potes),
+          locais_producao: p.locais_producao ?? valorInicial.locais_producao ?? [],
+        })),
+      };
+    }
+    return {
       tipo_papel: '',
       nome_marca: '',
       sem_marca: false,
       posicionamento: '',
       estrutura: '',
-      orcamento_qtd_rotulos: 0,
-      locais_producao: [],
       produtos: produtosPedido.length
         ? produtosPedido.map((p) => ({
             tipo_produto: p.tipo_produto,
@@ -53,11 +65,13 @@ const FormRotulo = ({
             nome_indefinido: false,
             quantidade_potes: p.quantidade,
             segmento: p.segmento || '',
+            orcamento_qtd_rotulos: minimoRotulos(p.quantidade),
+            locais_producao: [] as string[],
           }))
         : [novoProduto()],
       observacoes: '',
-    },
-  );
+    };
+  });
   const [arquivos, setArquivos] = useState<ArquivoDemanda[]>(arquivosIniciais ?? []);
   const [enviando, setEnviando] = useState(false);
 
