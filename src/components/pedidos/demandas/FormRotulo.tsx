@@ -115,15 +115,19 @@ const FormRotulo = ({
     if (!dados.sem_marca && !dados.nome_marca.trim()) return toast.error('Informe o nome da marca ou marque "Sem marca ainda".');
     if (!dados.posicionamento) return toast.error('Selecione o posicionamento da marca.');
     if (!dados.estrutura) return toast.error('Selecione a estrutura do rótulo.');
-    if (!dados.orcamento_qtd_rotulos || dados.orcamento_qtd_rotulos <= 0)
-      return toast.error('Informe em quantos rótulos comprados o orçamento de marca foi pensado.');
-    if (!dados.locais_producao?.length)
-      return toast.error('Selecione ao menos um local de produção considerado no orçamento do rótulo.');
     if (!dados.produtos.length) return toast.error('Adicione ao menos um produto.');
-    for (const p of dados.produtos) {
+    for (const [i, p] of dados.produtos.entries()) {
+      const rotulo = p.nome_indefinido || !p.nome_produto ? `Produto ${i + 1}` : p.nome_produto;
       if (!p.nome_indefinido && !p.nome_produto.trim()) return toast.error('Informe o nome de cada produto ou marque "Nome indefinido".');
       if (!p.segmento) return toast.error('Selecione o segmento de cada produto.');
       if (!p.quantidade_potes || p.quantidade_potes <= 0) return toast.error('Informe a quantidade de potes de cada produto.');
+      const minimo = minimoRotulos(p.quantidade_potes);
+      if (!p.orcamento_qtd_rotulos || p.orcamento_qtd_rotulos <= 0)
+        return toast.error(`${rotulo}: informe o orçamento de rótulos comprados (mínimo ${minimo}).`);
+      if (p.orcamento_qtd_rotulos < minimo)
+        return toast.error(`${rotulo}: o orçamento de rótulos precisa ser de no mínimo ${minimo} (50% a mais que ${p.quantidade_potes} potes vendidos).`);
+      if (!p.locais_producao?.length)
+        return toast.error(`${rotulo}: selecione ao menos um local de produção considerado no orçamento.`);
     }
     onSalvar(dados, arquivos);
   };
