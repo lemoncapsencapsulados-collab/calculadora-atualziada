@@ -310,8 +310,16 @@ const DetalhesPedidoDialog = ({
                 {marca.length > 0 && (
                   <>
                     <Separator />
-                    <Section icon={Layers} title="Serviços de Marca">
-                      <div className="space-y-2">{marca.map(renderItem)}</div>
+                    <Section icon={Layers} title="Setup Contratado — Entregáveis">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center rounded-lg bg-primary/10 px-3 py-2">
+                          <span className="text-sm font-semibold">Total do Setup</span>
+                          <span className="text-sm font-bold text-primary">
+                            {formatCurrency(marca.reduce((acc: number, s: any) => acc + (Number(s.valor) || 0), 0))}
+                          </span>
+                        </div>
+                        {marca.map(renderItem)}
+                      </div>
                     </Section>
                   </>
                 )}
