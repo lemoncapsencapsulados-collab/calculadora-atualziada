@@ -394,12 +394,13 @@ export function buildPlanosSelecionados(
   planos: SetupPlano[],
   selecionados: Record<string, number>
 ): PlanoSelecionado[] {
+  const blackAtivo = planos.some((p) => isPlanoBlack(p) && (selecionados[p.id] || 0) > 0);
   return planos
     .filter((p) => (selecionados[p.id] || 0) > 0)
     .map((p) => ({
       plano_id: p.id,
       nome: p.nome,
-      preco_unitario: p.preco_fixo,
+      preco_unitario: precoEfetivo(p, blackAtivo),
       quantidade: selecionados[p.id],
       descricao: p.descricao_curta,
       entregaveis_md: p.entregaveis_md,
