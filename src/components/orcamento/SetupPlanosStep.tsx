@@ -19,6 +19,22 @@ export interface PlanoSelecionado {
   perfil: SetupPlanoPerfil;
 }
 
+const PRECO_LP_BLACK = 499.9;
+
+export function isAvulso(p: SetupPlano) {
+  return (p.descricao_curta || '').trim().toLowerCase() === 'entregável avulso';
+}
+
+export function isPlanoBlack(p: SetupPlano) {
+  return p.nome.toUpperCase().includes('BLACK');
+}
+
+/** Preço efetivo: entregáveis avulsos ganham desconto quando há Plano Black no orçamento */
+export function precoEfetivo(p: SetupPlano, blackAtivo: boolean) {
+  if (isAvulso(p) && blackAtivo) return PRECO_LP_BLACK;
+  return p.preco_fixo;
+}
+
 interface Props {
   perfil: SetupPlanoPerfil | null;
   onPerfilChange: (p: SetupPlanoPerfil | null) => void;
