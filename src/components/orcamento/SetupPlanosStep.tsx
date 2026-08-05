@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings2, ArrowLeft, Sparkles, Trophy, AlertTriangle, Plus, Minus, Store, Lock } from 'lucide-react';
+import { Settings2, ArrowLeft, Sparkles, Trophy, AlertTriangle, Plus, Minus, Store, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
 import { useSetupPlanos, SetupPlano, SetupPlanoPerfil, parseEntregaveisMd } from '@/hooks/useSetupPlanos';
@@ -211,68 +211,93 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {planos.map((p) => {
           const qtd = selecionados[p.id] || 0;
           const sel = qtd > 0;
-          const bullets = parseEntregaveisMd(p.entregaveis_md);
+          const bullets = parseEntregaveisMd(p.entregaveis_md).map((b) =>
+            b.replace(/\*\*/g, '').replace(/^[✅❌🤝]\s*/u, '').trim()
+          );
           return (
-            <Card key={p.id} className={cn('transition-all', sel && 'border-primary ring-1 ring-primary/30')}>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="font-bold text-base">{p.nome}</h4>
-                      <span className="text-base font-semibold text-primary">{formatCurrency(p.preco_fixo)}</span>
+            <Card
+              key={p.id}
+              className={cn(
+                'flex flex-col overflow-hidden transition-all',
+                sel ? 'border-primary ring-2 ring-primary/30 shadow-md' : 'hover:border-primary/40'
+              )}
+            >
+              <CardContent className="p-0 flex flex-col flex-1">
+                {/* Cabeçalho */}
+                <div className={cn('px-4 pt-4 pb-3', sel ? 'bg-primary/10' : 'bg-muted/40')}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-lg tracking-tight uppercase">{p.nome}</h4>
+                      {p.descricao_curta && (
+                        <Badge variant="secondary" className="mt-1.5 text-[11px] font-semibold">
+                          {p.descricao_curta}
+                        </Badge>
+                      )}
                     </div>
-                    {p.descricao_curta && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{p.descricao_curta}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setQtd(p.id, qtd - 1)}
-                      disabled={qtd <= 0}
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </Button>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="w-14 h-8 text-center"
-                      value={qtd}
-                      onChange={(e) => setQtd(p.id, parseInt(e.target.value) || 0)}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setQtd(p.id, qtd + 1)}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setQtd(p.id, qtd - 1)}
+                        disabled={qtd <= 0}
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={0}
+                        className="w-14 h-8 text-center"
+                        value={qtd}
+                        onChange={(e) => setQtd(p.id, parseInt(e.target.value) || 0)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setQtd(p.id, qtd + 1)}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                {bullets.length > 0 && (
-                  <div className="ml-1 pl-3 border-l-2 border-primary/20 space-y-1">
+                {/* Entregáveis */}
+                <div className="px-4 py-3 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Entregáveis
+                  </p>
+                  <ul className="space-y-1.5">
                     {bullets.map((b, i) => (
-                      <p key={i} className="text-xs text-foreground/80 whitespace-pre-wrap">{b}</p>
+                      <li key={i} className="flex items-start gap-2 text-sm leading-snug">
+                        <Check className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
+                        <span className="text-foreground/90">{b}</span>
+                      </li>
                     ))}
-                  </div>
-                )}
+                  </ul>
+                </div>
 
-                {sel && (
-                  <div className="flex justify-end text-sm font-semibold">
-                    Subtotal: <span className="ml-2 text-primary">{formatCurrency(p.preco_fixo * qtd)}</span>
+                {/* Preço */}
+                <div className="border-t px-4 py-3 flex items-center justify-between bg-card">
+                  <span className="text-xs text-muted-foreground">Investimento</span>
+                  <div className="text-right">
+                    <div className="text-xl font-extrabold text-primary leading-none">
+                      {formatCurrency(p.preco_fixo)}
+                    </div>
+                    {sel && qtd > 1 && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Subtotal ({qtd}x): <strong>{formatCurrency(p.preco_fixo * qtd)}</strong>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           );
