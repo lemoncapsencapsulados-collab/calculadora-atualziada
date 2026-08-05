@@ -234,10 +234,12 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {planos.map((p) => {
+      {(() => {
+        const renderCard = (p: SetupPlano) => {
           const qtd = selecionados[p.id] || 0;
           const sel = qtd > 0;
+          const preco = precoEfetivo(p, blackAtivo);
+          const comDesconto = isAvulso(p) && blackAtivo;
           const bullets = parseEntregaveisMd(p.entregaveis_md).map((b) =>
             b.replace(/\*\*/g, '').replace(/^[✅❌🤝]\s*/u, '').trim()
           );
@@ -258,6 +260,11 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
                       {p.descricao_curta && (
                         <Badge variant="secondary" className="mt-1.5 text-[11px] font-semibold">
                           {p.descricao_curta}
+                        </Badge>
+                      )}
+                      {comDesconto && (
+                        <Badge className="mt-1.5 ml-1.5 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-600">
+                          Desconto Plano Black aplicado
                         </Badge>
                       )}
                     </div>
@@ -311,12 +318,17 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
                 <div className="border-t px-4 py-3 flex items-center justify-between bg-card">
                   <span className="text-xs text-muted-foreground">Investimento</span>
                   <div className="text-right">
+                    {comDesconto && (
+                      <div className="text-xs text-muted-foreground line-through">
+                        {formatCurrency(p.preco_fixo)}
+                      </div>
+                    )}
                     <div className="text-xl font-extrabold text-primary leading-none">
-                      {formatCurrency(p.preco_fixo)}
+                      {formatCurrency(preco)}
                     </div>
                     {sel && qtd > 1 && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        Subtotal ({qtd}x): <strong>{formatCurrency(p.preco_fixo * qtd)}</strong>
+                        Subtotal ({qtd}x): <strong>{formatCurrency(preco * qtd)}</strong>
                       </div>
                     )}
                   </div>
@@ -324,8 +336,28 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
               </CardContent>
             </Card>
           );
-        })}
-      </div>
+        };
+
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {planosCatalogo.map(renderCard)}
+            </div>
+
+            {avulsos.length > 0 && (
+              <div className="space-y-3">
+                <div>
+                  <h4 className="font-semibold text-base">Entregáveis avulsos</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Podem ser somados a qualquer plano. Clientes com Plano Black têm preço promocional.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{avulsos.map(renderCard)}</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {totalSetup > 0 && (
         <Card className="bg-primary/5 border-primary/30">
