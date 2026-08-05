@@ -40,9 +40,16 @@ const SetupPlanosStep = ({ perfil, onPerfilChange, selecionados, onSelecionadosC
   const planosPerfil = perfil === 'revenda_lemon' ? undefined : perfil ?? undefined;
   const { data: planos = [], isLoading } = useSetupPlanos(planosPerfil);
 
+  const planosCatalogo = useMemo(() => planos.filter((p) => !isAvulso(p)), [planos]);
+  const avulsos = useMemo(() => planos.filter((p) => isAvulso(p)), [planos]);
+  const blackAtivo = useMemo(
+    () => planos.some((p) => isPlanoBlack(p) && (selecionados[p.id] || 0) > 0),
+    [planos, selecionados]
+  );
+
   const totalSetup = useMemo(() => {
-    return planos.reduce((acc, p) => acc + (selecionados[p.id] || 0) * p.preco_fixo, 0);
-  }, [planos, selecionados]);
+    return planos.reduce((acc, p) => acc + (selecionados[p.id] || 0) * precoEfetivo(p, blackAtivo), 0);
+  }, [planos, selecionados, blackAtivo]);
 
   const setQtd = (id: string, qtd: number) => {
     const q = Math.max(0, Math.floor(qtd));
