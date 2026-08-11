@@ -70,13 +70,6 @@ export interface InsightDashboard {
   };
 }
 
-export interface EvolucaoTemporal {
-  periodo: string;
-  faturamento: number;
-  vendas: number;
-  recorrencia: number;
-}
-
 export interface Recompra {
   id: string;
   nome_cliente: string;
@@ -114,22 +107,6 @@ export interface PerfilCliente {
   cidade?: string;
   estado?: string;
   tipoDocumento: 'cpf' | 'cnpj' | 'desconhecido';
-}
-
-export interface DistribuicaoCanal {
-  canal: string;
-  clientes: number;
-  faturamento: number;
-  ticketMedio: number;
-}
-
-export interface DistribuicaoConsultorStatus {
-  consultor: string;
-  aguardando_producao: number;
-  no_estoque: number;
-  enviado: number;
-  concluido: number;
-  total: number;
 }
 
 export interface OrcamentosPorConsultorStatus {

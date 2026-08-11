@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { differenceInDays, parseISO, format, startOfMonth, endOfMonth, subMonths, startOfDay } from 'date-fns';
+import { differenceInDays, parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type {
   DashboardFiltros,
@@ -11,9 +11,6 @@ import type {
   ProdutoVendido,
   MixVendas,
   InsightDashboard,
-  EvolucaoTemporal,
-  DistribuicaoCanal,
-  DistribuicaoConsultorStatus,
   OrcamentosPorConsultorStatus
 } from '@/types/dashboard';
 
@@ -187,11 +184,18 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     });
   }, [pedidos, filtros]);
 
-  // Orçamentos filtrados por consultor (sem filtro de período para visão completa do funil)
+  // Orçamentos filtrados por consultor E período (data de criação)
   const orcamentosFiltrados = useMemo(() => {
-    if (!filtros.consultor) return todosOrcamentos;
-    return todosOrcamentos.filter(o => o.consultor_responsavel === filtros.consultor);
-  }, [todosOrcamentos, filtros.consultor]);
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
+    return todosOrcamentos.filter(o => {
+      if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) return false;
+      const ref = (o.created_at || '').substring(0, 10);
+      if (!ref) return false;
+      return ref >= inicioStr && ref <= fimStr;
+    });
+  }, [todosOrcamentos, filtros.consultor, filtros.dataInicio, filtros.dataFim]);
 
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
@@ -562,67 +566,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     return resultado;
   }, [pedidosFiltrados, orcamentosFiltrados, orcamentosPorConsultorStatus, mixVendas, kpis, rankingConsultores]);
 
-  const evolucaoTemporal = useMemo((): EvolucaoTemporal[] => {
-    const meses: EvolucaoTemporal[] = [];
-    const hoje = new Date();
-    
-    for (let i = 5; i >= 0; i--) {
-      const mesRef = subMonths(hoje, i);
-      const inicio = startOfMonth(mesRef);
-      const fim = endOfMonth(mesRef);
-      
-      const pedidosDoMes = pedidos.filter(p => {
-        const dataPgto = getSnap(p).data_pagamento;
-        if (!dataPgto) return false;
-        const data = parseISO(dataPgto);
-        return data >= inicio && data <= fim;
-      });
-      
-      meses.push({
-        periodo: format(mesRef, 'MMM/yy', { locale: ptBR }),
-        faturamento: pedidosDoMes.reduce((acc, p) => acc + getSnapValorEfetivo(getSnap(p)), 0),
-        vendas: pedidosDoMes.length,
-        recorrencia: 0
-      });
-    }
-    
-    return meses;
-  }, [pedidos]);
-
-  const distribuicaoCanais = useMemo((): DistribuicaoCanal[] => {
-    const canais = new Map<string, { clientes: Set<string>; faturamento: number }>();
-    
-    pedidosFiltrados.forEach(p => {
-      const snap = getSnap(p);
-      const dados = snap.dados_cliente as { locais_fisicos?: boolean; venda_digital?: boolean; forma_venda?: string } | null;
-      let canal = 'Não informado';
-      
-      if (dados) {
-        if (dados.forma_venda === 'ambas' || (dados.locais_fisicos && dados.venda_digital)) {
-          canal = 'Ambos';
-        } else if (dados.forma_venda === 'locais_fisicos' || dados.locais_fisicos) {
-          canal = 'Físico';
-        } else if (dados.forma_venda === 'venda_digital' || dados.venda_digital) {
-          canal = 'Digital';
-        }
-      }
-      
-      const atual = canais.get(canal) || { clientes: new Set<string>(), faturamento: 0 };
-      atual.clientes.add(snap.nome_cliente || '');
-      atual.faturamento += getSnapValorEfetivo(snap);
-      canais.set(canal, atual);
-    });
-    
-    return Array.from(canais.entries())
-      .map(([canal, dados]) => ({
-        canal,
-        clientes: dados.clientes.size,
-        faturamento: dados.faturamento,
-        ticketMedio: dados.clientes.size > 0 ? dados.faturamento / dados.clientes.size : 0
-      }))
-      .sort((a, b) => b.faturamento - a.faturamento);
-  }, [pedidosFiltrados]);
-
   const clientesPorModelo = useMemo(() => {
     const porConsultor = new Map<string, { estoque: { qtd: number; valor: number }; pod: { qtd: number; valor: number } }>();
 
@@ -646,33 +589,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       .sort((a, b) => (b.estoque.valor + b.pod.valor) - (a.estoque.valor + a.pod.valor));
   }, [pedidosFiltrados]);
 
-  const distribuicaoConsultorStatus = useMemo((): DistribuicaoConsultorStatus[] => {
-    const porConsultor = new Map<string, { aguardando_producao: number; no_estoque: number; enviado: number; concluido: number }>();
-
-    const pedidosParaDistribuicao = filtros.consultor 
-      ? pedidos.filter(p => getSnap(p).consultor_responsavel === filtros.consultor)
-      : pedidos;
-
-    pedidosParaDistribuicao.forEach(p => {
-      const snap = getSnap(p);
-      const consultor = snap.consultor_responsavel || 'Sem Consultor';
-      const atual = porConsultor.get(consultor) || { aguardando_producao: 0, no_estoque: 0, enviado: 0, concluido: 0 };
-      const status = p.status?.toLowerCase() || 'aguardando_producao';
-      if (status in atual) {
-        (atual as Record<string, number>)[status] += 1;
-      }
-      porConsultor.set(consultor, atual);
-    });
-
-    return Array.from(porConsultor.entries())
-      .map(([consultor, dados]) => ({
-        consultor,
-        ...dados,
-        total: dados.aguardando_producao + dados.no_estoque + dados.enviado + dados.concluido
-      }))
-      .sort((a, b) => b.total - a.total);
-  }, [pedidos, filtros.consultor]);
-
   return {
     orcamentos: pedidosFiltrados,
     consultoresUnicos,
@@ -682,9 +598,6 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     produtosMaisVendidos,
     mixVendas,
     insights,
-    evolucaoTemporal,
-    distribuicaoCanais,
-    distribuicaoConsultorStatus,
     vendasPorTipo,
     clientesPorModelo,
     orcamentosPorConsultorStatus,

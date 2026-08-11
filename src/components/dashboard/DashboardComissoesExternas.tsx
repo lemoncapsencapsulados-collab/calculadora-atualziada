@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, addMonths } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,18 @@ type Consulta = {
 };
 
 export function DashboardComissoesExternas({ filtros }: { filtros: DashboardFiltros }) {
-  const mesRef = useMemo(() => format(filtros.dataInicio, 'yyyy-MM'), [filtros.dataInicio]);
+  const meses = useMemo(() => {
+    const lista: string[] = [];
+    let cursor = startOfMonth(filtros.dataInicio);
+    const limite = startOfMonth(filtros.dataFim);
+    while (cursor <= limite && lista.length < 36) {
+      lista.push(format(cursor, 'yyyy-MM'));
+      cursor = addMonths(cursor, 1);
+    }
+    return lista.length > 0 ? lista : [format(filtros.dataInicio, 'yyyy-MM')];
+  }, [filtros.dataInicio, filtros.dataFim]);
+  const mesesKey = meses.join(',');
+  const periodoLabel = meses.length === 1 ? meses[0] : `${meses[0]} a ${meses[meses.length - 1]}`;
   const consultorFiltro = filtros.consultor;
 
   const [monetizze, setMonetizze] = useState<Consulta[]>([]);
@@ -28,8 +39,8 @@ export function DashboardComissoesExternas({ filtros }: { filtros: DashboardFilt
   const carregar = async () => {
     const cols = 'consultor_nome, mes, quantidade_vendida, faturamento_total, comissao_total, valor_consultor';
     const [m, b] = await Promise.all([
-      supabase.from('monetizze_consultas_salvas').select(cols).eq('mes', mesRef),
-      supabase.from('braip_consultas_salvas').select(cols).eq('mes', mesRef),
+      supabase.from('monetizze_consultas_salvas').select(cols).in('mes', meses),
+      supabase.from('braip_consultas_salvas').select(cols).in('mes', meses),
     ]);
     setMonetizze((m.data as Consulta[]) || []);
     setBraip((b.data as Consulta[]) || []);
@@ -38,13 +49,13 @@ export function DashboardComissoesExternas({ filtros }: { filtros: DashboardFilt
   useEffect(() => {
     carregar();
     const ch = supabase
-      .channel(`dash-comissoes-externas-${mesRef}`)
+      .channel(`dash-comissoes-externas-${mesesKey}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monetizze_consultas_salvas' }, carregar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'braip_consultas_salvas' }, carregar)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mesRef]);
+  }, [mesesKey]);
 
   const filtraConsultor = (arr: Consulta[]) =>
     consultorFiltro ? arr.filter((c) => c.consultor_nome === consultorFiltro) : arr;
@@ -93,7 +104,7 @@ export function DashboardComissoesExternas({ filtros }: { filtros: DashboardFilt
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <TrendingUp className="w-4 h-4 text-primary" />
-            Comissões Externas — {mesRef}
+            Comissões Externas — {periodoLabel}
             {consultorFiltro && <Badge variant="secondary">{consultorFiltro}</Badge>}
           </CardTitle>
           <div className="text-right">
@@ -148,7 +159,7 @@ export function DashboardComissoesExternas({ filtros }: { filtros: DashboardFilt
 
         {vazio && (
           <p className="text-xs text-muted-foreground text-center py-2">
-            Nenhuma consulta salva para {mesRef}{consultorFiltro ? ` (${consultorFiltro})` : ''}. Salve em Painel Administrador → Comissionamento.
+            Nenhuma consulta salva para {periodoLabel}{consultorFiltro ? ` (${consultorFiltro})` : ''}. Salve em Painel Administrador → Comissionamento.
           </p>
         )}
       </CardContent>
