@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
-import { validarMargemPorTipo } from '@/lib/precificacaoCalculator';
+import { validarMargemPorTipo, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import { arredondarReais } from '@/lib/utils';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
@@ -186,12 +186,9 @@ export default function GerarOrcamentoDialog({
   const [precoDraft, setPrecoDraft] = useState<Record<number, string>>({});
   const [pendingPreco, setPendingPreco] = useState<{ index: number; novoPreco: number } | null>(null);
 
-  // Calcula margem efetiva (líquida) de um item dado preço e custo unitário
-  // Mesma fórmula do setup: margem = (1 - custo/preco - impostos) * 100, impostos = 16%
-  const calcMargemItem = (preco: number, custoUnit: number) => {
-    if (preco <= 0) return 0;
-    return (1 - custoUnit / preco - 0.16) * 100;
-  };
+  // Margem do item — mesma fórmula da tela de Precificação (imposto 12%)
+  const calcMargemItem = (preco: number, custoUnit: number) =>
+    calcularMargemLiquida(preco, custoUnit);
 
   // Retorna info de margem do item (ou null se não há custo conhecido)
   const getItemMargemInfo = (index: number) => {

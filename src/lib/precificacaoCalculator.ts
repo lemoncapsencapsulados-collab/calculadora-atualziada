@@ -14,7 +14,16 @@ interface CustosIndiretos {
 }
 
 const OVERHEAD_PADRAO = 3;
-const ALIQUOTA_IMPOSTO = 0.12;
+export const ALIQUOTA_IMPOSTO = 0.12;
+
+/**
+ * Margem líquida (%) = (1 - custo/preço - imposto) * 100
+ * Fonte única usada tanto na tela de Precificação quanto no Gerar Orçamento.
+ */
+export function calcularMargemLiquida(preco: number, custoUnit: number): number {
+  if (!preco || preco <= 0) return 0;
+  return (1 - custoUnit / preco - ALIQUOTA_IMPOSTO) * 100;
+}
 
 function overheadDaConfig(config: ConfiguracaoCustos | null | undefined): number {
   const v = Number((config as any)?.overhead_unitario);
