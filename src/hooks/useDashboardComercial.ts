@@ -11,9 +11,6 @@ import type {
   ProdutoVendido,
   MixVendas,
   InsightDashboard,
-  EvolucaoTemporal,
-  DistribuicaoCanal,
-  DistribuicaoConsultorStatus,
   OrcamentosPorConsultorStatus
 } from '@/types/dashboard';
 
