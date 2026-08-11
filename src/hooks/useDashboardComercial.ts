@@ -187,11 +187,18 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     });
   }, [pedidos, filtros]);
 
-  // Orçamentos filtrados por consultor (sem filtro de período para visão completa do funil)
+  // Orçamentos filtrados por consultor E período (data de criação)
   const orcamentosFiltrados = useMemo(() => {
-    if (!filtros.consultor) return todosOrcamentos;
-    return todosOrcamentos.filter(o => o.consultor_responsavel === filtros.consultor);
-  }, [todosOrcamentos, filtros.consultor]);
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
+    return todosOrcamentos.filter(o => {
+      if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) return false;
+      const ref = (o.created_at || '').substring(0, 10);
+      if (!ref) return false;
+      return ref >= inicioStr && ref <= fimStr;
+    });
+  }, [todosOrcamentos, filtros.consultor, filtros.dataInicio, filtros.dataFim]);
 
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
