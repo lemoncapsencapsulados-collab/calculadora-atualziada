@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { differenceInDays, parseISO, format, startOfMonth, endOfMonth, subMonths, startOfDay } from 'date-fns';
+import { differenceInDays, parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type {
   DashboardFiltros,
