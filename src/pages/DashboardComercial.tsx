@@ -1,15 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { LayoutDashboard, UserSearch } from 'lucide-react';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { useDashboardComercial } from '@/hooks/useDashboardComercial';
-import { useRecompras } from '@/hooks/useRecompras';
 import { DashboardKPIs } from '@/components/dashboard/DashboardKPIs';
 import { DashboardFiltrosComponent } from '@/components/dashboard/DashboardFiltros';
 import { DashboardVendas } from '@/components/dashboard/DashboardVendas';
-import { DashboardPipeline } from '@/components/dashboard/DashboardPipeline';
-import { DashboardRecorrencia } from '@/components/dashboard/DashboardRecorrencia';
 import { DashboardInsights } from '@/components/dashboard/DashboardInsights';
-import { DashboardGraficos } from '@/components/dashboard/DashboardGraficos';
 import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/components/dashboard/DashboardOrcamentos';
 import { DashboardAlteracoesPagamento } from '@/components/dashboard/DashboardAlteracoesPagamento';
 import { AnaliseVendedorDialog } from '@/components/dashboard/AnaliseVendedorDialog';
@@ -34,12 +30,9 @@ export default function DashboardComercial() {
     kpis,
     rankingConsultores,
     pipelineConsultores,
-    distribuicaoConsultorStatus,
     produtosMaisVendidos,
     mixVendas,
     insights,
-    evolucaoTemporal,
-    distribuicaoCanais,
     vendasPorTipo,
     clientesPorModelo,
     orcamentosPorConsultorStatus,
@@ -47,21 +40,7 @@ export default function DashboardComercial() {
     isLoading
   } = useDashboardComercial(filtros);
 
-  const {
-    recompras,
-    excluirRecompra,
-    calcularMetricas,
-    consultoresUnicos: consultoresRecompras
-  } = useRecompras();
-
-  const metricasRecorrencia = useMemo(() => {
-    return calcularMetricas(kpis.faturamentoTotal);
-  }, [calcularMetricas, kpis.faturamentoTotal]);
-
-  const todosConsultores = useMemo(() => {
-    const set = new Set([...consultoresUnicos, ...consultoresRecompras]);
-    return Array.from(set).sort();
-  }, [consultoresUnicos, consultoresRecompras]);
+  const todosConsultores = consultoresUnicos;
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
@@ -114,24 +93,8 @@ export default function DashboardComercial() {
         clientesPorModelo={clientesPorModelo}
       />
 
-      {/* Pipeline */}
-      <DashboardPipeline distribuicaoConsultorStatus={distribuicaoConsultorStatus} />
-
       {/* Alterações de Pagamento */}
       <DashboardAlteracoesPagamento dados={alteracoesPagamento} />
-
-      {/* Gráficos */}
-      <DashboardGraficos
-        evolucaoTemporal={evolucaoTemporal}
-        distribuicaoCanais={distribuicaoCanais}
-      />
-
-      {/* Recorrência */}
-      <DashboardRecorrencia
-        recompras={recompras}
-        metricas={metricasRecorrencia}
-        onExcluirRecompra={(id) => excluirRecompra.mutate(id)}
-      />
 
       {/* Orçamentos por Vendedor */}
       <DashboardOrcamentos dados={orcamentosPorConsultorStatus} />
