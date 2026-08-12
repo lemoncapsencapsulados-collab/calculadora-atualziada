@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,6 +36,16 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
   }, [insights, filtroTipo]);
 
   const totalPaginas = Math.ceil(insightsFiltrados.length / ITEMS_PER_PAGE);
+
+  // Quando o filtro global de período/consultor muda, a lista muda: volta para a
+  // primeira página e evita ficar numa página inexistente (tabela vazia).
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [insights]);
+
+  useEffect(() => {
+    if (paginaAtual > totalPaginas) setPaginaAtual(Math.max(1, totalPaginas));
+  }, [paginaAtual, totalPaginas]);
 
   const insightsPaginados = useMemo(() => {
     const start = (paginaAtual - 1) * ITEMS_PER_PAGE;
