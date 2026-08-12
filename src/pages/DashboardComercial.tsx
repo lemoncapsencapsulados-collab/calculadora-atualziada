@@ -76,13 +76,6 @@ export default function DashboardComercial() {
       {/* Comissões Externas (Monetizze + Braip) */}
       <DashboardComissoesExternas filtros={filtros} />
 
-      {/* Funil de Anúncios (Leads → Orçamentos → Vendas) */}
-      <DashboardFunilAnuncios
-        filtros={filtros}
-        rankingConsultores={rankingConsultores}
-        orcamentosPorConsultorStatus={orcamentosPorConsultorStatus}
-      />
-
       {/* Vendas e Ranking */}
       <DashboardVendas
         rankingConsultores={rankingConsultores}
@@ -104,6 +97,13 @@ export default function DashboardComercial() {
 
       {/* Insights */}
       <DashboardInsights insights={insights} />
+
+      {/* Funil de Anúncios (Leads → Orçamentos → Vendas) */}
+      <DashboardFunilAnuncios
+        filtros={filtros}
+        rankingConsultores={rankingConsultores}
+        orcamentosPorConsultorStatus={orcamentosPorConsultorStatus}
+      />
     </div>
   );
 }
