@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -34,7 +35,7 @@ const Section = ({ icon: Icon, title, children }: { icon: any; title: string; ch
   </div>
 );
 
-const InfoRow = ({ label, value }: { label: string; value?: string | number | null }) => {
+const InfoRow = ({ label, value }: { label: string; value?: React.ReactNode }) => {
   if (!value && value !== 0) return null;
   return (
     <div className="flex justify-between text-sm">
