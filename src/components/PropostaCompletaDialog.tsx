@@ -1000,7 +1000,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         condicoes_pagamento: condicoesPagamento,
       };
 
-      const blob = await generateOrcamentoPDFBlob(orcamentoAtualizado);
+      const blob = await generateOrcamentoPDFBlob(orcamentoAtualizado, { incluirIntermediador: true });
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
       setPdfBlob(blob);
@@ -1052,7 +1052,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       },
       condicoes_pagamento: condicoesPagamento,
     };
-    await generateOrcamentoPDF(orcamentoAtualizado);
+    await generateOrcamentoPDF(orcamentoAtualizado, { incluirIntermediador: true });
     onClose();
   };
 
