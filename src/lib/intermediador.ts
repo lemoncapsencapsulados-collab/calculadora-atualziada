@@ -92,3 +92,58 @@ export function percentualPadraoPorTipo(tipo: string | undefined): number {
 export function rotuloBaseIntermediador(base: IntermediadorOrcamento['tipo_base']): string {
   return base === 'recompra' ? 'Recompra' : 'Primeira compra';
 }
+
+export interface ItemComCusto {
+  nome: string;
+  preco_unitario: number;
+  quantidade: number;
+  custoUnit: number;
+}
+
+export interface ImpactoItemIntermediador {
+  nome: string;
+  precoUnitario: number;
+  quantidade: number;
+  custoUnit: number;
+  subtotal: number;
+  comissaoItem: number;
+  comissaoPorPote: number;
+  margemAntesPct: number;
+  margemDepoisPct: number;
+  quedaPp: number;
+  temCusto: boolean;
+}
+
+/**
+ * Impacto da comissão do intermediador por produto/pote.
+ * A comissão total é rateada proporcionalmente ao subtotal de cada item sobre a base.
+ */
+export function calcularImpactoPorItem(
+  itens: ItemComCusto[],
+  comissaoTotal: number,
+  base: number
+): ImpactoItemIntermediador[] {
+  return itens.map((it) => {
+    const preco = Number(it.preco_unitario) || 0;
+    const qtd = Number(it.quantidade) || 0;
+    const subtotal = preco * qtd;
+    const comissaoItem = base > 0 ? comissaoTotal * (subtotal / base) : 0;
+    const comissaoPorPote = qtd > 0 ? comissaoItem / qtd : 0;
+    const temCusto = (Number(it.custoUnit) || 0) > 0;
+    const margemAntesPct = temCusto ? calcularMargemLiquida(preco, it.custoUnit) : 0;
+    const quedaPp = preco > 0 ? (comissaoPorPote / preco) * 100 : 0;
+    return {
+      nome: it.nome,
+      precoUnitario: preco,
+      quantidade: qtd,
+      custoUnit: Number(it.custoUnit) || 0,
+      subtotal,
+      comissaoItem,
+      comissaoPorPote,
+      margemAntesPct,
+      margemDepoisPct: margemAntesPct - quedaPp,
+      quedaPp,
+      temCusto,
+    };
+  });
+}
