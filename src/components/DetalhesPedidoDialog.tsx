@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History, Clock,
+  User, Package, Layers, Wallet, Truck, Calendar, FileText, Info, History, Clock, Handshake,
 } from 'lucide-react';
 import { formatarCondicoesPagamento } from '@/lib/formatarPagamento';
+import { buildWhatsappUrl, formatTelefone } from '@/lib/whatsapp';
 import HistoricoPagamentoLista from '@/components/pedidos/HistoricoPagamentoLista';
 import HistoricoVhsysLista from '@/components/pedidos/HistoricoVhsysLista';
 
@@ -58,6 +59,7 @@ const DetalhesPedidoDialog = ({
   const servicos = snap?.servicos_marca || [];
   const condicoes = snap?.condicoes_pagamento || {};
   const frete = snap?.detalhamento_frete || {};
+  const intermediador = snap?.intermediador;
 
   const formaVendaLabel = (v: string) => {
     if (v === 'locais_fisicos') return 'Locais Físicos';
@@ -100,6 +102,37 @@ const DetalhesPedidoDialog = ({
                     </span>
                   </div>
                 )}
+              </div>
+            </Section>
+          )}
+
+          {/* Intermediador (uso interno) */}
+          {intermediador?.nome && (
+            <Section icon={Handshake} title="Intermediador">
+              <div className="space-y-1 bg-muted/50 rounded-lg p-3">
+                <InfoRow label="Nome" value={intermediador.nome} />
+                <InfoRow
+                  label="WhatsApp"
+                  value={
+                    buildWhatsappUrl(intermediador.whatsapp, '') ? (
+                      <a
+                        href={buildWhatsappUrl(intermediador.whatsapp, 'Olá!') || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline"
+                      >
+                        {formatTelefone(intermediador.whatsapp)}
+                      </a>
+                    ) : (
+                      intermediador.whatsapp || '—'
+                    )
+                  }
+                />
+                <InfoRow
+                  label="Percentual"
+                  value={`${intermediador.percentual}% (${intermediador.tipo_base === 'recompra' ? 'Recompra' : 'Primeira compra'})`}
+                />
+                <InfoRow label="Comissão a pagar" value={formatCurrency(intermediador.valor_comissao || 0)} />
               </div>
             </Section>
           )}
