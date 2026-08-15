@@ -522,6 +522,16 @@ export default function GerarOrcamentoDialog({
     return acc + aux.custoUnit * (it.quantidade || 0);
   }, 0);
 
+  const itensComCustoIntermediador = itensProducao.map((it) => {
+    const aux = it.precificacao_id ? itemPrecoAux[it.precificacao_id] : null;
+    return {
+      nome: it.nome_produto,
+      preco_unitario: Number(it.preco_unitario) || 0,
+      quantidade: Number(it.quantidade) || 0,
+      custoUnit: aux?.custoUnit || 0,
+    };
+  });
+
   const percentualIntermediador = tipoOrcamento === 'recompra' ? percentualRecompra : percentualPrimeira;
   const intermediadorFinal =
     intermediadorAtivo && intermediadorNome.trim()
@@ -1971,6 +1981,7 @@ export default function GerarOrcamentoDialog({
             <ConfirmacaoIntermediadorStep
               subtotalProducao={subtotalProducao}
               custoProducao={custoProducaoTotal}
+              itensComCusto={itensComCustoIntermediador}
               subtotalSetup={precoVendaSetup}
               custoSetup={custoTotalSetup}
               totalEstabilidadeAnvisa={totalEstabilidadeAnvisa}
