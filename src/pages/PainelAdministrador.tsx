@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { HistoricoAlteracoes } from '@/components/admin/HistoricoAlteracoes';
 import { ConsultoresAdmin } from '@/components/admin/ConsultoresAdmin';
+import { IntermediadoresAdmin } from '@/components/admin/IntermediadoresAdmin';
 import { RelatorioComissoes } from '@/components/admin/RelatorioComissoes';
 import { OverheadConfigCard } from '@/components/admin/OverheadConfigCard';
 import { WebhooksConfigCard } from '@/components/admin/WebhooksConfigCard';
@@ -51,6 +52,7 @@ export default function PainelAdministrador() {
       <Tabs value={aba} onValueChange={setAba} className="space-y-4">
         <TabsList>
           <TabsTrigger value="consultores">Consultores</TabsTrigger>
+          <TabsTrigger value="intermediadores">Intermediadores</TabsTrigger>
           <TabsTrigger value="comissoes">Comissionamento</TabsTrigger>
           <TabsTrigger value="historico">Histórico de Alterações</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
@@ -59,6 +61,9 @@ export default function PainelAdministrador() {
         </TabsList>
         <TabsContent value="consultores">
           <ConsultoresAdmin />
+        </TabsContent>
+        <TabsContent value="intermediadores">
+          <IntermediadoresAdmin />
         </TabsContent>
         <TabsContent value="comissoes">
           <RelatorioComissoes />

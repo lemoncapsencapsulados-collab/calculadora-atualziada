@@ -1271,6 +1271,36 @@ export type Database = {
         }
         Relationships: []
       }
+      intermediadores: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          observacoes: string | null
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          observacoes?: string | null
+          updated_at?: string
+          whatsapp?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
       lotes: {
         Row: {
           codigo: string | null

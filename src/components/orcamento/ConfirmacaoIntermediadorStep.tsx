@@ -11,6 +11,8 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
 import { calcularResumoIntermediador, calcularImpactoPorItem, type ItemComCusto } from '@/lib/intermediador';
 import { formatTelefone, isTelefoneValido } from '@/lib/whatsapp';
+import { useIntermediadores } from '@/hooks/useIntermediadores';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Props {
   subtotalProducao: number;
@@ -55,6 +57,7 @@ export default function ConfirmacaoIntermediadorStep({
 }: Props) {
   const [askPwd, setAskPwd] = useState(false);
   const [edicaoLiberada, setEdicaoLiberada] = useState(false);
+  const { data: intermediadoresCadastrados = [] } = useIntermediadores(true);
 
   const isRecompra = tipoOrcamento === 'recompra';
   const percentual = isRecompra ? percentualRecompra : percentualPrimeira;
@@ -112,6 +115,29 @@ export default function ConfirmacaoIntermediadorStep({
             <span className="text-sm font-medium">Valor total do orçamento</span>
             <span className="text-xl font-bold text-primary">{formatCurrency(valorTotal)}</span>
           </div>
+          {ativo && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Comissão do intermediador ({percentual}%)
+                </span>
+                <span className="font-medium text-destructive">- {formatCurrency(resumo.comissao)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Custo de produção</span>
+                <span>- {formatCurrency(custoProducao)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Impostos sobre produção (12%)</span>
+                <span>- {formatCurrency(resumo.impostoProducao)}</span>
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Margem final Lemon Caps após comissão</span>
+                <span className="text-lg font-bold">{formatCurrency(resumo.margemProducaoDepois)}</span>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -131,6 +157,30 @@ export default function ConfirmacaoIntermediadorStep({
 
           {ativo && (
             <>
+              {intermediadoresCadastrados.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Intermediador cadastrado</Label>
+                  <Select
+                    onValueChange={(id) => {
+                      const i = intermediadoresCadastrados.find((x) => x.id === id);
+                      if (i) {
+                        onChangeNome(i.nome);
+                        onChangeWhatsapp(i.whatsapp || '');
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar cadastrado (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {intermediadoresCadastrados.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Nome do intermediador</Label>
