@@ -167,6 +167,14 @@ export interface DetalhamentoFrete {
 
 export type TipoOrcamento = 'novo_produtor' | 'recompra';
 
+export interface IntermediadorOrcamento {
+  nome: string;
+  whatsapp: string;
+  percentual: number;
+  tipo_base: 'primeira_compra' | 'recompra';
+  valor_comissao: number;
+}
+
 export type TipoContato = 'envio' | 'contato';
 
 export interface ContatoOrcamento {
