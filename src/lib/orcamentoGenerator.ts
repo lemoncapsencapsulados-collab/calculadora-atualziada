@@ -1134,6 +1134,34 @@ function renderObservacoes(doc: jsPDF, orcamento: Orcamento, yPos: number): numb
   return yPos + LAYOUT.sectionGap;
 }
 
+// Seção interna — só é renderizada no Projeto para Contrato (uso interno)
+function renderIntermediador(doc: jsPDF, orcamento: Orcamento, yPos: number): number {
+  const interm = (orcamento as any).intermediador;
+  if (!interm || !interm.nome) return yPos;
+
+  yPos = renderSectionTitle(doc, 'Intermediador (uso interno)', yPos);
+
+  doc.setFontSize(LAYOUT.fontSize.body);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...COLORS.textDark);
+
+  const base = interm.tipo_base === 'recompra' ? 'Recompra' : 'Primeira compra';
+  const linhas = [
+    `Nome: ${interm.nome}`,
+    `WhatsApp: ${interm.whatsapp || '—'}`,
+    `Percentual aplicado: ${interm.percentual}% (${base})`,
+    `Valor da comissão: ${formatCurrency(interm.valor_comissao || 0)}`,
+  ];
+
+  for (const linha of linhas) {
+    yPos = checkPageBreak(doc, yPos, LAYOUT.lineHeight);
+    doc.text(linha, LAYOUT.margin, yPos);
+    yPos += LAYOUT.lineHeight;
+  }
+
+  return yPos + LAYOUT.sectionGap;
+}
+
 function renderFooter(doc: jsPDF, orcamento: Orcamento): void {
   const totalPages = doc.getNumberOfPages();
   
@@ -1216,7 +1244,12 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
 
 // ========== FUNÇÃO PRINCIPAL ==========
 
-async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
+interface OrcamentoPDFOptions {
+  /** Inclui a seção interna de Intermediador (Projeto para Contrato). Nunca no PDF do cliente. */
+  incluirIntermediador?: boolean;
+}
+
+async function createOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<jsPDF> {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -1246,6 +1279,9 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
     yPos = renderCondicoesPagamento(doc, orcamento, yPos);
     yPos = renderFormaPagamento(doc, orcamento, yPos);
     yPos = renderObservacoes(doc, orcamento, yPos);
+    if (options.incluirIntermediador) {
+      yPos = renderIntermediador(doc, orcamento, yPos);
+    }
 
     // Footer e marca d'água em todas as páginas
     renderFooter(doc, orcamento);
@@ -1269,13 +1305,13 @@ async function createOrcamentoPDF(orcamento: Orcamento): Promise<jsPDF> {
 
 // ========== EXPORTS ==========
 
-export async function generateOrcamentoPDFBlob(orcamento: Orcamento): Promise<Blob> {
-  const doc = await createOrcamentoPDF(orcamento);
+export async function generateOrcamentoPDFBlob(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<Blob> {
+  const doc = await createOrcamentoPDF(orcamento, options);
   return doc.output('blob');
 }
 
-export async function generateOrcamentoPDF(orcamento: Orcamento): Promise<void> {
-  const doc = await createOrcamentoPDF(orcamento);
+export async function generateOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<void> {
+  const doc = await createOrcamentoPDF(orcamento, options);
   
   const nomeArquivo = orcamento.consultor_responsavel 
     ? `${orcamento.consultor_responsavel.replace(/\s+/g, '-')}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`
