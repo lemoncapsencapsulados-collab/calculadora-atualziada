@@ -97,7 +97,7 @@ export function useOrcamentos() {
         .from('orcamentos')
         .update({
           ...updates,
-          intermediador: (updates.intermediador ?? null) as any,
+          ...('intermediador' in updates ? { intermediador: (updates.intermediador ?? null) as any } : {}),
           itens_producao: updates.itens_producao as any,
           servicos_marca: updates.servicos_marca as any,
           dados_cliente: updates.dados_cliente as any,
