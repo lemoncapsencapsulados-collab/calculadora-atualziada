@@ -195,6 +195,7 @@ export interface OrcamentoSnapshot {
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
   condicoes_pagamento?: CondicoesPagamento;
+  intermediador?: IntermediadorOrcamento | null;
   subtotal_producao: number;
   subtotal_servicos: number;
   valor_total: number;
@@ -215,6 +216,7 @@ export interface Orcamento {
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
   condicoes_pagamento?: CondicoesPagamento;
+  intermediador?: IntermediadorOrcamento | null;
   subtotal_producao: number;
   subtotal_servicos: number;
   valor_total: number;
@@ -241,6 +243,7 @@ export interface OrcamentoInsert {
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
   condicoes_pagamento?: CondicoesPagamento;
+  intermediador?: IntermediadorOrcamento | null;
   subtotal_producao: number;
   subtotal_servicos: number;
   valor_total: number;
@@ -260,6 +263,7 @@ export interface OrcamentoUpdate {
   dados_cliente?: DadosCliente;
   detalhamento_frete?: DetalhamentoFrete;
   condicoes_pagamento?: CondicoesPagamento;
+  intermediador?: IntermediadorOrcamento | null;
   subtotal_producao?: number;
   subtotal_servicos?: number;
   valor_total?: number;
