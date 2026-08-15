@@ -9,12 +9,13 @@ import { Switch } from '@/components/ui/switch';
 import { Handshake, Lock, LockOpen, Receipt } from 'lucide-react';
 import { formatCurrency } from '@/lib/unitConversion';
 import { AdminPasswordDialog } from '@/components/admin/AdminPasswordDialog';
-import { calcularResumoIntermediador } from '@/lib/intermediador';
+import { calcularResumoIntermediador, calcularImpactoPorItem, type ItemComCusto } from '@/lib/intermediador';
 import { formatTelefone, isTelefoneValido } from '@/lib/whatsapp';
 
 interface Props {
   subtotalProducao: number;
   custoProducao: number;
+  itensComCusto: ItemComCusto[];
   subtotalSetup: number;
   custoSetup: number;
   totalEstabilidadeAnvisa: number;
@@ -35,6 +36,7 @@ interface Props {
 export default function ConfirmacaoIntermediadorStep({
   subtotalProducao,
   custoProducao,
+  itensComCusto,
   subtotalSetup,
   custoSetup,
   totalEstabilidadeAnvisa,
@@ -66,6 +68,16 @@ export default function ConfirmacaoIntermediadorStep({
   });
 
   const telefoneInvalido = ativo && whatsapp.trim() !== '' && !isTelefoneValido(whatsapp);
+
+  const impactos = calcularImpactoPorItem(itensComCusto, resumo.comissao, resumo.base);
+  const quedaMediaPp =
+    subtotalProducao > 0
+      ? impactos.reduce((acc, i) => acc + i.quedaPp * (i.subtotal / subtotalProducao), 0)
+      : 0;
+  const margemProducaoAntesPct =
+    subtotalProducao > 0 ? (resumo.margemProducaoAntes / subtotalProducao) * 100 : 0;
+  const margemProducaoDepoisPct =
+    subtotalProducao > 0 ? (resumo.margemProducaoDepois / subtotalProducao) * 100 : 0;
 
   return (
     <div className="space-y-4">
@@ -196,47 +208,80 @@ export default function ConfirmacaoIntermediadorStep({
                   <span className="text-lg font-bold text-primary">{formatCurrency(resumo.comissao)}</span>
                 </div>
 
-                <div className="text-sm space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
-                    Margem Lemon — Produção
+                <div className="rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-2 space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                    Ganho do intermediador neste pedido
                   </p>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Antes da comissão</span>
-                    <span>{formatCurrency(resumo.margemProducaoAntes)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Comissão rateada</span>
-                    <span className="text-destructive">- {formatCurrency(resumo.comissaoProducao)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span>Depois da comissão</span>
-                    <span>{formatCurrency(resumo.margemProducaoDepois)}</span>
-                  </div>
+                  {impactos.map((i, idx) => (
+                    <div key={idx} className="flex justify-between text-xs">
+                      <span className="text-muted-foreground truncate pr-2">
+                        {i.nome} · {i.quantidade} un
+                      </span>
+                      <span className="whitespace-nowrap">
+                        {formatCurrency(i.comissaoItem)}{' '}
+                        <span className="text-muted-foreground">
+                          ({formatCurrency(i.comissaoPorPote)}/pote)
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                  {resumo.comissaoSetup > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Sobre Setup / Serviços</span>
+                      <span>{formatCurrency(resumo.comissaoSetup)}</span>
+                    </div>
+                  )}
+                </div>
 
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2">
-                    Margem Lemon — Setup
-                  </p>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Antes da comissão</span>
-                    <span>{formatCurrency(resumo.margemSetupAntes)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Comissão rateada</span>
-                    <span className="text-destructive">- {formatCurrency(resumo.comissaoSetup)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span>Depois da comissão</span>
-                    <span>{formatCurrency(resumo.margemSetupDepois)}</span>
-                  </div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+                  Impacto na margem por pote
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-muted-foreground text-left">
+                        <th className="font-medium py-1">Produto</th>
+                        <th className="font-medium py-1 text-right">Preço/pote</th>
+                        <th className="font-medium py-1 text-right">Margem antes</th>
+                        <th className="font-medium py-1 text-right">Comissão/pote</th>
+                        <th className="font-medium py-1 text-right">Margem depois</th>
+                        <th className="font-medium py-1 text-right">Queda</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {impactos.map((i, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="py-1 pr-2">{i.nome}</td>
+                          <td className="py-1 text-right">{formatCurrency(i.precoUnitario)}</td>
+                          <td className="py-1 text-right">
+                            {i.temCusto ? `${i.margemAntesPct.toFixed(1)}%` : '—'}
+                          </td>
+                          <td className="py-1 text-right text-destructive">
+                            - {formatCurrency(i.comissaoPorPote)}
+                          </td>
+                          <td className="py-1 text-right font-medium">
+                            {i.temCusto ? `${i.margemDepoisPct.toFixed(1)}%` : '—'}
+                          </td>
+                          <td className="py-1 text-right text-destructive">
+                            -{i.quedaPp.toFixed(1)} p.p.
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
 
                 <Separator />
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Queda média de margem (produção)</span>
+                  <span className="text-destructive font-medium">-{quedaMediaPp.toFixed(1)} p.p.</span>
+                </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Margem total Lemon após comissão</span>
+                  <span className="text-sm font-medium">Margem de produção após comissão</span>
                   <span className="text-lg font-bold">
-                    {formatCurrency(resumo.margemTotalDepois)}{' '}
-                    <span className="text-sm text-muted-foreground">
-                      ({resumo.margemTotalDepoisPct.toFixed(1)}%)
+                    {margemProducaoDepoisPct.toFixed(1)}%{' '}
+                    <span className="text-sm text-muted-foreground font-normal">
+                      (antes {margemProducaoAntesPct.toFixed(1)}% · {formatCurrency(resumo.margemProducaoDepois)})
                     </span>
                   </span>
                 </div>
