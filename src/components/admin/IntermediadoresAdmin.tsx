@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Handshake, Plus, Pencil, UserCheck, UserX, Search } from 'lucide-react';
 import { useIntermediadores, type Intermediador, type IntermediadorInput } from '@/hooks/useIntermediadores';
-import { formatTelefone, isTelefoneValido, gerarLinkWhatsApp } from '@/lib/whatsapp';
+import { formatTelefone, isTelefoneValido, buildWhatsappUrl } from '@/lib/whatsapp';
 
 export function IntermediadoresAdmin() {
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -95,7 +95,7 @@ export function IntermediadoresAdmin() {
                       {i.whatsapp ? (
                         <a
                           className="text-primary hover:underline"
-                          href={gerarLinkWhatsApp(i.whatsapp)}
+                          href={buildWhatsappUrl(i.whatsapp, '') || '#'}
                           target="_blank"
                           rel="noreferrer"
                         >
