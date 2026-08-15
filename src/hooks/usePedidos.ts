@@ -29,6 +29,7 @@ const buildSnapshotFromOrcamento = (o: any): OrcamentoSnapshot => ({
   dados_cliente: o.dados_cliente || undefined,
   detalhamento_frete: o.detalhamento_frete || undefined,
   condicoes_pagamento: o.condicoes_pagamento || undefined,
+  intermediador: o.intermediador || undefined,
   subtotal_producao: Number(o.subtotal_producao) || 0,
   subtotal_servicos: Number(o.subtotal_servicos) || 0,
   valor_total: Number(o.valor_total) || 0,
