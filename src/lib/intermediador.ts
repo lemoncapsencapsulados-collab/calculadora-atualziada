@@ -1,4 +1,4 @@
-import { ALIQUOTA_IMPOSTO } from '@/lib/precificacaoCalculator';
+import { ALIQUOTA_IMPOSTO, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import type { IntermediadorOrcamento } from '@/types/orcamento';
 
 export const PERCENTUAL_PRIMEIRA_COMPRA = 3;
