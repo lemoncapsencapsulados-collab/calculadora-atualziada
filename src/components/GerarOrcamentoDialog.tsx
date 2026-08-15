@@ -58,7 +58,7 @@ import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/co
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
 import ConfirmacaoIntermediadorStep from '@/components/orcamento/ConfirmacaoIntermediadorStep';
-import { percentualPadraoPorTipo, PERCENTUAL_PRIMEIRA_COMPRA, PERCENTUAL_RECOMPRA } from '@/lib/intermediador';
+import { PERCENTUAL_PRIMEIRA_COMPRA, PERCENTUAL_RECOMPRA } from '@/lib/intermediador';
 import { fetchEnderecoPorCEP, UFS_BRASIL } from '@/lib/brasilData';
 
 const CUSTO_ESTABILIDADE_PADRAO = 4100;
@@ -380,6 +380,16 @@ export default function GerarOrcamentoDialog({
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
       setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
+      const interm = (orcamentoExistente as any).intermediador;
+      if (interm && interm.nome) {
+        setIntermediadorAtivo(true);
+        setIntermediadorNome(interm.nome || '');
+        setIntermediadorWhatsapp(interm.whatsapp || '');
+        if (interm.tipo_base === 'recompra') setPercentualRecompra(interm.percentual ?? PERCENTUAL_RECOMPRA);
+        else setPercentualPrimeira(interm.percentual ?? PERCENTUAL_PRIMEIRA_COMPRA);
+      } else {
+        setIntermediadorAtivo(false);
+      }
       // Carregar cliente vinculado para validar telefone
       if ((orcamentoExistente as any).cliente_id) {
         buscarPorId((orcamentoExistente as any).cliente_id).then((c) => {
