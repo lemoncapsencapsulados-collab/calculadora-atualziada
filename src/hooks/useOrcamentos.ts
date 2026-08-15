@@ -65,6 +65,7 @@ export function useOrcamentos() {
           dados_cliente: orcamento.dados_cliente as any,
           detalhamento_frete: orcamento.detalhamento_frete as any,
           condicoes_pagamento: orcamento.condicoes_pagamento as any,
+          intermediador: (orcamento.intermediador ?? null) as any,
           cliente_id: orcamento.cliente_id,
         }])
         .select()
@@ -96,6 +97,7 @@ export function useOrcamentos() {
         .from('orcamentos')
         .update({
           ...updates,
+          ...('intermediador' in updates ? { intermediador: (updates.intermediador ?? null) as any } : {}),
           itens_producao: updates.itens_producao as any,
           servicos_marca: updates.servicos_marca as any,
           dados_cliente: updates.dados_cliente as any,

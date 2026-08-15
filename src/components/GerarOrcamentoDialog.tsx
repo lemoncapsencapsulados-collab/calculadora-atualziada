@@ -57,6 +57,8 @@ import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
 import { useSetupPlanos, SetupPlanoPerfil } from '@/hooks/useSetupPlanos';
 import EstabilidadeAnvisaStep from '@/components/orcamento/EstabilidadeAnvisaStep';
+import ConfirmacaoIntermediadorStep from '@/components/orcamento/ConfirmacaoIntermediadorStep';
+import { PERCENTUAL_PRIMEIRA_COMPRA, PERCENTUAL_RECOMPRA } from '@/lib/intermediador';
 import { fetchEnderecoPorCEP, UFS_BRASIL } from '@/lib/brasilData';
 
 const CUSTO_ESTABILIDADE_PADRAO = 4100;
@@ -177,6 +179,12 @@ export default function GerarOrcamentoDialog({
   // ── Edição de preço por item (negociação) ──
   // Dados auxiliares por precificacao_id (custo unitário e preço original do catálogo)
   const [itemPrecoAux, setItemPrecoAux] = useState<Record<string, { custoUnit: number; precoOriginal: number }>>({});
+  // Intermediador (comissão interna — não aparece no PDF do cliente)
+  const [intermediadorAtivo, setIntermediadorAtivo] = useState(false);
+  const [intermediadorNome, setIntermediadorNome] = useState('');
+  const [intermediadorWhatsapp, setIntermediadorWhatsapp] = useState('');
+  const [percentualPrimeira, setPercentualPrimeira] = useState(PERCENTUAL_PRIMEIRA_COMPRA);
+  const [percentualRecompra, setPercentualRecompra] = useState(PERCENTUAL_RECOMPRA);
   // Índices de itens cuja margem abaixo do mínimo foi liberada por senha
   const [precoLiberadoIdxs, setPrecoLiberadoIdxs] = useState<number[]>([]);
   // Dialog de senha para liberar preço abaixo do mínimo
@@ -372,6 +380,16 @@ export default function GerarOrcamentoDialog({
       setObservacoes(orcamentoExistente.observacoes || '');
       setItensProducao(orcamentoExistente.itens_producao || []);
       setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
+      const interm = (orcamentoExistente as any).intermediador;
+      if (interm && interm.nome) {
+        setIntermediadorAtivo(true);
+        setIntermediadorNome(interm.nome || '');
+        setIntermediadorWhatsapp(interm.whatsapp || '');
+        if (interm.tipo_base === 'recompra') setPercentualRecompra(interm.percentual ?? PERCENTUAL_RECOMPRA);
+        else setPercentualPrimeira(interm.percentual ?? PERCENTUAL_PRIMEIRA_COMPRA);
+      } else {
+        setIntermediadorAtivo(false);
+      }
       // Carregar cliente vinculado para validar telefone
       if ((orcamentoExistente as any).cliente_id) {
         buscarPorId((orcamentoExistente as any).cliente_id).then((c) => {
@@ -496,6 +514,25 @@ export default function GerarOrcamentoDialog({
     custoAnvisaUnit * itensAnvisa.length;
   const subtotalServicos = precoVendaSetup + totalEstabilidadeAnvisa;
   const valorTotal = subtotalProducao + subtotalServicos;
+
+  // Custo total de produção conhecido (a partir das precificações salvas)
+  const custoProducaoTotal = itensProducao.reduce((acc, it) => {
+    const aux = it.precificacao_id ? itemPrecoAux[it.precificacao_id] : null;
+    if (!aux || aux.custoUnit <= 0) return acc;
+    return acc + aux.custoUnit * (it.quantidade || 0);
+  }, 0);
+
+  const percentualIntermediador = tipoOrcamento === 'recompra' ? percentualRecompra : percentualPrimeira;
+  const intermediadorFinal =
+    intermediadorAtivo && intermediadorNome.trim()
+      ? {
+          nome: intermediadorNome.trim(),
+          whatsapp: intermediadorWhatsapp.trim(),
+          percentual: percentualIntermediador,
+          tipo_base: (tipoOrcamento === 'recompra' ? 'recompra' : 'primeira_compra') as 'recompra' | 'primeira_compra',
+          valor_comissao: valorTotal * (percentualIntermediador / 100),
+        }
+      : null;
 
   // Build servicos_marca for saving (1 entrada por plano selecionado)
   const buildServicosMarca = (): ServicoMarca[] => {
@@ -803,6 +840,7 @@ export default function GerarOrcamentoDialog({
             ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
             ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
             ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
+            intermediador: intermediadorFinal,
           },
         });
       } else {
@@ -824,6 +862,7 @@ export default function GerarOrcamentoDialog({
           ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
           ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
           ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
+          ...(intermediadorFinal && { intermediador: intermediadorFinal }),
         };
         
         await createOrcamento.mutateAsync(novoOrcamento);
@@ -989,7 +1028,7 @@ export default function GerarOrcamentoDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {isRevendaLemon && step > 4 ? step - 1 : step} de {isRevendaLemon ? 5 : 6}
+            {orcamentoExistente ? 'Editar Orçamento' : 'Gerar Orçamento'} - Passo {isRevendaLemon && step > 4 ? step - 1 : step} de {isRevendaLemon ? 6 : 7}
           </DialogTitle>
         </DialogHeader>
 
@@ -1927,8 +1966,31 @@ export default function GerarOrcamentoDialog({
             />
           )}
 
-          {/* STEP 5: Condições de Pagamento */}
+          {/* STEP 5: Confirmação + Intermediador */}
           {step === 5 && (
+            <ConfirmacaoIntermediadorStep
+              subtotalProducao={subtotalProducao}
+              custoProducao={custoProducaoTotal}
+              subtotalSetup={precoVendaSetup}
+              custoSetup={custoTotalSetup}
+              totalEstabilidadeAnvisa={totalEstabilidadeAnvisa}
+              valorTotal={valorTotal}
+              tipoOrcamento={tipoOrcamento}
+              ativo={intermediadorAtivo}
+              onToggle={setIntermediadorAtivo}
+              nome={intermediadorNome}
+              onChangeNome={setIntermediadorNome}
+              whatsapp={intermediadorWhatsapp}
+              onChangeWhatsapp={setIntermediadorWhatsapp}
+              percentualPrimeira={percentualPrimeira}
+              percentualRecompra={percentualRecompra}
+              onChangePercentualPrimeira={setPercentualPrimeira}
+              onChangePercentualRecompra={setPercentualRecompra}
+            />
+          )}
+
+          {/* STEP 6: Condições de Pagamento */}
+          {step === 6 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Condições de Pagamento</h3>
 
@@ -1950,8 +2012,8 @@ export default function GerarOrcamentoDialog({
             </div>
           )}
 
-          {/* STEP 6: Resumo */}
-          {step === 6 && (
+          {/* STEP 7: Resumo */}
+          {step === 7 && (
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Resumo do Orçamento</h3>
               
@@ -2337,7 +2399,7 @@ export default function GerarOrcamentoDialog({
               {step === 1 ? 'Cancelar' : 'Voltar'}
             </Button>
 
-            {step < 6 ? (
+            {step < 7 ? (
               <Button
                 onClick={() => {
                   if (step === 2 && itensProducao.length === 0) {
