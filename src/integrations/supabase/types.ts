@@ -1452,6 +1452,7 @@ export type Database = {
           historico_contatos: Json
           id: string
           id_receita_vhsys: number | null
+          intermediador: Json | null
           itens_producao: Json
           nome_cliente: string
           numero_orcamento: string
@@ -1492,6 +1493,7 @@ export type Database = {
           historico_contatos?: Json
           id?: string
           id_receita_vhsys?: number | null
+          intermediador?: Json | null
           itens_producao?: Json
           nome_cliente: string
           numero_orcamento: string
@@ -1532,6 +1534,7 @@ export type Database = {
           historico_contatos?: Json
           id?: string
           id_receita_vhsys?: number | null
+          intermediador?: Json | null
           itens_producao?: Json
           nome_cliente?: string
           numero_orcamento?: string
