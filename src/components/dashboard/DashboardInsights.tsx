@@ -9,23 +9,24 @@ import { Button } from '@/components/ui/button';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { InsightsPorCliente } from './InsightsPorCliente';
-import type { InsightDashboard } from '@/types/dashboard';
+import type { InsightDashboard, OrcamentoDetalhado } from '@/types/dashboard';
 
 interface DashboardInsightsProps {
   insights: InsightDashboard[];
+  orcamentosDetalhados?: OrcamentoDetalhado[];
 }
 
 const TIPO_OPTIONS = [
   { value: 'todos', label: 'Todos os tipos' },
-  { value: 'alerta', label: '🔴 Alerta' },
-  { value: 'atencao', label: '🟡 Atenção' },
-  { value: 'positivo', label: '🟢 Positivo' },
-  { value: 'oportunidade', label: '📊 Oportunidade' },
+  { value: 'alerta', label: 'Alerta' },
+  { value: 'atencao', label: 'Atenção' },
+  { value: 'positivo', label: 'Positivo' },
+  { value: 'oportunidade', label: 'Oportunidade' },
 ];
 
 const ITEMS_PER_PAGE = 15;
 
-export function DashboardInsights({ insights }: DashboardInsightsProps) {
+export function DashboardInsights({ insights, orcamentosDetalhados = [] }: DashboardInsightsProps) {
   const navigate = useNavigate();
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -73,29 +74,16 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
     }
   };
 
-  const getInsightBgColor = (tipo: InsightDashboard['tipo']) => {
-    switch (tipo) {
-      case 'alerta':
-        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
-      case 'atencao':
-        return 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800';
-      case 'positivo':
-        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
-      case 'oportunidade':
-        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
-    }
-  };
-
   const getInsightLabel = (tipo: InsightDashboard['tipo']) => {
     switch (tipo) {
       case 'alerta':
-        return '🔴 ALERTA';
+        return 'ALERTA';
       case 'atencao':
-        return '🟡 ATENÇÃO';
+        return 'ATENÇÃO';
       case 'positivo':
-        return '🟢 POSITIVO';
+        return 'POSITIVO';
       case 'oportunidade':
-        return '📊 OPORTUNIDADE';
+        return 'OPORTUNIDADE';
     }
   };
 
@@ -147,7 +135,7 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
     return items;
   };
 
-  if (insights.length === 0) {
+  if (insights.length === 0 && orcamentosDetalhados.length === 0) {
     return null;
   }
 
@@ -191,7 +179,7 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
       </CardHeader>
       <CardContent>
         {modoVisao === 'cliente' ? (
-          <InsightsPorCliente insights={insights} />
+          <InsightsPorCliente insights={insights} orcamentos={orcamentosDetalhados} />
         ) : insightsFiltrados.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Nenhum insight encontrado com os filtros selecionados.
@@ -201,7 +189,7 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
             {insightsPaginados.map((insight, index) => (
               <div
                 key={index}
-                className={`flex items-start gap-3 p-3 rounded-lg border ${getInsightBgColor(insight.tipo)}`}
+                className="flex items-start gap-3 p-3 rounded-lg border bg-card"
               >
                 <div className="mt-0.5">{getInsightIcon(insight.tipo)}</div>
                 <div className="flex-1 min-w-0">
