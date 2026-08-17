@@ -270,8 +270,19 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                             {c.itens.map((item, idx) => (
                               <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                                 <span className="font-medium">{item.numero_orcamento || '—'}</span>
+                                <Badge variant="outline" className="text-[10px] font-normal">
+                                  {item.status ? STATUS_LABEL[item.status] : '—'}
+                                </Badge>
                                 <span>{brl(item.valor)}</span>
+                                <span className="text-muted-foreground">Criado: {fmtData(item.created_at)}</span>
+                                <span className="text-muted-foreground">Envio: {fmtData(item.data_envio)}</span>
                                 <span className="text-muted-foreground">{item.situacao}</span>
+                                {item.foraDoPeriodo && (
+                                  <Badge variant="outline" className="text-[10px] font-normal">Anterior ao período</Badge>
+                                )}
+                                {item.observacao && (
+                                  <span className="italic text-muted-foreground basis-full">{item.observacao}</span>
+                                )}
                                 {item.orcamento_id && (
                                   <Button
                                     size="sm"
