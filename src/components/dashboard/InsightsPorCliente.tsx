@@ -245,7 +245,7 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                             <span className="text-xs text-muted-foreground">
                               {c.qtdOrcamentos} {c.qtdOrcamentos === 1 ? 'orçamento' : 'orçamentos'}
                             </span>
-                            <Badge variant="outline" className="text-[11px]">{PRIORIDADE_LABEL[c.prioridade]}</Badge>
+                            <Badge variant="outline" className="text-[11px] font-normal">{PRIORIDADE_LABEL[c.prioridade]}</Badge>
                             {reg && (
                               <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3" />
