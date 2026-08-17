@@ -80,6 +80,28 @@ export interface InsightDashboard {
 
 export type PrioridadeCobranca = 'critico' | 'urgente' | 'atencao' | 'normal';
 
+export type StatusOrcamentoDetalhado = 'rascunho' | 'enviado' | 'pago' | 'recusado' | 'outro';
+
+/** Orçamento normalizado para a visão "Por cliente" do Dashboard */
+export interface OrcamentoDetalhado {
+  orcamento_id: string;
+  numero_orcamento?: string;
+  cliente: string;
+  consultor: string;
+  status: StatusOrcamentoDetalhado;
+  valor: number;
+  created_at?: string;
+  data_envio?: string;
+  /** Data usada para calcular dias parado (último contato/envio/criação) */
+  data_referencia?: string;
+  dias_parado: number;
+  situacao: string;
+  observacao?: string;
+  /** true quando o orçamento é anterior ao período mas continua em aberto */
+  foraDoPeriodo?: boolean;
+  emAberto: boolean;
+}
+
 export interface OrcamentoEmAberto {
   orcamento_id?: string;
   numero_orcamento?: string;
@@ -88,6 +110,12 @@ export interface OrcamentoEmAberto {
   dias: number;
   tipo: InsightDashboard['tipo'];
   data_referencia?: string;
+  status?: StatusOrcamentoDetalhado;
+  created_at?: string;
+  data_envio?: string;
+  observacao?: string;
+  foraDoPeriodo?: boolean;
+  emAberto?: boolean;
 }
 
 export interface ClienteEmAberto {
@@ -100,6 +128,8 @@ export interface ClienteEmAberto {
   temAlerta: boolean;
   prioridade: PrioridadeCobranca;
   itens: OrcamentoEmAberto[];
+  valorEmAberto?: number;
+  contagens?: Record<StatusOrcamentoDetalhado, number>;
 }
 
 export interface VendedorAgrupado {
