@@ -21,6 +21,9 @@ import {
   type MapaCobrancas,
 } from '@/lib/insightsPorCliente';
 import { CobrarDevolutivaDialog } from './CobrarDevolutivaDialog';
+import { ResolverOrcamentoDialog, type AlvoResolucao } from './ResolverOrcamentoDialog';
+import { useInsightResolucoes } from '@/hooks/useInsightResolucoes';
+import { Undo2 } from 'lucide-react';
 
 interface Props {
   insights: InsightDashboard[];
@@ -40,6 +43,8 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
   const [incluirAnteriores, setIncluirAnteriores] = useState(true);
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [clienteCobranca, setClienteCobranca] = useState<ClienteEmAberto | null>(null);
+  const [alvoResolucao, setAlvoResolucao] = useState<AlvoResolucao | null>(null);
+  const { resolucoes, marcarResolvido, desfazerResolucao } = useInsightResolucoes();
 
   useEffect(() => {
     setCobrancas(lerCobrancas());
@@ -86,7 +91,11 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
             if (filtroStatus === 'cobrados' && !isCobradoHoje(c)) return false;
             return true;
           });
-        const ativos = clientes.filter(c => !cobrancas[chaveCobranca(c.consultor, c.cliente)]);
+        const ativos = clientes.filter(c => {
+          if (cobrancas[chaveCobranca(c.consultor, c.cliente)]) return false;
+          const pendentes = c.itens.filter(i => !i.orcamento_id || !resolucoes[i.orcamento_id]);
+          return pendentes.length > 0;
+        });
         return {
           ...g,
           clientes,
@@ -97,18 +106,33 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
         };
       })
       .filter(g => g.clientes.length > 0);
-  }, [grupos, filtroVendedor, filtroStatus, filtroPeriodo, valorMinimo, cobrancas]);
+  }, [grupos, filtroVendedor, filtroStatus, filtroPeriodo, valorMinimo, cobrancas, resolucoes]);
 
   const metricas = useMemo(() => {
     const clientes = gruposFiltrados.flatMap(g => g.clientes);
     const itens = clientes.flatMap(c => c.itens);
+    const pendentes = itens.filter(i => !i.orcamento_id || !resolucoes[i.orcamento_id]);
     return {
       total: itens.filter(i => i.emAberto).reduce((acc, i) => acc + i.valor, 0),
       clientes: clientes.length,
       orcamentos: itens.length,
-      semRetorno: itens.filter(i => i.emAberto && i.dias >= 5).length,
+      semRetorno: pendentes.filter(i => i.emAberto && i.dias >= 5).length,
     };
-  }, [gruposFiltrados]);
+  }, [gruposFiltrados, resolucoes]);
+
+  const confirmarResolucao = (alvo: AlvoResolucao, observacao: string) => {
+    if (!alvo.item.orcamento_id) return;
+    marcarResolvido.mutate(
+      {
+        orcamento_id: alvo.item.orcamento_id,
+        numero_orcamento: alvo.item.numero_orcamento,
+        cliente: alvo.cliente,
+        consultor: alvo.consultor,
+        observacao,
+      },
+      { onSuccess: () => setAlvoResolucao(null) }
+    );
+  };
 
   const marcarCobrado = (cliente: ClienteEmAberto, observacao: string) => {
     const proximo: MapaCobrancas = {
