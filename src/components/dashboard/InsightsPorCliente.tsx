@@ -190,6 +190,12 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
           value={valorMinimo}
           onChange={e => setValorMinimo(e.target.value)}
         />
+        <div className="flex items-center gap-2 h-8">
+          <Switch id="incluir-anteriores" checked={incluirAnteriores} onCheckedChange={setIncluirAnteriores} />
+          <Label htmlFor="incluir-anteriores" className="text-xs text-muted-foreground">
+            Incluir anteriores ao período (em aberto)
+          </Label>
+        </div>
       </div>
 
       {gruposFiltrados.length === 0 ? (
@@ -207,7 +213,7 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                     {g.consultor}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {g.totalClientes} {g.totalClientes === 1 ? 'cliente' : 'clientes'} · 🔴 {g.totalAlertas} · 🟡 {g.totalAtencoes}
+                    {g.totalClientes} {g.totalClientes === 1 ? 'cliente' : 'clientes'} · {g.totalAlertas} alertas · {g.totalAtencoes} atenções
                   </span>
                   <span className="text-xs font-medium sm:ml-auto">Total em aberto: {brl(g.valorTotal)}</span>
                 </div>
