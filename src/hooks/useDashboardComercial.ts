@@ -199,6 +199,76 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     });
   }, [todosOrcamentos, filtros.consultor, filtros.dataInicio, filtros.dataFim]);
 
+  // Todos os orçamentos do período + os em aberto anteriores ao período,
+  // normalizados para a visão "Por cliente" dos Insights.
+  const orcamentosDetalhados = useMemo((): OrcamentoDetalhado[] => {
+    const hoje = new Date();
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
+    const mapear = (o: OrcamentoData, foraDoPeriodo: boolean): OrcamentoDetalhado => {
+      const statusBruto = (o.status || '') as string;
+      const status: StatusOrcamentoDetalhado = ['rascunho', 'enviado', 'pago', 'recusado'].includes(statusBruto)
+        ? (statusBruto as StatusOrcamentoDetalhado)
+        : 'outro';
+
+      const hist = (o.historico_contatos || []).slice().sort(
+        (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
+      );
+      const envios = hist.filter(h => h.tipo === 'envio');
+      const contatos = hist.filter(h => h.tipo === 'contato');
+      const primeiroEnvio = envios[0]?.data || o.data_envio || undefined;
+      const ultimoEvento = hist[hist.length - 1]?.data;
+
+      const referencia =
+        status === 'enviado'
+          ? ultimoEvento || o.data_envio || o.updated_at || o.created_at || undefined
+          : o.updated_at || o.created_at || undefined;
+
+      const dias = referencia ? Math.max(0, differenceInDays(hoje, parseISO(referencia))) : 0;
+
+      let situacao = '';
+      if (status === 'rascunho') situacao = `Rascunho há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+      else if (status === 'enviado') situacao = `Enviado — sem retorno há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+      else if (status === 'pago') situacao = 'Pago';
+      else if (status === 'recusado') situacao = 'Recusado';
+      else situacao = statusBruto || 'Sem status';
+
+      const ultimoFeedback = [...contatos].reverse().find(c => c.observacao?.trim())?.observacao
+        || (o.observacoes_internas || '').trim()
+        || undefined;
+
+      return {
+        orcamento_id: o.id,
+        numero_orcamento: o.numero_orcamento || undefined,
+        cliente: (o.nome_cliente || 'Sem cliente').trim(),
+        consultor: (o.consultor_responsavel || 'Sem consultor').trim(),
+        status,
+        valor: Number(o.valor_total || 0),
+        created_at: o.created_at || undefined,
+        data_envio: primeiroEnvio,
+        data_referencia: referencia,
+        dias_parado: dias,
+        situacao,
+        observacao: ultimoFeedback,
+        foraDoPeriodo,
+        emAberto: status === 'rascunho' || status === 'enviado',
+      };
+    };
+
+    const lista: OrcamentoDetalhado[] = [];
+    todosOrcamentos.forEach(o => {
+      if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) return;
+      const ref = (o.created_at || '').substring(0, 10);
+      const dentro = !!ref && ref >= inicioStr && ref <= fimStr;
+      const emAberto = o.status === 'rascunho' || o.status === 'enviado';
+      if (dentro) lista.push(mapear(o, false));
+      else if (emAberto && (!ref || ref < inicioStr)) lista.push(mapear(o, true));
+    });
+
+    return lista;
+  }, [todosOrcamentos, filtros.consultor, filtros.dataInicio, filtros.dataFim]);
+
   const consultoresUnicos = useMemo(() => {
     const set = new Set<string>();
     pedidos.forEach(p => {
