@@ -1,7 +1,10 @@
 import type {
   ClienteEmAberto,
   InsightDashboard,
+  OrcamentoDetalhado,
+  OrcamentoEmAberto,
   PrioridadeCobranca,
+  StatusOrcamentoDetalhado,
   VendedorAgrupado,
 } from '@/types/dashboard';
 
@@ -42,10 +45,18 @@ export const PRIORIDADE_ORDEM: Record<PrioridadeCobranca, number> = {
 };
 
 export const PRIORIDADE_LABEL: Record<PrioridadeCobranca, string> = {
-  critico: '🔴 Crítico',
-  urgente: '🟠 Urgente',
-  atencao: '🟡 Atenção',
-  normal: '⚪ Normal',
+  critico: 'Crítico',
+  urgente: 'Urgente',
+  atencao: 'Atenção',
+  normal: 'Normal',
+};
+
+export const STATUS_LABEL: Record<StatusOrcamentoDetalhado, string> = {
+  rascunho: 'Rascunho',
+  enviado: 'Enviado',
+  pago: 'Pago',
+  recusado: 'Recusado',
+  outro: 'Outro',
 };
 
 function calcularPrioridade(temAlerta: boolean, dias: number): PrioridadeCobranca {
@@ -55,58 +66,109 @@ function calcularPrioridade(temAlerta: boolean, dias: number): PrioridadeCobranc
   return 'normal';
 }
 
-/**
- * Agrupa os insights acionáveis (com cliente identificado) por vendedor e cliente.
- * Insights agregados (sem cliente) são ignorados nesta visão.
- */
-export function agruparInsightsPorCliente(insights: InsightDashboard[]): VendedorAgrupado[] {
-  const acionaveis = insights.filter(
-    i => !!i.cliente && (i.tipo === 'alerta' || i.tipo === 'atencao')
-  );
+const contagensVazias = (): Record<StatusOrcamentoDetalhado, number> => ({
+  rascunho: 0,
+  enviado: 0,
+  pago: 0,
+  recusado: 0,
+  outro: 0,
+});
 
+const novoCliente = (cliente: string, consultor: string): ClienteEmAberto => ({
+  cliente,
+  consultor,
+  ultimoOrcamento: undefined,
+  diasParado: 0,
+  valorTotal: 0,
+  valorEmAberto: 0,
+  qtdOrcamentos: 0,
+  temAlerta: false,
+  prioridade: 'normal',
+  itens: [],
+  contagens: contagensVazias(),
+});
+
+/**
+ * Agrupa TODOS os orçamentos (qualquer status) por vendedor e cliente, somando
+ * também os insights de pedidos em produção (que não têm orçamento na lista).
+ */
+export function agruparInsightsPorCliente(
+  orcamentos: OrcamentoDetalhado[],
+  insightsExtras: InsightDashboard[] = []
+): VendedorAgrupado[] {
   const porVendedor = new Map<string, Map<string, ClienteEmAberto>>();
 
-  acionaveis.forEach(i => {
-    const consultor = (i.consultor || 'Sem consultor').trim();
-    const cliente = (i.cliente || '').trim();
+  const obterCliente = (consultor: string, cliente: string): ClienteEmAberto => {
     if (!porVendedor.has(consultor)) porVendedor.set(consultor, new Map());
-    const mapaClientes = porVendedor.get(consultor)!;
+    const mapa = porVendedor.get(consultor)!;
     const chave = cliente.toLowerCase();
+    if (!mapa.has(chave)) mapa.set(chave, novoCliente(cliente, consultor));
+    return mapa.get(chave)!;
+  };
 
-    const atual: ClienteEmAberto = mapaClientes.get(chave) || {
-      cliente,
-      consultor,
-      ultimoOrcamento: undefined,
-      diasParado: 0,
-      valorTotal: 0,
-      qtdOrcamentos: 0,
-      temAlerta: false,
-      prioridade: 'normal',
-      itens: [],
-    };
-
-    atual.valorTotal += Number(i.valor || 0);
-    atual.qtdOrcamentos += 1;
-    atual.temAlerta = atual.temAlerta || i.tipo === 'alerta';
-    atual.diasParado = Math.max(atual.diasParado, i.dias_parado || 0);
+  const registrar = (alvo: ClienteEmAberto, item: OrcamentoEmAberto, alerta: boolean) => {
+    alvo.valorTotal += item.valor;
+    if (item.emAberto) alvo.valorEmAberto = (alvo.valorEmAberto || 0) + item.valor;
+    alvo.qtdOrcamentos += 1;
+    alvo.temAlerta = alvo.temAlerta || alerta;
+    if (item.emAberto) alvo.diasParado = Math.max(alvo.diasParado, item.dias);
     if (
-      i.data_referencia &&
-      (!atual.ultimoOrcamento || new Date(i.data_referencia) > new Date(atual.ultimoOrcamento))
+      item.data_referencia &&
+      (!alvo.ultimoOrcamento || new Date(item.data_referencia) > new Date(alvo.ultimoOrcamento))
     ) {
-      atual.ultimoOrcamento = i.data_referencia;
+      alvo.ultimoOrcamento = item.data_referencia;
     }
-    atual.itens.push({
-      orcamento_id: i.orcamento_id,
-      numero_orcamento: i.numero_orcamento,
-      valor: Number(i.valor || 0),
-      situacao: i.situacao || i.mensagem,
-      dias: i.dias_parado || 0,
-      tipo: i.tipo,
-      data_referencia: i.data_referencia,
-    });
+    alvo.itens.push(item);
+  };
 
-    mapaClientes.set(chave, atual);
+  orcamentos.forEach(o => {
+    const alvo = obterCliente(o.consultor || 'Sem consultor', o.cliente || 'Sem cliente');
+    const alerta =
+      (o.status === 'enviado' && o.dias_parado > 14) || (o.status === 'rascunho' && o.dias_parado > 5);
+    alvo.contagens![o.status] += 1;
+    registrar(
+      alvo,
+      {
+        orcamento_id: o.orcamento_id,
+        numero_orcamento: o.numero_orcamento,
+        valor: o.valor,
+        situacao: o.situacao,
+        dias: o.dias_parado,
+        tipo: alerta ? 'alerta' : o.emAberto ? 'atencao' : 'positivo',
+        data_referencia: o.data_referencia,
+        status: o.status,
+        created_at: o.created_at,
+        data_envio: o.data_envio,
+        observacao: o.observacao,
+        foraDoPeriodo: o.foraDoPeriodo,
+        emAberto: o.emAberto,
+      },
+      alerta
+    );
   });
+
+  // Insights sem orçamento vinculado (ex.: pedidos aguardando produção)
+  insightsExtras
+    .filter(i => !!i.cliente && !i.orcamento_id && (i.tipo === 'alerta' || i.tipo === 'atencao'))
+    .forEach(i => {
+      const alvo = obterCliente((i.consultor || 'Sem consultor').trim(), (i.cliente || '').trim());
+      alvo.contagens!.outro += 1;
+      registrar(
+        alvo,
+        {
+          orcamento_id: i.orcamento_id,
+          numero_orcamento: i.numero_orcamento,
+          valor: Number(i.valor || 0),
+          situacao: i.situacao || i.mensagem,
+          dias: i.dias_parado || 0,
+          tipo: i.tipo,
+          data_referencia: i.data_referencia,
+          status: 'outro',
+          emAberto: true,
+        },
+        i.tipo === 'alerta'
+      );
+    });
 
   const resultado: VendedorAgrupado[] = [];
 
@@ -129,7 +191,7 @@ export function agruparInsightsPorCliente(insights: InsightDashboard[]): Vendedo
       clientes,
       totalClientes: clientes.length,
       totalAlertas: clientes.filter(c => c.temAlerta).length,
-      totalAtencoes: clientes.filter(c => !c.temAlerta).length,
+      totalAtencoes: clientes.filter(c => !c.temAlerta && (c.valorEmAberto || 0) > 0).length,
       valorTotal: clientes.reduce((acc, c) => acc + c.valorTotal, 0),
     });
   });

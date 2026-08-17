@@ -33,6 +33,7 @@ export default function DashboardComercial() {
     produtosMaisVendidos,
     mixVendas,
     insights,
+    orcamentosDetalhados,
     vendasPorTipo,
     clientesPorModelo,
     orcamentosPorConsultorStatus,
@@ -96,7 +97,7 @@ export default function DashboardComercial() {
       <DashboardOrcamentosDistribuicao dados={orcamentosPorConsultorStatus} />
 
       {/* Insights */}
-      <DashboardInsights insights={insights} />
+      <DashboardInsights insights={insights} orcamentosDetalhados={orcamentosDetalhados} />
 
       {/* Funil de Anúncios (Leads → Orçamentos → Vendas) */}
       <DashboardFunilAnuncios

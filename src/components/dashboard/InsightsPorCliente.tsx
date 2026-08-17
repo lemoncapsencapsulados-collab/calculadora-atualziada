@@ -8,30 +8,36 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ExternalLink, User, CheckCircle2, MessageSquare } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { ClienteEmAberto, InsightDashboard } from '@/types/dashboard';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import type { ClienteEmAberto, InsightDashboard, OrcamentoDetalhado } from '@/types/dashboard';
 import {
   agruparInsightsPorCliente,
   chaveCobranca,
   lerCobrancas,
   salvarCobrancas,
   PRIORIDADE_LABEL,
+  STATUS_LABEL,
   type MapaCobrancas,
 } from '@/lib/insightsPorCliente';
 import { CobrarDevolutivaDialog } from './CobrarDevolutivaDialog';
 
 interface Props {
   insights: InsightDashboard[];
+  orcamentos: OrcamentoDetalhado[];
 }
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtData = (d?: string) => (d ? format(parseISO(d), 'dd/MM/yyyy', { locale: ptBR }) : '—');
 
-export function InsightsPorCliente({ insights }: Props) {
+export function InsightsPorCliente({ insights, orcamentos }: Props) {
   const navigate = useNavigate();
   const [cobrancas, setCobrancas] = useState<MapaCobrancas>({});
   const [filtroVendedor, setFiltroVendedor] = useState('todos');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
   const [valorMinimo, setValorMinimo] = useState('');
+  const [incluirAnteriores, setIncluirAnteriores] = useState(true);
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [clienteCobranca, setClienteCobranca] = useState<ClienteEmAberto | null>(null);
 
@@ -39,7 +45,10 @@ export function InsightsPorCliente({ insights }: Props) {
     setCobrancas(lerCobrancas());
   }, []);
 
-  const grupos = useMemo(() => agruparInsightsPorCliente(insights), [insights]);
+  const grupos = useMemo(() => {
+    const base = incluirAnteriores ? orcamentos : orcamentos.filter(o => !o.foraDoPeriodo);
+    return agruparInsightsPorCliente(base, insights);
+  }, [orcamentos, insights, incluirAnteriores]);
 
   const vendedores = useMemo(() => grupos.map(g => g.consultor).sort(), [grupos]);
 
@@ -56,21 +65,34 @@ export function InsightsPorCliente({ insights }: Props) {
     return grupos
       .filter(g => filtroVendedor === 'todos' || g.consultor === filtroVendedor)
       .map(g => {
-        const clientes = g.clientes.filter(c => {
-          if (c.valorTotal < min) return false;
-          if (c.diasParado > diasMax) return false;
-          if (filtroStatus === 'alerta' && !c.temAlerta) return false;
-          if (filtroStatus === 'atencao' && c.temAlerta) return false;
-          if (filtroStatus === 'cobrados' && !isCobradoHoje(c)) return false;
-          return true;
-        });
+        const clientes = g.clientes
+          .map(c => {
+            if (['rascunho', 'enviado', 'pago', 'recusado'].includes(filtroStatus)) {
+              const itens = c.itens.filter(i => i.status === filtroStatus);
+              if (itens.length === 0) return null;
+              return { ...c, itens };
+            }
+            if (filtroStatus === 'aberto') {
+              const itens = c.itens.filter(i => i.emAberto);
+              if (itens.length === 0) return null;
+              return { ...c, itens };
+            }
+            return c;
+          })
+          .filter((c): c is ClienteEmAberto => !!c)
+          .filter(c => {
+            if (c.valorTotal < min) return false;
+            if (c.diasParado > diasMax) return false;
+            if (filtroStatus === 'cobrados' && !isCobradoHoje(c)) return false;
+            return true;
+          });
         const ativos = clientes.filter(c => !cobrancas[chaveCobranca(c.consultor, c.cliente)]);
         return {
           ...g,
           clientes,
           totalClientes: clientes.length,
           totalAlertas: ativos.filter(c => c.temAlerta).length,
-          totalAtencoes: ativos.filter(c => !c.temAlerta).length,
+          totalAtencoes: ativos.filter(c => !c.temAlerta && (c.valorEmAberto || 0) > 0).length,
           valorTotal: clientes.reduce((acc, c) => acc + c.valorTotal, 0),
         };
       })
@@ -79,11 +101,12 @@ export function InsightsPorCliente({ insights }: Props) {
 
   const metricas = useMemo(() => {
     const clientes = gruposFiltrados.flatMap(g => g.clientes);
+    const itens = clientes.flatMap(c => c.itens);
     return {
-      total: clientes.reduce((acc, c) => acc + c.valorTotal, 0),
+      total: itens.filter(i => i.emAberto).reduce((acc, i) => acc + i.valor, 0),
       clientes: clientes.length,
-      alertas: gruposFiltrados.reduce((acc, g) => acc + g.totalAlertas, 0),
-      atencoes: gruposFiltrados.reduce((acc, g) => acc + g.totalAtencoes, 0),
+      orcamentos: itens.length,
+      semRetorno: itens.filter(i => i.emAberto && i.dias >= 5).length,
     };
   }, [gruposFiltrados]);
 
@@ -119,13 +142,13 @@ export function InsightsPorCliente({ insights }: Props) {
           <p className="text-lg font-semibold">{metricas.clientes}</p>
           <p className="text-xs text-muted-foreground">Clientes únicos</p>
         </div>
-        <div className="rounded-lg border p-3 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-          <p className="text-lg font-semibold">🔴 {metricas.alertas}</p>
-          <p className="text-xs text-muted-foreground">Críticos</p>
+        <div className="rounded-lg border p-3">
+          <p className="text-lg font-semibold">{metricas.orcamentos}</p>
+          <p className="text-xs text-muted-foreground">Orçamentos listados</p>
         </div>
-        <div className="rounded-lg border p-3 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
-          <p className="text-lg font-semibold">🟡 {metricas.atencoes}</p>
-          <p className="text-xs text-muted-foreground">Para acompanhar</p>
+        <div className="rounded-lg border p-3">
+          <p className="text-lg font-semibold">{metricas.semRetorno}</p>
+          <p className="text-xs text-muted-foreground">Sem retorno há 5+ dias</p>
         </div>
       </div>
 
@@ -142,9 +165,12 @@ export function InsightsPorCliente({ insights }: Props) {
           <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os status</SelectItem>
-            <SelectItem value="alerta">🔴 Alerta</SelectItem>
-            <SelectItem value="atencao">🟡 Atenção</SelectItem>
-            <SelectItem value="cobrados">✅ Cobrados hoje</SelectItem>
+            <SelectItem value="aberto">Em aberto</SelectItem>
+            <SelectItem value="rascunho">Rascunho</SelectItem>
+            <SelectItem value="enviado">Enviado</SelectItem>
+            <SelectItem value="pago">Pago</SelectItem>
+            <SelectItem value="recusado">Recusado</SelectItem>
+            <SelectItem value="cobrados">Cobrados hoje</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
@@ -164,6 +190,12 @@ export function InsightsPorCliente({ insights }: Props) {
           value={valorMinimo}
           onChange={e => setValorMinimo(e.target.value)}
         />
+        <div className="flex items-center gap-2 h-8">
+          <Switch id="incluir-anteriores" checked={incluirAnteriores} onCheckedChange={setIncluirAnteriores} />
+          <Label htmlFor="incluir-anteriores" className="text-xs text-muted-foreground">
+            Incluir anteriores ao período (em aberto)
+          </Label>
+        </div>
       </div>
 
       {gruposFiltrados.length === 0 ? (
@@ -181,7 +213,7 @@ export function InsightsPorCliente({ insights }: Props) {
                     {g.consultor}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {g.totalClientes} {g.totalClientes === 1 ? 'cliente' : 'clientes'} · 🔴 {g.totalAlertas} · 🟡 {g.totalAtencoes}
+                    {g.totalClientes} {g.totalClientes === 1 ? 'cliente' : 'clientes'} · {g.totalAlertas} alertas · {g.totalAtencoes} atenções
                   </span>
                   <span className="text-xs font-medium sm:ml-auto">Total em aberto: {brl(g.valorTotal)}</span>
                 </div>
@@ -213,7 +245,7 @@ export function InsightsPorCliente({ insights }: Props) {
                             <span className="text-xs text-muted-foreground">
                               {c.qtdOrcamentos} {c.qtdOrcamentos === 1 ? 'orçamento' : 'orçamentos'}
                             </span>
-                            <Badge variant="outline" className="text-[11px]">{PRIORIDADE_LABEL[c.prioridade]}</Badge>
+                            <Badge variant="outline" className="text-[11px] font-normal">{PRIORIDADE_LABEL[c.prioridade]}</Badge>
                             {reg && (
                               <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3" />
@@ -238,8 +270,19 @@ export function InsightsPorCliente({ insights }: Props) {
                             {c.itens.map((item, idx) => (
                               <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                                 <span className="font-medium">{item.numero_orcamento || '—'}</span>
+                                <Badge variant="outline" className="text-[10px] font-normal">
+                                  {item.status ? STATUS_LABEL[item.status] : '—'}
+                                </Badge>
                                 <span>{brl(item.valor)}</span>
+                                <span className="text-muted-foreground">Criado: {fmtData(item.created_at)}</span>
+                                <span className="text-muted-foreground">Envio: {fmtData(item.data_envio)}</span>
                                 <span className="text-muted-foreground">{item.situacao}</span>
+                                {item.foraDoPeriodo && (
+                                  <Badge variant="outline" className="text-[10px] font-normal">Anterior ao período</Badge>
+                                )}
+                                {item.observacao && (
+                                  <span className="italic text-muted-foreground basis-full">{item.observacao}</span>
+                                )}
                                 {item.orcamento_id && (
                                   <Button
                                     size="sm"
