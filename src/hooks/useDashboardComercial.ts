@@ -398,7 +398,12 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
             tipo: 'alerta',
             mensagem: `${snap.consultor_responsavel || 'Sem consultor'} tem R$ ${getSnapValorEfetivo(snap).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} aguardando produção há ${dias} dias (${snap.nome_cliente})`,
             consultor: snap.consultor_responsavel || undefined,
-            valor: getSnapValorEfetivo(snap)
+            valor: getSnapValorEfetivo(snap),
+            cliente: snap.nome_cliente || undefined,
+            dias_parado: dias,
+            data_referencia: p.created_at || undefined,
+            situacao: `Aguardando produção há ${dias} dias`,
+            numero_orcamento: snap.numero_orcamento || undefined,
           });
         }
       });
@@ -417,6 +422,10 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
             orcamento_id: o.id,
             numero_orcamento: o.numero_orcamento,
             observacao: o.observacoes_internas || undefined,
+            cliente: o.nome_cliente || undefined,
+            dias_parado: dias,
+            data_referencia: o.created_at || undefined,
+            situacao: `Rascunho há ${dias} dias`,
           });
         }
       });
@@ -467,6 +476,10 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         numero_orcamento: o.numero_orcamento,
         observacao: ultimoFeedback,
         data_envio: primeiroEnvio,
+        cliente: o.nome_cliente || undefined,
+        dias_parado: diasDesdeUltimo,
+        data_referencia: ultimoContato,
+        situacao: `Enviado — sem retorno há ${diasDesdeUltimo} ${diasDesdeUltimo === 1 ? 'dia' : 'dias'}`,
         historico: {
           primeiro_envio: primeiroEnvio,
           segundo_envio: segundoEnvio,
