@@ -59,6 +59,14 @@ export interface InsightDashboard {
   numero_orcamento?: string;
   observacao?: string;
   data_envio?: string;
+  /** Nome do cliente (quando o insight é de um orçamento/pedido específico) */
+  cliente?: string;
+  /** Dias sem atualização do item */
+  dias_parado?: number;
+  /** Data de referência (último orçamento/atualização) em ISO */
+  data_referencia?: string;
+  /** Situação curta do item, ex.: "Rascunho há 6 dias" */
+  situacao?: string;
   historico?: {
     primeiro_envio?: string;
     segundo_envio?: string;
@@ -68,6 +76,39 @@ export interface InsightDashboard {
     total_contatos: number;
     dias_desde_ultimo: number;
   };
+}
+
+export type PrioridadeCobranca = 'critico' | 'urgente' | 'atencao' | 'normal';
+
+export interface OrcamentoEmAberto {
+  orcamento_id?: string;
+  numero_orcamento?: string;
+  valor: number;
+  situacao: string;
+  dias: number;
+  tipo: InsightDashboard['tipo'];
+  data_referencia?: string;
+}
+
+export interface ClienteEmAberto {
+  cliente: string;
+  consultor: string;
+  ultimoOrcamento?: string;
+  diasParado: number;
+  valorTotal: number;
+  qtdOrcamentos: number;
+  temAlerta: boolean;
+  prioridade: PrioridadeCobranca;
+  itens: OrcamentoEmAberto[];
+}
+
+export interface VendedorAgrupado {
+  consultor: string;
+  clientes: ClienteEmAberto[];
+  totalClientes: number;
+  totalAlertas: number;
+  totalAtencoes: number;
+  valorTotal: number;
 }
 
 export interface Recompra {
