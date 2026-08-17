@@ -21,6 +21,9 @@ import {
   type MapaCobrancas,
 } from '@/lib/insightsPorCliente';
 import { CobrarDevolutivaDialog } from './CobrarDevolutivaDialog';
+import { ResolverOrcamentoDialog, type AlvoResolucao } from './ResolverOrcamentoDialog';
+import { useInsightResolucoes } from '@/hooks/useInsightResolucoes';
+import { Undo2 } from 'lucide-react';
 
 interface Props {
   insights: InsightDashboard[];
@@ -40,6 +43,8 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
   const [incluirAnteriores, setIncluirAnteriores] = useState(true);
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [clienteCobranca, setClienteCobranca] = useState<ClienteEmAberto | null>(null);
+  const [alvoResolucao, setAlvoResolucao] = useState<AlvoResolucao | null>(null);
+  const { resolucoes, marcarResolvido, desfazerResolucao } = useInsightResolucoes();
 
   useEffect(() => {
     setCobrancas(lerCobrancas());
@@ -86,7 +91,11 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
             if (filtroStatus === 'cobrados' && !isCobradoHoje(c)) return false;
             return true;
           });
-        const ativos = clientes.filter(c => !cobrancas[chaveCobranca(c.consultor, c.cliente)]);
+        const ativos = clientes.filter(c => {
+          if (cobrancas[chaveCobranca(c.consultor, c.cliente)]) return false;
+          const pendentes = c.itens.filter(i => !i.orcamento_id || !resolucoes[i.orcamento_id]);
+          return pendentes.length > 0;
+        });
         return {
           ...g,
           clientes,
@@ -97,18 +106,33 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
         };
       })
       .filter(g => g.clientes.length > 0);
-  }, [grupos, filtroVendedor, filtroStatus, filtroPeriodo, valorMinimo, cobrancas]);
+  }, [grupos, filtroVendedor, filtroStatus, filtroPeriodo, valorMinimo, cobrancas, resolucoes]);
 
   const metricas = useMemo(() => {
     const clientes = gruposFiltrados.flatMap(g => g.clientes);
     const itens = clientes.flatMap(c => c.itens);
+    const pendentes = itens.filter(i => !i.orcamento_id || !resolucoes[i.orcamento_id]);
     return {
       total: itens.filter(i => i.emAberto).reduce((acc, i) => acc + i.valor, 0),
       clientes: clientes.length,
       orcamentos: itens.length,
-      semRetorno: itens.filter(i => i.emAberto && i.dias >= 5).length,
+      semRetorno: pendentes.filter(i => i.emAberto && i.dias >= 5).length,
     };
-  }, [gruposFiltrados]);
+  }, [gruposFiltrados, resolucoes]);
+
+  const confirmarResolucao = (alvo: AlvoResolucao, observacao: string) => {
+    if (!alvo.item.orcamento_id) return;
+    marcarResolvido.mutate(
+      {
+        orcamento_id: alvo.item.orcamento_id,
+        numero_orcamento: alvo.item.numero_orcamento,
+        cliente: alvo.cliente,
+        consultor: alvo.consultor,
+        observacao,
+      },
+      { onSuccess: () => setAlvoResolucao(null) }
+    );
+  };
 
   const marcarCobrado = (cliente: ClienteEmAberto, observacao: string) => {
     const proximo: MapaCobrancas = {
@@ -267,8 +291,16 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
 
                         {expandido && (
                           <div className="mt-3 space-y-2 border-t pt-2">
-                            {c.itens.map((item, idx) => (
-                              <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                            {c.itens.map((item, idx) => {
+                              const resolucao = item.orcamento_id ? resolucoes[item.orcamento_id] : undefined;
+                              return (
+                              <div
+                                key={idx}
+                                className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs rounded-md p-2 ${
+                                  resolucao ? 'border border-success/40 bg-success/10' : ''
+                                }`}
+                              >
+                                {resolucao && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
                                 <span className="font-medium">{item.numero_orcamento || '—'}</span>
                                 <Badge variant="outline" className="text-[10px] font-normal">
                                   {item.status ? STATUS_LABEL[item.status] : '—'}
@@ -282,6 +314,13 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                                 )}
                                 {item.observacao && (
                                   <span className="italic text-muted-foreground basis-full">{item.observacao}</span>
+                                )}
+                                {resolucao && (
+                                  <span className="basis-full text-[11px] text-success">
+                                    Resolvido por {resolucao.resolvido_por_email || 'usuário'} em{' '}
+                                    {format(parseISO(resolucao.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} —{' '}
+                                    <span className="italic">{resolucao.observacao}</span>
+                                  </span>
                                 )}
                                 {item.orcamento_id && (
                                   <Button
@@ -298,8 +337,34 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                                     Ver orçamento
                                   </Button>
                                 )}
+                                {item.orcamento_id && (
+                                  resolucao ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-xs"
+                                      onClick={() => desfazerResolucao.mutate(item.orcamento_id!)}
+                                    >
+                                      <Undo2 className="w-3 h-3 mr-1" />
+                                      Desfazer
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs"
+                                      onClick={() =>
+                                        setAlvoResolucao({ item, cliente: c.cliente, consultor: c.consultor })
+                                      }
+                                    >
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                      Marcar como resolvido
+                                    </Button>
+                                  )
+                                )}
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -318,6 +383,14 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
         open={!!clienteCobranca}
         onOpenChange={open => !open && setClienteCobranca(null)}
         onMarcarCobrado={marcarCobrado}
+      />
+
+      <ResolverOrcamentoDialog
+        alvo={alvoResolucao}
+        open={!!alvoResolucao}
+        onOpenChange={open => !open && setAlvoResolucao(null)}
+        onConfirmar={confirmarResolucao}
+        salvando={marcarResolvido.isPending}
       />
     </div>
   );

@@ -1271,6 +1271,45 @@ export type Database = {
         }
         Relationships: []
       }
+      insight_resolucoes: {
+        Row: {
+          cliente: string | null
+          consultor: string | null
+          created_at: string
+          id: string
+          numero_orcamento: string | null
+          observacao: string
+          orcamento_id: string
+          resolvido_por: string | null
+          resolvido_por_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente?: string | null
+          consultor?: string | null
+          created_at?: string
+          id?: string
+          numero_orcamento?: string | null
+          observacao: string
+          orcamento_id: string
+          resolvido_por?: string | null
+          resolvido_por_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente?: string | null
+          consultor?: string | null
+          created_at?: string
+          id?: string
+          numero_orcamento?: string | null
+          observacao?: string
+          orcamento_id?: string
+          resolvido_por?: string | null
+          resolvido_por_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       intermediadores: {
         Row: {
           ativo: boolean
