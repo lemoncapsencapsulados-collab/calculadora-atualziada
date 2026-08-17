@@ -142,13 +142,13 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
           <p className="text-lg font-semibold">{metricas.clientes}</p>
           <p className="text-xs text-muted-foreground">Clientes únicos</p>
         </div>
-        <div className="rounded-lg border p-3 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-          <p className="text-lg font-semibold">🔴 {metricas.alertas}</p>
-          <p className="text-xs text-muted-foreground">Críticos</p>
+        <div className="rounded-lg border p-3">
+          <p className="text-lg font-semibold">{metricas.orcamentos}</p>
+          <p className="text-xs text-muted-foreground">Orçamentos listados</p>
         </div>
-        <div className="rounded-lg border p-3 border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
-          <p className="text-lg font-semibold">🟡 {metricas.atencoes}</p>
-          <p className="text-xs text-muted-foreground">Para acompanhar</p>
+        <div className="rounded-lg border p-3">
+          <p className="text-lg font-semibold">{metricas.semRetorno}</p>
+          <p className="text-xs text-muted-foreground">Sem retorno há 5+ dias</p>
         </div>
       </div>
 
@@ -165,9 +165,12 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
           <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos os status</SelectItem>
-            <SelectItem value="alerta">🔴 Alerta</SelectItem>
-            <SelectItem value="atencao">🟡 Atenção</SelectItem>
-            <SelectItem value="cobrados">✅ Cobrados hoje</SelectItem>
+            <SelectItem value="aberto">Em aberto</SelectItem>
+            <SelectItem value="rascunho">Rascunho</SelectItem>
+            <SelectItem value="enviado">Enviado</SelectItem>
+            <SelectItem value="pago">Pago</SelectItem>
+            <SelectItem value="recusado">Recusado</SelectItem>
+            <SelectItem value="cobrados">Cobrados hoje</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
