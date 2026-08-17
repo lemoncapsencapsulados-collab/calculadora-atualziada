@@ -11,7 +11,9 @@ import type {
   ProdutoVendido,
   MixVendas,
   InsightDashboard,
-  OrcamentosPorConsultorStatus
+  OrcamentosPorConsultorStatus,
+  OrcamentoDetalhado,
+  StatusOrcamentoDetalhado
 } from '@/types/dashboard';
 
 // Faturamento efetivo de um item POD = qtd consumida × preço unitário
