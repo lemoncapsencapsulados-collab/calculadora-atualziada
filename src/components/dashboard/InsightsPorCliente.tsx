@@ -8,30 +8,36 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ExternalLink, User, CheckCircle2, MessageSquare } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { ClienteEmAberto, InsightDashboard } from '@/types/dashboard';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import type { ClienteEmAberto, InsightDashboard, OrcamentoDetalhado } from '@/types/dashboard';
 import {
   agruparInsightsPorCliente,
   chaveCobranca,
   lerCobrancas,
   salvarCobrancas,
   PRIORIDADE_LABEL,
+  STATUS_LABEL,
   type MapaCobrancas,
 } from '@/lib/insightsPorCliente';
 import { CobrarDevolutivaDialog } from './CobrarDevolutivaDialog';
 
 interface Props {
   insights: InsightDashboard[];
+  orcamentos: OrcamentoDetalhado[];
 }
 
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtData = (d?: string) => (d ? format(parseISO(d), 'dd/MM/yyyy', { locale: ptBR }) : '—');
 
-export function InsightsPorCliente({ insights }: Props) {
+export function InsightsPorCliente({ insights, orcamentos }: Props) {
   const navigate = useNavigate();
   const [cobrancas, setCobrancas] = useState<MapaCobrancas>({});
   const [filtroVendedor, setFiltroVendedor] = useState('todos');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
   const [valorMinimo, setValorMinimo] = useState('');
+  const [incluirAnteriores, setIncluirAnteriores] = useState(true);
   const [clienteExpandido, setClienteExpandido] = useState<string | null>(null);
   const [clienteCobranca, setClienteCobranca] = useState<ClienteEmAberto | null>(null);
 
@@ -39,7 +45,10 @@ export function InsightsPorCliente({ insights }: Props) {
     setCobrancas(lerCobrancas());
   }, []);
 
-  const grupos = useMemo(() => agruparInsightsPorCliente(insights), [insights]);
+  const grupos = useMemo(() => {
+    const base = incluirAnteriores ? orcamentos : orcamentos.filter(o => !o.foraDoPeriodo);
+    return agruparInsightsPorCliente(base, insights);
+  }, [orcamentos, insights, incluirAnteriores]);
 
   const vendedores = useMemo(() => grupos.map(g => g.consultor).sort(), [grupos]);
 
@@ -56,21 +65,34 @@ export function InsightsPorCliente({ insights }: Props) {
     return grupos
       .filter(g => filtroVendedor === 'todos' || g.consultor === filtroVendedor)
       .map(g => {
-        const clientes = g.clientes.filter(c => {
-          if (c.valorTotal < min) return false;
-          if (c.diasParado > diasMax) return false;
-          if (filtroStatus === 'alerta' && !c.temAlerta) return false;
-          if (filtroStatus === 'atencao' && c.temAlerta) return false;
-          if (filtroStatus === 'cobrados' && !isCobradoHoje(c)) return false;
-          return true;
-        });
+        const clientes = g.clientes
+          .map(c => {
+            if (['rascunho', 'enviado', 'pago', 'recusado'].includes(filtroStatus)) {
+              const itens = c.itens.filter(i => i.status === filtroStatus);
+              if (itens.length === 0) return null;
+              return { ...c, itens };
+            }
+            if (filtroStatus === 'aberto') {
+              const itens = c.itens.filter(i => i.emAberto);
+              if (itens.length === 0) return null;
+              return { ...c, itens };
+            }
+            return c;
+          })
+          .filter((c): c is ClienteEmAberto => !!c)
+          .filter(c => {
+            if (c.valorTotal < min) return false;
+            if (c.diasParado > diasMax) return false;
+            if (filtroStatus === 'cobrados' && !isCobradoHoje(c)) return false;
+            return true;
+          });
         const ativos = clientes.filter(c => !cobrancas[chaveCobranca(c.consultor, c.cliente)]);
         return {
           ...g,
           clientes,
           totalClientes: clientes.length,
           totalAlertas: ativos.filter(c => c.temAlerta).length,
-          totalAtencoes: ativos.filter(c => !c.temAlerta).length,
+          totalAtencoes: ativos.filter(c => !c.temAlerta && (c.valorEmAberto || 0) > 0).length,
           valorTotal: clientes.reduce((acc, c) => acc + c.valorTotal, 0),
         };
       })
@@ -79,11 +101,12 @@ export function InsightsPorCliente({ insights }: Props) {
 
   const metricas = useMemo(() => {
     const clientes = gruposFiltrados.flatMap(g => g.clientes);
+    const itens = clientes.flatMap(c => c.itens);
     return {
-      total: clientes.reduce((acc, c) => acc + c.valorTotal, 0),
+      total: itens.filter(i => i.emAberto).reduce((acc, i) => acc + i.valor, 0),
       clientes: clientes.length,
-      alertas: gruposFiltrados.reduce((acc, g) => acc + g.totalAlertas, 0),
-      atencoes: gruposFiltrados.reduce((acc, g) => acc + g.totalAtencoes, 0),
+      orcamentos: itens.length,
+      semRetorno: itens.filter(i => i.emAberto && i.dias >= 5).length,
     };
   }, [gruposFiltrados]);
 
