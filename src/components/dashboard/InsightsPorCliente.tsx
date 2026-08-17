@@ -291,8 +291,16 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
 
                         {expandido && (
                           <div className="mt-3 space-y-2 border-t pt-2">
-                            {c.itens.map((item, idx) => (
-                              <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                            {c.itens.map((item, idx) => {
+                              const resolucao = item.orcamento_id ? resolucoes[item.orcamento_id] : undefined;
+                              return (
+                              <div
+                                key={idx}
+                                className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs rounded-md p-2 ${
+                                  resolucao ? 'border border-success/40 bg-success/10' : ''
+                                }`}
+                              >
+                                {resolucao && <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />}
                                 <span className="font-medium">{item.numero_orcamento || '—'}</span>
                                 <Badge variant="outline" className="text-[10px] font-normal">
                                   {item.status ? STATUS_LABEL[item.status] : '—'}
@@ -306,6 +314,13 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                                 )}
                                 {item.observacao && (
                                   <span className="italic text-muted-foreground basis-full">{item.observacao}</span>
+                                )}
+                                {resolucao && (
+                                  <span className="basis-full text-[11px] text-success">
+                                    Resolvido por {resolucao.resolvido_por_email || 'usuário'} em{' '}
+                                    {format(parseISO(resolucao.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} —{' '}
+                                    <span className="italic">{resolucao.observacao}</span>
+                                  </span>
                                 )}
                                 {item.orcamento_id && (
                                   <Button
@@ -322,8 +337,34 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
                                     Ver orçamento
                                   </Button>
                                 )}
+                                {item.orcamento_id && (
+                                  resolucao ? (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 text-xs"
+                                      onClick={() => desfazerResolucao.mutate(item.orcamento_id!)}
+                                    >
+                                      <Undo2 className="w-3 h-3 mr-1" />
+                                      Desfazer
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 text-xs"
+                                      onClick={() =>
+                                        setAlvoResolucao({ item, cliente: c.cliente, consultor: c.consultor })
+                                      }
+                                    >
+                                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                                      Marcar como resolvido
+                                    </Button>
+                                  )
+                                )}
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -342,6 +383,14 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
         open={!!clienteCobranca}
         onOpenChange={open => !open && setClienteCobranca(null)}
         onMarcarCobrado={marcarCobrado}
+      />
+
+      <ResolverOrcamentoDialog
+        alvo={alvoResolucao}
+        open={!!alvoResolucao}
+        onOpenChange={open => !open && setAlvoResolucao(null)}
+        onConfirmar={confirmarResolucao}
+        salvando={marcarResolvido.isPending}
       />
     </div>
   );
