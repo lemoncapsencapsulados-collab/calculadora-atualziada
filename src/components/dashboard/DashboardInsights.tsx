@@ -7,6 +7,8 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from '@/components/ui/pagination';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { InsightsPorCliente } from './InsightsPorCliente';
 import type { InsightDashboard } from '@/types/dashboard';
 
 interface DashboardInsightsProps {
@@ -27,6 +29,7 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
   const navigate = useNavigate();
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [paginaAtual, setPaginaAtual] = useState(1);
+  const [modoVisao, setModoVisao] = useState<'orcamento' | 'cliente'>('orcamento');
 
   const insightsFiltrados = useMemo(() => {
     return insights.filter(i => {
@@ -155,26 +158,41 @@ export function DashboardInsights({ insights }: DashboardInsightsProps) {
           <CardTitle className="flex items-center gap-2 text-lg">
             <Lightbulb className="h-5 w-5 text-amber-500" />
             Insights e Alertas
-            {insightsFiltrados.length !== insights.length && (
+            {modoVisao === 'orcamento' && insightsFiltrados.length !== insights.length && (
               <span className="text-sm font-normal text-muted-foreground">
                 ({insightsFiltrados.length} de {insights.length})
               </span>
             )}
           </CardTitle>
-          <Select value={filtroTipo} onValueChange={handleFiltroTipoChange}>
-            <SelectTrigger className="w-[160px] h-8 text-xs">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              {TIPO_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup
+              type="single"
+              value={modoVisao}
+              onValueChange={(v) => v && setModoVisao(v as 'orcamento' | 'cliente')}
+              className="border rounded-md"
+            >
+              <ToggleGroupItem value="orcamento" className="h-8 px-3 text-xs">Por orçamento</ToggleGroupItem>
+              <ToggleGroupItem value="cliente" className="h-8 px-3 text-xs">Por cliente</ToggleGroupItem>
+            </ToggleGroup>
+            {modoVisao === 'orcamento' && (
+              <Select value={filtroTipo} onValueChange={handleFiltroTipoChange}>
+                <SelectTrigger className="w-[160px] h-8 text-xs">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIPO_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {insightsFiltrados.length === 0 ? (
+        {modoVisao === 'cliente' ? (
+          <InsightsPorCliente insights={insights} />
+        ) : insightsFiltrados.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Nenhum insight encontrado com os filtros selecionados.
           </p>
