@@ -683,6 +683,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
     produtosMaisVendidos,
     mixVendas,
     insights,
+    orcamentosDetalhados,
     vendasPorTipo,
     clientesPorModelo,
     orcamentosPorConsultorStatus,
