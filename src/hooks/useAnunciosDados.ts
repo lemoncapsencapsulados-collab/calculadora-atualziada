@@ -111,10 +111,23 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     queryFn: async () => {
       const { data } = await supabase
         .from('meta_ad_accounts' as any)
-        .select('id, ad_account_id, nome, ativo, last_sync_at, last_sync_status, last_sync_error');
+        .select('id, ad_account_id, nome, ativo, last_sync_at, last_sync_status, last_sync_error')
+        .order('nome', { ascending: true });
       return (data as any[]) || [];
     },
   });
+
+  // Só considera insights das contas marcadas como ativas
+  const contasAtivasIds = useMemo(
+    () => (contasMeta as any[]).filter((c) => c.ativo).map((c) => c.ad_account_id),
+    [contasMeta]
+  );
+  const metaRowsAtivas = useMemo(() => {
+    if (!contasAtivasIds.length) return [] as any[];
+    const set = new Set(contasAtivasIds);
+    return (metaRows as any[]).filter((m) => set.has(m.ad_account_id));
+  }, [metaRows, contasAtivasIds]);
+
 
   // Orçamentos e pedidos (atual + anterior, para deltas e timeline)
   const { data: comercial, isLoading: loadingComercial } = useQuery({
