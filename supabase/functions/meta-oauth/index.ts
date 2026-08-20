@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const host = req.headers.get('x-forwarded-host') || url.host;
   const path = url.pathname.includes('/functions/v1/')
     ? url.pathname
-    : `/functions/v1${url.pathname.startsWith('/') ? '' : '/'}${url.pathname.replace(/^\/+/, '')}`;
+    : `/functions/v1/${url.pathname.replace(/^\/+/, '')}`;
   const redirectUri = `https://${host}${path}`;
   const appReturn = url.searchParams.get('return') || url.searchParams.get('state') || '/investimento-anuncios';
 
