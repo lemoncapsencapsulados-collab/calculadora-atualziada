@@ -88,6 +88,26 @@ export default function InvestimentoAnuncios() {
     window.location.href = url;
   };
 
+  const desconectarMeta = async () => {
+    if (!window.confirm('Desconectar a conta Meta Ads? A sincronização automática será interrompida.')) return;
+    setDesconectando(true);
+    try {
+      const { error } = await supabase
+        .from('meta_ad_accounts' as any)
+        .update({ ativo: false, access_token: null, last_sync_status: 'desconectado' } as any)
+        .eq('ativo', true);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['meta-ad-accounts'] });
+      toast.success('Conta Meta Ads desconectada');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao desconectar a conta');
+    } finally {
+      setDesconectando(false);
+    }
+  };
+
+
+
   const sincronizar = async () => {
     setSincronizando(true);
     try {
