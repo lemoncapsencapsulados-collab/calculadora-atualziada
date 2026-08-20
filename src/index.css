@@ -231,3 +231,55 @@ All colors MUST be HSL.
 .sparkle-delay-4 {
   animation-delay: 0.8s;
 }
+
+/* ================= Investimento em Anúncios — tema escopado ================= */
+.anuncios-neon {
+  --background: 240 20% 4%;
+  --foreground: 240 20% 95%;
+  --card: 240 18% 8%;
+  --card-foreground: 240 20% 95%;
+  --popover: 240 18% 8%;
+  --popover-foreground: 240 20% 95%;
+  --primary: 170 100% 45%;
+  --primary-foreground: 240 20% 6%;
+  --secondary: 248 92% 71%;
+  --secondary-foreground: 240 20% 6%;
+  --muted: 240 14% 14%;
+  --muted-foreground: 245 10% 58%;
+  --accent: 248 92% 71%;
+  --accent-foreground: 240 20% 6%;
+  --destructive: 348 100% 65%;
+  --destructive-foreground: 240 20% 96%;
+  --success: 160 100% 38%;
+  --success-foreground: 240 20% 6%;
+  --border: 240 20% 18%;
+  --input: 240 20% 18%;
+  --ring: 170 100% 45%;
+  --radius: 1rem;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.anuncios-neon .surface {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: var(--radius);
+}
+
+@keyframes anuncios-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.anuncios-neon .anim-rise {
+  animation: anuncios-rise 150ms ease-out both;
+}
+
+@keyframes anuncios-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.anuncios-neon .pulse-dot {
+  animation: anuncios-pulse-dot 1.6s ease-in-out infinite;
+}

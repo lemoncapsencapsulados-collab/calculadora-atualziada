@@ -1448,6 +1448,93 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_ad_accounts: {
+        Row: {
+          access_token: string | null
+          ad_account_id: string
+          ativo: boolean
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          nome: string | null
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          ad_account_id: string
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          nome?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          ad_account_id?: string
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          nome?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      meta_insights: {
+        Row: {
+          ad_account_id: string
+          campaign_id: string
+          campaign_name: string | null
+          clicks: number
+          consultor_nome: string | null
+          created_at: string
+          data: string
+          id: string
+          impressions: number
+          leads: number
+          spend: number
+          updated_at: string
+        }
+        Insert: {
+          ad_account_id: string
+          campaign_id: string
+          campaign_name?: string | null
+          clicks?: number
+          consultor_nome?: string | null
+          created_at?: string
+          data: string
+          id?: string
+          impressions?: number
+          leads?: number
+          spend?: number
+          updated_at?: string
+        }
+        Update: {
+          ad_account_id?: string
+          campaign_id?: string
+          campaign_name?: string | null
+          clicks?: number
+          consultor_nome?: string | null
+          created_at?: string
+          data?: string
+          id?: string
+          impressions?: number
+          leads?: number
+          spend?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       monetizze_consultas_salvas: {
         Row: {
           comissao_total: number
