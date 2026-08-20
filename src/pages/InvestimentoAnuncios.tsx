@@ -1,619 +1,275 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Megaphone, ChevronDown, ChevronRight, FileSpreadsheet, Download } from 'lucide-react';
+import {
+  Plus,
+  Megaphone,
+  RefreshCw,
+  Link2,
+  FileSpreadsheet,
+  FileText,
+  Download,
+  Loader2,
+} from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useAdInvestments, AdInvestment } from '@/hooks/useAdInvestments';
 import { useUsuarios } from '@/hooks/useUsuarios';
+import { AdInvestment } from '@/hooks/useAdInvestments';
+import { useAnunciosDados } from '@/hooks/useAnunciosDados';
 import RegistroInvestimentoDialog from '@/components/anuncios/RegistroInvestimentoDialog';
-import { CANAIS_VENDAS, calcularCPL, formatBRL, labelCanal, labelObjetivo } from '@/lib/anuncios';
-
-function intersectaPeriodo(ini: string, fim: string, di: Date, df: Date): boolean {
-  const a = new Date(ini + 'T00:00:00');
-  const b = new Date(fim + 'T23:59:59');
-  return a <= df && b >= di;
-}
+import AnunciosKpis from '@/components/anuncios/AnunciosKpis';
+import FunilVisual, { EtapaFunil } from '@/components/anuncios/FunilVisual';
+import ConsultoresPainel from '@/components/anuncios/ConsultoresPainel';
+import TimelineAnuncios from '@/components/anuncios/TimelineAnuncios';
+import RegistrosTabela from '@/components/anuncios/RegistrosTabela';
+import PainelIA from '@/components/anuncios/PainelIA';
+import { CANAIS_VENDAS } from '@/lib/anuncios';
+import { exportarCSV, exportarPDF, exportarXLSX } from '@/lib/anunciosExport';
 
 export default function InvestimentoAnuncios() {
   const [mesStr, setMesStr] = useState(() => format(new Date(), 'yyyy-MM'));
-  const [canalFiltro, setCanalFiltro] = useState<string>('todos');
-  const [consultorFiltro, setConsultorFiltro] = useState<string>('todos');
   const [modoData, setModoData] = useState<'mes' | 'custom'>('mes');
-  const [dataInicioCustom, setDataInicioCustom] = useState<string>(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [dataFimCustom, setDataFimCustom] = useState<string>(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [dataInicioCustom, setDataInicioCustom] = useState(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [dataFimCustom, setDataFimCustom] = useState(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [canalFiltro, setCanalFiltro] = useState('todos');
+  const [consultorFiltro, setConsultorFiltro] = useState('todos');
+  const [etapa, setEtapa] = useState<EtapaFunil>(null);
+  const [visao, setVisao] = useState('funil');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<AdInvestment | null>(null);
-  const [funilAberto, setFunilAberto] = useState(true);
+  const [sincronizando, setSincronizando] = useState(false);
 
   const [ano, mes] = mesStr.split('-').map(Number);
-  const periodoIni = modoData === 'mes'
-    ? startOfMonth(new Date(ano, mes - 1, 1))
-    : parseISO(`${dataInicioCustom}T00:00:00`);
-  const periodoFim = modoData === 'mes'
-    ? endOfMonth(new Date(ano, mes - 1, 1))
-    : parseISO(`${dataFimCustom}T23:59:59`);
+  const inicio = modoData === 'mes' ? startOfMonth(new Date(ano, mes - 1, 1)) : parseISO(`${dataInicioCustom}T00:00:00`);
+  const fim = modoData === 'mes' ? endOfMonth(new Date(ano, mes - 1, 1)) : parseISO(`${dataFimCustom}T23:59:59`);
 
-  const { data: registros = [], excluir, isLoading } = useAdInvestments();
-  const { data: consultores = [] } = useUsuarios(true);
+  const { data: usuarios = [] } = useUsuarios(true);
+  const { kpis, anterior, consultores, timeline, tabela, registrosPeriodo, contasMeta, excluir, isLoading } =
+    useAnunciosDados({ inicio, fim, canal: canalFiltro, consultor: consultorFiltro });
 
-  const consultorAlvo = consultorFiltro === 'todos' ? null : consultorFiltro.trim().toLowerCase();
+  const periodoLabel = `${inicio.toLocaleDateString('pt-BR')} — ${fim.toLocaleDateString('pt-BR')}`;
+  const filtroLabel = `Canal: ${canalFiltro === 'todos' ? 'Todos' : canalFiltro === 'meta_api' ? 'Meta Ads (API)' : CANAIS_VENDAS.find((c) => c.id === canalFiltro)?.label || canalFiltro} · Consultor: ${consultorFiltro === 'todos' ? 'Todos' : consultorFiltro}`;
 
-  const registrosFiltrados = useMemo(() => {
-    return registros.filter((r) => {
-      if (canalFiltro !== 'todos' && r.canal !== canalFiltro) return false;
-      if (!intersectaPeriodo(r.data_inicio, r.data_fim, periodoIni, periodoFim)) return false;
-      if (consultorAlvo) {
-        const temConsultor = r.consultores.some((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === consultorAlvo);
-        if (!temConsultor) return false;
-      }
-      return true;
-    });
-  }, [registros, canalFiltro, periodoIni, periodoFim, consultorAlvo]);
+  const dadosExport = useMemo(
+    () => ({
+      periodoLabel,
+      filtroLabel,
+      nomeArquivo: `investimento-anuncios-${format(inicio, 'yyyy-MM-dd')}_${format(fim, 'yyyy-MM-dd')}`,
+      kpis,
+      consultores,
+      registros: tabela,
+    }),
+    [periodoLabel, filtroLabel, inicio, fim, kpis, consultores, tabela]
+  );
 
-  // Agregado por consultor no período filtrado (respeita filtro de consultor)
-  const leadsInvestPorConsultor = useMemo(() => {
-    const map = new Map<string, { leads: number; invest: number; nome: string }>();
-    for (const r of registrosFiltrados) {
-      for (const c of r.consultores) {
-        if (consultorAlvo && (c.consultor_nome_snapshot || '').trim().toLowerCase() !== consultorAlvo) continue;
-        const key = (c.consultor_id || `snap:${c.consultor_nome_snapshot}`).toLowerCase();
-        const cur = map.get(key) || { leads: 0, invest: 0, nome: c.consultor_nome_snapshot };
-        cur.leads += c.leads_recebidos;
-        cur.invest += c.investimento_direcionado;
-        map.set(key, cur);
-      }
-    }
-    return map;
-  }, [registrosFiltrados, consultorAlvo]);
+  const contaAtiva = (contasMeta as any[]).find((c) => c.ativo);
 
-  // Total investido: se houver filtro por consultor, soma apenas as linhas daquele consultor;
-  // caso contrário, soma investimento_total das campanhas.
-  const totalInvestido = consultorAlvo
-    ? Array.from(leadsInvestPorConsultor.values()).reduce((s, v) => s + v.invest, 0)
-    : registrosFiltrados.reduce((s, r) => s + r.investimento_total, 0);
-  const totalLeads = Array.from(leadsInvestPorConsultor.values()).reduce((s, v) => s + v.leads, 0);
-  const cplMedio = calcularCPL(totalInvestido, totalLeads);
-
-  // Orçamentos e Vendas no período (respeitando consultor filtrado)
-  const { data: metricasVendas } = useQuery({
-    queryKey: ['anuncios-metricas', periodoIni.toISOString(), periodoFim.toISOString(), consultorAlvo],
-    queryFn: async () => {
-      const ini = periodoIni.toISOString();
-      const fim = periodoFim.toISOString();
-      const [orcRes, pedRes] = await Promise.all([
-        supabase.from('orcamentos').select('consultor_responsavel').gte('created_at', ini).lte('created_at', fim),
-        supabase.from('pedidos').select('orcamento_snapshot, data_pedido').gte('data_pedido', ini).lte('data_pedido', fim),
-      ]);
-      const orc = new Map<string, number>();
-      (orcRes.data || []).forEach((o: any) => {
-        const n = (o.consultor_responsavel || '').trim();
-        if (!n) return;
-        if (consultorAlvo && n.toLowerCase() !== consultorAlvo) return;
-        orc.set(n.toLowerCase(), (orc.get(n.toLowerCase()) || 0) + 1);
-      });
-      const ven = new Map<string, number>();
-      (pedRes.data || []).forEach((p: any) => {
-        const n = (p.orcamento_snapshot?.consultor_responsavel || '').trim();
-        if (!n) return;
-        if (consultorAlvo && n.toLowerCase() !== consultorAlvo) return;
-        ven.set(n.toLowerCase(), (ven.get(n.toLowerCase()) || 0) + 1);
-      });
-      return { orc, ven };
-    },
-  });
-
-  const totalVendas = metricasVendas
-    ? Array.from(metricasVendas.ven.values()).reduce((s, n) => s + n, 0)
-    : 0;
-  const cac = totalVendas > 0 ? totalInvestido / totalVendas : 0;
-
-  const funil = useMemo(() => {
-    const nomes = new Set<string>();
-    consultores.forEach((c) => {
-      if (consultorAlvo && c.nome.trim().toLowerCase() !== consultorAlvo) return;
-      nomes.add(c.nome);
-    });
-    leadsInvestPorConsultor.forEach((v) => nomes.add(v.nome));
-    return Array.from(nomes)
-      .map((nome) => {
-        const key = nome.toLowerCase();
-        const entradaLeads = Array.from(leadsInvestPorConsultor.entries()).find(
-          ([, v]) => v.nome.toLowerCase() === key
-        );
-        const leads = entradaLeads?.[1].leads || 0;
-        const invest = entradaLeads?.[1].invest || 0;
-        const orcamentos = metricasVendas?.orc.get(key) || 0;
-        const vendas = metricasVendas?.ven.get(key) || 0;
-        return {
-          nome,
-          leads,
-          invest,
-          orcamentos,
-          vendas,
-          cpl: calcularCPL(invest, leads),
-          custoOrc: orcamentos > 0 ? invest / orcamentos : 0,
-          custoVenda: vendas > 0 ? invest / vendas : 0,
-          taxaLO: leads > 0 ? (orcamentos / leads) * 100 : 0,
-          taxaOV: orcamentos > 0 ? (vendas / orcamentos) * 100 : 0,
-          taxaLV: leads > 0 ? (vendas / leads) * 100 : 0,
-        };
-      })
-      .filter((f) => f.leads > 0 || f.orcamentos > 0 || f.vendas > 0)
-      .sort((a, b) => b.vendas - a.vendas || b.orcamentos - a.orcamentos || b.leads - a.leads);
-  }, [consultores, leadsInvestPorConsultor, metricasVendas, consultorAlvo]);
-
-  // Exportação — respeita mês/período customizado, canal e consultor
-  const periodoLabel = `${format(periodoIni, 'dd/MM/yyyy')} a ${format(periodoFim, 'dd/MM/yyyy')}`;
-  const filtroLabel = [
-    `Canal: ${canalFiltro === 'todos' ? 'Todos' : labelCanal(canalFiltro)}`,
-    `Consultor: ${consultorFiltro === 'todos' ? 'Todos' : consultorFiltro}`,
-  ].join(' · ');
-  const nomeArquivo = `investimento-anuncios_${format(periodoIni, 'yyyy-MM-dd')}_a_${format(periodoFim, 'yyyy-MM-dd')}${consultorAlvo ? `_${consultorFiltro.replace(/\s+/g, '_')}` : ''}${canalFiltro !== 'todos' ? `_${canalFiltro}` : ''}`;
-  const consultoresPeriodo = useMemo(() => {
-    return Array.from(leadsInvestPorConsultor.values())
-      .sort((a, b) => b.invest - a.invest);
-  }, [leadsInvestPorConsultor]);
-
-  // Estrutura tabular reutilizada por CSV e XLSX
-  const dadosExport = useMemo(() => {
-    const kpis = [
-      ['Total Investido', 'Total de Leads', 'CPL Médio', 'CAC (Custo por Venda)', 'Total de Vendas'],
-      [formatBRL(totalInvestido), totalLeads, formatBRL(cplMedio), formatBRL(cac), totalVendas],
-    ];
-    const painel = [
-      ['Consultor', 'Leads', 'Investimento', 'CPL'],
-      ...consultoresPeriodo.map((c) => [c.nome, c.leads, formatBRL(c.invest), formatBRL(calcularCPL(c.invest, c.leads))]),
-      ['TOTAL', totalLeads, formatBRL(totalInvestido), formatBRL(cplMedio)],
-    ];
-    const campanhas = [
-      ['Período', 'Campanha', 'Canal', 'Objetivo', 'Investido', 'Leads', 'CPL', 'Consultores'],
-      ...registrosFiltrados.map((r) => {
-        const linhasConsultor = consultorAlvo
-          ? r.consultores.filter((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === consultorAlvo)
-          : r.consultores;
-        const leads = linhasConsultor.reduce((s, c) => s + c.leads_recebidos, 0);
-        const invest = consultorAlvo
-          ? linhasConsultor.reduce((s, c) => s + c.investimento_direcionado, 0)
-          : r.investimento_total;
-        const detalhe = linhasConsultor
-          .map((c) => `${c.consultor_nome_snapshot}: ${c.leads_recebidos}L / ${formatBRL(c.investimento_direcionado)}`)
-          .join(' | ');
-        return [
-          `${r.data_inicio.split('-').reverse().join('/')} - ${r.data_fim.split('-').reverse().join('/')}`,
-          r.nome_campanha || '—',
-          labelCanal(r.canal),
-          labelObjetivo(r.objetivo_campanha),
-          formatBRL(invest),
-          leads,
-          formatBRL(calcularCPL(invest, leads)),
-          detalhe,
-        ];
-      }),
-    ];
-    return { kpis, painel, campanhas };
-  }, [totalInvestido, totalLeads, cplMedio, cac, totalVendas, consultoresPeriodo, registrosFiltrados, consultorAlvo]);
-
-  const exportarCSV = () => {
-    const linhas: string[] = [];
-    const esc = (v: any) => {
-      const s = String(v ?? '');
-      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    linhas.push(`Investimento em Anúncios — Período: ${periodoLabel}`);
-    linhas.push(filtroLabel);
-    linhas.push('');
-    linhas.push('KPIs Gerais');
-    dadosExport.kpis.forEach((row) => linhas.push(row.map(esc).join(',')));
-    linhas.push('');
-    linhas.push('Painel Geral por Consultor');
-    dadosExport.painel.forEach((row) => linhas.push(row.map(esc).join(',')));
-    linhas.push('');
-    linhas.push('Registros de Campanha');
-    dadosExport.campanhas.forEach((row) => linhas.push(row.map(esc).join(',')));
-    const blob = new Blob([`\uFEFF${linhas.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${nomeArquivo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const conectarMeta = async () => {
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=start&return=${encodeURIComponent(
+      window.location.pathname
+    )}`;
+    window.location.href = url;
   };
 
-  const exportarXLSX = () => {
-    const wb = XLSX.utils.book_new();
-    const cabecalho = [
-      ['Investimento em Anúncios'],
-      [`Período: ${periodoLabel}`],
-      [filtroLabel],
-      [],
-    ];
-    // KPIs sheet
-    const wsKpis = XLSX.utils.aoa_to_sheet([...cabecalho, ['KPIs Gerais'], ...dadosExport.kpis]);
-    XLSX.utils.book_append_sheet(wb, wsKpis, 'KPIs');
-    // Painel sheet
-    const wsPainel = XLSX.utils.aoa_to_sheet([...cabecalho, ['Painel Geral por Consultor'], ...dadosExport.painel]);
-    XLSX.utils.book_append_sheet(wb, wsPainel, 'Painel Geral');
-    // Campanhas sheet (mesma estrutura de colunas do CSV)
-    const wsCamp = XLSX.utils.aoa_to_sheet([...cabecalho, ['Registros de Campanha'], ...dadosExport.campanhas]);
-    XLSX.utils.book_append_sheet(wb, wsCamp, 'Campanhas');
-    XLSX.writeFile(wb, `${nomeArquivo}.xlsx`);
-  };
-
-  const exportarPDF = () => {
-    const doc = new jsPDF();
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const marginX = 14;
-
-    const drawHeader = () => {
-      doc.setFillColor(37, 99, 235);
-      doc.rect(0, 0, pageW, 22, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(15);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Investimento em Anúncios', marginX, 14);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Período: ${periodoLabel}`, pageW - marginX, 10, { align: 'right' });
-      doc.text(filtroLabel, pageW - marginX, 16, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-    };
-    const drawFooter = () => {
-      const pageCount = (doc as any).internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setTextColor(120, 120, 120);
-        doc.text(
-          `Gerado em ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`,
-          marginX,
-          pageH - 8
-        );
-        doc.text(`Página ${i} de ${pageCount}`, pageW - marginX, pageH - 8, { align: 'right' });
-      }
-    };
-
-    drawHeader();
-
-    // KPIs
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('KPIs Gerais', marginX, 32);
-    autoTable(doc, {
-      startY: 36,
-      head: [['Indicador', 'Valor']],
-      body: [
-        ['Total Investido', formatBRL(totalInvestido)],
-        ['Total de Leads', String(totalLeads)],
-        ['CPL Médio', formatBRL(cplMedio)],
-        ['Total de Vendas', String(totalVendas)],
-        ['CAC (Custo por Venda)', formatBRL(cac)],
-      ],
-      headStyles: { fillColor: [37, 99, 235], textColor: 255, halign: 'left' },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      styles: { fontSize: 10, cellPadding: 3 },
-      margin: { left: marginX, right: marginX },
-    });
-
-    // Painel Geral por Consultor
-    let afterY = (doc as any).lastAutoTable.finalY + 8;
-    if (afterY > pageH - 40) { doc.addPage(); drawHeader(); afterY = 32; }
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Painel Geral por Consultor', marginX, afterY);
-    autoTable(doc, {
-      startY: afterY + 4,
-      head: [['Consultor', 'Leads', 'Investimento', 'CPL']],
-      body: [
-        ...consultoresPeriodo.map((c) => [
-          c.nome,
-          String(c.leads),
-          formatBRL(c.invest),
-          formatBRL(calcularCPL(c.invest, c.leads)),
-        ]),
-        ['TOTAL GERAL', String(totalLeads), formatBRL(totalInvestido), formatBRL(cplMedio)],
-      ],
-      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      styles: { fontSize: 10, cellPadding: 3 },
-      margin: { left: marginX, right: marginX },
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.row.index === consultoresPeriodo.length) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [220, 230, 250];
-        }
-      },
-    });
-
-    // Campanhas
-    afterY = (doc as any).lastAutoTable.finalY + 8;
-    if (afterY > pageH - 40) { doc.addPage(); drawHeader(); afterY = 32; }
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Registros de Campanha', marginX, afterY);
-    autoTable(doc, {
-      startY: afterY + 4,
-      head: [['Período', 'Campanha', 'Canal', 'Objetivo', 'Invest.', 'Leads', 'CPL']],
-      body: registrosFiltrados.map((r) => {
-        const linhas = consultorAlvo
-          ? r.consultores.filter((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === consultorAlvo)
-          : r.consultores;
-        const leads = linhas.reduce((s, c) => s + c.leads_recebidos, 0);
-        const invest = consultorAlvo ? linhas.reduce((s, c) => s + c.investimento_direcionado, 0) : r.investimento_total;
-        return [
-          `${r.data_inicio.split('-').reverse().join('/')} - ${r.data_fim.split('-').reverse().join('/')}`,
-          r.nome_campanha || '—',
-          labelCanal(r.canal),
-          labelObjetivo(r.objetivo_campanha),
-          formatBRL(invest),
-          String(leads),
-          formatBRL(calcularCPL(invest, leads)),
-        ];
-      }),
-      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      styles: { fontSize: 8, cellPadding: 2.5 },
-      margin: { left: marginX, right: marginX },
-      showHead: 'everyPage',
-    });
-
-    drawFooter();
-    doc.save(`${nomeArquivo}.pdf`);
-  };
-
-  const abrirNovo = () => {
-    setEditando(null);
-    setDialogOpen(true);
-  };
-  const abrirEditar = (r: AdInvestment) => {
-    setEditando(r);
-    setDialogOpen(true);
-  };
-  const onExcluir = (r: AdInvestment) => {
-    if (confirm(`Excluir registro ${labelCanal(r.canal)} (${r.data_inicio} - ${r.data_fim})?`)) {
-      excluir.mutate(r.id);
+  const sincronizar = async () => {
+    setSincronizando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('meta-sync-insights', { body: {} });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success('Sincronização com Meta Ads concluída');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao sincronizar com Meta Ads');
+    } finally {
+      setSincronizando(false);
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <Megaphone className="w-6 h-6" />
-          <h1 className="text-2xl font-bold">Investimento em Anúncios</h1>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={modoData} onValueChange={(v) => setModoData(v as 'mes' | 'custom')}>
-            <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="mes">Por mês</SelectItem>
-              <SelectItem value="custom">Personalizado</SelectItem>
-            </SelectContent>
-          </Select>
-          {modoData === 'mes' ? (
-            <Input
-              type="month"
-              value={mesStr}
-              onChange={(e) => setMesStr(e.target.value)}
-              className="w-[180px]"
-            />
-          ) : (
-            <>
-              <Input
-                type="date"
-                value={dataInicioCustom}
-                onChange={(e) => setDataInicioCustom(e.target.value)}
-                className="w-[160px]"
-              />
-              <span className="text-xs text-muted-foreground">até</span>
-              <Input
-                type="date"
-                value={dataFimCustom}
-                onChange={(e) => setDataFimCustom(e.target.value)}
-                className="w-[160px]"
-              />
-            </>
-          )}
-          <Select value={canalFiltro} onValueChange={setCanalFiltro}>
-            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os canais</SelectItem>
-              {CANAIS_VENDAS.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={consultorFiltro} onValueChange={setConsultorFiltro}>
-            <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os consultores</SelectItem>
-              {consultores.map((c) => (
-                <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={abrirNovo}><Plus className="w-4 h-4 mr-1" /> Novo Registro</Button>
-          <Button variant="outline" onClick={exportarCSV} disabled={registrosFiltrados.length === 0}>
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> CSV
-          </Button>
-          <Button variant="outline" onClick={exportarXLSX} disabled={registrosFiltrados.length === 0}>
-            <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
-          </Button>
-          <Button variant="outline" onClick={exportarPDF} disabled={registrosFiltrados.length === 0}>
-            <Download className="w-4 h-4 mr-1" /> PDF
-          </Button>
-        </div>
-      </div>
+    <div className="anuncios-neon min-h-screen">
+      <div className="container mx-auto px-4 py-6 space-y-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))' }}>
+              <Megaphone className="w-5 h-5 text-background" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold">Investimento em Anúncios</h1>
+              <p className="text-sm text-muted-foreground">{periodoLabel}</p>
+            </div>
+          </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Total Investido" value={formatBRL(totalInvestido)} />
-        <KpiCard label="Total de Leads" value={String(totalLeads)} />
-        <KpiCard label="CPL Médio" value={formatBRL(cplMedio)} />
-        <KpiCard label="CAC (Custo por Venda)" value={formatBRL(cac)} />
-      </div>
-
-      {/* Funil por consultor */}
-      <Card>
-        <CardHeader
-          className="cursor-pointer flex-row items-center justify-between space-y-0"
-          onClick={() => setFunilAberto((v) => !v)}
-        >
-          <CardTitle className="text-base flex items-center gap-2">
-            {funilAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            Funil Completo por Consultor
-          </CardTitle>
-        </CardHeader>
-        {funilAberto && (
-          <CardContent>
-            {funil.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sem dados no período selecionado. Cadastre um registro de investimento para começar.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {funil.map((f) => {
-                  const max = Math.max(f.leads, f.orcamentos, f.vendas, 1);
-                  return (
-                    <div key={f.nome} className="border rounded-md p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold">{f.nome}</h3>
-                        <div className="text-xs text-muted-foreground">
-                          Invest.: {formatBRL(f.invest)}
-                        </div>
-                      </div>
-                      <div className="space-y-1.5 mb-3">
-                        <FunilBar label="Leads" value={f.leads} max={max} color="bg-blue-500" />
-                        <FunilBar label="Orçamentos" value={f.orcamentos} max={max} color="bg-amber-500" />
-                        <FunilBar label="Vendas" value={f.vendas} max={max} color="bg-emerald-500" />
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-                        <MiniStat label="Lead→Orç" value={`${f.taxaLO.toFixed(1)}%`} />
-                        <MiniStat label="Orç→Venda" value={`${f.taxaOV.toFixed(1)}%`} />
-                        <MiniStat label="Lead→Venda" value={`${f.taxaLV.toFixed(1)}%`} />
-                        <MiniStat label="CPL" value={formatBRL(f.cpl)} />
-                        <MiniStat label="Custo/Venda" value={formatBRL(f.custoVenda)} />
-                      </div>
-                    </div>
-                  );
-                })}
+          <div className="flex items-center gap-2 flex-wrap">
+            {contaAtiva ? (
+              <div className="surface px-3 py-2 flex items-center gap-2 text-xs">
+                <span className="w-2 h-2 rounded-full bg-success pulse-dot" />
+                <span className="text-muted-foreground">
+                  Meta Ads · {contaAtiva.nome || contaAtiva.ad_account_id}
+                  {contaAtiva.last_sync_at ? ` · última sync ${new Date(contaAtiva.last_sync_at).toLocaleString('pt-BR')}` : ''}
+                </span>
+                <Button size="sm" variant="ghost" onClick={sincronizar} disabled={sincronizando}>
+                  {sincronizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                </Button>
               </div>
+            ) : (
+              <Button variant="outline" onClick={conectarMeta}>
+                <Link2 className="w-4 h-4 mr-1" /> Conectar Meta Ads
+              </Button>
             )}
-          </CardContent>
-        )}
-      </Card>
 
-      {/* Tabela de registros */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Registros de Investimento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Carregando...</p>
-          ) : registrosFiltrados.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum registro no período/canal selecionado.</p>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="w-4 h-4 mr-1" /> Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportarPDF(dadosExport)}>
+                  <FileText className="w-4 h-4 mr-2" /> PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportarXLSX(dadosExport)}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" /> Excel (XLSX)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportarCSV(dadosExport)}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" /> CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              onClick={() => {
+                setEditando(null);
+                setDialogOpen(true);
+              }}
+              style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))', color: 'hsl(var(--primary-foreground))' }}
+            >
+              <Plus className="w-4 h-4 mr-1" /> Novo registro
+            </Button>
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className="surface p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">Período</Label>
+            <Select value={modoData} onValueChange={(v) => setModoData(v as 'mes' | 'custom')}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mes">Mês</SelectItem>
+                <SelectItem value="custom">Intervalo personalizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {modoData === 'mes' ? (
+            <div>
+              <Label className="text-xs text-muted-foreground">Mês</Label>
+              <Input type="month" className="mt-1" value={mesStr} onChange={(e) => setMesStr(e.target.value)} />
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Período</TableHead>
-                  <TableHead>Campanha</TableHead>
-                  <TableHead>Canal</TableHead>
-                  <TableHead>Objetivo</TableHead>
-                  <TableHead>Investido</TableHead>
-                  <TableHead>Leads</TableHead>
-                  <TableHead>CPL</TableHead>
-                  <TableHead className="w-24">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {registrosFiltrados.map((r) => {
-                  const leads = r.consultores.reduce((s, c) => s + c.leads_recebidos, 0);
-                  return (
-                    <TableRow key={r.id}>
-                      <TableCell className="text-sm">
-                        {r.data_inicio.split('-').reverse().join('/')} - {r.data_fim.split('-').reverse().join('/')}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">{r.nome_campanha || '—'}</TableCell>
-                      <TableCell><Badge variant="secondary">{labelCanal(r.canal)}</Badge></TableCell>
-                      <TableCell className="text-sm">{labelObjetivo(r.objetivo_campanha)}</TableCell>
-                      <TableCell>{formatBRL(r.investimento_total)}</TableCell>
-                      <TableCell>{leads}</TableCell>
-                      <TableCell>{formatBRL(calcularCPL(r.investimento_total, leads))}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => abrirEditar(r)}>
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => onExcluir(r)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">Início</Label>
+                <Input type="date" className="mt-1" value={dataInicioCustom} onChange={(e) => setDataInicioCustom(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Fim</Label>
+                <Input type="date" className="mt-1" value={dataFimCustom} onChange={(e) => setDataFimCustom(e.target.value)} />
+              </div>
+            </div>
           )}
-        </CardContent>
-      </Card>
+          <div>
+            <Label className="text-xs text-muted-foreground">Canal</Label>
+            <Select value={canalFiltro} onValueChange={setCanalFiltro}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os canais</SelectItem>
+                {CANAIS_VENDAS.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                ))}
+                <SelectItem value="meta_api">Meta Ads (API)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Consultor</Label>
+            <Select value={consultorFiltro} onValueChange={setConsultorFiltro}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os consultores</SelectItem>
+                {usuarios.map((u: any) => (
+                  <SelectItem key={u.id} value={u.nome}>{u.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <AnunciosKpis kpis={kpis} anterior={anterior} />
+
+        {/* Visões */}
+        <div className="surface p-4">
+          <Tabs value={visao} onValueChange={setVisao}>
+            <TabsList>
+              <TabsTrigger value="funil">Funil</TabsTrigger>
+              <TabsTrigger value="consultores">Consultores</TabsTrigger>
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            </TabsList>
+            <TabsContent value="funil" className="mt-4">
+              <FunilVisual kpis={kpis} etapaSelecionada={etapa} onSelecionarEtapa={setEtapa} />
+            </TabsContent>
+            <TabsContent value="consultores" className="mt-4">
+              <ConsultoresPainel consultores={consultores} etapa={etapa} timeline={timeline} />
+            </TabsContent>
+            <TabsContent value="timeline" className="mt-4">
+              <TimelineAnuncios dados={timeline} />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Tabela de registros */}
+        <div className="surface p-4">
+          <h3 className="font-medium mb-3">Registros de investimento</h3>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => <div key={i} className="h-8 rounded bg-muted animate-pulse" />)}
+            </div>
+          ) : (
+            <RegistrosTabela
+              linhas={tabela}
+              onEditar={(r) => {
+                setEditando(r);
+                setDialogOpen(true);
+              }}
+              onExcluir={(r) => {
+                if (confirm(`Excluir o registro "${r.nome_campanha}"?`)) excluir.mutate(r.id);
+              }}
+            />
+          )}
+        </div>
+
+        {/* IA */}
+        <PainelIA periodoLabel={periodoLabel} kpis={kpis} anterior={anterior} consultores={consultores} />
+      </div>
 
       <RegistroInvestimentoDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         registro={editando}
-        registrosPeriodo={registrosFiltrados}
-        periodoLabel={format(periodoIni, 'MM/yyyy')}
+        registrosPeriodo={registrosPeriodo}
+        periodoLabel={periodoLabel}
       />
-    </div>
-  );
-}
-
-function KpiCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-muted/40 rounded px-2 py-1">
-      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className="font-semibold">{value}</div>
-    </div>
-  );
-}
-
-function FunilBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const pct = max > 0 ? (value / max) * 100 : 0;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-24 text-xs text-muted-foreground">{label}</div>
-      <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
-        <div
-          className={`h-full ${color} flex items-center justify-end px-2 text-[11px] text-white font-semibold transition-all`}
-          style={{ width: `${Math.max(pct, 4)}%` }}
-        >
-          {value}
-        </div>
-      </div>
     </div>
   );
 }
