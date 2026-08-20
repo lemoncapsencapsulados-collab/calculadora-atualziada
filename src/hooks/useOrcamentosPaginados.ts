@@ -18,13 +18,16 @@ interface UseOrcamentosPaginadosParams {
   pageSize: number;
   searchTerm: string;
   consultorFilter?: string;
+  enabled?: boolean;
 }
 
-export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFilter }: UseOrcamentosPaginadosParams) {
+export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFilter, enabled = true }: UseOrcamentosPaginadosParams) {
   const trimmed = searchTerm.trim();
 
   const { data, isLoading } = useQuery({
     queryKey: ['orcamentos-paginados', page, pageSize, trimmed, consultorFilter],
+    enabled,
+    staleTime: 30_000,
     placeholderData: keepPreviousData,
     queryFn: async () => {
       let countQuery = supabase
@@ -82,11 +85,13 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFi
 }
 
 // Hook for kanban: fetches all orcamentos (up to 200) without pagination
-export function useOrcamentosKanban({ searchTerm, consultorFilter }: { searchTerm: string; consultorFilter?: string }) {
+export function useOrcamentosKanban({ searchTerm, consultorFilter, enabled = true }: { searchTerm: string; consultorFilter?: string; enabled?: boolean }) {
   const trimmed = searchTerm.trim();
 
   const { data, isLoading } = useQuery({
     queryKey: ['orcamentos-kanban', trimmed, consultorFilter],
+    enabled,
+    staleTime: 30_000,
     queryFn: async () => {
       let query = supabase
         .from('orcamentos')
