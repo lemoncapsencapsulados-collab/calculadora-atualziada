@@ -38,6 +38,7 @@ import ConsultoresPainel from '@/components/anuncios/ConsultoresPainel';
 import TimelineAnuncios from '@/components/anuncios/TimelineAnuncios';
 import RegistrosTabela from '@/components/anuncios/RegistrosTabela';
 import PainelIA from '@/components/anuncios/PainelIA';
+import FunilAquisicao from '@/components/anuncios/FunilAquisicao';
 import ContasMetaDialog from '@/components/anuncios/ContasMetaDialog';
 import { CANAIS_VENDAS } from '@/lib/anuncios';
 import { exportarCSV, exportarPDF, exportarXLSX } from '@/lib/anunciosExport';
@@ -72,6 +73,8 @@ export default function InvestimentoAnuncios() {
     timeline,
     tabela,
     registrosPeriodo,
+    porModeloAquisicao,
+    geral,
     contasMeta,
     campanhasDisponiveis,
     excluir,
@@ -96,8 +99,9 @@ export default function InvestimentoAnuncios() {
       kpis,
       consultores,
       registros: tabela,
+      modelos: porModeloAquisicao,
     }),
-    [periodoLabel, filtroLabel, inicio, fim, kpis, consultores, tabela]
+    [periodoLabel, filtroLabel, inicio, fim, kpis, consultores, tabela, porModeloAquisicao]
   );
 
   const contaAtiva = (contasMeta as any[]).find((c) => c.ativo);
@@ -314,6 +318,9 @@ export default function InvestimentoAnuncios() {
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Funil geral por modelo de aquisição */}
+        <FunilAquisicao modelos={porModeloAquisicao} geral={geral} />
 
         {/* Tabela de registros */}
         <div className="surface p-4">

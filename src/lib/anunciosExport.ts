@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { formatBRL, labelCanal } from '@/lib/anuncios';
-import type { KpisAnuncios, LinhaConsultorAnuncio, RegistroTabela } from '@/hooks/useAnunciosDados';
+import type { KpisAnuncios, LinhaConsultorAnuncio, LinhaModeloAquisicao, RegistroTabela } from '@/hooks/useAnunciosDados';
 
 export interface DadosExport {
   periodoLabel: string;
@@ -11,6 +11,14 @@ export interface DadosExport {
   kpis: KpisAnuncios;
   consultores: LinhaConsultorAnuncio[];
   registros: RegistroTabela[];
+  modelos?: LinhaModeloAquisicao[];
+}
+
+function tabelaModelos(ms: LinhaModeloAquisicao[]) {
+  return [
+    ['Modelo de aquisição', 'Orçamentos', 'Clientes adquiridos', 'Conversão', 'Valor vendido'],
+    ...ms.map((m) => [m.label, m.orcamentos, m.vendas, `${m.taxaConversao.toFixed(1)}%`, formatBRL(m.valorVendido)]),
+  ];
 }
 
 function tabelaKpis(k: KpisAnuncios) {
