@@ -56,8 +56,16 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Nenhuma conta Meta conectada.' }, 400);
     }
 
-    const since = primeiroDia(-1);
-    const until = ultimoDiaMesAtual();
+    // Período: aceita { since, until } no body (sincronização retroativa sob demanda)
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
+    }
+    const validData = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const since = validData(body?.since) ? body.since : primeiroDia(-1);
+    const until = validData(body?.until) ? body.until : ultimoDiaMesAtual();
     const resultados: any[] = [];
 
     for (const conta of contas) {
