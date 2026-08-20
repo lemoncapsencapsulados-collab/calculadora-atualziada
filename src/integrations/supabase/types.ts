@@ -1610,6 +1610,7 @@ export type Database = {
           id_receita_vhsys: number | null
           intermediador: Json | null
           itens_producao: Json
+          modelo_aquisicao: string | null
           nome_cliente: string
           numero_orcamento: string
           observacoes: string | null
@@ -1651,6 +1652,7 @@ export type Database = {
           id_receita_vhsys?: number | null
           intermediador?: Json | null
           itens_producao?: Json
+          modelo_aquisicao?: string | null
           nome_cliente: string
           numero_orcamento: string
           observacoes?: string | null
@@ -1692,6 +1694,7 @@ export type Database = {
           id_receita_vhsys?: number | null
           intermediador?: Json | null
           itens_producao?: Json
+          modelo_aquisicao?: string | null
           nome_cliente?: string
           numero_orcamento?: string
           observacoes?: string | null
