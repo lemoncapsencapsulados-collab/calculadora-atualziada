@@ -97,7 +97,7 @@ export default function InvestimentoAnuncios() {
     try {
       const { error } = await supabase
         .from('meta_ad_accounts' as any)
-        .update({ ativo: false, access_token: null, last_sync_status: 'desconectado' } as any)
+        .update({ ativo: false, last_sync_status: 'desconectado' } as any)
         .eq('ativo', true);
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ['meta-ad-accounts'] });
