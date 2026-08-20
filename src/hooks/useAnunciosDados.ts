@@ -9,6 +9,7 @@ export interface FiltrosAnuncios {
   fim: Date;
   canal: string; // 'todos' | id do canal | 'meta_api'
   consultor: string; // 'todos' | nome
+  campanha?: string; // 'todos' | nome exato da campanha (produto)
 }
 
 export interface LinhaConsultorAnuncio {
@@ -122,11 +123,26 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     () => (contasMeta as any[]).filter((c) => c.ativo).map((c) => c.ad_account_id),
     [contasMeta]
   );
-  const metaRowsAtivas = useMemo(() => {
+  const metaRowsContas = useMemo(() => {
     if (!contasAtivasIds.length) return [] as any[];
     const set = new Set(contasAtivasIds);
     return (metaRows as any[]).filter((m) => set.has(m.ad_account_id));
   }, [metaRows, contasAtivasIds]);
+
+  // Lista de campanhas (produtos) disponíveis para filtro
+  const campanhasDisponiveis = useMemo(() => {
+    const set = new Set<string>();
+    metaRowsContas.forEach((m: any) => {
+      if (m.campaign_name) set.add(m.campaign_name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [metaRowsContas]);
+
+  const campanhaAlvo = !filtros.campanha || filtros.campanha === 'todos' ? null : filtros.campanha;
+  const metaRowsAtivas = useMemo(
+    () => (campanhaAlvo ? metaRowsContas.filter((m: any) => m.campaign_name === campanhaAlvo) : metaRowsContas),
+    [metaRowsContas, campanhaAlvo]
+  );
 
 
   // Orçamentos e pedidos (atual + anterior, para deltas e timeline)
@@ -409,6 +425,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
   return {
     ...dados,
     contasMeta,
+    campanhasDisponiveis,
     excluir,
     isLoading: loadingRegistros || loadingComercial || loadingMeta || loadingContas,
     periodo: { inicio: di, fim: df, anteriorInicio: prevIni, anteriorFim: prevFim },
