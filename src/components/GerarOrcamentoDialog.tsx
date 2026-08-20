@@ -107,6 +107,7 @@ export default function GerarOrcamentoDialog({
   // Step 1: Informações básicas
   const [tipoOrcamento, setTipoOrcamento] = useState<TipoOrcamento>('novo_produtor');
   const [nomeCliente, setNomeCliente] = useState('');
+  const [modeloAquisicao, setModeloAquisicao] = useState('');
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [consultorResponsavel, setConsultorResponsavel] = useState('');
   const [validadeDias, setValidadeDias] = useState(30);
@@ -375,6 +376,7 @@ export default function GerarOrcamentoDialog({
     if (orcamentoExistente) {
       setTipoOrcamento(orcamentoExistente.tipo_orcamento || 'novo_produtor');
       setNomeCliente(orcamentoExistente.nome_cliente);
+      setModeloAquisicao(((orcamentoExistente as any).modelo_aquisicao as string) || '');
       setConsultorResponsavel(orcamentoExistente.consultor_responsavel || '');
       setValidadeDias(orcamentoExistente.validade_dias);
       setObservacoes(orcamentoExistente.observacoes || '');
@@ -837,6 +839,7 @@ export default function GerarOrcamentoDialog({
           id: orcamentoExistente.id,
           updates: {
             nome_cliente: nomeCliente,
+            modelo_aquisicao: modeloAquisicao || null,
             ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
             consultor_responsavel: consultorResponsavel,
             tipo_orcamento: tipoOrcamento,
@@ -858,6 +861,7 @@ export default function GerarOrcamentoDialog({
         const novoOrcamento: OrcamentoInsert = {
           numero_orcamento: numeroOrcamento,
           nome_cliente: nomeCliente,
+          modelo_aquisicao: modeloAquisicao || null,
           ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
           consultor_responsavel: consultorResponsavel,
           tipo_orcamento: tipoOrcamento,
@@ -890,10 +894,11 @@ export default function GerarOrcamentoDialog({
   const canGoNext = () => {
     if (step === 1) {
       const temNome = nomeCliente.trim().length > 0;
+      const temModelo = modeloAquisicao.trim().length > 0;
       const temConsultor = consultorResponsavel.trim().length > 0;
       const tel = (clienteSelecionado?.telefone || '').replace(/\D/g, '');
       const temTelefone = tel.length >= 10;
-      return temNome && temConsultor && temTelefone;
+      return temNome && temModelo && temConsultor && temTelefone;
     }
     if (step === 2) {
       if (itensProducao.length === 0) return false;
@@ -1109,6 +1114,20 @@ export default function GerarOrcamentoDialog({
                     Selecione ou crie um cliente. Nome e WhatsApp com DDD são obrigatórios.
                   </p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="modelo-aquisicao">Modelo de aquisição *</Label>
+                <Select value={modeloAquisicao} onValueChange={setModeloAquisicao}>
+                  <SelectTrigger id="modelo-aquisicao">
+                    <SelectValue placeholder="Como esse cliente chegou até nós?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODELOS_AQUISICAO.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">
