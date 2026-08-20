@@ -114,11 +114,13 @@ export default function Orcamentos() {
     pageSize: PAGE_SIZE,
     searchTerm,
     consultorFilter: consultorFilter || undefined,
+    enabled: viewMode === 'list',
   });
 
   const { orcamentos: kanbanOrcamentos, isLoading: kanbanLoading } = useOrcamentosKanban({
     searchTerm,
     consultorFilter: consultorFilter || undefined,
+    enabled: viewMode !== 'list',
   });
 
   const isLoading = viewMode === 'list' ? listLoading : kanbanLoading;
