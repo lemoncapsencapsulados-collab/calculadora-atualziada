@@ -234,37 +234,40 @@ All colors MUST be HSL.
 
 /* ================= Investimento em Anúncios — tema escopado ================= */
 .anuncios-neon {
-  --background: 240 20% 4%;
-  --foreground: 240 20% 95%;
-  --card: 240 18% 8%;
-  --card-foreground: 240 20% 95%;
-  --popover: 240 18% 8%;
-  --popover-foreground: 240 20% 95%;
-  --primary: 170 100% 45%;
-  --primary-foreground: 240 20% 6%;
-  --secondary: 248 92% 71%;
-  --secondary-foreground: 240 20% 6%;
-  --muted: 240 14% 14%;
-  --muted-foreground: 245 10% 58%;
-  --accent: 248 92% 71%;
-  --accent-foreground: 240 20% 6%;
-  --destructive: 348 100% 65%;
-  --destructive-foreground: 240 20% 96%;
-  --success: 160 100% 38%;
-  --success-foreground: 240 20% 6%;
-  --border: 240 20% 18%;
-  --input: 240 20% 18%;
-  --ring: 170 100% 45%;
-  --radius: 1rem;
+  --background: 225 16% 7%;
+  --foreground: 220 15% 95%;
+  --card: 225 15% 10%;
+  --card-foreground: 220 15% 95%;
+  --popover: 225 15% 10%;
+  --popover-foreground: 220 15% 95%;
+  --primary: 172 70% 45%;
+  --primary-foreground: 225 16% 7%;
+  --secondary: 220 80% 65%;
+  --secondary-foreground: 225 16% 7%;
+  --muted: 225 12% 16%;
+  --muted-foreground: 220 8% 62%;
+  --accent: 220 80% 65%;
+  --accent-foreground: 225 16% 7%;
+  --destructive: 356 72% 58%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 152 55% 45%;
+  --success-foreground: 225 16% 7%;
+  --warning: 38 88% 58%;
+  --warning-foreground: 225 16% 7%;
+  --border: 225 12% 19%;
+  --input: 225 12% 19%;
+  --ring: 172 70% 45%;
+  --radius: 0.75rem;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
 
 .anuncios-neon .surface {
   background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border) / 0.6);
+  border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
 }
+
 
 @keyframes anuncios-rise {
   from { opacity: 0; transform: translateY(8px); }

@@ -47,16 +47,20 @@ interface CardProps {
   formula: string;
   menorMelhor?: boolean;
   index: number;
+  cor: string;
 }
 
-function KpiCard({ label, valor, formato, anterior, formula, menorMelhor, index }: CardProps) {
+function KpiCard({ label, valor, formato, anterior, formula, menorMelhor, index, cor }: CardProps) {
   const animado = useCounter(valor);
   const texto = formato === 'brl' ? formatBRL(animado) : Math.round(animado).toLocaleString('pt-BR');
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="surface anim-rise p-5" style={{ animationDelay: `${index * 40}ms` }}>
+          <div
+            className="surface anim-rise p-5 border-l-2 transition-colors hover:bg-muted/20"
+            style={{ animationDelay: `${index * 40}ms`, borderLeftColor: cor }}
+          >
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
             <p className="mt-2 text-3xl font-semibold tabular-nums">{texto}</p>
             <div className="mt-2">
@@ -73,10 +77,11 @@ function KpiCard({ label, valor, formato, anterior, formula, menorMelhor, index 
 export default function AnunciosKpis({ kpis, anterior }: { kpis: KpisAnuncios; anterior: KpisAnuncios }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-      <KpiCard index={0} label="Total investido" valor={kpis.invest} formato="brl" anterior={anterior.invest} formula="Soma do investimento das campanhas no período" />
-      <KpiCard index={1} label="Leads gerados" valor={kpis.leads} formato="int" anterior={anterior.leads} formula="Soma dos leads atribuídos aos consultores" />
-      <KpiCard index={2} label="CPL médio" valor={kpis.cpl} formato="brl" anterior={anterior.cpl} formula="CPL = Investimento ÷ Leads" menorMelhor />
-      <KpiCard index={3} label="CAC (custo por venda)" valor={kpis.cac} formato="brl" anterior={anterior.cac} formula="CAC = Investimento ÷ Vendas" menorMelhor />
+      <KpiCard index={0} cor="hsl(var(--primary))" label="Total investido" valor={kpis.invest} formato="brl" anterior={anterior.invest} formula="Soma do investimento das campanhas no período" />
+      <KpiCard index={1} cor="hsl(var(--secondary))" label="Leads gerados" valor={kpis.leads} formato="int" anterior={anterior.leads} formula="Soma dos leads atribuídos aos consultores" />
+      <KpiCard index={2} cor="hsl(var(--success))" label="CPL médio" valor={kpis.cpl} formato="brl" anterior={anterior.cpl} formula="CPL = Investimento ÷ Leads" menorMelhor />
+      <KpiCard index={3} cor="hsl(var(--warning, 38 92% 55%))" label="CAC (custo por venda)" valor={kpis.cac} formato="brl" anterior={anterior.cac} formula="CAC = Investimento ÷ Vendas" menorMelhor />
     </div>
   );
 }
+
