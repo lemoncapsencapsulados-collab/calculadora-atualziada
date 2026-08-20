@@ -102,10 +102,11 @@ function TaxaLinha({ label, valor, formula }: { label: string; valor: number; fo
             </div>
             <div className="h-1.5 mt-1.5 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(valor, 100)}%`, background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)))' }}
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${Math.min(valor, 100)}%` }}
               />
             </div>
+
           </div>
         </TooltipTrigger>
         <TooltipContent className="backdrop-blur">{formula}</TooltipContent>
