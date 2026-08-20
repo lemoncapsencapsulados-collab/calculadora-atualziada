@@ -111,10 +111,23 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     queryFn: async () => {
       const { data } = await supabase
         .from('meta_ad_accounts' as any)
-        .select('id, ad_account_id, nome, ativo, last_sync_at, last_sync_status, last_sync_error');
+        .select('id, ad_account_id, nome, ativo, last_sync_at, last_sync_status, last_sync_error')
+        .order('nome', { ascending: true });
       return (data as any[]) || [];
     },
   });
+
+  // Só considera insights das contas marcadas como ativas
+  const contasAtivasIds = useMemo(
+    () => (contasMeta as any[]).filter((c) => c.ativo).map((c) => c.ad_account_id),
+    [contasMeta]
+  );
+  const metaRowsAtivas = useMemo(() => {
+    if (!contasAtivasIds.length) return [] as any[];
+    const set = new Set(contasAtivasIds);
+    return (metaRows as any[]).filter((m) => set.has(m.ad_account_id));
+  }, [metaRows, contasAtivasIds]);
+
 
   // Orçamentos e pedidos (atual + anterior, para deltas e timeline)
   const { data: comercial, isLoading: loadingComercial } = useQuery({
@@ -175,7 +188,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       r.consultores.forEach((c) => add(c.consultor_nome_snapshot, c.leads_recebidos, c.investimento_direcionado));
     });
 
-    const metaNoPeriodo = (metaRows as any[]).filter(
+    const metaNoPeriodo = (metaRowsAtivas as any[]).filter(
       (m) => usaMeta && m.data >= iso(di) && m.data <= iso(df)
     );
     metaNoPeriodo.forEach((m) => {
@@ -271,7 +284,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     const linhasPrev = registrosPrev.flatMap((r) =>
       r.consultores.filter((c) => !alvo || (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo)
     );
-    const metaPrev = (metaRows as any[]).filter(
+    const metaPrev = (metaRowsAtivas as any[]).filter(
       (m) =>
         usaMeta &&
         m.data >= iso(prevIni) &&
@@ -391,7 +404,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     ].sort((a, b) => b.invest - a.invest);
 
     return { kpis, anterior, consultores, timeline, tabela, registrosPeriodo };
-  }, [registros, metaRows, comercial, filtros.canal, alvo, di, df, prevIni, prevFim]);
+  }, [registros, metaRowsAtivas, comercial, filtros.canal, alvo, di, df, prevIni, prevFim]);
 
   return {
     ...dados,
