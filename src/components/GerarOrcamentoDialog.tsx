@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { MODELOS_AQUISICAO } from '@/lib/anuncios';
 import { 
   ArrowLeft, 
   ArrowRight, 
