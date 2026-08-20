@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdInvestments, AdInvestment } from '@/hooks/useAdInvestments';
 import { calcularCPL, diasEntre, MODELOS_AQUISICAO, MODELOS_AQUISICAO_ANUNCIO } from '@/lib/anuncios';
-import { detectarVendedorNaCampanha } from '@/lib/vendedoresCampanha';
+import { detectarVendedorNaCampanha, chaveConsultor } from '@/lib/vendedoresCampanha';
 
 export interface FiltrosAnuncios {
   inicio: Date;
@@ -101,7 +101,7 @@ function intersecta(ini: string, fim: string, di: Date, df: Date): boolean {
 export function useAnunciosDados(filtros: FiltrosAnuncios) {
   const { data: registros = [], isLoading: loadingRegistros, excluir } = useAdInvestments();
 
-  const alvo = filtros.consultor === 'todos' ? null : filtros.consultor.trim().toLowerCase();
+  const alvo = filtros.consultor === 'todos' ? null : chaveConsultor(filtros.consultor);
   const di = filtros.inicio;
   const df = filtros.fim;
   const durMs = Math.max(1, df.getTime() - di.getTime());
@@ -206,7 +206,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       if (!usaManual) return false;
       if (canalFiltro !== 'todos' && canalFiltro !== 'meta_api' && r.canal !== canalFiltro) return false;
       if (!intersecta(r.data_inicio, r.data_fim, di, df)) return false;
-      if (alvo && !r.consultores.some((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo)) return false;
+      if (alvo && !r.consultores.some((c) => chaveConsultor(c.consultor_nome_snapshot) === alvo)) return false;
       return true;
     });
 
@@ -215,8 +215,9 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     const add = (nome: string, leads: number, invest: number) => {
       const n = (nome || '').trim();
       if (!n) return;
-      if (alvo && n.toLowerCase() !== alvo) return;
-      const key = n.toLowerCase();
+      const key = chaveConsultor(n);
+      if (alvo && key !== alvo) return;
+
       const cur = porConsultor.get(key) || { nome: n, leads: 0, invest: 0 };
       cur.leads += leads;
       cur.invest += invest;
@@ -240,7 +241,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
           (s, r) =>
             s +
             r.consultores
-              .filter((c) => (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo)
+              .filter((c) => chaveConsultor(c.consultor_nome_snapshot) === alvo)
               .reduce((x, c) => x + c.investimento_direcionado, 0),
           0
         )
@@ -249,15 +250,15 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       (s, r) =>
         s +
         r.consultores
-          .filter((c) => !alvo || (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo)
+          .filter((c) => !alvo || chaveConsultor(c.consultor_nome_snapshot) === alvo)
           .reduce((x, c) => x + c.leads_recebidos, 0),
       0
     );
     const investMeta = metaNoPeriodo
-      .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
+      .filter((m) => !alvo || chaveConsultor(vendedorDaLinha(m)) === alvo)
       .reduce((s, m) => s + (Number(m.spend) || 0), 0);
     const leadsMeta = metaNoPeriodo
-      .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
+      .filter((m) => !alvo || chaveConsultor(vendedorDaLinha(m)) === alvo)
       .reduce((s, m) => s + (Number(m.leads) || 0), 0);
 
     const investTotal = investManual + investMeta;
@@ -266,25 +267,25 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     // ---- Comercial
     const dentro = (d: string, a: Date, b: Date) => d >= iso(a) && d <= iso(b);
     const orcAtual = (comercial?.orcamentos || []).filter(
-      (o) => o.nome && dentro(o.data, di, df) && (!alvo || o.nome.toLowerCase() === alvo)
+      (o) => o.nome && dentro(o.data, di, df) && (!alvo || chaveConsultor(o.nome) === alvo)
     );
     const venAtual = (comercial?.vendas || []).filter(
-      (v) => v.nome && dentro(v.data, di, df) && (!alvo || v.nome.toLowerCase() === alvo)
+      (v) => v.nome && dentro(v.data, di, df) && (!alvo || chaveConsultor(v.nome) === alvo)
     );
 
     const orcPorNome = new Map<string, number>();
-    orcAtual.forEach((o) => orcPorNome.set(o.nome.toLowerCase(), (orcPorNome.get(o.nome.toLowerCase()) || 0) + 1));
+    orcAtual.forEach((o) => orcPorNome.set(chaveConsultor(o.nome), (orcPorNome.get(chaveConsultor(o.nome)) || 0) + 1));
     const venPorNome = new Map<string, number>();
-    venAtual.forEach((v) => venPorNome.set(v.nome.toLowerCase(), (venPorNome.get(v.nome.toLowerCase()) || 0) + 1));
+    venAtual.forEach((v) => venPorNome.set(chaveConsultor(v.nome), (venPorNome.get(chaveConsultor(v.nome)) || 0) + 1));
 
     const nomes = new Set<string>([...porConsultor.keys(), ...orcPorNome.keys(), ...venPorNome.keys()]);
     const consultores: LinhaConsultorAnuncio[] = Array.from(nomes)
       .map((key) => {
         const base = porConsultor.get(key);
         const nome =
+          orcAtual.find((o) => chaveConsultor(o.nome) === key)?.nome ||
+          venAtual.find((v) => chaveConsultor(v.nome) === key)?.nome ||
           base?.nome ||
-          orcAtual.find((o) => o.nome.toLowerCase() === key)?.nome ||
-          venAtual.find((v) => v.nome.toLowerCase() === key)?.nome ||
           key;
         const leads = base?.leads || 0;
         const invest = base?.invest || 0;
@@ -322,14 +323,14 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       return true;
     });
     const linhasPrev = registrosPrev.flatMap((r) =>
-      r.consultores.filter((c) => !alvo || (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo)
+      r.consultores.filter((c) => !alvo || chaveConsultor(c.consultor_nome_snapshot) === alvo)
     );
     const metaPrev = (metaRowsAtivas as any[]).filter(
       (m) =>
         usaMeta &&
         m.data >= iso(prevIni) &&
         m.data <= iso(prevFim) &&
-        (!alvo || vendedorDaLinha(m).toLowerCase() === alvo)
+        (!alvo || chaveConsultor(vendedorDaLinha(m)) === alvo)
     );
     const anterior = kpisDe({
       invest:
@@ -341,10 +342,10 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
         linhasPrev.reduce((s, c) => s + c.leads_recebidos, 0) +
         metaPrev.reduce((s, m) => s + (Number(m.leads) || 0), 0),
       orcamentos: (comercial?.orcamentos || []).filter(
-        (o) => o.nome && dentro(o.data, prevIni, prevFim) && (!alvo || o.nome.toLowerCase() === alvo)
+        (o) => o.nome && dentro(o.data, prevIni, prevFim) && (!alvo || chaveConsultor(o.nome) === alvo)
       ).length,
       vendas: (comercial?.vendas || []).filter(
-        (v) => v.nome && dentro(v.data, prevIni, prevFim) && (!alvo || v.nome.toLowerCase() === alvo)
+        (v) => v.nome && dentro(v.data, prevIni, prevFim) && (!alvo || chaveConsultor(v.nome) === alvo)
       ).length,
     });
 
@@ -364,7 +365,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     );
     registrosPeriodo.forEach((r) => {
       const total = diasEntre(r.data_inicio, r.data_fim);
-      const linhas = r.consultores.filter((c) => !alvo || (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo);
+      const linhas = r.consultores.filter((c) => !alvo || chaveConsultor(c.consultor_nome_snapshot) === alvo);
       const invest = alvo ? linhas.reduce((s, c) => s + c.investimento_direcionado, 0) : r.investimento_total;
       const leads = linhas.reduce((s, c) => s + c.leads_recebidos, 0);
       dias.forEach((d) => {
@@ -376,7 +377,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       });
     });
     metaNoPeriodo
-      .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
+      .filter((m) => !alvo || chaveConsultor(vendedorDaLinha(m)) === alvo)
       .forEach((m) => {
         const p = mapa.get(m.data);
         if (p) {
@@ -401,7 +402,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     // ---- Tabela de registros
     const tabela: RegistroTabela[] = [
       ...registrosPeriodo.map((r) => {
-        const linhas = r.consultores.filter((c) => !alvo || (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo);
+        const linhas = r.consultores.filter((c) => !alvo || chaveConsultor(c.consultor_nome_snapshot) === alvo);
         const invest = alvo ? linhas.reduce((s, c) => s + c.investimento_direcionado, 0) : r.investimento_total;
         const leads = linhas.reduce((s, c) => s + c.leads_recebidos, 0);
         return {
@@ -419,7 +420,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       ...(() => {
         const agrup = new Map<string, RegistroTabela>();
         metaNoPeriodo
-          .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
+          .filter((m) => !alvo || chaveConsultor(vendedorDaLinha(m)) === alvo)
           .forEach((m) => {
             const key = String(m.campaign_id);
             const cur =
