@@ -213,7 +213,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   // VhSys: estado do botão de cadastro
   const [vhsysLoading, setVhsysLoading] = useState(false);
-  const { registrarVhsysAsync } = usePedidos();
+  const { registrarVhsysAsync } = usePedidos({ enabled: false });
 
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);

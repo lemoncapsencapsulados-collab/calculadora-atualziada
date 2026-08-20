@@ -121,6 +121,7 @@ export function useOrcamentosKanban({ searchTerm, consultorFilter, enabled = tru
 export function useConsultoresDisponiveis() {
   const { data } = useQuery({
     queryKey: ['consultores-disponiveis'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from('orcamentos')

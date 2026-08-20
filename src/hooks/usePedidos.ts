@@ -69,12 +69,15 @@ const notifyWebhook = async (snapshot: any) => {
   }
 };
 
-export const usePedidos = () => {
+export const usePedidos = (options?: { enabled?: boolean }) => {
   const queryClient = useQueryClient();
   const syncDone = useRef(false);
+  const listEnabled = options?.enabled !== false;
 
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['pedidos'],
+    enabled: listEnabled,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pedidos')

@@ -183,7 +183,7 @@ function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: 
 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
   const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus } = useOrcamentos({ enabled: false });
-  const { createPedidoFromOrcamento, registrarVhsysAsync } = usePedidos();
+  const { createPedidoFromOrcamento, registrarVhsysAsync } = usePedidos({ enabled: false });
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
