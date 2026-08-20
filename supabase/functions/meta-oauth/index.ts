@@ -25,7 +25,9 @@ Deno.serve(async (req) => {
     ? url.pathname
     : `/functions/v1/${url.pathname.replace(/^\/+/, '')}`;
   const redirectUri = `https://${host}${path}`;
-  const appReturn = url.searchParams.get('return') || url.searchParams.get('state') || '/investimento-anuncios';
+  const rawReturn = url.searchParams.get('return') || url.searchParams.get('state') || '';
+  // Aceita apenas URLs absolutas https do app; caso contrário usa fallback relativo
+  const appReturn = /^https:\/\//.test(rawReturn) ? rawReturn : '/investimento-anuncios';
 
   if (!appId || !appSecret) {
     return new Response(html('Integração Meta não configurada: faltam as credenciais do app.'), {

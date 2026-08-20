@@ -76,7 +76,7 @@ export default function InvestimentoAnuncios() {
 
   const conectarMeta = async () => {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=start&return=${encodeURIComponent(
-      window.location.pathname
+      `${window.location.origin}${window.location.pathname}`
     )}`;
     window.location.href = url;
   };
