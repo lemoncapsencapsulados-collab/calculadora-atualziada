@@ -125,7 +125,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
   const metaRowsAtivas = useMemo(() => {
     if (!contasAtivasIds.length) return [] as any[];
     const set = new Set(contasAtivasIds);
-    return (metaRowsAtivas as any[]).filter((m) => set.has(m.ad_account_id));
+    return (metaRows as any[]).filter((m) => set.has(m.ad_account_id));
   }, [metaRows, contasAtivasIds]);
 
 
