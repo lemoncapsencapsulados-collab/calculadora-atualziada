@@ -443,7 +443,42 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       })(),
     ].sort((a, b) => b.invest - a.invest);
 
-    return { kpis, anterior, consultores, timeline, tabela, registrosPeriodo };
+    // ---- Funil por modelo de aquisição
+    const modelosDef = [...MODELOS_AQUISICAO.map((m) => ({ id: m.id as string, label: m.label as string })), { id: 'nao_informado', label: 'Não informado' }];
+    const porModeloAquisicao: LinhaModeloAquisicao[] = modelosDef.map((m) => {
+      const orcs = orcAtual.filter((o: any) => (o.modelo || 'nao_informado') === m.id);
+      const vens = venAtual.filter((v: any) => (v.modelo || 'nao_informado') === m.id);
+      const valorVendido = vens.reduce((s2: number, v: any) => s2 + (Number(v.valor) || 0), 0);
+      return {
+        modelo: m.id,
+        label: m.label,
+        orcamentos: orcs.length,
+        vendas: vens.length,
+        valorVendido,
+        taxaConversao: orcs.length > 0 ? (vens.length / orcs.length) * 100 : 0,
+      };
+    });
+
+    // ---- Campanhas gerais (sem nome de vendedor)
+    const metaGeral = metaNoPeriodo.filter((m: any) => !vendedorDaLinha(m));
+    const investGeral = metaGeral.reduce((s2: number, m: any) => s2 + (Number(m.spend) || 0), 0);
+    const leadsGeral = metaGeral.reduce((s2: number, m: any) => s2 + (Number(m.leads) || 0), 0);
+    const orcGeral = orcAtual.filter((o: any) => MODELOS_AQUISICAO_ANUNCIO.includes(o.modelo || ''));
+    const venGeral = venAtual.filter((v: any) => MODELOS_AQUISICAO_ANUNCIO.includes(v.modelo || ''));
+    const valorGeral = venGeral.reduce((s2: number, v: any) => s2 + (Number(v.valor) || 0), 0);
+    const geral = {
+      invest: investGeral,
+      leads: leadsGeral,
+      orcamentos: orcGeral.length,
+      vendas: venGeral.length,
+      valorVendido: valorGeral,
+      cpl: calcularCPL(investGeral, leadsGeral),
+      custoVenda: venGeral.length > 0 ? investGeral / venGeral.length : 0,
+      taxaOV: orcGeral.length > 0 ? (venGeral.length / orcGeral.length) * 100 : 0,
+      campanhas: Array.from(new Set(metaGeral.map((m: any) => m.campaign_name).filter(Boolean))) as string[],
+    };
+
+    return { kpis, anterior, consultores, timeline, tabela, registrosPeriodo, porModeloAquisicao, geral };
   }, [registros, metaRowsAtivas, comercial, filtros.canal, alvo, di, df, prevIni, prevFim]);
 
   return {
