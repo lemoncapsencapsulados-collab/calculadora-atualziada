@@ -122,12 +122,16 @@ export default function InvestimentoAnuncios() {
                 <Button size="sm" variant="ghost" onClick={sincronizar} disabled={sincronizando}>
                   {sincronizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 </Button>
+                <Button size="sm" variant="ghost" onClick={desconectarMeta} disabled={desconectando} title="Desconectar conta">
+                  {desconectando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlink className="w-4 h-4 text-destructive" />}
+                </Button>
               </div>
             ) : (
               <Button variant="outline" onClick={conectarMeta}>
                 <Link2 className="w-4 h-4 mr-1" /> Conectar Meta Ads
               </Button>
             )}
+
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
