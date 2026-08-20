@@ -840,7 +840,7 @@ export default function GerarOrcamentoDialog({
           id: orcamentoExistente.id,
           updates: {
             nome_cliente: nomeCliente,
-            modelo_aquisicao: modeloAquisicao || null,
+            ...({ modelo_aquisicao: modeloAquisicao || null } as any),
             ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
             consultor_responsavel: consultorResponsavel,
             tipo_orcamento: tipoOrcamento,
@@ -862,7 +862,7 @@ export default function GerarOrcamentoDialog({
         const novoOrcamento: OrcamentoInsert = {
           numero_orcamento: numeroOrcamento,
           nome_cliente: nomeCliente,
-          modelo_aquisicao: modeloAquisicao || null,
+          ...({ modelo_aquisicao: modeloAquisicao || null } as any),
           ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
           consultor_responsavel: consultorResponsavel,
           tipo_orcamento: tipoOrcamento,
