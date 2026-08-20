@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { detectarVendedorNaCampanha } from './vendedores.ts';
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
@@ -34,8 +35,8 @@ function extrairLeads(actions: any[]): number {
 }
 
 function consultorDaCampanha(nome: string): string | null {
-  const m = /consultor[=:_\-\s]+([a-zà-ú]+(?:\s[a-zà-ú]+)?)/i.exec(nome || '');
-  return m ? m[1].trim() : null;
+  const explicito = /consultor[=:_\-\s]+([a-zà-ú]+(?:\s[a-zà-ú]+)?)/i.exec(nome || '');
+  return detectarVendedorNaCampanha(nome || '') || (explicito ? explicito[1].trim() : null);
 }
 
 Deno.serve(async (req) => {

@@ -32,3 +32,17 @@ export function diasEntre(inicio: string, fim: string): number {
   const b = new Date(fim + 'T00:00:00');
   return Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000) + 1);
 }
+
+export const MODELOS_AQUISICAO = [
+  { id: 'indicacao', label: 'Indicação' },
+  { id: 'trafego_whatsapp', label: 'Tráfego no WhatsApp' },
+  { id: 'funil_formulario', label: 'Funil de formulário' },
+  { id: 'pagina_vendas', label: 'Página de vendas' },
+] as const;
+
+export const MODELOS_AQUISICAO_ANUNCIO = ['trafego_whatsapp', 'funil_formulario', 'pagina_vendas'];
+
+export function labelModeloAquisicao(id: string | null | undefined): string {
+  if (!id) return 'Não informado';
+  return MODELOS_AQUISICAO.find((m) => m.id === id)?.label || id;
+}

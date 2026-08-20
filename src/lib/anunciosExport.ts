@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { formatBRL, labelCanal } from '@/lib/anuncios';
-import type { KpisAnuncios, LinhaConsultorAnuncio, RegistroTabela } from '@/hooks/useAnunciosDados';
+import type { KpisAnuncios, LinhaConsultorAnuncio, LinhaModeloAquisicao, RegistroTabela } from '@/hooks/useAnunciosDados';
 
 export interface DadosExport {
   periodoLabel: string;
@@ -11,6 +11,14 @@ export interface DadosExport {
   kpis: KpisAnuncios;
   consultores: LinhaConsultorAnuncio[];
   registros: RegistroTabela[];
+  modelos?: LinhaModeloAquisicao[];
+}
+
+function tabelaModelos(ms: LinhaModeloAquisicao[]) {
+  return [
+    ['Modelo de aquisição', 'Orçamentos', 'Clientes adquiridos', 'Conversão', 'Valor vendido'],
+    ...ms.map((m) => [m.label, m.orcamentos, m.vendas, `${m.taxaConversao.toFixed(1)}%`, formatBRL(m.valorVendido)]),
+  ];
 }
 
 function tabelaKpis(k: KpisAnuncios) {
@@ -78,6 +86,9 @@ export function exportarCSV(d: DadosExport) {
     '',
     'Registros detalhados',
     ...tabelaRegistros(d.registros).map((r) => r.map(esc).join(',')),
+    '',
+    'Por modelo de aquisição',
+    ...tabelaModelos(d.modelos || []).map((r) => r.map(esc).join(',')),
   ];
   const blob = new Blob([`\uFEFF${linhas.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -94,6 +105,7 @@ export function exportarXLSX(d: DadosExport) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...cab, ...tabelaKpis(d.kpis)]), 'Resumo');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...cab, ...tabelaConsultores(d.consultores)]), 'Por Consultor');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...cab, ...tabelaRegistros(d.registros)]), 'Registros');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...cab, ...tabelaModelos(d.modelos || [])]), 'Aquisição');
   XLSX.writeFile(wb, `${d.nomeArquivo}.xlsx`);
 }
 
@@ -142,6 +154,15 @@ export function exportarPDF(d: DadosExport) {
   doc.text('Registros de investimento', m, y);
   const tr = tabelaRegistros(d.registros);
   autoTable(doc, { startY: y + 4, head: head(tr), body: body(tr), ...estilo, styles: { fontSize: 8, cellPadding: 2 } });
+
+  if (d.modelos && d.modelos.length) {
+    y = (doc as any).lastAutoTable.finalY + 8;
+    if (y > pageH - 40) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.text('Funil por modelo de aquisição', m, y);
+    const tm = tabelaModelos(d.modelos);
+    autoTable(doc, { startY: y + 4, head: head(tm), body: body(tm), ...estilo, styles: { fontSize: 8, cellPadding: 2 } });
+  }
 
   const pages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
