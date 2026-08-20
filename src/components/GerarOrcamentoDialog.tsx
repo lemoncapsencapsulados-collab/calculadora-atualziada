@@ -98,7 +98,7 @@ export default function GerarOrcamentoDialog({
   onClose,
   onSuccess 
 }: GerarOrcamentoDialogProps) {
-  const { createOrcamento, updateOrcamento, getNextNumeroOrcamento } = useOrcamentos();
+  const { createOrcamento, updateOrcamento, getNextNumeroOrcamento } = useOrcamentos({ enabled: false });
   const { precificacoes } = usePrecificacao();
   const { buscarPorId } = useClientes();
   

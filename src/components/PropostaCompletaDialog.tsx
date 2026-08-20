@@ -156,7 +156,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 }
 
 export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
-  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
+  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos({ enabled: false });
   const [freteVinculadoCount, setFreteVinculadoCount] = useState<number>(0);
   const [freteDialogAberto, setFreteDialogAberto] = useState(false);
 
@@ -213,7 +213,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   // VhSys: estado do botão de cadastro
   const [vhsysLoading, setVhsysLoading] = useState(false);
-  const { registrarVhsysAsync } = usePedidos();
+  const { registrarVhsysAsync } = usePedidos({ enabled: false });
 
   // ZapSign: estado do botão de envio
   const [zapSignLoading, setZapSignLoading] = useState(false);

@@ -16,13 +16,16 @@ function parseOrcamento(row: any): Orcamento {
   };
 }
 
-export function useOrcamentos() {
+export function useOrcamentos(options?: { enabled?: boolean }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const listEnabled = options?.enabled !== false;
 
   // List all orcamentos
   const { data: orcamentos, isLoading, error } = useQuery({
     queryKey: ['orcamentos'],
+    enabled: listEnabled,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orcamentos')
