@@ -50,6 +50,9 @@ export default function InvestimentoAnuncios() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<AdInvestment | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
+  const [desconectando, setDesconectando] = useState(false);
+  const queryClient = useQueryClient();
+
 
   const [ano, mes] = mesStr.split('-').map(Number);
   const inicio = modoData === 'mes' ? startOfMonth(new Date(ano, mes - 1, 1)) : parseISO(`${dataInicioCustom}T00:00:00`);
