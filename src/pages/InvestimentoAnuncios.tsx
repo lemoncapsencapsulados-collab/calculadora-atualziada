@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Link2,
   Unlink,
+  Settings2,
 
   FileSpreadsheet,
   FileText,
@@ -37,6 +38,7 @@ import ConsultoresPainel from '@/components/anuncios/ConsultoresPainel';
 import TimelineAnuncios from '@/components/anuncios/TimelineAnuncios';
 import RegistrosTabela from '@/components/anuncios/RegistrosTabela';
 import PainelIA from '@/components/anuncios/PainelIA';
+import ContasMetaDialog from '@/components/anuncios/ContasMetaDialog';
 import { CANAIS_VENDAS } from '@/lib/anuncios';
 import { exportarCSV, exportarPDF, exportarXLSX } from '@/lib/anunciosExport';
 
@@ -53,6 +55,7 @@ export default function InvestimentoAnuncios() {
   const [editando, setEditando] = useState<AdInvestment | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [desconectando, setDesconectando] = useState(false);
+  const [contasDialogOpen, setContasDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
 
