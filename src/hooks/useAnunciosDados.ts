@@ -125,7 +125,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
   const metaRowsAtivas = useMemo(() => {
     if (!contasAtivasIds.length) return [] as any[];
     const set = new Set(contasAtivasIds);
-    return (metaRows as any[]).filter((m) => set.has(m.ad_account_id));
+    return (metaRowsAtivas as any[]).filter((m) => set.has(m.ad_account_id));
   }, [metaRows, contasAtivasIds]);
 
 
@@ -188,7 +188,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       r.consultores.forEach((c) => add(c.consultor_nome_snapshot, c.leads_recebidos, c.investimento_direcionado));
     });
 
-    const metaNoPeriodo = (metaRows as any[]).filter(
+    const metaNoPeriodo = (metaRowsAtivas as any[]).filter(
       (m) => usaMeta && m.data >= iso(di) && m.data <= iso(df)
     );
     metaNoPeriodo.forEach((m) => {
@@ -284,7 +284,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     const linhasPrev = registrosPrev.flatMap((r) =>
       r.consultores.filter((c) => !alvo || (c.consultor_nome_snapshot || '').trim().toLowerCase() === alvo)
     );
-    const metaPrev = (metaRows as any[]).filter(
+    const metaPrev = (metaRowsAtivas as any[]).filter(
       (m) =>
         usaMeta &&
         m.data >= iso(prevIni) &&
@@ -404,7 +404,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     ].sort((a, b) => b.invest - a.invest);
 
     return { kpis, anterior, consultores, timeline, tabela, registrosPeriodo };
-  }, [registros, metaRows, comercial, filtros.canal, alvo, di, df, prevIni, prevFim]);
+  }, [registros, metaRowsAtivas, comercial, filtros.canal, alvo, di, df, prevIni, prevFim]);
 
   return {
     ...dados,
