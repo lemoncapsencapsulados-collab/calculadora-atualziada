@@ -101,9 +101,10 @@ export default function InvestimentoAnuncios() {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl grid place-items-center" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))' }}>
-              <Megaphone className="w-5 h-5 text-background" />
+            <div className="w-10 h-10 rounded-xl grid place-items-center bg-primary/15 border border-primary/30">
+              <Megaphone className="w-5 h-5 text-primary" />
             </div>
+
             <div>
               <h1 className="text-2xl font-semibold">Investimento em Anúncios</h1>
               <p className="text-sm text-muted-foreground">{periodoLabel}</p>
