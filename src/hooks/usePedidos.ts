@@ -126,10 +126,18 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
     };
   }, [queryClient]);
 
-  // Sync: ensure all paid orcamentos have corresponding pedidos with full snapshots
+  // Sync: garante que orçamentos pagos tenham snapshot atualizado no pedido.
+  // Roda no máximo uma vez por sessão do navegador e só grava o que realmente mudou.
   useEffect(() => {
-    if (syncDone.current || isLoading) return;
+    if (!listEnabled || syncDone.current || isLoading) return;
     syncDone.current = true;
+    if (syncGlobalDone) return;
+    syncGlobalDone = true;
+    try {
+      const last = Number(sessionStorage.getItem(SYNC_KEY) || 0);
+      if (Date.now() - last < 30 * 60_000) return;
+      sessionStorage.setItem(SYNC_KEY, String(Date.now()));
+    } catch { /* sessionStorage indisponível */ }
 
     (async () => {
       try {
@@ -141,7 +149,8 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
 
         const { data: allPedidos, error: errPed } = await supabase
           .from('pedidos')
-          .select('id, orcamento_id, orcamento_snapshot');
+          .select('id, orcamento_id, orcamento_snapshot')
+          .not('orcamento_id', 'is', null);
         if (errPed) return;
 
         const pedidosByOrcId = new Map<string, any>();
@@ -155,6 +164,8 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
           if (!existing) continue;
 
           const snapshot = buildSnapshotFromOrcamento(orc);
+          // Só grava quando o snapshot realmente mudou (evita writes em massa a cada carregamento)
+          if (JSON.stringify(existing.orcamento_snapshot ?? null) === JSON.stringify(snapshot)) continue;
           toUpdate.push({ id: existing.id, snapshot });
         }
 
@@ -168,13 +179,12 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
         if (toUpdate.length > 0) {
           queryClient.invalidateQueries({ queryKey: ['pedidos'] });
           queryClient.invalidateQueries({ queryKey: ['pedidos-dashboard'] });
-          console.log(`Sync: ${toUpdate.length} pedidos atualizados`);
         }
       } catch (err) {
         console.error('Erro no sync de pedidos:', err);
       }
     })();
-  }, [isLoading, queryClient]);
+  }, [isLoading, queryClient, listEnabled]);
 
   const createPedido = useMutation({
     mutationFn: async (pedido: Omit<Pedido, 'id' | 'created_at' | 'updated_at'>) => {
