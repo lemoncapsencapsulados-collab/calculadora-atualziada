@@ -37,3 +37,19 @@ export function detectarVendedorNaCampanha(nomeCampanha: string): string | null 
 
   return melhor ? melhor.nome : null;
 }
+
+/**
+ * Chave canônica para agrupar/comparar consultores vindos de fontes diferentes
+ * (ex.: "EMMANUEL MELANIO" no orçamento vs "Emmanuel" na campanha).
+ */
+export function chaveConsultor(nome: string): string {
+  const canonico = detectarVendedorNaCampanha(nome || '');
+  if (canonico) return canonico.toLowerCase();
+  return normalizar(nome).trim().replace(/\s+/g, ' ');
+}
+
+/** Compara dois nomes de consultor de fontes diferentes. */
+export function mesmoConsultor(a: string, b: string): boolean {
+  return chaveConsultor(a) === chaveConsultor(b);
+}
+
