@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAdInvestments, AdInvestment } from '@/hooks/useAdInvestments';
-import { calcularCPL, diasEntre } from '@/lib/anuncios';
+import { calcularCPL, diasEntre, MODELOS_AQUISICAO, MODELOS_AQUISICAO_ANUNCIO } from '@/lib/anuncios';
+import { detectarVendedorNaCampanha } from '@/lib/vendedoresCampanha';
 
 export interface FiltrosAnuncios {
   inicio: Date;
@@ -61,6 +62,19 @@ export interface KpisAnuncios {
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Vendedor da linha Meta: valor salvo ou reconhecido pelo nome da campanha. */
+const vendedorDaLinha = (m: any): string =>
+  (m.consultor_nome || detectarVendedorNaCampanha(m.campaign_name || '') || '').trim();
+
+export interface LinhaModeloAquisicao {
+  modelo: string;
+  label: string;
+  orcamentos: number;
+  vendas: number;
+  valorVendido: number;
+  taxaConversao: number;
+}
 
 function kpisDe(base: { invest: number; leads: number; orcamentos: number; vendas: number }): KpisAnuncios {
   const { invest, leads, orcamentos, vendas } = base;
@@ -152,22 +166,31 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       const [orcRes, pedRes] = await Promise.all([
         supabase
           .from('orcamentos')
-          .select('consultor_responsavel, created_at')
+          .select('id, consultor_responsavel, created_at, valor_total, modelo_aquisicao')
           .gte('created_at', prevIni.toISOString())
           .lte('created_at', df.toISOString()),
         supabase
           .from('pedidos')
-          .select('orcamento_snapshot, data_pedido')
+          .select('orcamento_id, orcamento_snapshot, data_pedido')
           .gte('data_pedido', prevIni.toISOString())
           .lte('data_pedido', df.toISOString()),
       ]);
       const orcamentos = (orcRes.data || []).map((o: any) => ({
+        id: o.id as string,
         nome: (o.consultor_responsavel || '').trim(),
         data: String(o.created_at).slice(0, 10),
+        valor: Number(o.valor_total) || 0,
+        modelo: (o.modelo_aquisicao as string | null) || null,
       }));
+      const porId = new Map(orcamentos.map((o) => [o.id, o]));
       const vendas = (pedRes.data || []).map((p: any) => ({
         nome: (p.orcamento_snapshot?.consultor_responsavel || '').trim(),
         data: String(p.data_pedido).slice(0, 10),
+        valor: Number(p.orcamento_snapshot?.valor_total) || 0,
+        modelo:
+          (porId.get(p.orcamento_id)?.modelo as string | null) ||
+          (p.orcamento_snapshot?.modelo_aquisicao as string | null) ||
+          null,
       }));
       return { orcamentos, vendas };
     },
@@ -208,7 +231,8 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       (m) => usaMeta && m.data >= iso(di) && m.data <= iso(df)
     );
     metaNoPeriodo.forEach((m) => {
-      if (m.consultor_nome) add(m.consultor_nome, Number(m.leads) || 0, Number(m.spend) || 0);
+      const v = vendedorDaLinha(m);
+      if (v) add(v, Number(m.leads) || 0, Number(m.spend) || 0);
     });
 
     const investManual = alvo
@@ -230,10 +254,10 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       0
     );
     const investMeta = metaNoPeriodo
-      .filter((m) => !alvo || (m.consultor_nome || '').trim().toLowerCase() === alvo)
+      .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
       .reduce((s, m) => s + (Number(m.spend) || 0), 0);
     const leadsMeta = metaNoPeriodo
-      .filter((m) => !alvo || (m.consultor_nome || '').trim().toLowerCase() === alvo)
+      .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
       .reduce((s, m) => s + (Number(m.leads) || 0), 0);
 
     const investTotal = investManual + investMeta;
@@ -305,7 +329,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
         usaMeta &&
         m.data >= iso(prevIni) &&
         m.data <= iso(prevFim) &&
-        (!alvo || (m.consultor_nome || '').trim().toLowerCase() === alvo)
+        (!alvo || vendedorDaLinha(m).toLowerCase() === alvo)
     );
     const anterior = kpisDe({
       invest:
@@ -352,7 +376,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       });
     });
     metaNoPeriodo
-      .filter((m) => !alvo || (m.consultor_nome || '').trim().toLowerCase() === alvo)
+      .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
       .forEach((m) => {
         const p = mapa.get(m.data);
         if (p) {
@@ -395,7 +419,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       ...(() => {
         const agrup = new Map<string, RegistroTabela>();
         metaNoPeriodo
-          .filter((m) => !alvo || (m.consultor_nome || '').trim().toLowerCase() === alvo)
+          .filter((m) => !alvo || vendedorDaLinha(m).toLowerCase() === alvo)
           .forEach((m) => {
             const key = String(m.campaign_id);
             const cur =
