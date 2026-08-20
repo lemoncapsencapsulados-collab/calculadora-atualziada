@@ -283,9 +283,9 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
       .map((key) => {
         const base = porConsultor.get(key);
         const nome =
-          base?.nome ||
           orcAtual.find((o) => chaveConsultor(o.nome) === key)?.nome ||
           venAtual.find((v) => chaveConsultor(v.nome) === key)?.nome ||
+          base?.nome ||
           key;
         const leads = base?.leads || 0;
         const invest = base?.invest || 0;
