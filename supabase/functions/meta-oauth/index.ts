@@ -19,7 +19,12 @@ Deno.serve(async (req) => {
   const appSecret = Deno.env.get('META_APP_SECRET');
   const url = new URL(req.url);
   const action = url.searchParams.get('action');
-  const redirectUri = `${url.origin}${url.pathname}`;
+  // Facebook exige HTTPS: o runtime entrega req.url como http:// internamente
+  const host = req.headers.get('x-forwarded-host') || url.host;
+  const path = url.pathname.includes('/functions/v1/')
+    ? url.pathname
+    : `/functions/v1${url.pathname.startsWith('/') ? '' : '/'}${url.pathname.replace(/^\/+/, '')}`;
+  const redirectUri = `https://${host}${path}`;
   const appReturn = url.searchParams.get('return') || url.searchParams.get('state') || '/investimento-anuncios';
 
   if (!appId || !appSecret) {
