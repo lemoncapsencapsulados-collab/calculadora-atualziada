@@ -139,6 +139,12 @@ export default function InvestimentoAnuncios() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {(contasMeta as any[]).length > 0 && (
+              <Button variant="outline" onClick={() => setContasDialogOpen(true)}>
+                <Settings2 className="w-4 h-4 mr-1" /> Contas ({(contasMeta as any[]).filter((c) => c.ativo).length}/
+                {(contasMeta as any[]).length})
+              </Button>
+            )}
             {contaAtiva ? (
               <div className="surface px-3 py-2 flex items-center gap-2 text-xs">
                 <span className="w-2 h-2 rounded-full bg-success pulse-dot" />
@@ -146,6 +152,7 @@ export default function InvestimentoAnuncios() {
                   Meta Ads · {contaAtiva.nome || contaAtiva.ad_account_id}
                   {contaAtiva.last_sync_at ? ` · última sync ${new Date(contaAtiva.last_sync_at).toLocaleString('pt-BR')}` : ''}
                 </span>
+
                 <Button size="sm" variant="ghost" onClick={sincronizar} disabled={sincronizando}>
                   {sincronizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 </Button>
