@@ -86,6 +86,7 @@ export default function InvestimentoAnuncios() {
 
   const periodoLabel = `${inicio.toLocaleDateString('pt-BR')} — ${fim.toLocaleDateString('pt-BR')}`;
   const filtroLabelBase = `Canal: ${canalFiltro === 'todos' ? 'Todos' : canalFiltro === 'meta_api' ? 'Meta Ads (API)' : CANAIS_VENDAS.find((c) => c.id === canalFiltro)?.label || canalFiltro} · Consultor: ${consultorFiltro === 'todos' ? 'Todos' : consultorFiltro}`;
+  const filtroLabel = `${filtroLabelBase} · Produto: ${campanhaFiltro === 'todos' ? 'Todos' : campanhaFiltro}`;
 
   const dadosExport = useMemo(
     () => ({
