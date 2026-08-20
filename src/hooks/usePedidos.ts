@@ -69,6 +69,9 @@ const notifyWebhook = async (snapshot: any) => {
   }
 };
 
+const SYNC_KEY = 'pedidos_snapshot_sync_at';
+let syncGlobalDone = false;
+
 export const usePedidos = (options?: { enabled?: boolean }) => {
   const queryClient = useQueryClient();
   const syncDone = useRef(false);
