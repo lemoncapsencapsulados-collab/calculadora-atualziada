@@ -18,7 +18,7 @@ export default function FunilVisual({ kpis, etapaSelecionada, onSelecionarEtapa 
       valor: kpis.leads,
       pct: kpis.leads > 0 ? 100 : 0,
       perda: null as number | null,
-      gradiente: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.6))',
+      cor: 'hsl(var(--primary))',
     },
     {
       id: 'orcamentos' as const,
@@ -26,7 +26,7 @@ export default function FunilVisual({ kpis, etapaSelecionada, onSelecionarEtapa 
       valor: kpis.orcamentos,
       pct: (kpis.orcamentos / base) * 100,
       perda: kpis.leads > 0 ? 100 - kpis.taxaLO : null,
-      gradiente: 'linear-gradient(90deg, hsl(var(--primary) / 0.8), hsl(var(--secondary)))',
+      cor: 'hsl(var(--secondary))',
     },
     {
       id: 'vendas' as const,
@@ -34,7 +34,7 @@ export default function FunilVisual({ kpis, etapaSelecionada, onSelecionarEtapa 
       valor: kpis.vendas,
       pct: (kpis.vendas / base) * 100,
       perda: kpis.orcamentos > 0 ? 100 - kpis.taxaOV : null,
-      gradiente: 'linear-gradient(90deg, hsl(var(--secondary)), hsl(var(--destructive)))',
+      cor: 'hsl(var(--success))',
     },
   ];
 
@@ -43,31 +43,40 @@ export default function FunilVisual({ kpis, etapaSelecionada, onSelecionarEtapa 
       <div className="space-y-4">
         {etapas.map((e, i) => {
           const ativo = etapaSelecionada === e.id;
+          const largura = Math.min(Math.max(e.pct, 2), 100);
           return (
             <button
               key={e.id}
               type="button"
               onClick={() => onSelecionarEtapa(ativo ? null : e.id)}
-              className={`w-full text-left anim-rise ${ativo ? 'opacity-100' : 'opacity-90 hover:opacity-100'}`}
+              className={`w-full text-left anim-rise rounded-lg px-3 py-2 -mx-3 transition-colors ${
+                ativo ? 'bg-muted/40 ring-1 ring-border' : 'hover:bg-muted/20'
+              }`}
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <div className="flex items-baseline justify-between mb-1.5">
-                <span className="text-sm text-muted-foreground">{e.titulo}</span>
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="w-2 h-2 rounded-full" style={{ background: e.cor }} />
+                  {e.titulo}
+                </span>
                 <span className="text-2xl font-semibold tabular-nums">{e.valor.toLocaleString('pt-BR')}</span>
               </div>
-              <div className="h-8 rounded-lg bg-muted/50 overflow-hidden">
+              <div className="h-2.5 rounded-full bg-muted/60 overflow-hidden">
                 <div
-                  className="h-full rounded-lg transition-all duration-500"
-                  style={{ width: `${Math.max(e.pct, 2)}%`, background: e.gradiente }}
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${largura}%`, background: e.cor }}
                 />
               </div>
-              <div className="flex justify-between mt-1 text-xs">
-                <span className="text-muted-foreground">{e.pct.toFixed(1)}% do topo</span>
-                {e.perda !== null && <span className="text-destructive">perda: {e.perda.toFixed(1)}%</span>}
+              <div className="flex justify-between mt-1.5 text-xs">
+                <span className="text-muted-foreground">{Math.min(e.pct, 999).toFixed(1)}% do topo</span>
+                {e.perda !== null && e.perda > 0 && (
+                  <span className="text-muted-foreground">perda: {e.perda.toFixed(1)}%</span>
+                )}
               </div>
             </button>
           );
         })}
+
         <p className="text-xs text-muted-foreground">Clique em uma etapa para ordenar os consultores por ela.</p>
       </div>
 
