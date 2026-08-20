@@ -118,7 +118,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 }
 
 export default function InformacoesClienteDialog({ orcamento, onClose }: { orcamento: Orcamento; onClose: () => void }) {
-  const { updateDadosCliente } = useOrcamentos();
+  const { updateDadosCliente } = useOrcamentos({ enabled: false });
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
   const { toast } = useToast();
 

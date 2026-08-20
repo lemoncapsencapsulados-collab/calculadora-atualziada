@@ -156,7 +156,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 }
 
 export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
-  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos();
+  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos({ enabled: false });
   const [freteVinculadoCount, setFreteVinculadoCount] = useState<number>(0);
   const [freteDialogAberto, setFreteDialogAberto] = useState(false);
 

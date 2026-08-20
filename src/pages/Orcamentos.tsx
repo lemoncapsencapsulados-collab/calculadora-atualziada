@@ -70,7 +70,7 @@ type ViewMode = 'list' | 'kanban';
 
 export default function Orcamentos() {
   const queryClient = useQueryClient();
-  const { deleteOrcamento, updateStatus, addContato, removeContato } = useOrcamentos();
+  const { deleteOrcamento, updateStatus, addContato, removeContato } = useOrcamentos({ enabled: false });
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

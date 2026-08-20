@@ -23,7 +23,7 @@ export default function DetalhamentoFreteDialog({
   orcamento,
   onClose,
 }: DetalhamentoFreteDialogProps) {
-  const { updateDetalhamentoFrete } = useOrcamentos();
+  const { updateDetalhamentoFrete } = useOrcamentos({ enabled: false });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [detalhamentoEnvio, setDetalhamentoEnvio] = useState<DetalhamentoEnvio>({
