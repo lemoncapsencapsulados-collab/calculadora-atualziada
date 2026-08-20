@@ -153,10 +153,10 @@ export default function InvestimentoAnuncios() {
                 setEditando(null);
                 setDialogOpen(true);
               }}
-              style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))', color: 'hsl(var(--primary-foreground))' }}
             >
               <Plus className="w-4 h-4 mr-1" /> Novo registro
             </Button>
+
           </div>
         </div>
 
