@@ -49,6 +49,7 @@ export default function InvestimentoAnuncios() {
   const [dataFimCustom, setDataFimCustom] = useState(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [canalFiltro, setCanalFiltro] = useState('todos');
   const [consultorFiltro, setConsultorFiltro] = useState('todos');
+  const [campanhaFiltro, setCampanhaFiltro] = useState('todos');
   const [etapa, setEtapa] = useState<EtapaFunil>(null);
   const [visao, setVisao] = useState('funil');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -64,11 +65,27 @@ export default function InvestimentoAnuncios() {
   const fim = modoData === 'mes' ? endOfMonth(new Date(ano, mes - 1, 1)) : parseISO(`${dataFimCustom}T23:59:59`);
 
   const { data: usuarios = [] } = useUsuarios(true);
-  const { kpis, anterior, consultores, timeline, tabela, registrosPeriodo, contasMeta, excluir, isLoading } =
-    useAnunciosDados({ inicio, fim, canal: canalFiltro, consultor: consultorFiltro });
+  const {
+    kpis,
+    anterior,
+    consultores,
+    timeline,
+    tabela,
+    registrosPeriodo,
+    contasMeta,
+    campanhasDisponiveis,
+    excluir,
+    isLoading,
+  } = useAnunciosDados({
+    inicio,
+    fim,
+    canal: canalFiltro,
+    consultor: consultorFiltro,
+    campanha: campanhaFiltro,
+  });
 
   const periodoLabel = `${inicio.toLocaleDateString('pt-BR')} — ${fim.toLocaleDateString('pt-BR')}`;
-  const filtroLabel = `Canal: ${canalFiltro === 'todos' ? 'Todos' : canalFiltro === 'meta_api' ? 'Meta Ads (API)' : CANAIS_VENDAS.find((c) => c.id === canalFiltro)?.label || canalFiltro} · Consultor: ${consultorFiltro === 'todos' ? 'Todos' : consultorFiltro}`;
+  const filtroLabelBase = `Canal: ${canalFiltro === 'todos' ? 'Todos' : canalFiltro === 'meta_api' ? 'Meta Ads (API)' : CANAIS_VENDAS.find((c) => c.id === canalFiltro)?.label || canalFiltro} · Consultor: ${consultorFiltro === 'todos' ? 'Todos' : consultorFiltro}`;
 
   const dadosExport = useMemo(
     () => ({
@@ -114,10 +131,15 @@ export default function InvestimentoAnuncios() {
   const sincronizar = async () => {
     setSincronizando(true);
     try {
-      const { data, error } = await supabase.functions.invoke('meta-sync-insights', { body: {} });
+      // Puxa da Meta exatamente o período consultado (inclui datas retroativas)
+      const { data, error } = await supabase.functions.invoke('meta-sync-insights', {
+        body: { since: format(inicio, 'yyyy-MM-dd'), until: format(fim, 'yyyy-MM-dd') },
+      });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success('Sincronização com Meta Ads concluída');
+      await queryClient.invalidateQueries({ queryKey: ['meta-insights'] });
+      await queryClient.invalidateQueries({ queryKey: ['meta-ad-accounts'] });
+      toast.success(`Meta Ads sincronizado (${periodoLabel})`);
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao sincronizar com Meta Ads');
     } finally {
@@ -202,7 +224,7 @@ export default function InvestimentoAnuncios() {
         </div>
 
         {/* Filtros */}
-        <div className="surface p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="surface p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
           <div>
             <Label className="text-xs text-muted-foreground">Período</Label>
             <Select value={modoData} onValueChange={(v) => setModoData(v as 'mes' | 'custom')}>
@@ -240,6 +262,18 @@ export default function InvestimentoAnuncios() {
                   <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
                 ))}
                 <SelectItem value="meta_api">Meta Ads (API)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Produto / Campanha (Meta)</Label>
+            <Select value={campanhaFiltro} onValueChange={setCampanhaFiltro}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os produtos</SelectItem>
+                {(campanhasDisponiveis as string[]).map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
