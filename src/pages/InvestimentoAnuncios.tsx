@@ -305,6 +305,13 @@ export default function InvestimentoAnuncios() {
         <PainelIA periodoLabel={periodoLabel} kpis={kpis} anterior={anterior} consultores={consultores} />
       </div>
 
+      <ContasMetaDialog
+        open={contasDialogOpen}
+        onOpenChange={setContasDialogOpen}
+        contas={contasMeta as any[]}
+      />
+
+
       <RegistroInvestimentoDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
