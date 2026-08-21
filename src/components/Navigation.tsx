@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Package, Calculator, FlaskConical, ClipboardList, DollarSign, Receipt,
+  Package, Calculator, ClipboardList, DollarSign, Receipt,
   LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature,
   Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown, MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTemPapel } from '@/hooks/useTemPapel';
+import { LemoncapsLogo } from '@/components/LemoncapsLogo';
 import { useState, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -117,18 +118,8 @@ export function Navigation({ onLogout }: NavigationProps) {
         <div className="mx-auto w-full max-w-[1600px] px-4 lg:px-6">
           <div className="flex h-14 items-center gap-2">
             {/* Marca */}
-            <Link to="/" className="group flex shrink-0 items-center gap-2.5" aria-label="Início">
-              <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[image:var(--gradient-accent)] shadow-soft ring-1 ring-inset ring-white/15">
-                <FlaskConical className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
-              </span>
-              <span className="hidden min-w-0 leading-none sm:block">
-                <span className="block text-[13px] font-semibold tracking-[-0.015em] text-foreground">
-                  Calculadora
-                </span>
-                <span className="mt-[3px] block text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-                  LemonCaps
-                </span>
-              </span>
+            <Link to="/" className="group flex shrink-0 items-center" aria-label="Início">
+              <LemoncapsLogo className="h-auto w-[118px] text-foreground" />
             </Link>
 
             <span className="mx-1 hidden h-5 w-px bg-border lg:block" aria-hidden />
@@ -287,16 +278,8 @@ export function Navigation({ onLogout }: NavigationProps) {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="flex w-[19rem] flex-col p-0">
           <SheetHeader className="border-b border-border px-4 py-3.5">
-            <SheetTitle className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-[image:var(--gradient-accent)] shadow-soft">
-                <FlaskConical className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
-              </span>
-              <span className="text-left leading-none">
-                <span className="block text-[13px] font-semibold">Calculadora</span>
-                <span className="mt-[3px] block text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-                  LemonCaps
-                </span>
-              </span>
+            <SheetTitle className="flex items-center">
+              <LemoncapsLogo className="h-auto w-[118px] text-foreground" />
             </SheetTitle>
           </SheetHeader>
 

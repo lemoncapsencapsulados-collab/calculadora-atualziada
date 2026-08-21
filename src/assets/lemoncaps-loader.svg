@@ -1,0 +1,274 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 160 26"
+     width="640"
+     height="104"
+     role="img"
+     aria-labelledby="loader-title loader-desc"
+     preserveAspectRatio="xMidYMid meet">
+  <title id="loader-title">Lemoncaps — carregando</title>
+  <desc id="loader-desc">Logo Lemoncaps animada com revelação das letras, limão em movimento, partículas e reflexo de luz.</desc>
+
+  <defs>
+    <filter id="green-glow" x="-80%" y="-80%" width="260%" height="260%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="0.65" result="blur"/>
+      <feFlood flood-color="#E8F235" flood-opacity="0.78" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="soft-glow" x="-40%" y="-100%" width="180%" height="300%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+
+    <linearGradient id="shine-gradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFF" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#FFF" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#FFF" stop-opacity="0.95"/>
+      <stop offset="0.58" stop-color="#E8F235" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <radialGradient id="lemon-highlight" cx="36%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#F4FA52"/>
+      <stop offset="0.42" stop-color="#CAD400"/>
+      <stop offset="1" stop-color="#AEB700"/>
+    </radialGradient>
+
+    <clipPath id="scene-clip">
+      <rect width="160" height="26" rx="1"/>
+    </clipPath>
+
+    <mask id="logo-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="160" height="26">
+      <rect width="160" height="26" fill="#000"/>
+      <g fill="#FFF">
+        <use xlink:href="#shape-l"/>
+        <use xlink:href="#shape-e"/>
+        <use xlink:href="#shape-m"/>
+        <use xlink:href="#shape-lemon"/>
+        <use xlink:href="#shape-leaf"/>
+        <use xlink:href="#shape-n"/>
+        <use xlink:href="#shape-c"/>
+        <use xlink:href="#shape-a"/>
+        <use xlink:href="#shape-p"/>
+        <use xlink:href="#shape-s"/>
+      </g>
+    </mask>
+
+    <style>
+      :root {
+        --cycle: 3.8s;
+        --lime: #CAD400;
+        --white: #FFFFFF;
+      }
+
+      #loader-stage {
+        transform-origin: 80px 13px;
+        animation: stage-breathe var(--cycle) cubic-bezier(.22,.75,.2,1) infinite;
+      }
+
+      .letter {
+        opacity: 0;
+        clip-path: inset(0 100% 0 0);
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: letter-reveal var(--cycle) cubic-bezier(.2,.8,.2,1) infinite;
+      }
+
+      .letter:nth-child(1) { animation-delay: 0.00s; }
+      .letter:nth-child(2) { animation-delay: 0.06s; }
+      .letter:nth-child(3) { animation-delay: 0.12s; }
+      .letter:nth-child(4) { animation-delay: 0.28s; }
+      .letter:nth-child(5) { animation-delay: 0.34s; }
+      .letter:nth-child(6) { animation-delay: 0.40s; }
+      .letter:nth-child(7) { animation-delay: 0.46s; }
+      .letter:nth-child(8) { animation-delay: 0.52s; }
+
+      #lemon-core {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: lemon-motion var(--cycle) cubic-bezier(.22,.85,.25,1) infinite;
+      }
+
+      #leaf {
+        transform-box: fill-box;
+        transform-origin: 20% 90%;
+        animation: leaf-motion var(--cycle) cubic-bezier(.22,.85,.25,1) infinite;
+      }
+
+      #energy-rings {
+        transform-origin: 63.5px 15px;
+        animation: ring-pulse var(--cycle) ease-out infinite;
+      }
+
+      #orbit-particles {
+        transform-origin: 63.5px 14.6px;
+        animation: orbit var(--cycle) cubic-bezier(.4,0,.2,1) infinite;
+      }
+
+      .particle {
+        fill: #EAF337;
+        filter: url(#green-glow);
+        animation: particle-flicker 0.9s ease-in-out infinite alternate;
+      }
+      .particle:nth-child(2) { animation-delay: -0.24s; }
+      .particle:nth-child(3) { animation-delay: -0.51s; }
+      .particle:nth-child(4) { animation-delay: -0.73s; }
+
+      #light-sweep {
+        transform: translateX(-56px) skewX(-14deg);
+        animation: sweep var(--cycle) cubic-bezier(.3,.65,.3,1) infinite;
+        mix-blend-mode: screen;
+      }
+
+      #ground-glow {
+        transform-origin: center;
+        animation: glow-pulse var(--cycle) ease-in-out infinite;
+      }
+
+      @keyframes letter-reveal {
+        0%, 8%   { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateY(2.2px) scale(.97); }
+        22%, 78% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateY(0) scale(1); }
+        92%,100% { opacity: 0; clip-path: inset(0 0 0 0); transform: translateY(-1px) scale(1); }
+      }
+
+      @keyframes lemon-motion {
+        0%, 7%   { opacity: 0; transform: translateY(7px) rotate(-28deg) scale(.3); }
+        20%      { opacity: 1; transform: translateY(-1px) rotate(7deg) scale(1.08); }
+        29%      { transform: translateY(0) rotate(-3deg) scale(.98); }
+        38%, 76% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+        49%      { transform: translateY(-.65px) rotate(2deg) scale(1.025); }
+        92%,100% { opacity: 0; transform: translateY(-1px) rotate(5deg) scale(.96); }
+      }
+
+      @keyframes leaf-motion {
+        0%, 12%  { opacity: 0; transform: rotate(-34deg) scale(.3); }
+        24%      { opacity: 1; transform: rotate(12deg) scale(1.08); }
+        34%      { transform: rotate(-5deg) scale(1); }
+        44%, 78% { opacity: 1; transform: rotate(0) scale(1); }
+        53%      { transform: rotate(8deg) scale(1.02); }
+        92%,100% { opacity: 0; transform: rotate(2deg) scale(.96); }
+      }
+
+      @keyframes ring-pulse {
+        0%, 12%  { opacity: 0; transform: scale(.35); }
+        22%      { opacity: .8; transform: scale(.65); }
+        44%      { opacity: 0; transform: scale(1.45); }
+        45%,100% { opacity: 0; transform: scale(1.45); }
+      }
+
+      @keyframes orbit {
+        0%, 10%  { opacity: 0; transform: rotate(-70deg) scale(.45); }
+        23%      { opacity: 1; }
+        55%      { opacity: .9; transform: rotate(170deg) scale(1); }
+        75%      { opacity: 0; transform: rotate(300deg) scale(1.08); }
+        100%     { opacity: 0; transform: rotate(300deg) scale(1.08); }
+      }
+
+      @keyframes sweep {
+        0%, 38%  { opacity: 0; transform: translateX(-56px) skewX(-14deg); }
+        43%      { opacity: 1; }
+        61%      { opacity: .85; transform: translateX(188px) skewX(-14deg); }
+        64%,100% { opacity: 0; transform: translateX(188px) skewX(-14deg); }
+      }
+
+      @keyframes particle-flicker {
+        from { opacity: .35; }
+        to   { opacity: 1; }
+      }
+
+      @keyframes glow-pulse {
+        0%, 15%, 95%,100% { opacity: 0; transform: scaleX(.45); }
+        35%, 72%          { opacity: .34; transform: scaleX(1); }
+      }
+
+      @keyframes stage-breathe {
+        0%, 12%  { transform: scale(.985); }
+        34%, 75% { transform: scale(1); }
+        92%,100% { transform: scale(.995); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #loader-stage,
+        .letter,
+        #lemon-core,
+        #leaf,
+        #energy-rings,
+        #orbit-particles,
+        .particle,
+        #light-sweep,
+        #ground-glow {
+          animation: none !important;
+        }
+        .letter,
+        #lemon-core,
+        #leaf { opacity: 1; clip-path: none; transform: none; }
+        #energy-rings,
+        #orbit-particles,
+        #light-sweep,
+        #ground-glow { opacity: 0; }
+      }
+    </style>
+  </defs>
+
+  <g id="loader-stage" clip-path="url(#scene-clip)">
+    <ellipse id="ground-glow" cx="63.5" cy="24.1" rx="12" ry="1.15" fill="#CAD400" opacity="0" filter="url(#soft-glow)"/>
+
+    <g id="energy-rings" fill="none" stroke="#CAD400" opacity="0">
+      <ellipse cx="63.5" cy="15" rx="7.8" ry="7.2" stroke-width=".34"/>
+      <ellipse cx="63.5" cy="15" rx="10.2" ry="9.4" stroke-width=".16" stroke-dasharray="1.1 1.8"/>
+    </g>
+
+    <g id="orbit-particles" opacity="0">
+      <circle class="particle" cx="54.1" cy="12.1" r=".42"/>
+      <circle class="particle" cx="68.9" cy="6.5" r=".31"/>
+      <circle class="particle" cx="72.8" cy="17.6" r=".38"/>
+      <circle class="particle" cx="58.4" cy="23.3" r=".27"/>
+    </g>
+
+    <g id="logo-artwork">
+      <g id="wordmark" fill="#000000">
+        <g class="letter">
+          <path id="shape-l" d="M0.0326843 7.23497H3.08265V22.2441H13.8863V25.043H0.0326843V7.23497Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-e" d="M15.6659 7.23497H29.6469V10.0338H18.7159V14.7396H28.6298V17.5384H18.7159V22.2441H29.9016V25.043H15.6659V7.23497Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-m" d="M31.8086 7.23497H34.8585L42.0775 20.769L49.2964 7.23497H52.3464V25.043H49.2964V13.3664L43.0691 25.043H41.0858L34.8585 13.3664V25.043H31.8086V7.23497Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-n" d="M74.4645 7.23497H77.5145L86.8951 19.9805V7.23497H89.945V25.043H86.8951L77.5145 12.2465V25.043H74.4645V7.23497Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-c" d="M91.9794 16.1142C91.9794 9.85693 94.8016 6.8542 100.674 6.8542C106.038 6.8542 109.114 8.68612 109.114 13.4173H107.283C107.283 9.34723 103.8 8.66064 100.521 8.66064C95.7424 8.66064 93.9627 10.8988 93.9627 16.0888C93.9627 21.2787 96.3775 23.6188 101.462 23.6188C104.335 23.6188 107.385 23.0342 107.385 19.0915H109.216C109.216 23.8227 106.064 25.4253 101.285 25.4253C95.0069 25.4253 91.9809 22.3731 91.9809 16.1142H91.9794Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-a" d="M116.84 7.23497H118.9L126.527 25.043H124.492L122.942 21.4556H112.799L111.274 25.043H109.214L116.84 7.23497ZM122.179 19.6747L117.883 9.62607L113.561 19.6747H122.179Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-p" d="M128.508 7.23497H136.413C141.37 7.23497 143.556 9.19432 143.556 13.0605C143.556 16.9268 141.447 18.8861 136.413 18.8861H130.363V25.043H128.507V7.23497H128.508ZM136.517 17.1052C140.227 17.1052 141.55 15.7575 141.55 13.0605C141.55 10.3636 140.229 9.01592 136.517 9.01592H130.365V17.1052H136.517Z"/>
+        </g>
+        <g class="letter">
+          <path id="shape-s" d="M145.312 11.7128C145.312 8.27836 147.625 6.8542 152.734 6.8542C157.234 6.8542 159.928 8.43127 159.928 12.9091H158.123C158.123 9.2198 155.555 8.76258 152.633 8.76258C148.514 8.76258 147.319 9.80596 147.319 11.6619C147.319 13.6722 149.403 14.4352 152.784 15.0199C157.639 15.8339 160.13 16.9538 160.13 20.4377C160.13 23.9217 157.766 25.4238 152.478 25.4238C147.903 25.4238 145.081 23.8467 145.081 19.3688H146.912C146.912 23.1346 149.607 23.6173 152.631 23.6173C156.342 23.6173 158.121 22.6504 158.121 20.5396C158.121 17.5384 154.486 17.462 152.275 16.9777C148.207 16.0618 145.309 15.3497 145.309 11.7113L145.312 11.7128Z"/>
+        </g>
+      </g>
+
+      <g id="lemon-symbol" filter="url(#green-glow)">
+        <g id="lemon-core">
+          <path id="shape-lemon" d="M71.127 10.4221C71.0116 10.2602 70.9727 10.0533 71.0281 9.86293C71.2768 8.99044 70.9996 8.01302 70.2476 7.40887C69.4956 6.80473 68.4845 6.74326 67.686 7.17501C67.5108 7.26945 67.301 7.27695 67.1183 7.199C63.3088 5.57396 58.7354 6.59935 56.015 9.98886C53.3261 13.3379 53.2796 17.9552 55.5985 21.3192C55.7334 21.5156 55.7633 21.7674 55.6689 21.9863C55.266 22.9233 55.5162 24.0491 56.3491 24.7192C57.1849 25.3923 58.3444 25.3908 59.1713 24.7881C59.3586 24.6517 59.6042 24.6277 59.8185 24.7162C63.6024 26.2648 68.104 25.2259 70.7959 21.8739C73.5178 18.4844 73.5328 13.7951 71.127 10.4221Z" fill="url(#lemon-highlight)"/>
+        </g>
+        <g id="leaf">
+          <path id="shape-leaf" d="M63.2774 3.68057C62.7007 2.88154 62.3996 1.96707 62.3576 1.05111C62.3486 0.850229 62.5209 0.685326 62.7216 0.704815C64.0728 0.829241 65.3656 1.51434 66.224 2.70164C66.8007 3.50067 67.1018 4.41513 67.1438 5.33109C67.1528 5.53197 66.9805 5.69688 66.7798 5.67739C65.4285 5.55296 64.1357 4.86637 63.2789 3.68057H63.2774Z" fill="#CAD400"/>
+        </g>
+      </g>
+    </g>
+
+    <g mask="url(#logo-mask)" pointer-events="none">
+      <rect id="light-sweep" x="0" y="-4" width="31" height="34" fill="url(#shine-gradient)" opacity="0"/>
+    </g>
+  </g>
+</svg>

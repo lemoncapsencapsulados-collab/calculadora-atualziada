@@ -3,8 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { FlaskConical, Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { LemoncapsLogo, LemoncapsLoader } from '@/components/LemoncapsLogo';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -48,9 +49,7 @@ export default function Login() {
 
       <Card className="w-full max-w-md relative z-10 shadow-[var(--shadow-strong)] border-border/50 backdrop-blur-sm">
         <CardHeader className="text-center space-y-4 pb-2">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-[image:var(--gradient-accent)] flex items-center justify-center shadow-[var(--shadow-glow)]">
-            <FlaskConical className="w-8 h-8 text-primary-foreground" />
-          </div>
+          <LemoncapsLogo className="mx-auto h-14 w-auto text-foreground" />
           <div>
             <h1 className="text-2xl font-bold text-foreground">Calculadora de Fórmulas</h1>
             <p className="text-sm text-muted-foreground mt-1">Sistema de Cotação — LemonCaps</p>
@@ -108,7 +107,7 @@ export default function Login() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  <LemoncapsLoader className="h-5 w-auto text-primary-foreground" />
                   Entrando...
                 </div>
               ) : (
