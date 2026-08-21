@@ -10,6 +10,7 @@ import Inventario from "./pages/Inventario";
 import Pedidos from "./pages/Pedidos";
 import Precificacao from "./pages/Precificacao";
 import Orcamentos from "./pages/Orcamentos";
+import ZapVendas from "./pages/ZapVendas";
 import LeadsOrcamento from "./pages/LeadsOrcamento";
 import DashboardComercial from "./pages/DashboardComercial";
 import Login from "./pages/Login";
@@ -101,6 +102,7 @@ const AppContent = () => {
           <Route path="/asaas-logs" element={<AsaasLogs />} />
           <Route path="/email-logs" element={<EmailLogs />} />
           <Route path="/investimento-anuncios" element={<InvestimentoAnuncios />} />
+          <Route path="/zapvendas" element={<ZapVendas />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </div>

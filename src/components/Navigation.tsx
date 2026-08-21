@@ -2,9 +2,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Package, Calculator, FlaskConical, ClipboardList, DollarSign, Receipt,
   LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature,
-  Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown,
+  Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown, MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTemPapel } from '@/hooks/useTemPapel';
 import { useState, useEffect, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,12 @@ const PRIMARY: NavItem[] = [
   { to: '/orcamentos', label: 'Orçamentos', short: 'Orçamentos', icon: Receipt },
   { to: '/pedidos', label: 'Pedidos', short: 'Pedidos', icon: ClipboardList },
 ];
+
+/* ZapVendas expõe conversas de WhatsApp dos vendedores: só aparece para quem
+   tem o papel. O RLS e a edge function barram de verdade — isto é interface. */
+const ITEM_ZAPVENDAS: NavItem = {
+  to: '/zapvendas', label: 'ZapVendas', short: 'ZapVendas', icon: MessageCircle,
+};
 
 const GROUPS: { label: string; items: NavItem[] }[] = [
   {
@@ -67,12 +74,24 @@ export function Navigation({ onLogout }: NavigationProps) {
   const [open, setOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
+  const { temPapel: podeZapVendas } = useTemPapel('zapvendas');
+
+  const grupos = useMemo(
+    () =>
+      GROUPS.map((g) =>
+        g.label === 'Operação' && podeZapVendas
+          ? { ...g, items: [...g.items, ITEM_ZAPVENDAS] }
+          : g,
+      ),
+    [podeZapVendas],
+  );
+
   const isActive = (to: string) => location.pathname === to;
 
   /* Onde estou: usado para marcar o grupo cujo filho está aberto. */
   const activeGroup = useMemo(
-    () => GROUPS.findIndex((g) => g.items.some((i) => i.to === location.pathname)),
-    [location.pathname],
+    () => grupos.findIndex((g) => g.items.some((i) => i.to === location.pathname)),
+    [grupos, location.pathname],
   );
 
   useEffect(() => {
@@ -149,7 +168,7 @@ export function Navigation({ onLogout }: NavigationProps) {
               })}
 
               {/* Áreas agrupadas */}
-              {GROUPS.map((group, gi) => {
+              {grupos.map((group, gi) => {
                 const groupActive = activeGroup === gi;
                 return (
                   <DropdownMenu key={group.label}>
@@ -251,7 +270,7 @@ export function Navigation({ onLogout }: NavigationProps) {
               </CommandItem>
             ))}
           </CommandGroup>
-          {GROUPS.map((group) => (
+          {grupos.map((group) => (
             <CommandGroup key={group.label} heading={group.label}>
               {group.items.map((item) => (
                 <CommandItem key={item.to} value={item.label} onSelect={() => go(item.to)} className="gap-2.5">
@@ -286,7 +305,7 @@ export function Navigation({ onLogout }: NavigationProps) {
             {PRIMARY.map((link) => (
               <MobileLink key={link.to} link={link} active={isActive(link.to)} onGo={() => setOpen(false)} />
             ))}
-            {GROUPS.map((group) => (
+            {grupos.map((group) => (
               <div key={group.label} className="mt-4">
                 <p className="eyebrow px-3 pb-1.5">{group.label}</p>
                 {group.items.map((link) => (
