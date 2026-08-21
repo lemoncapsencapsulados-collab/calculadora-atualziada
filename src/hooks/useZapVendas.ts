@@ -631,16 +631,43 @@ export function useRemoverInstancia() {
 
   return useMutation({
     mutationFn: async ({ instanceName }: { instanceName: string }) => {
-      await invokeZap('instances.logout', { instanceName });
-      await invokeZap('instances.delete', { instanceName });
+      // O logout é só cortesia antes de apagar: se falhar, não muda o desfecho.
+      await invokeZap('instances.logout', { instanceName }).catch(() => undefined);
+
+      // A Evolution pode recusar (instância apagada por fora, indisponível...).
+      // Guardamos o motivo, mas NÃO abortamos: a linha local tem de sair de
+      // qualquer jeito, senão o número fica preso na lista para sempre — foi
+      // exatamente isso que aconteceu com um registro órfão em produção.
+      let falhaEvolution: string | null = null;
+      try {
+        await invokeZap('instances.delete', { instanceName });
+      } catch (e) {
+        falhaEvolution = mensagemDeErro(e);
+      }
+
+      const { error } = await supabase
+        .from('zap_instancias')
+        .delete()
+        .eq('instance_name', instanceName);
+      // Só aqui vale falhar: sem apagar a linha, o número continuaria listado.
+      if (error) throw new Error(mensagemDeErro(error));
+
+      return { falhaEvolution };
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });
       queryClient.invalidateQueries({ queryKey: ['zap-instancia-estado', variables.instanceName] });
-      toast({
-        title: 'Instância removida',
-        description: 'O número foi apagado do ZapVendas e da Evolution, junto com o histórico de conversas.',
-      });
+      if (data?.falhaEvolution) {
+        toast({
+          title: 'Removida do ZapVendas',
+          description: `O número saiu da lista, mas a Evolution recusou apagar a instância: ${data.falhaEvolution}`,
+        });
+      } else {
+        toast({
+          title: 'Instância removida',
+          description: 'O número foi apagado do ZapVendas e da Evolution, junto com o histórico de conversas.',
+        });
+      }
     },
     onError: (error: unknown) => {
       toast({
