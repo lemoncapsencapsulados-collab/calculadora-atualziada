@@ -17,14 +17,10 @@ import { ZapMensagem } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
 import { MessageCircleOff, RefreshCw, Send, Users } from 'lucide-react';
 import type { ChatSelecionado } from './ListaConversas';
+import { MensagemMidia } from './MensagemMidia';
 
-const ROTULOS_MIDIA: Record<string, string> = {
-  imagem: '📷 Imagem recebida',
-  audio: '🎤 Áudio recebido',
-  video: '🎬 Vídeo recebido',
-  documento: '📄 Documento recebido',
-  texto: 'Mensagem sem conteúdo de texto',
-};
+/** Rótulo de fallback para mensagem sem texto e sem mídia reconhecida. */
+const ROTULO_SEM_CONTEUDO = 'Mensagem sem conteúdo de texto';
 
 function formatarHoraMensagem(ts: number): string {
   const ms = ts < 1e12 ? ts * 1000 : ts;
@@ -177,7 +173,7 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
             const fromMe = !!m.key?.fromMe;
             const texto = extrairTexto(m);
             const tipo = tipoMidia(m);
-            const conteudo = texto || ROTULOS_MIDIA[tipo] || ROTULOS_MIDIA.texto;
+            const temMidia = tipo !== 'texto';
 
             return (
               <div key={m.id || m.key?.id} className={cn('mb-2 flex', fromMe ? 'justify-end' : 'justify-start')}>
@@ -185,10 +181,16 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
                   className={cn(
                     'max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm',
                     fromMe ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
-                    !texto && 'italic opacity-90'
+                    !texto && !temMidia && 'italic opacity-90'
                   )}
                 >
-                  <p className="whitespace-pre-wrap break-words">{conteudo}</p>
+                  {tipo !== 'texto' && (
+                    <MensagemMidia mensagem={m} instanceName={chat.instanceName} tipo={tipo} />
+                  )}
+                  {texto && (
+                    <p className={cn('whitespace-pre-wrap break-words', temMidia && 'mt-1.5')}>{texto}</p>
+                  )}
+                  {!texto && !temMidia && <p className="whitespace-pre-wrap break-words">{ROTULO_SEM_CONTEUDO}</p>}
                   <p
                     className={cn(
                       'num mt-1 text-right text-[10px] opacity-70',

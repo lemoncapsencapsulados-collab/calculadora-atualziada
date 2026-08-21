@@ -7,6 +7,7 @@ import {
   ZapInstanciaCombinada,
   ZapChat,
   ZapMensagem,
+  ZapMidia,
   RespostaZap,
   TipoMidiaZap,
 } from '@/types/zapvendas';
@@ -103,6 +104,31 @@ export function tipoMidia(m: ZapMensagem | undefined | null): TipoMidiaZap {
     return 'texto';
   } catch {
     return 'texto';
+  }
+}
+
+/**
+ * Miniatura embutida na própria mensagem de imagem (`jpegThumbnail`), já como
+ * data URL — usada como prévia sem custo de rede, antes de baixar a mídia
+ * cheia sob demanda.
+ */
+export function extrairThumbnailImagem(m: ZapMensagem | undefined | null): string | null {
+  try {
+    const thumb = (m?.message as any)?.imageMessage?.jpegThumbnail;
+    if (typeof thumb !== 'string' || !thumb) return null;
+    return thumb.startsWith('data:') ? thumb : `data:image/jpeg;base64,${thumb}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Nome do arquivo de uma mensagem de documento, quando a Evolution o informa. */
+export function extrairNomeArquivo(m: ZapMensagem | undefined | null): string | null {
+  try {
+    const nome = (m?.message as any)?.documentMessage?.fileName;
+    return typeof nome === 'string' && nome ? nome : null;
+  } catch {
+    return null;
   }
 }
 
@@ -417,4 +443,104 @@ export function useQrCode(instanceName: string | undefined | null) {
       return invokeZap('instances.qrcode', { instanceName });
     },
   });
+}
+
+/**
+ * Desconecta o WhatsApp de uma instância (`instances.logout`) — ação
+ * destrutiva sobre um WhatsApp real de vendedor: o vendedor precisará
+ * escanear o QR code de novo para reconectar. Não apaga a instância (isso
+ * seria `instances.delete`, que continua deliberadamente fora da interface,
+ * pois é irreversível e perde o histórico de conversas).
+ */
+export function useDesconectarInstancia() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ instanceName }: { instanceName: string }) => {
+      return invokeZap('instances.logout', { instanceName });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });
+      queryClient.invalidateQueries({ queryKey: ['zap-instancia-estado', variables.instanceName] });
+      toast({
+        title: 'WhatsApp desconectado',
+        description: 'O vendedor precisará escanear o QR code de novo para reconectar.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao desconectar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Mídia — busca sob demanda (`messages.media`).
+// ---------------------------------------------------------------------------
+
+/** Resultado de uma busca de mídia: ou o conteúdo, ou o sinal de que expirou no WhatsApp. */
+export type ResultadoMidia = { expirada: true } | ({ expirada: false } & ZapMidia);
+
+interface ParametrosMidia {
+  instanceName: string;
+  messageId: string;
+  remoteJid: string;
+  fromMe: boolean;
+}
+
+/**
+ * Chama `messages.media` sem passar pelo `invokeZap` genérico: essa action
+ * tem um terceiro desfecho possível além de sucesso/erro — "mídia expirada"
+ * (`expirada: true`, devolvido com HTTP 200 mesmo sendo `ok:false`, ver
+ * comentário na edge function) — que precisa chegar ao chamador sem virar
+ * exceção, para a UI mostrar um aviso discreto em vez de um erro.
+ */
+async function invokeZapMidia(params: ParametrosMidia): Promise<ResultadoMidia> {
+  const { data, error } = await supabase.functions.invoke('zapvendas', {
+    body: { action: 'messages.media', ...params },
+  });
+
+  if (error) {
+    throw new Error(await extrairMensagemErroInvoke(error));
+  }
+
+  const corpo = data as (RespostaZap<ZapMidia> & { expirada?: boolean }) | null;
+  if (corpo?.expirada) return { expirada: true };
+  if (!corpo?.ok || !corpo.data?.base64 || !corpo.data?.mimetype) {
+    throw new Error(corpo?.error || 'Não foi possível carregar a mídia.');
+  }
+  return { expirada: false, base64: corpo.data.base64, mimetype: corpo.data.mimetype };
+}
+
+/**
+ * Busca a mídia de UMA mensagem sob demanda — nunca automaticamente: uma
+ * conversa pode ter centenas de mídias, então carregar tudo de uma vez seria
+ * pesado demais. `enabled: false` deixa cada item da conversa decidir quando
+ * baixar (chamando `buscar()`); a chave da query inclui `messageId`, então o
+ * cache do React Query evita rebaixar a mesma mídia duas vezes.
+ */
+export function useMidia(params: ParametrosMidia | null) {
+  const query = useQuery({
+    queryKey: ['zap-midia', params?.instanceName, params?.messageId],
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+    retry: false,
+    queryFn: async (): Promise<ResultadoMidia> => {
+      if (!params) throw new Error('Parâmetros de mídia ausentes.');
+      return invokeZapMidia(params);
+    },
+  });
+
+  return {
+    midia: query.data && query.data.expirada === false ? query.data : null,
+    expirada: query.data?.expirada === true,
+    carregando: query.isFetching,
+    erro: query.isError ? (query.error as Error)?.message || 'Não foi possível carregar a mídia.' : null,
+    buscar: () => query.refetch(),
+  };
 }

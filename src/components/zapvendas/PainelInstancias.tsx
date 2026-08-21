@@ -22,6 +22,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { buttonVariants } from '@/components/ui/button';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,10 +42,25 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useCriarInstancia, useVincularVendedor, useZapInstancias } from '@/hooks/useZapVendas';
+import {
+  useCriarInstancia,
+  useDesconectarInstancia,
+  useVincularVendedor,
+  useZapInstancias,
+} from '@/hooks/useZapVendas';
 import { ZapInstanciaCombinada } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, Check, ChevronDown, Link2, Plug, Plus, RefreshCw, UserX } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  Link2,
+  LogOut,
+  Plug,
+  Plus,
+  RefreshCw,
+  UserX,
+} from 'lucide-react';
 import { DialogQrCode } from './DialogQrCode';
 
 /** Registro mínimo da tabela `usuarios`, só o necessário para esta tela. */
@@ -89,9 +115,11 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
   const { data: usuarios } = useUsuariosAtivos();
   const criarInstancia = useCriarInstancia();
   const vincularVendedor = useVincularVendedor();
+  const desconectarInstancia = useDesconectarInstancia();
   const { toast } = useToast();
 
   const [instanciaParaConectar, setInstanciaParaConectar] = useState<string | null>(null);
+  const [instanciaParaDesconectar, setInstanciaParaDesconectar] = useState<string | null>(null);
   const [dialogCriarAberto, setDialogCriarAberto] = useState(false);
   const [novoNome, setNovoNome] = useState('');
   const [novoUsuarioId, setNovoUsuarioId] = useState<string>('');
@@ -301,6 +329,18 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
                   Conectar
                 </Button>
               )}
+
+              {inst.vinculada && inst.connectionStatus === 'open' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 shrink-0 px-2 text-xs text-destructive hover:bg-destructive-soft hover:text-destructive"
+                  onClick={() => setInstanciaParaDesconectar(inst.instanceName)}
+                >
+                  <LogOut className="h-3 w-3" />
+                  Desconectar
+                </Button>
+              )}
             </div>
           ))}
       </div>
@@ -324,6 +364,41 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
           if (!aberto) setInstanciaParaConectar(null);
         }}
       />
+
+      <AlertDialog
+        open={!!instanciaParaDesconectar}
+        onOpenChange={(aberto) => {
+          if (!aberto) setInstanciaParaDesconectar(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar este WhatsApp?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O WhatsApp do vendedor será desconectado agora. Ele precisará abrir o celular e ler o
+              QR code de novo para reconectar — as conversas e o histórico não são apagados, só a
+              sessão ativa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={desconectarInstancia.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn(buttonVariants({ variant: 'destructive' }))}
+              disabled={desconectarInstancia.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!instanciaParaDesconectar) return;
+                desconectarInstancia.mutate(
+                  { instanceName: instanciaParaDesconectar },
+                  { onSettled: () => setInstanciaParaDesconectar(null) }
+                );
+              }}
+            >
+              {desconectarInstancia.isPending ? 'Desconectando…' : 'Desconectar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={dialogCriarAberto} onOpenChange={setDialogCriarAberto}>
         <DialogContent className="sm:max-w-sm">

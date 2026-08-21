@@ -76,3 +76,9 @@ export interface RespostaZap<T = unknown> {
 
 /** Tipos de mídia identificáveis numa `ZapMensagem`. */
 export type TipoMidiaZap = 'imagem' | 'audio' | 'video' | 'documento' | 'texto';
+
+/** Conteúdo de mídia baixado sob demanda (`messages.media`). */
+export interface ZapMidia {
+  base64: string;
+  mimetype: string;
+}
