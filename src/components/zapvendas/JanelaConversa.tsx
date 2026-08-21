@@ -9,6 +9,7 @@ import {
   ehGrupo,
   extrairTexto,
   jidParaTelefone,
+  mensagemDeErro,
   tipoMidia,
   useEnviarMensagem,
   useZapMensagens,
@@ -155,7 +156,7 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
         {isError && !isLoading && (
           <div className="mx-auto max-w-sm rounded-md border border-destructive-soft bg-destructive-soft p-3 text-center text-sm text-destructive">
             Não foi possível carregar as mensagens.
-            <div className="mt-1 text-xs">{(error as Error)?.message}</div>
+            <div className="mt-1 text-xs">{mensagemDeErro(error)}</div>
             <Button variant="outline" size="sm" className="mt-2 h-7" onClick={() => refetch()}>
               Tentar de novo
             </Button>

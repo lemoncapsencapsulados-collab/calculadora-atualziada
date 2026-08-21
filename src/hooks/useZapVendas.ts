@@ -14,6 +14,69 @@ import {
 
 const TABELA_INSTANCIAS = 'zap_instancias' as any;
 
+const TAMANHO_MAX_MENSAGEM_ERRO = 500;
+
+/**
+ * Converte QUALQUER valor de erro numa mensagem sempre legível — nunca pode
+ * devolver "[object Object]". O supabase-js e a Evolution às vezes trazem a
+ * "mensagem" como objeto/array aninhado em vez de string (ex.: erros de
+ * validação do PostgREST, `response.message` da Evolution); se um caminho
+ * fizer `new Error(valorNãoString)` ou `String(objeto)` sem passar por aqui,
+ * o toast mostra o objeto cru. Regras, em ordem:
+ *  - string → ela mesma (ou a frase padrão, se vazia);
+ *  - `Error` → `.message`, se for string não vazia;
+ *  - array → mensagens de cada item, juntadas com ", ";
+ *  - objeto → tenta `.message`/`.error` (string ou, recursivamente, objeto
+ *    aninhado); sem nenhum dos dois, cai em `JSON.stringify` truncado;
+ *  - `null`/`undefined` → frase padrão.
+ */
+export function mensagemDeErro(valor: unknown, profundidade = 0): string {
+  const PADRAO = 'Ocorreu um erro inesperado.';
+
+  if (typeof valor === 'string') return valor.trim() || PADRAO;
+  if (valor == null) return PADRAO;
+
+  if (valor instanceof Error) {
+    return typeof valor.message === 'string' && valor.message.trim() ? valor.message : PADRAO;
+  }
+
+  if (Array.isArray(valor)) {
+    const partes = valor
+      .map((item) => (typeof item === 'string' ? item.trim() : mensagemDeErro(item, profundidade + 1)))
+      .filter(Boolean);
+    return partes.length ? partes.join(', ') : PADRAO;
+  }
+
+  if (typeof valor === 'object') {
+    const obj = valor as Record<string, unknown>;
+    if (typeof obj.message === 'string' && obj.message.trim()) return obj.message;
+    if (typeof obj.error === 'string' && obj.error.trim()) return obj.error;
+
+    // Alguns erros aninham a mensagem de verdade num sub-objeto (ex.: a
+    // Evolution aninha em `response.message`). Limita a profundidade para
+    // nunca entrar em loop com uma estrutura circular incomum.
+    if (profundidade < 3) {
+      if (obj.message && typeof obj.message === 'object') return mensagemDeErro(obj.message, profundidade + 1);
+      if (obj.error && typeof obj.error === 'object') return mensagemDeErro(obj.error, profundidade + 1);
+    }
+
+    try {
+      const serializado = JSON.stringify(obj);
+      if (serializado && serializado !== '{}') {
+        return serializado.length > TAMANHO_MAX_MENSAGEM_ERRO
+          ? `${serializado.slice(0, TAMANHO_MAX_MENSAGEM_ERRO)}…`
+          : serializado;
+      }
+    } catch {
+      // Estrutura não serializável (ex.: referência circular) — cai no fallback abaixo.
+    }
+    return PADRAO;
+  }
+
+  // number, boolean, etc. — casos residuais, nunca vistos na prática.
+  return String(valor);
+}
+
 /**
  * O `functions.invoke` do supabase-js só lança em resposta não-2xx com a
  * string fixa "Edge Function returned a non-2xx status code" — ele não lê o
@@ -34,7 +97,8 @@ async function extrairMensagemErroInvoke(error: unknown): Promise<string> {
       // Corpo não era JSON (ex.: página de erro de um proxy) — cai no fallback abaixo.
     }
   }
-  return (error as Error)?.message || 'Falha ao comunicar com o WhatsApp.';
+  const mensagemBruta = (error as { message?: unknown } | undefined)?.message;
+  return mensagemBruta != null ? mensagemDeErro(mensagemBruta) : 'Falha ao comunicar com o WhatsApp.';
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +246,15 @@ export interface ResultadoZapInstancias {
  * compartilhada com outros sistemas na mesma VPS, então não dá pra tratar
  * "existe na Evolution" como "pertence ao ZapVendas". Por isso ela entra na
  * lista com `ativo: false`, só para permitir que o operador a vincule.
+ *
+ * `ativo` (a coluna de `zap_instancias`) significa "aparece na lista do
+ * ZapVendas" — a edge function também passou a exigi-la (além do vínculo) em
+ * toda action que não seja `instances.list`. Uma instância vinculada pode
+ * ficar com `ativo: false` (oculta) quando o operador decide escondê-la —
+ * ex.: uma instância de outro produto da mesma Evolution que apareceu na
+ * lista só para poder ser identificada, mas nunca deveria virar uma conversa
+ * do ZapVendas, e que a edge function proíbe apagar de verdade por não ser
+ * dono dela. Ocultar é reversível (ver `useDefinirVisibilidadeInstancia`).
  */
 export function useZapInstancias() {
   return useQuery({
@@ -327,10 +400,10 @@ export function useEnviarMensagem() {
       queryClient.invalidateQueries({ queryKey: ['zap-mensagens', variables.instanceName, variables.remoteJid] });
       queryClient.invalidateQueries({ queryKey: ['zap-chats', variables.instanceName] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Erro ao enviar mensagem',
-        description: error.message,
+        description: mensagemDeErro(error),
         variant: 'destructive',
       });
     },
@@ -372,10 +445,10 @@ export function useCriarInstancia() {
         description: 'Escaneie o QR Code para conectar o WhatsApp.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Erro ao criar instância',
-        description: error.message,
+        description: mensagemDeErro(error),
         variant: 'destructive',
       });
     },
@@ -409,6 +482,11 @@ export function useVincularVendedor() {
             {
               instance_name: instanceName,
               usuario_id: usuarioId,
+              // Vincular um vendedor é uma ação explícita de "eu quero usar
+              // esta instância no ZapVendas" — se ela estava oculta
+              // (`ativo: false`, ver `useDefinirVisibilidadeInstancia`),
+              // volta a aparecer na lista.
+              ativo: true,
               ...(numero ? { numero } : {}),
             },
           ],
@@ -423,10 +501,56 @@ export function useVincularVendedor() {
         description: 'A instância foi vinculada com sucesso.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Erro ao vincular vendedor',
-        description: error.message,
+        description: mensagemDeErro(error),
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+/**
+ * Ativa/desativa a visibilidade de uma instância na lista do ZapVendas
+ * (`zap_instancias.ativo`). NÃO mexe em nada na Evolution — é só um upsert
+ * em `zap_instancias`. Serve para dois casos:
+ *  - "Ocultar da lista", numa instância NÃO vinculada (ex.: uma instância de
+ *    outro produto que compartilha a mesma Evolution): como a edge function
+ *    recusa (403) `instances.logout`/`instances.delete` nela — corretamente,
+ *    para não permitir apagar algo que não é do ZapVendas — ocultar é a
+ *    única forma de tirá-la da lista sem mexer na Evolution.
+ *  - "Reexibir", trazendo de volta uma instância que havia sido ocultada.
+ *
+ * Faz upsert por `onConflict: 'instance_name'` porque a instância pode ainda
+ * não ter linha em `zap_instancias` (o caso "não vinculada" acima); ocultá-la
+ * cria a linha (com `usuario_id: null`) só com o propósito de marcá-la como
+ * oculta.
+ */
+export function useDefinirVisibilidadeInstancia() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ instanceName, ativo }: { instanceName: string; ativo: boolean }) => {
+      const { error } = await (supabase as any)
+        .from(TABELA_INSTANCIAS)
+        .upsert([{ instance_name: instanceName, ativo }], { onConflict: 'instance_name' });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });
+      toast({
+        title: variables.ativo ? 'Instância reexibida' : 'Instância ocultada',
+        description: variables.ativo
+          ? 'A instância voltou a aparecer na lista do ZapVendas.'
+          : 'A instância saiu da lista do ZapVendas. Nada foi alterado na Evolution.',
+      });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: 'Erro ao alterar visibilidade da instância',
+        description: mensagemDeErro(error),
         variant: 'destructive',
       });
     },
@@ -481,10 +605,10 @@ export function useDesconectarInstancia() {
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Erro ao desconectar',
-        description: error.message,
+        description: mensagemDeErro(error),
         variant: 'destructive',
       });
     },
@@ -518,10 +642,10 @@ export function useRemoverInstancia() {
         description: 'O número foi apagado do ZapVendas e da Evolution, junto com o histórico de conversas.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Erro ao remover instância',
-        description: error.message,
+        description: mensagemDeErro(error),
         variant: 'destructive',
       });
     },
@@ -561,7 +685,7 @@ async function invokeZapMidia(params: ParametrosMidia): Promise<ResultadoMidia> 
   const corpo = data as (RespostaZap<ZapMidia> & { expirada?: boolean }) | null;
   if (corpo?.expirada) return { expirada: true };
   if (!corpo?.ok || !corpo.data?.base64 || !corpo.data?.mimetype) {
-    throw new Error(corpo?.error || 'Não foi possível carregar a mídia.');
+    throw new Error(corpo?.error ? mensagemDeErro(corpo.error) : 'Não foi possível carregar a mídia.');
   }
   return { expirada: false, base64: corpo.data.base64, mimetype: corpo.data.mimetype };
 }
@@ -590,7 +714,7 @@ export function useMidia(params: ParametrosMidia | null) {
     midia: query.data && query.data.expirada === false ? query.data : null,
     expirada: query.data?.expirada === true,
     carregando: query.isFetching,
-    erro: query.isError ? (query.error as Error)?.message || 'Não foi possível carregar a mídia.' : null,
+    erro: query.isError ? mensagemDeErro(query.error) : null,
     buscar: () => query.refetch(),
   };
 }

@@ -43,7 +43,9 @@ import {
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import {
+  mensagemDeErro,
   useCriarInstancia,
+  useDefinirVisibilidadeInstancia,
   useDesconectarInstancia,
   useRemoverInstancia,
   useVincularVendedor,
@@ -55,6 +57,8 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Eye,
+  EyeOff,
   Link2,
   LogOut,
   MoreVertical,
@@ -120,6 +124,7 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
   const vincularVendedor = useVincularVendedor();
   const desconectarInstancia = useDesconectarInstancia();
   const removerInstancia = useRemoverInstancia();
+  const definirVisibilidade = useDefinirVisibilidadeInstancia();
   const { toast } = useToast();
 
   const [instanciaParaConectar, setInstanciaParaConectar] = useState<string | null>(null);
@@ -128,6 +133,17 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
   const [dialogCriarAberto, setDialogCriarAberto] = useState(false);
   const [novoNome, setNovoNome] = useState('');
   const [novoUsuarioId, setNovoUsuarioId] = useState<string>('');
+  const [mostrarOcultas, setMostrarOcultas] = useState(false);
+
+  // "Oculta" = tem linha em `zap_instancias` mas `ativo: false` — o operador
+  // escondeu de propósito (ex.: instância de outro produto que a edge
+  // function corretamente recusa apagar, ver `useDefinirVisibilidadeInstancia`).
+  // Uma instância nunca vinculada continua visível por padrão (é preciso vê-la
+  // para poder vinculá-la); só some da lista default depois de ocultada.
+  const instanciasOcultas = (instancias || []).filter((inst) => inst.vinculada && !inst.ativo);
+  const instanciasVisiveis = mostrarOcultas
+    ? instancias || []
+    : (instancias || []).filter((inst) => !inst.vinculada || inst.ativo);
 
   const nomeVendedor = (inst: ZapInstanciaCombinada): string => {
     const usuario = usuarios?.find((u) => u.id === inst.usuarioId);
@@ -217,7 +233,7 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
         {isError && !isLoading && (
           <div className="mx-2 rounded-md border border-destructive-soft bg-destructive-soft p-3 text-sm text-destructive">
             Não foi possível carregar as instâncias.
-            <div className="mt-1 text-xs">{(error as Error)?.message}</div>
+            <div className="mt-1 text-xs">{mensagemDeErro(error)}</div>
             <Button variant="outline" size="sm" className="mt-2 h-7" onClick={() => refetch()}>
               Tentar de novo
             </Button>
@@ -240,8 +256,14 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
           </div>
         )}
 
+        {!isLoading && !isError && (instancias || []).length > 0 && instanciasVisiveis.length === 0 && (
+          <div className="mx-2 rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+            Todas as instâncias estão ocultas. Use "Mostrar ocultas" no rodapé para revê-las.
+          </div>
+        )}
+
         {!isLoading &&
-          (instancias || []).map((inst) => (
+          instanciasVisiveis.map((inst) => (
             <div
               key={inst.instanceName}
               className={cn(
@@ -312,22 +334,63 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
                 <p className="num truncate text-xs text-muted-foreground">
                   {!inst.vinculada
                     ? 'Não vinculada — selecione um vendedor acima para usar'
-                    : inst.numero || textoStatus(inst.connectionStatus)}
+                    : !inst.ativo
+                      ? 'Oculta do ZapVendas — não aparece na lista por padrão'
+                      : inst.numero || textoStatus(inst.connectionStatus)}
                 </p>
               </div>
 
               {!inst.vinculada && (
-                <Badge
-                  variant="outline"
-                  className="h-7 shrink-0 gap-1 border-warning/30 bg-warning-soft px-2 text-[10px] text-warning"
-                  title="Existe na Evolution mas ainda não foi vinculada a um vendedor do ZapVendas — vincule pelo nome acima antes de conectar."
-                >
-                  <Link2 className="h-3 w-3" />
-                  Não vinculada
-                </Badge>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    className="h-7 gap-1 border-warning/30 bg-warning-soft px-2 text-[10px] text-warning"
+                    title="Existe na Evolution mas ainda não foi vinculada a um vendedor do ZapVendas — vincule pelo nome acima antes de conectar."
+                  >
+                    <Link2 className="h-3 w-3" />
+                    Não vinculada
+                  </Badge>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-muted-foreground"
+                    disabled={definirVisibilidade.isPending}
+                    title='Ocultar da lista — só tira do ZapVendas, não apaga nada na Evolution. Pode ser revertido em "Mostrar ocultas".'
+                    onClick={() =>
+                      definirVisibilidade.mutate({ instanceName: inst.instanceName, ativo: false })
+                    }
+                  >
+                    <EyeOff className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               )}
 
-              {inst.vinculada && inst.connectionStatus !== 'open' && (
+              {inst.vinculada && !inst.ativo && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    className="h-7 gap-1 border-border bg-muted px-2 text-[10px] text-muted-foreground"
+                    title="Oculta da lista do ZapVendas — nada foi alterado na Evolution."
+                  >
+                    <EyeOff className="h-3 w-3" />
+                    Oculta
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={definirVisibilidade.isPending}
+                    onClick={() =>
+                      definirVisibilidade.mutate({ instanceName: inst.instanceName, ativo: true })
+                    }
+                  >
+                    <Eye className="h-3 w-3" />
+                    Reexibir
+                  </Button>
+                </div>
+              )}
+
+              {inst.ativo && inst.connectionStatus !== 'open' && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -339,7 +402,7 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
                 </Button>
               )}
 
-              {inst.vinculada && (
+              {inst.ativo && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -374,7 +437,18 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
           ))}
       </div>
 
-      <div className="border-t border-border p-3">
+      <div className="space-y-2 border-t border-border p-3">
+        {instanciasOcultas.length > 0 && (
+          <Button
+            variant="ghost"
+            className="w-full text-xs text-muted-foreground"
+            size="sm"
+            onClick={() => setMostrarOcultas((atual) => !atual)}
+          >
+            {mostrarOcultas ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {mostrarOcultas ? 'Esconder as ocultas' : `Mostrar ocultas (${instanciasOcultas.length})`}
+          </Button>
+        )}
         <Button
           variant="secondary"
           className="w-full"

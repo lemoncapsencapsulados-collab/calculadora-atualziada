@@ -34,6 +34,13 @@ export interface ZapInstanciaCombinada {
   instanceName: string;
   usuarioId: string | null;
   numero: string | null;
+  /**
+   * Espelha `zap_instancias.ativo`: "aparece na lista do ZapVendas e é
+   * operável". A edge function exige `ativo: true` (além do vínculo) para
+   * qualquer action que não seja `instances.list`. `false` para uma
+   * instância nunca vinculada (nunca teve linha) OU para uma vinculada que o
+   * operador ocultou de propósito — ver `useDefinirVisibilidadeInstancia`.
+   */
   ativo: boolean;
   /** `true` quando existe linha em `zap_instancias` — só então a instância é utilizável pelo ZapVendas. */
   vinculada: boolean;

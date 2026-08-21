@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { invokeZap } from '@/hooks/useZapVendas';
+import { invokeZap, mensagemDeErro } from '@/hooks/useZapVendas';
 import { Loader2 } from 'lucide-react';
 
 interface DialogQrCodeProps {
@@ -114,7 +114,7 @@ export function DialogQrCode({ instanceName, aberto, onOpenChange }: DialogQrCod
           ) : qrQuery.isError ? (
             <div className="flex h-56 w-56 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
               Não foi possível carregar o QR Code.
-              <span className="text-xs">{(qrQuery.error as Error)?.message}</span>
+              <span className="text-xs">{mensagemDeErro(qrQuery.error)}</span>
             </div>
           ) : imagemQrCode ? (
             <img
