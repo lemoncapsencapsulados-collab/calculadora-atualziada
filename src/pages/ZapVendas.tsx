@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { PainelInstancias } from '@/components/zapvendas/PainelInstancias';
 import { ListaConversas, type ChatSelecionado } from '@/components/zapvendas/ListaConversas';
 import { JanelaConversa } from '@/components/zapvendas/JanelaConversa';
+import { CadastrarClienteDialog } from '@/components/zapvendas/CadastrarClienteDialog';
 import { useZapInstancias, jidParaTelefone, normalizarTelefone, ehGrupo } from '@/hooks/useZapVendas';
 import { useTemPapel } from '@/hooks/useTemPapel';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
@@ -11,7 +12,7 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, Receipt, ClipboardList, User, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Receipt, ClipboardList, User, ShieldAlert, Users } from 'lucide-react';
 import { Orcamento } from '@/types/orcamento';
 import { Pedido, StatusPedido } from '@/types/formula';
 
@@ -173,11 +174,20 @@ function PainelCliente({ chat }: { chat: ChatSelecionado | null }) {
           </div>
         )}
 
-        {chat && !carregandoClientes && !encontrado && (
-          <div className="mt-2 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-            Nenhum cliente encontrado para o número{' '}
-            <span className="num">{jidParaTelefone(chat.remoteJid)}</span>. Cadastre o cliente no
-            CRM para ver os orçamentos e pedidos aqui automaticamente.
+        {chat && !carregandoClientes && !encontrado && ehGrupo(chat.remoteJid) && (
+          <div className="mt-2 flex items-start gap-2 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <Users className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Conversa em grupo — grupos não são clientes no CRM.</span>
+          </div>
+        )}
+
+        {chat && !carregandoClientes && !encontrado && !ehGrupo(chat.remoteJid) && (
+          <div className="mt-2 space-y-3 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <p>
+              Nenhum cliente encontrado para o número{' '}
+              <span className="num">{jidParaTelefone(chat.remoteJid)}</span>.
+            </p>
+            <CadastrarClienteDialog remoteJid={chat.remoteJid} pushName={chat.pushName} />
           </div>
         )}
 
