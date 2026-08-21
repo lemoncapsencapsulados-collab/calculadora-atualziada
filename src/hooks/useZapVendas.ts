@@ -310,6 +310,57 @@ export function useCriarInstancia() {
   });
 }
 
+/**
+ * Vincula (ou desvincula) o vendedor dono de uma instância já existente.
+ * Faz UPSERT em `zap_instancias` pela chave única `instance_name` — cobre
+ * tanto a instância que ainda não tem linha na tabela (criada fora do fluxo
+ * do app) quanto a troca de vendedor de uma instância já cadastrada.
+ */
+export function useVincularVendedor() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({
+      instanceName,
+      usuarioId,
+      numero,
+    }: {
+      instanceName: string;
+      usuarioId: string | null;
+      numero?: string | null;
+    }) => {
+      const { error } = await (supabase as any)
+        .from(TABELA_INSTANCIAS)
+        .upsert(
+          [
+            {
+              instance_name: instanceName,
+              usuario_id: usuarioId,
+              ...(numero ? { numero } : {}),
+            },
+          ],
+          { onConflict: 'instance_name' }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });
+      toast({
+        title: 'Vendedor atualizado',
+        description: 'A instância foi vinculada com sucesso.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao vincular vendedor',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 /** QR Code para conectar uma instância (`instances.qrcode`). */
 export function useQrCode(instanceName: string | undefined | null) {
   return useQuery({

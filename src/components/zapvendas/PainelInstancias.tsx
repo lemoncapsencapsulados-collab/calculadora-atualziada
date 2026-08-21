@@ -20,12 +20,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useCriarInstancia, useZapInstancias } from '@/hooks/useZapVendas';
+import { useCriarInstancia, useVincularVendedor, useZapInstancias } from '@/hooks/useZapVendas';
 import { ZapInstanciaCombinada } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
-import { Plug, Plus, RefreshCw } from 'lucide-react';
+import { Check, ChevronDown, Plug, Plus, RefreshCw, UserX } from 'lucide-react';
 import { DialogQrCode } from './DialogQrCode';
 
 /** Registro mínimo da tabela `usuarios`, só o necessário para esta tela. */
@@ -77,6 +85,7 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
   const { data: instancias, isLoading, isError, error, refetch, isFetching } = useZapInstancias();
   const { data: usuarios } = useUsuariosAtivos();
   const criarInstancia = useCriarInstancia();
+  const vincularVendedor = useVincularVendedor();
   const { toast } = useToast();
 
   const [instanciaParaConectar, setInstanciaParaConectar] = useState<string | null>(null);
@@ -204,8 +213,52 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
                 />
               </div>
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{nomeVendedor(inst)}</p>
+              <div className="group min-w-0 flex-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex w-full min-w-0 items-center gap-1 rounded-sm text-left outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      title="Vincular vendedor a esta instância"
+                    >
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {nomeVendedor(inst)}
+                      </span>
+                      <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuLabel>Vincular vendedor</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() =>
+                        vincularVendedor.mutate({
+                          instanceName: inst.instanceName,
+                          usuarioId: null,
+                        })
+                      }
+                    >
+                      <UserX className="h-4 w-4 text-muted-foreground" />
+                      <span className="flex-1">Sem vendedor</span>
+                      {!inst.usuarioId && <Check className="h-4 w-4 text-success" />}
+                    </DropdownMenuItem>
+                    {(usuarios || []).map((u) => (
+                      <DropdownMenuItem
+                        key={u.id}
+                        onClick={() =>
+                          vincularVendedor.mutate({
+                            instanceName: inst.instanceName,
+                            usuarioId: u.id,
+                            numero: inst.numero,
+                          })
+                        }
+                      >
+                        <span className="flex-1 truncate">{u.nome}</span>
+                        {inst.usuarioId === u.id && <Check className="h-4 w-4 shrink-0 text-success" />}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <p className="num truncate text-xs text-muted-foreground">
                   {inst.numero || textoStatus(inst.connectionStatus)}
                 </p>
