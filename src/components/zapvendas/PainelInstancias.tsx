@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   useCriarInstancia,
   useDesconectarInstancia,
+  useRemoverInstancia,
   useVincularVendedor,
   useZapInstancias,
 } from '@/hooks/useZapVendas';
@@ -56,9 +57,11 @@ import {
   ChevronDown,
   Link2,
   LogOut,
+  MoreVertical,
   Plug,
   Plus,
   RefreshCw,
+  Trash2,
   UserX,
 } from 'lucide-react';
 import { DialogQrCode } from './DialogQrCode';
@@ -116,10 +119,12 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
   const criarInstancia = useCriarInstancia();
   const vincularVendedor = useVincularVendedor();
   const desconectarInstancia = useDesconectarInstancia();
+  const removerInstancia = useRemoverInstancia();
   const { toast } = useToast();
 
   const [instanciaParaConectar, setInstanciaParaConectar] = useState<string | null>(null);
   const [instanciaParaDesconectar, setInstanciaParaDesconectar] = useState<string | null>(null);
+  const [instanciaParaRemover, setInstanciaParaRemover] = useState<string | null>(null);
   const [dialogCriarAberto, setDialogCriarAberto] = useState(false);
   const [novoNome, setNovoNome] = useState('');
   const [novoUsuarioId, setNovoUsuarioId] = useState<string>('');
@@ -157,6 +162,10 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
       }
     );
   };
+
+  const instanciaEmRemocao = instanciaParaRemover
+    ? (instancias || []).find((i) => i.instanceName === instanciaParaRemover)
+    : undefined;
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-card">
@@ -330,16 +339,36 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
                 </Button>
               )}
 
-              {inst.vinculada && inst.connectionStatus === 'open' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 shrink-0 px-2 text-xs text-destructive hover:bg-destructive-soft hover:text-destructive"
-                  onClick={() => setInstanciaParaDesconectar(inst.instanceName)}
-                >
-                  <LogOut className="h-3 w-3" />
-                  Desconectar
-                </Button>
+              {inst.vinculada && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0 text-muted-foreground"
+                      title="Mais ações"
+                    >
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem
+                      disabled={inst.connectionStatus !== 'open'}
+                      onClick={() => setInstanciaParaDesconectar(inst.instanceName)}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Desconectar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:bg-destructive-soft focus:text-destructive"
+                      onClick={() => setInstanciaParaRemover(inst.instanceName)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Remover instância</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           ))}
@@ -395,6 +424,51 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
               }}
             >
               {desconectarInstancia.isPending ? 'Desconectando…' : 'Desconectar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!instanciaParaRemover}
+        onOpenChange={(aberto) => {
+          if (!aberto) setInstanciaParaRemover(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover instância definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {instanciaParaRemover && (
+                <>
+                  Isso vai desconectar e apagar{' '}
+                  <strong className="text-foreground">
+                    {instanciaEmRemocao ? nomeVendedor(instanciaEmRemocao) : instanciaParaRemover}
+                  </strong>{' '}
+                  da Evolution e do ZapVendas. A instância some da lista e{' '}
+                  <strong className="text-foreground">
+                    todo o histórico de conversas desse número na Evolution é apagado junto
+                  </strong>
+                  . Esta ação não pode ser desfeita.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removerInstancia.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className={cn(buttonVariants({ variant: 'destructive' }))}
+              disabled={removerInstancia.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!instanciaParaRemover) return;
+                removerInstancia.mutate(
+                  { instanceName: instanciaParaRemover },
+                  { onSettled: () => setInstanciaParaRemover(null) }
+                );
+              }}
+            >
+              {removerInstancia.isPending ? 'Removendo…' : 'Remover instância'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

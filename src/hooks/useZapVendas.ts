@@ -446,11 +446,17 @@ export function useQrCode(instanceName: string | undefined | null) {
 }
 
 /**
- * Desconecta o WhatsApp de uma instância (`instances.logout`) — ação
- * destrutiva sobre um WhatsApp real de vendedor: o vendedor precisará
- * escanear o QR code de novo para reconectar. Não apaga a instância (isso
- * seria `instances.delete`, que continua deliberadamente fora da interface,
- * pois é irreversível e perde o histórico de conversas).
+ * Desconecta o WhatsApp de uma instância (`instances.logout`) — a instância
+ * continua cadastrada e listada, só marcada como desconectada: o histórico é
+ * preservado e o vendedor pode reconectar lendo o QR code de novo. Para
+ * remover a instância de vez (some da lista, apaga histórico na Evolution),
+ * use `useRemoverInstancia`.
+ *
+ * A edge function já reconhece como sucesso os casos em que a Evolution
+ * responde com erro só porque a instância já não tinha sessão ativa (ver
+ * comentário em `instances.logout` na edge function) — nesse caso ela volta
+ * com `{ jaEstavaDesconectada: true }` e mostramos um toast informativo em
+ * vez de um erro.
  */
 export function useDesconectarInstancia() {
   const queryClient = useQueryClient();
@@ -458,19 +464,63 @@ export function useDesconectarInstancia() {
 
   return useMutation({
     mutationFn: async ({ instanceName }: { instanceName: string }) => {
-      return invokeZap('instances.logout', { instanceName });
+      return invokeZap<{ jaEstavaDesconectada?: boolean }>('instances.logout', { instanceName });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });
+      queryClient.invalidateQueries({ queryKey: ['zap-instancia-estado', variables.instanceName] });
+      if (data?.jaEstavaDesconectada) {
+        toast({
+          title: 'Instância já estava desconectada',
+          description: 'Não havia sessão ativa para encerrar.',
+        });
+      } else {
+        toast({
+          title: 'WhatsApp desconectado',
+          description: 'O vendedor precisará escanear o QR code de novo para reconectar.',
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao desconectar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+/**
+ * Remove uma instância definitivamente: encerra a sessão (`instances.logout`,
+ * tolerando o caso de já estar desconectada), apaga a instância na Evolution
+ * (`instances.delete`) e só então some da lista. É IRREVERSÍVEL — apaga
+ * também o histórico de conversas daquele número na Evolution. Se
+ * `instances.delete` falhar, a edge function não remove o cadastro em
+ * `zap_instancias` (ver comentário na action, na edge function), então o
+ * estado nunca fica meia-boca: ou a instância continua cadastrada e visível,
+ * ou some por completo.
+ */
+export function useRemoverInstancia() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ instanceName }: { instanceName: string }) => {
+      await invokeZap('instances.logout', { instanceName });
+      await invokeZap('instances.delete', { instanceName });
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });
       queryClient.invalidateQueries({ queryKey: ['zap-instancia-estado', variables.instanceName] });
       toast({
-        title: 'WhatsApp desconectado',
-        description: 'O vendedor precisará escanear o QR code de novo para reconectar.',
+        title: 'Instância removida',
+        description: 'O número foi apagado do ZapVendas e da Evolution, junto com o histórico de conversas.',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Erro ao desconectar',
+        title: 'Erro ao remover instância',
         description: error.message,
         variant: 'destructive',
       });
