@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { PainelInstancias } from '@/components/zapvendas/PainelInstancias';
 import { ListaConversas, type ChatSelecionado } from '@/components/zapvendas/ListaConversas';
 import { JanelaConversa } from '@/components/zapvendas/JanelaConversa';
-import { useZapInstancias, jidParaTelefone, normalizarTelefone } from '@/hooks/useZapVendas';
+import { useZapInstancias, jidParaTelefone, normalizarTelefone, ehGrupo } from '@/hooks/useZapVendas';
 import { useTemPapel } from '@/hooks/useTemPapel';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
@@ -23,29 +23,65 @@ interface ClienteEncontrado {
 }
 
 /**
+ * Reduz um telefone já normalizado (`normalizarTelefone`, só dígitos, sem
+ * `55`) para "DDD + 8 dígitos locais", tratando o 9º dígito do celular.
+ * Só funciona para números de 10 (fixo) ou 11 (celular) dígitos — os únicos
+ * formatos que carregam DDD; qualquer outro comprimento (grupo, `@lid`,
+ * telefone sem DDD) devolve `null` e fica de fora do casamento por sufixo.
+ *
+ * O 9º dígito só é descartado quando, sem ele, o número ainda parece um
+ * celular (numeração brasileira: celular começa em 6-9, fixo em 2-5) — senão
+ * um fixo de 8 dígitos (ex.: 3876-5432) casaria com QUALQUER celular de outra
+ * pessoa cujos últimos 8 dígitos coincidam por acaso (ex.: 9 3876-5432).
+ */
+function chaveComparacaoTelefone(telefoneNormalizado: string): string | null {
+  const digitos = telefoneNormalizado;
+  if (digitos.length === 11) {
+    const ddd = digitos.slice(0, 2);
+    const local = digitos.slice(2); // celular: 9 dígitos
+    if (local[0] !== '9') return null;
+    const semNono = local.slice(1);
+    if (!/^[6-9]/.test(semNono)) return null;
+    return ddd + semNono;
+  }
+  if (digitos.length === 10) {
+    const ddd = digitos.slice(0, 2);
+    const local = digitos.slice(2); // fixo (ou celular antigo, sem o 9º dígito): 8 dígitos
+    return ddd + local;
+  }
+  return null;
+}
+
+/**
  * Casa o `remoteJid` da conversa selecionada com um cliente cadastrado.
  * Os telefones do banco vêm em formatos misturados (com/sem 9º dígito, com
  * máscara, com/sem +55); por isso normalizamos os dois lados e, se não houver
- * casamento exato, caímos para comparar só os últimos 8 dígitos — senão
+ * casamento exato, caímos para comparar DDD + os 8 dígitos locais — senão
  * perdemos os clientes salvos sem o nono dígito.
+ *
+ * Nunca roda em grupo (`@g.us`): o `remoteJid` de um grupo não é um telefone,
+ * e um casamento por sufixo ali exibiria dados de um cliente qualquer ao lado
+ * de uma conversa sem nenhuma relação com ele. Com mais de um candidato no
+ * casamento por sufixo, não afirma nenhum — ambiguidade não vira "provável".
  */
 function encontrarClientePorJid(
   remoteJid: string | undefined | null,
   clientes: Cliente[]
 ): ClienteEncontrado | null {
+  if (ehGrupo(remoteJid)) return null;
+
   const telefoneJid = normalizarTelefone(jidParaTelefone(remoteJid));
   if (!telefoneJid) return null;
 
   const exato = clientes.find((c) => normalizarTelefone(c.telefone) === telefoneJid);
   if (exato) return { cliente: exato, provavel: false };
 
-  if (telefoneJid.length >= 8) {
-    const sufixo = telefoneJid.slice(-8);
-    const porSufixo = clientes.find((c) => {
-      const norm = normalizarTelefone(c.telefone);
-      return norm.length >= 8 && norm.slice(-8) === sufixo;
-    });
-    if (porSufixo) return { cliente: porSufixo, provavel: true };
+  const chaveJid = chaveComparacaoTelefone(telefoneJid);
+  if (chaveJid) {
+    const candidatos = clientes.filter(
+      (c) => chaveComparacaoTelefone(normalizarTelefone(c.telefone)) === chaveJid
+    );
+    if (candidatos.length === 1) return { cliente: candidatos[0], provavel: true };
   }
 
   return null;
@@ -256,7 +292,8 @@ export default function ZapVendas() {
   const [filtroVendedor, setFiltroVendedor] = useState('todos');
   const [chatSelecionado, setChatSelecionado] = useState<ChatSelecionado | null>(null);
 
-  const { data: instancias } = useZapInstancias();
+  const { data: resultadoInstancias } = useZapInstancias();
+  const instancias = resultadoInstancias?.instancias;
 
   const statusInstancia = useMemo(
     () =>

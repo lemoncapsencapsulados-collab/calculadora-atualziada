@@ -13,6 +13,29 @@ import {
 
 const TABELA_INSTANCIAS = 'zap_instancias' as any;
 
+/**
+ * O `functions.invoke` do supabase-js só lança em resposta não-2xx com a
+ * string fixa "Edge Function returned a non-2xx status code" — ele não lê o
+ * corpo da resposta. Todo erro da nossa edge function usa status ≠ 200 e
+ * carrega a mensagem em `{ ok:false, error }` no corpo; para ela chegar ao
+ * usuário, lemos esse corpo aqui a partir de `error.context` (a `Response`
+ * crua, que o supabase-js anexa ao erro mas nunca consome).
+ */
+async function extrairMensagemErroInvoke(error: unknown): Promise<string> {
+  const contexto = (error as { context?: Response } | undefined)?.context;
+  if (contexto && typeof contexto.clone === 'function') {
+    try {
+      const corpo = await contexto.clone().json();
+      if (corpo && typeof corpo === 'object' && typeof (corpo as any).error === 'string' && (corpo as any).error.trim()) {
+        return (corpo as any).error;
+      }
+    } catch {
+      // Corpo não era JSON (ex.: página de erro de um proxy) — cai no fallback abaixo.
+    }
+  }
+  return (error as Error)?.message || 'Falha ao comunicar com o WhatsApp.';
+}
+
 // ---------------------------------------------------------------------------
 // invokeZap — helper central de comunicação com a edge function `zapvendas`.
 // Trata os dois níveis de erro possíveis: o erro de transporte do próprio
@@ -29,15 +52,12 @@ export async function invokeZap<T = unknown>(
   });
 
   if (error) {
-    throw new Error(error.message || 'Falha ao comunicar com o WhatsApp.');
+    throw new Error(await extrairMensagemErroInvoke(error));
   }
 
-  const resposta = data as RespostaZap<T> | null;
-  if (!resposta || resposta.ok !== true) {
-    throw new Error(resposta?.error || 'Erro desconhecido ao processar a solicitação.');
-  }
-
-  return resposta.data as T;
+  // Sem `error`, a edge function sempre respondeu HTTP 200 com `{ ok: true, data }`
+  // (todo caminho de falha dela usa status ≠ 200, tratado no `if` acima).
+  return (data as RespostaZap<T> | null)?.data as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,23 +137,40 @@ export function ehGrupo(remoteJid: string | undefined | null): boolean {
 // Hooks de dados
 // ---------------------------------------------------------------------------
 
+/** Resultado de `useZapInstancias`: instâncias combinadas + sinal de que a Evolution não respondeu. */
+export interface ResultadoZapInstancias {
+  instancias: ZapInstanciaCombinada[];
+  /** `true` quando `instances.list` falhou (Evolution fora do ar, rede, etc.) — as instâncias cadastradas ainda aparecem, com status desconhecido. */
+  evolutionIndisponivel: boolean;
+}
+
 /**
  * Cruza as instâncias cadastradas em `zap_instancias` (dono/número) com o
  * estado de conexão devolvido pela Evolution (`instances.list`), casando
  * pelo nome da instância. Uma instância pode existir só de um lado — os
  * dois casos são tratados sem quebrar.
+ *
+ * Uma instância que existe na Evolution mas ainda não tem linha em
+ * `zap_instancias` (`vinculada: false`) NÃO é utilizável: a edge function
+ * recusa (403) qualquer action nela além de `instances.list` — ela é
+ * compartilhada com outros sistemas na mesma VPS, então não dá pra tratar
+ * "existe na Evolution" como "pertence ao ZapVendas". Por isso ela entra na
+ * lista com `ativo: false`, só para permitir que o operador a vincule.
  */
 export function useZapInstancias() {
   return useQuery({
     queryKey: ['zap-instancias'],
     staleTime: 30_000,
-    queryFn: async (): Promise<ZapInstanciaCombinada[]> => {
+    queryFn: async (): Promise<ResultadoZapInstancias> => {
+      let evolutionIndisponivel = false;
+
       const [{ data: linhas, error }, evolucao] = await Promise.all([
         (supabase as any).from(TABELA_INSTANCIAS).select('*'),
         invokeZap<ZapInstanciaEvolution[]>('instances.list').catch((erro) => {
           // A Evolution pode estar indisponível; ainda assim mostramos as
           // instâncias cadastradas, com status desconhecido.
           console.error('[zapvendas] erro ao buscar instances.list', erro);
+          evolutionIndisponivel = true;
           return [] as ZapInstanciaEvolution[];
         }),
       ]);
@@ -156,6 +193,7 @@ export function useZapInstancias() {
           usuarioId: linha.usuario_id,
           numero: linha.numero,
           ativo: linha.ativo,
+          vinculada: true,
           connectionStatus: evo?.connectionStatus ?? 'desconhecido',
           ownerJid: evo?.ownerJid,
           profileName: evo?.profileName,
@@ -164,7 +202,11 @@ export function useZapInstancias() {
       });
 
       // Instâncias que existem na Evolution mas ainda não foram cadastradas
-      // na tabela do Supabase (ex.: criadas fora do fluxo do app).
+      // na tabela do Supabase (ex.: criadas fora do fluxo do app, ou de outro
+      // produto que compartilha a mesma Evolution). Aparecem na lista para que
+      // o operador possa identificá-las e vinculá-las, mas `ativo: false` as
+      // mantém fora da caixa de entrada — nenhuma action de conversa funciona
+      // nelas até existir a linha em `zap_instancias`.
       (evolucao || []).forEach((evo) => {
         if (!evo?.name || nomesCadastrados.has(evo.name)) return;
         combinadas.push({
@@ -172,7 +214,8 @@ export function useZapInstancias() {
           instanceName: evo.name,
           usuarioId: null,
           numero: evo.number ?? null,
-          ativo: true,
+          ativo: false,
+          vinculada: false,
           connectionStatus: evo.connectionStatus ?? 'desconhecido',
           ownerJid: evo.ownerJid,
           profileName: evo.profileName,
@@ -180,7 +223,7 @@ export function useZapInstancias() {
         });
       });
 
-      return combinadas;
+      return { instancias: combinadas, evolutionIndisponivel };
     },
   });
 }
@@ -248,8 +291,11 @@ export function useEnviarMensagem() {
       remoteJid: string;
       texto: string;
     }) => {
-      const numero = jidParaTelefone(remoteJid);
-      return invokeZap('messages.send', { instanceName, number: numero, text: texto });
+      // Manda o JID completo (com `@s.whatsapp.net`, `@g.us` ou `@lid`) em vez
+      // de só a parte numérica: a Evolution aceita o JID inteiro em `number`,
+      // e cortar o domínio faz ela reconstruir o destino por heurística — o
+      // que envia para o lugar errado em grupos e em JIDs `@lid`.
+      return invokeZap('messages.send', { instanceName, number: remoteJid, text: texto });
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['zap-mensagens', variables.instanceName, variables.remoteJid] });
@@ -265,7 +311,14 @@ export function useEnviarMensagem() {
   });
 }
 
-/** Cria uma instância nova na Evolution (`instances.create`) e a cadastra em `zap_instancias`. */
+/**
+ * Cria uma instância nova na Evolution (`instances.create`). O cadastro em
+ * `zap_instancias` acontece dentro da própria edge function, com o
+ * service_role, como parte atômica da criação — se o cadastro falhar, ela
+ * desfaz a criação na Evolution. Isso evita instância órfã na Evolution (sem
+ * linha em `zap_instancias`) e é o que já deixa a instância nova utilizável
+ * pelas demais actions, que agora exigem esse vínculo.
+ */
 export function useCriarInstancia() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -280,18 +333,11 @@ export function useCriarInstancia() {
       usuarioId?: string | null;
       numero?: string | null;
     }) => {
-      const data = await invokeZap('instances.create', { instanceName });
-
-      const { error } = await (supabase as any).from(TABELA_INSTANCIAS).insert([
-        {
-          instance_name: instanceName,
-          usuario_id: usuarioId ?? null,
-          numero: numero ?? null,
-        },
-      ]);
-      if (error) throw error;
-
-      return data;
+      return invokeZap('instances.create', {
+        instanceName,
+        usuarioId: usuarioId ?? null,
+        numero: numero ?? null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zap-instancias'] });

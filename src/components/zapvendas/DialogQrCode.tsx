@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
@@ -66,9 +66,27 @@ export function DialogQrCode({ instanceName, aberto, onOpenChange }: DialogQrCod
   const estado = useMemo(() => extrairEstado(estadoQuery.data), [estadoQuery.data]);
   const imagemQrCode = useMemo(() => extrairImagemQrCode(qrQuery.data), [qrQuery.data]);
 
+  // `staleTime: 0` força um refetch ao reabrir, mas não apaga o cache: no
+  // primeiro render após reabrir (ou trocar de instância), `estadoQuery.data`
+  // ainda pode trazer o valor de uma sessão anterior do diálogo — se aquela
+  // instância chegou a conectar antes, esse valor é `open`. Por isso não
+  // reagimos ao VALOR absoluto de `estado`, e sim à TRANSIÇÃO: só disparamos
+  // o toast/fechamento quando observarmos, dentro desta abertura do diálogo,
+  // uma mudança de um estado não-`open` para `open`.
+  const estadoAnteriorRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Novo ciclo de abertura (ou instância diferente): esquece a transição
+    // observada na sessão anterior do diálogo.
+    estadoAnteriorRef.current = null;
+  }, [ativo, instanceName]);
+
   useEffect(() => {
     if (!ativo) return;
-    if (estado === 'open') {
+    const anterior = estadoAnteriorRef.current;
+    estadoAnteriorRef.current = estado;
+
+    if (anterior !== null && anterior !== 'open' && estado === 'open') {
       toast({
         title: 'WhatsApp conectado',
         description: `A instância "${instanceName}" foi conectada com sucesso.`,

@@ -88,6 +88,8 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
   const motivoDesabilitado = !podeEnviar
     ? statusInstancia === 'connecting'
       ? 'Conectando o WhatsApp deste vendedor — aguarde para enviar.'
+      : statusInstancia === 'desconhecido'
+      ? 'Não foi possível confirmar o status do WhatsApp desta instância — o servidor pode estar indisponível no momento. Tente novamente em instantes.'
       : 'WhatsApp desconectado. Conecte a instância deste vendedor para responder.'
     : null;
 

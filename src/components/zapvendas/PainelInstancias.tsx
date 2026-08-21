@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,7 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCriarInstancia, useVincularVendedor, useZapInstancias } from '@/hooks/useZapVendas';
 import { ZapInstanciaCombinada } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
-import { Check, ChevronDown, Plug, Plus, RefreshCw, UserX } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Link2, Plug, Plus, RefreshCw, UserX } from 'lucide-react';
 import { DialogQrCode } from './DialogQrCode';
 
 /** Registro mínimo da tabela `usuarios`, só o necessário para esta tela. */
@@ -82,7 +83,9 @@ interface PainelInstanciasProps {
  * controla o filtro por vendedor que o painel central (conversas) usa.
  */
 export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasProps) {
-  const { data: instancias, isLoading, isError, error, refetch, isFetching } = useZapInstancias();
+  const { data: resultadoInstancias, isLoading, isError, error, refetch, isFetching } = useZapInstancias();
+  const instancias = resultadoInstancias?.instancias;
+  const evolutionIndisponivel = resultadoInstancias?.evolutionIndisponivel ?? false;
   const { data: usuarios } = useUsuariosAtivos();
   const criarInstancia = useCriarInstancia();
   const vincularVendedor = useVincularVendedor();
@@ -184,6 +187,16 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
           </div>
         )}
 
+        {!isLoading && !isError && evolutionIndisponivel && (
+          <div className="mx-2 mb-2 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning-soft p-2 text-xs text-warning">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Não foi possível falar com o servidor do WhatsApp agora. O status abaixo pode estar
+              desatualizado.
+            </span>
+          </div>
+        )}
+
         {!isLoading && !isError && (instancias || []).length === 0 && (
           <div className="mx-2 rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
             Nenhuma instância cadastrada ainda. Crie uma para começar a conectar um vendedor.
@@ -260,11 +273,24 @@ export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasPro
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <p className="num truncate text-xs text-muted-foreground">
-                  {inst.numero || textoStatus(inst.connectionStatus)}
+                  {!inst.vinculada
+                    ? 'Não vinculada — selecione um vendedor acima para usar'
+                    : inst.numero || textoStatus(inst.connectionStatus)}
                 </p>
               </div>
 
-              {inst.connectionStatus !== 'open' && (
+              {!inst.vinculada && (
+                <Badge
+                  variant="outline"
+                  className="h-7 shrink-0 gap-1 border-warning/30 bg-warning-soft px-2 text-[10px] text-warning"
+                  title="Existe na Evolution mas ainda não foi vinculada a um vendedor do ZapVendas — vincule pelo nome acima antes de conectar."
+                >
+                  <Link2 className="h-3 w-3" />
+                  Não vinculada
+                </Badge>
+              )}
+
+              {inst.vinculada && inst.connectionStatus !== 'open' && (
                 <Button
                   size="sm"
                   variant="outline"

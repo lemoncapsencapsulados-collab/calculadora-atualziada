@@ -24,7 +24,10 @@ export interface ZapInstanciaEvolution {
 /**
  * Instância combinada: cruza `zap_instancias` (dono/número cadastrado) com
  * o estado de conexão vindo da Evolution. `id` é `null` quando a instância
- * existe na Evolution mas ainda não foi cadastrada na tabela do Supabase.
+ * existe na Evolution mas ainda não foi cadastrada na tabela do Supabase —
+ * nesse caso `vinculada` é `false` e a edge function recusa (403) qualquer
+ * action nela além de `instances.list`, então a UI não deve tratá-la como
+ * utilizável (nada de `chats.list`/`instances.qrcode` para ela).
  */
 export interface ZapInstanciaCombinada {
   id: string | null;
@@ -32,6 +35,8 @@ export interface ZapInstanciaCombinada {
   usuarioId: string | null;
   numero: string | null;
   ativo: boolean;
+  /** `true` quando existe linha em `zap_instancias` — só então a instância é utilizável pelo ZapVendas. */
+  vinculada: boolean;
   connectionStatus: 'open' | 'close' | 'connecting' | 'desconhecido';
   ownerJid?: string;
   profileName?: string;

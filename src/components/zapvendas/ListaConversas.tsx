@@ -97,13 +97,23 @@ export function ListaConversas({
   const [busca, setBusca] = useState('');
   const { data: usuariosMapa } = useUsuariosMapa();
 
+  // Só instâncias vinculadas em `zap_instancias` são utilizáveis: a edge
+  // function recusa (403) `chats.list` para qualquer instância sem esse
+  // vínculo — inclusive as que existem na Evolution mas pertencem a outro
+  // produto da mesma VPS (n8n, lemonlog etc.) ou ainda não foram vinculadas
+  // a um vendedor no painel à esquerda.
   const instanciasRelevantes = useMemo(
     () =>
       instancias.filter(
-        (inst) => inst.ativo && (filtroInstanceName === 'todos' || inst.instanceName === filtroInstanceName)
+        (inst) =>
+          inst.vinculada &&
+          inst.ativo &&
+          (filtroInstanceName === 'todos' || inst.instanceName === filtroInstanceName)
       ),
     [instancias, filtroInstanceName]
   );
+
+  const existemNaoVinculadas = useMemo(() => instancias.some((inst) => !inst.vinculada), [instancias]);
 
   // Uma query por instância — usa a MESMA chave/busca de `useZapChats`, então
   // divide o cache com ela; só precisamos de várias ao mesmo tempo aqui.
@@ -118,7 +128,13 @@ export function ListaConversas({
     })),
   });
 
-  const carregando = resultados.some((r) => r.isLoading);
+  // `carregandoTudo` só é `true` enquanto NENHUMA instância respondeu ainda —
+  // é o único caso em que faz sentido esconder a lista atrás do skeleton de
+  // tela cheia. Com `some(isLoading)`, uma única instância lenta escondia as
+  // conversas das outras que já haviam chegado; agora elas aparecem assim que
+  // qualquer resultado existir.
+  const carregandoTudo = resultados.length > 0 && resultados.every((r) => r.isLoading);
+  const algumCarregando = resultados.some((r) => r.isLoading);
   const algumaFalhou = resultados.some((r) => r.isError);
   const todasFalharam = resultados.length > 0 && resultados.every((r) => r.isError);
 
@@ -176,11 +192,13 @@ export function ListaConversas({
       <div className="flex-1 overflow-y-auto">
         {instanciasRelevantes.length === 0 && (
           <div className="mx-4 mt-2 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-            Conecte o WhatsApp de um vendedor para ver as conversas.
+            {existemNaoVinculadas
+              ? 'Existem instâncias do WhatsApp ainda não vinculadas a um vendedor. Vincule uma no painel à esquerda para ver as conversas aqui.'
+              : 'Conecte o WhatsApp de um vendedor para ver as conversas.'}
           </div>
         )}
 
-        {instanciasRelevantes.length > 0 && carregando && (
+        {instanciasRelevantes.length > 0 && carregandoTudo && (
           <div className="space-y-3 px-4 py-2">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="flex items-center gap-3">
@@ -200,19 +218,19 @@ export function ListaConversas({
           </div>
         )}
 
-        {!carregando && algumaFalhou && !todasFalharam && (
+        {algumaFalhou && !todasFalharam && (
           <div className="mx-4 mt-2 rounded-md border border-warning-soft bg-warning-soft p-2 text-xs text-warning">
             Algumas instâncias não responderam; a lista pode estar incompleta.
           </div>
         )}
 
-        {!carregando && instanciasRelevantes.length > 0 && conversas.length === 0 && !todasFalharam && (
+        {!carregandoTudo && !algumCarregando && instanciasRelevantes.length > 0 && conversas.length === 0 && !todasFalharam && (
           <div className="mx-4 mt-2 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
             Nenhuma conversa encontrada.
           </div>
         )}
 
-        {!carregando &&
+        {!carregandoTudo &&
           conversas.map(({ chat, instanceName, vendedor }) => {
             const grupo = ehGrupo(chat.remoteJid);
             const nome = chat.pushName || jidParaTelefone(chat.remoteJid) || 'Contato';
