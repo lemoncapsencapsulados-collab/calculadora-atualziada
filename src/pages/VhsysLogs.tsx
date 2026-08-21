@@ -159,7 +159,7 @@ function VhsysLogsContent() {
             o webhook (gatilho principal) ou a rotina horária (fallback) atualiza o orçamento para “Pago” e cria o pedido automaticamente.
           </p>
           <p className="text-xs text-muted-foreground">
-            Endpoint do webhook: <code>https://nawhpweyisawxaymmusg.supabase.co/functions/v1/vhsys-webhook</code>
+            Endpoint do webhook: <code>https://njfwoguvfozuaghufcgw.supabase.co/functions/v1/vhsys-webhook</code>
             {' '}— autenticação via header <code>x-vhsys-secret</code> ou query <code>?secret=...</code>.
           </p>
         </AlertDescription>

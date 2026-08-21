@@ -43,12 +43,12 @@ export default function Login() {
       {/* Background decoration */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-accent/5 blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-citrus/10 blur-3xl" />
       </div>
 
       <Card className="w-full max-w-md relative z-10 shadow-[var(--shadow-strong)] border-border/50 backdrop-blur-sm">
         <CardHeader className="text-center space-y-4 pb-2">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-[var(--shadow-glow)]">
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-[image:var(--gradient-accent)] flex items-center justify-center shadow-[var(--shadow-glow)]">
             <FlaskConical className="w-8 h-8 text-primary-foreground" />
           </div>
           <div>

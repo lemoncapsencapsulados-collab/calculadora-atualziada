@@ -139,7 +139,7 @@ export default function EmailLogs() {
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center">
             <Mail className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>

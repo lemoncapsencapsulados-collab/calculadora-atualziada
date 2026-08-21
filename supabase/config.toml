@@ -1,4 +1,4 @@
-project_id = "nawhpweyisawxaymmusg"
+project_id = "njfwoguvfozuaghufcgw"
 
 [functions]
   [functions.asaas-webhook]
@@ -31,3 +31,5 @@ project_id = "nawhpweyisawxaymmusg"
     verify_jwt = true
   [functions.zapsign-webhook]
     verify_jwt = false
+  [functions.zapvendas]
+    verify_jwt = true

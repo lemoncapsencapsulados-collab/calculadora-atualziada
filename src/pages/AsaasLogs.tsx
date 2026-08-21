@@ -118,7 +118,7 @@ function AsaasLogsContent() {
         <AlertTitle>Endpoint configurado no Asaas</AlertTitle>
         <AlertDescription className="space-y-1 text-sm">
           <p>
-            URL: <code>https://nawhpweyisawxaymmusg.supabase.co/functions/v1/asaas-webhook</code>
+            URL: <code>https://njfwoguvfozuaghufcgw.supabase.co/functions/v1/asaas-webhook</code>
           </p>
           <p>
             Autenticação via header <code>asaas-access-token</code> (secret <code>ASAAS_WEBHOOK_TOKEN</code>).

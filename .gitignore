@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# backup do .env do projeto Supabase antigo (contem chaves)
+.env.projeto-antigo.bak
+supabase/.temp/
+
+# workspace do subagent-driven-development
+.superpowers/

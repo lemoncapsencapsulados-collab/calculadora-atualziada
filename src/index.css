@@ -2,133 +2,159 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* =============================================================================
+   SISTEMA DE DESIGN — Calculadora LemonCaps
+   Direção: instrumento de precisão. Densidade calma, cor com significado,
+   números como protagonistas. Todas as cores em HSL.
+   ========================================================================== */
 
 @layer base {
   :root {
-    /* Professional pharmaceutical color scheme */
-    --background: 210 20% 98%;
-    --foreground: 210 15% 15%;
-
+    /* --- Superfícies: grafite frio, não azulado --- */
+    --background: 210 22% 97.5%;
+    --foreground: 215 28% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 210 15% 15%;
-
+    --card-foreground: 215 28% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 210 15% 15%;
+    --popover-foreground: 215 28% 13%;
 
-    /* Primary: Professional teal/blue */
-    --primary: 195 85% 42%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 195 85% 65%;
+    /* --- Marca: teal profundo (ação) + citrus LemonCaps (assinatura) --- */
+    --primary: 187 70% 29%;
+    --primary-foreground: 180 40% 98%;
+    --primary-glow: 187 62% 44%;
+    --primary-soft: 187 44% 93%;
 
-    /* Secondary: Soft blue-gray */
-    --secondary: 210 30% 94%;
-    --secondary-foreground: 210 15% 25%;
+    --citrus: 70 78% 47%;
+    --citrus-foreground: 75 65% 11%;
+    --citrus-soft: 70 70% 92%;
 
-    --muted: 210 25% 92%;
-    --muted-foreground: 210 12% 45%;
+    /* --- Interação neutra (semântica shadcn) ---
+       `accent` é o hover de menus e dropdowns: precisa ser DISCRETO.
+       Antes era um ciano saturado, que fazia todo hover do sistema piscar. */
+    --secondary: 210 20% 93.5%;
+    --secondary-foreground: 215 22% 24%;
+    --muted: 210 20% 95.5%;
+    --muted-foreground: 215 14% 44%;
+    --accent: 210 22% 92.5%;
+    --accent-foreground: 215 28% 16%;
 
-    /* Accent: Vibrant cyan */
-    --accent: 185 75% 48%;
-    --accent-foreground: 0 0% 100%;
+    /* --- Status: distintos entre si, com variante suave para badges --- */
+    --success: 156 58% 30%;
+    --success-foreground: 150 40% 98%;
+    --success-soft: 152 48% 92%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --warning: 33 88% 42%;
+    --warning-foreground: 40 60% 98%;
+    --warning-soft: 40 88% 91%;
 
-    --border: 210 20% 88%;
-    --input: 210 20% 90%;
-    --ring: 195 85% 42%;
+    --destructive: 4 66% 45%;
+    --destructive-foreground: 0 40% 98%;
+    --destructive-soft: 4 72% 94%;
 
-    --radius: 0.75rem;
+    --info: 214 70% 42%;
+    --info-foreground: 210 40% 98%;
+    --info-soft: 214 72% 93%;
 
-    /* Success color */
-    --success: 145 65% 45%;
-    --success-foreground: 0 0% 100%;
+    /* --- Linhas e foco --- */
+    --border: 214 20% 88%;
+    --border-strong: 214 18% 80%;
+    --input: 214 20% 85%;
+    --ring: 187 70% 34%;
 
-    /* Warning color */
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    /* --- Forma: mais contido que o padrão "bolha" --- */
+    --radius: 0.625rem;
+    --radius-card: 0.875rem;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(195 85% 42%), hsl(195 85% 55%));
-    --gradient-accent: linear-gradient(135deg, hsl(185 75% 48%), hsl(195 85% 42%));
-    --gradient-subtle: linear-gradient(180deg, hsl(210 25% 98%), hsl(210 20% 95%));
+    /* --- Elevação: sombras curtas e frias (Rams: discreto) --- */
+    --shadow-soft: 0 1px 2px hsl(215 25% 20% / 0.05), 0 1px 1px hsl(215 25% 20% / 0.04);
+    --shadow-medium: 0 2px 4px hsl(215 25% 20% / 0.06), 0 4px 12px -4px hsl(215 25% 20% / 0.09);
+    --shadow-strong: 0 4px 8px hsl(215 25% 20% / 0.07), 0 12px 32px -8px hsl(215 25% 20% / 0.14);
+    --shadow-glow: 0 0 0 3px hsl(var(--ring) / 0.16);
 
-    /* Shadows */
-    --shadow-soft: 0 2px 8px -2px hsl(210 20% 40% / 0.08);
-    --shadow-medium: 0 4px 16px -4px hsl(210 20% 40% / 0.12);
-    --shadow-strong: 0 8px 24px -6px hsl(210 20% 40% / 0.16);
-    --shadow-glow: 0 0 20px hsl(195 85% 42% / 0.2);
+    /* --- Gradientes da marca --- */
+    --gradient-primary: linear-gradient(140deg, hsl(187 70% 29%), hsl(187 62% 40%));
+    --gradient-accent: linear-gradient(140deg, hsl(187 66% 34%), hsl(70 78% 47%));
+    --gradient-subtle: linear-gradient(180deg, hsl(210 24% 99%), hsl(210 20% 96%));
 
-    /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* --- Movimento: curvas próprias, não o ease padrão --- */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --transition-smooth: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-bounce: all 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 210 15% 25%;
-    --sidebar-primary: 195 85% 42%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 25% 92%;
-    --sidebar-accent-foreground: 210 15% 25%;
-    --sidebar-border: 210 20% 88%;
-    --sidebar-ring: 195 85% 42%;
+    /* --- Sidebar --- */
+    --sidebar-background: 210 24% 99%;
+    --sidebar-foreground: 215 22% 26%;
+    --sidebar-primary: 187 70% 29%;
+    --sidebar-primary-foreground: 180 40% 98%;
+    --sidebar-accent: 210 22% 93%;
+    --sidebar-accent-foreground: 215 28% 16%;
+    --sidebar-border: 214 20% 88%;
+    --sidebar-ring: 187 70% 34%;
   }
 
   .dark {
-    --background: 210 20% 8%;
-    --foreground: 210 15% 92%;
+    --background: 215 28% 8%;
+    --foreground: 210 20% 94%;
+    --card: 215 26% 11%;
+    --card-foreground: 210 20% 94%;
+    --popover: 215 26% 12%;
+    --popover-foreground: 210 20% 94%;
 
-    --card: 210 18% 12%;
-    --card-foreground: 210 15% 92%;
+    --primary: 187 62% 46%;
+    --primary-foreground: 215 30% 7%;
+    --primary-glow: 187 62% 58%;
+    --primary-soft: 187 40% 17%;
 
-    --popover: 210 18% 12%;
-    --popover-foreground: 210 15% 92%;
+    --citrus: 70 72% 55%;
+    --citrus-foreground: 75 70% 9%;
+    --citrus-soft: 70 40% 16%;
 
-    --primary: 195 85% 55%;
-    --primary-foreground: 210 20% 8%;
-    --primary-glow: 195 85% 65%;
+    --secondary: 215 22% 17%;
+    --secondary-foreground: 210 18% 88%;
+    --muted: 215 22% 15%;
+    --muted-foreground: 215 14% 62%;
+    --accent: 215 22% 19%;
+    --accent-foreground: 210 20% 94%;
 
-    --secondary: 210 20% 18%;
-    --secondary-foreground: 210 15% 85%;
+    --success: 156 50% 44%;
+    --success-foreground: 150 60% 6%;
+    --success-soft: 156 38% 16%;
 
-    --muted: 210 20% 15%;
-    --muted-foreground: 210 12% 60%;
+    --warning: 36 86% 55%;
+    --warning-foreground: 40 70% 8%;
+    --warning-soft: 36 44% 17%;
 
-    --accent: 185 75% 52%;
-    --accent-foreground: 210 20% 8%;
+    --destructive: 4 70% 56%;
+    --destructive-foreground: 0 40% 98%;
+    --destructive-soft: 4 42% 19%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --info: 214 76% 60%;
+    --info-foreground: 214 60% 8%;
+    --info-soft: 214 42% 19%;
 
-    --border: 210 18% 22%;
-    --input: 210 18% 20%;
-    --ring: 195 85% 55%;
+    --border: 215 20% 21%;
+    --border-strong: 215 18% 29%;
+    --input: 215 20% 22%;
+    --ring: 187 62% 46%;
 
-    --success: 145 65% 50%;
-    --success-foreground: 0 0% 100%;
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3);
+    --shadow-medium: 0 2px 4px hsl(0 0% 0% / 0.35), 0 4px 12px -4px hsl(0 0% 0% / 0.45);
+    --shadow-strong: 0 4px 8px hsl(0 0% 0% / 0.4), 0 12px 32px -8px hsl(0 0% 0% / 0.55);
+    --shadow-glow: 0 0 0 3px hsl(var(--ring) / 0.26);
 
-    --warning: 38 92% 55%;
-    --warning-foreground: 0 0% 100%;
+    --gradient-primary: linear-gradient(140deg, hsl(187 62% 38%), hsl(187 62% 52%));
+    --gradient-accent: linear-gradient(140deg, hsl(187 62% 42%), hsl(70 72% 50%));
+    --gradient-subtle: linear-gradient(180deg, hsl(215 26% 12%), hsl(215 28% 8%));
 
-    --gradient-primary: linear-gradient(135deg, hsl(195 85% 45%), hsl(195 85% 60%));
-    --gradient-accent: linear-gradient(135deg, hsl(185 75% 52%), hsl(195 85% 55%));
-    --gradient-subtle: linear-gradient(180deg, hsl(210 20% 10%), hsl(210 20% 8%));
-
-    --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
-    --shadow-medium: 0 4px 16px -4px hsl(0 0% 0% / 0.4);
-    --shadow-strong: 0 8px 24px -6px hsl(0 0% 0% / 0.5);
-    --shadow-glow: 0 0 20px hsl(195 85% 55% / 0.3);
-
-    --sidebar-background: 210 20% 10%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 195 85% 55%;
-    --sidebar-primary-foreground: 210 20% 8%;
-    --sidebar-accent: 210 20% 18%;
-    --sidebar-accent-foreground: 210 15% 85%;
-    --sidebar-border: 210 18% 22%;
-    --sidebar-ring: 195 85% 55%;
+    --sidebar-background: 215 28% 9%;
+    --sidebar-foreground: 210 18% 88%;
+    --sidebar-primary: 187 62% 46%;
+    --sidebar-primary-foreground: 215 30% 7%;
+    --sidebar-accent: 215 22% 17%;
+    --sidebar-accent-foreground: 210 20% 94%;
+    --sidebar-border: 215 20% 21%;
+    --sidebar-ring: 187 62% 46%;
   }
 }
 
@@ -137,8 +163,97 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Tracking depende do tamanho: títulos grandes fecham, corpo fica em 0.
+     Um único letter-spacing global estaria errado em algum tamanho. */
+  h1, h2, h3, h4 {
+    @apply font-semibold text-foreground;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  h1 { letter-spacing: -0.028em; line-height: 1.12; }
+  h2 { letter-spacing: -0.022em; line-height: 1.2; }
+
+  p { text-wrap: pretty; }
+
+  /* Foco visível e consistente em todo o sistema */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 4px);
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  /* Scrollbar discreta, no tom da interface */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.55);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Números são o conteúdo de um sistema de cotação: largura fixa para
+     alinharem em coluna, e "zero" cortado para não confundir com O. */
+  .num {
+    font-family: theme('fontFamily.mono');
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: -0.01em;
+  }
+
+  /* Rótulo de seção: pequeno, espaçado, discreto */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase text-muted-foreground;
+    letter-spacing: 0.08em;
+  }
+
+  /* Superfície padrão de conteúdo */
+  .surface-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+@layer utilities {
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-medium { box-shadow: var(--shadow-medium); }
+  .shadow-strong { box-shadow: var(--shadow-strong); }
+}
+
+/* Movimento reduzido: preserva opacidade e cor, corta deslocamento e mola */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

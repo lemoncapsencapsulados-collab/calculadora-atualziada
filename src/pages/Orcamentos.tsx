@@ -41,6 +41,11 @@ import { useFreteCotacoes } from '@/hooks/useFreteCotacoes';
 import { labelFreteCotacao } from '@/lib/freteHelpers';
 import { Truck } from 'lucide-react';
 import FreteOrcamentoDialog from '@/components/frete/FreteOrcamentoDialog';
+import { MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -376,11 +381,10 @@ export default function Orcamentos() {
                       <Card
                         key={orcamento.id}
                         id={`orc-card-${orcamento.id}`}
-                        className={`overflow-hidden transition-all ${
-                          isPago
-                            ? 'border-green-500 bg-green-50 dark:bg-green-950/20 shadow-green-100 dark:shadow-green-900/20 shadow-md'
-                            : ''
-                        }`}
+                        className={cn(
+                          'group overflow-hidden transition-shadow duration-200 hover:shadow-medium',
+                          isPago && 'border-success/35 bg-success-soft/50',
+                        )}
                       >
                         <CardContent className="p-0">
                           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 p-3 sm:p-4">
@@ -394,8 +398,8 @@ export default function Orcamentos() {
                                     </Badge>
                                     <Badge variant="outline" className={
                                       (orcamento as any).tipo_orcamento === 'recompra'
-                                        ? 'border-orange-500 text-orange-700 dark:text-orange-300'
-                                        : 'border-blue-500 text-blue-700 dark:text-blue-300'
+                                        ? 'border-warning/40 bg-warning-soft text-warning'
+                                        : 'border-info/40 bg-info-soft text-info'
                                     }>
                                       {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
                                     </Badge>
@@ -465,34 +469,38 @@ export default function Orcamentos() {
                               </div>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                                 <div className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  Criado: {format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                  <Calendar className="w-3 h-3 opacity-60" />
+                                  Criado <span className="num">{format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
                                 </div>
                                 {orcamento.updated_at && new Date(orcamento.updated_at).getTime() - new Date(orcamento.created_at).getTime() > 60000 && (
-                                  <div className="flex items-center gap-1 text-amber-600">
-                                    <Pencil className="w-3 h-3" />
-                                    Editado: {format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                                  <div className="flex items-center gap-1">
+                                    <Pencil className="w-3 h-3 opacity-60" />
+                                    Editado <span className="num">{format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
                                   </div>
                                 )}
                                 {isPago && orcamento.data_pagamento && (
-                                  <div className="flex items-center gap-1 text-green-600">
+                                  <div className="flex items-center gap-1 font-medium text-success">
                                     <CalendarIcon className="w-3 h-3" />
-                                    Pgto: {format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}
+                                    Pago em <span className="num">{format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}</span>
                                   </div>
                                 )}
                                 {orcamento.data_envio && (
-                                  <div className="flex items-center gap-1 text-blue-600">
-                                    <Send className="w-3 h-3" />
-                                    Enviado: {format(new Date(orcamento.data_envio), "dd/MM/yyyy", { locale: ptBR })}
+                                  <div className="flex items-center gap-1">
+                                    <Send className="w-3 h-3 opacity-60" />
+                                    Enviado <span className="num">{format(new Date(orcamento.data_envio), "dd/MM/yyyy", { locale: ptBR })}</span>
                                   </div>
                                 )}
                                 <div className="flex items-center gap-1">
-                                  <Package className="w-3 h-3" />
-                                  {orcamento.itens_producao?.length || 0} produto(s)
+                                  <Package className="w-3 h-3 opacity-60" />
+                                  {(orcamento.itens_producao?.length || 0) === 1
+                                    ? '1 produto'
+                                    : `${orcamento.itens_producao?.length || 0} produtos`}
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <Palette className="w-3 h-3" />
-                                  {orcamento.servicos_marca?.length || 0} serviço(s)
+                                  <Palette className="w-3 h-3 opacity-60" />
+                                  {(orcamento.servicos_marca?.length || 0) === 0
+                                    ? 'sem serviços'
+                                    : (orcamento.servicos_marca?.length === 1 ? '1 serviço' : `${orcamento.servicos_marca?.length} serviços`)}
                                 </div>
                               </div>
                               {orcamento.observacoes_internas && (
@@ -503,68 +511,90 @@ export default function Orcamentos() {
                               )}
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Produção</p>
-                                  <p className="font-medium">{formatCurrency(orcamento.subtotal_producao)}</p>
+                                  <p className="eyebrow">Produção</p>
+                                  <p className="num text-[13px] text-muted-foreground">{formatCurrency(orcamento.subtotal_producao)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Serviços</p>
-                                  <p className="font-medium">{formatCurrency(orcamento.subtotal_servicos)}</p>
+                                  <p className="eyebrow">Serviços</p>
+                                  <p className="num text-[13px] text-muted-foreground">{formatCurrency(orcamento.subtotal_servicos)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground text-xs">Total</p>
-                                  <p className={`font-bold text-base sm:text-lg ${isPago ? 'text-green-600' : 'text-primary'}`}>
+                                  <p className="eyebrow">Total</p>
+                                  <p className={cn('num text-xl font-semibold tracking-[-0.02em]', isPago ? 'text-success' : 'text-foreground')}>
                                     {formatCurrency(orcamento.valor_total)}
                                   </p>
                                 </div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap lg:flex-col gap-2 lg:justify-start lg:w-[200px]">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 lg:flex-initial"
-                                onClick={() => abrirHistorico(orcamento)}
-                              >
-                                <History className="w-4 h-4 mr-2" />
-                                Histórico ({orcamento.historico_contatos?.length || 0})
+                            <div className="flex shrink-0 flex-wrap items-center gap-1.5 lg:self-start">
+                              {/* Ação primária: o passo seguinte do orçamento. Uma só, e cheia. */}
+                              <Button size="sm" className="h-8" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
+                                <FileCheck className="w-4 h-4 mr-1.5" />
+                                <span className="hidden sm:inline">Projeto para Contrato</span>
+                                <span className="sm:hidden">Projeto</span>
                               </Button>
-                              {orcamento.status === 'enviado' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-green-500 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/20 flex-1 lg:flex-initial"
-                                  onClick={() => window.open('https://www.asaas.com/c/e8z81rc6owbwhpde', '_blank')}
-                                >
-                                  <DollarSign className="w-4 h-4 mr-2" />Gerar PIX
-                                </Button>
-                              )}
-                              <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setEditandoOrcamento(orcamento)}>
-                                <Pencil className="w-4 h-4 mr-2" />Editar
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setPreviewOrcamento(orcamento)}>
-                                <FileText className="w-4 h-4 mr-2" />Gerar PDF
-                              </Button>
-                              <Button variant="default" size="sm" className="flex-1 lg:flex-initial" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
-                                <FileCheck className="w-4 h-4 mr-2" />Projeto para Contrato
-                              </Button>
-                              {(freteMap.get(orcamento.id)?.length || 0) > 0 && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex-1 lg:flex-initial border-sky-500 text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-900/20"
-                                  onClick={() => setVerFreteOrcamento(orcamento)}
-                                >
-                                  <Truck className="w-4 h-4 mr-2" />Ver Frete
-                                </Button>
-                              )}
-                              {resumosExistentes?.has(orcamento.id) && (
-                                <Button variant="outline" size="sm" className="flex-1 lg:flex-initial" onClick={() => setVerResumoContrato(orcamento)}>
-                                  <FileSignature className="w-4 h-4 mr-2" />Ver Projeto do Contrato
-                                </Button>
-                              )}
-                              <Button variant="destructive" size="sm" className="flex-1 lg:flex-initial" onClick={() => setDeletandoId(orcamento.id)}>
-                                <Trash2 className="w-4 h-4 mr-2" />Excluir
-                              </Button>
+
+                              {/* Frequentes: ícone + tooltip, sem competir com a primária. */}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setEditandoOrcamento(orcamento)} aria-label="Editar orçamento">
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Editar</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPreviewOrcamento(orcamento)} aria-label="Gerar PDF">
+                                    <FileText className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Gerar PDF</TooltipContent>
+                              </Tooltip>
+
+                              {/* O resto continua a um clique, sem ocupar a tela. */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Mais ações">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  <DropdownMenuItem onClick={() => abrirHistorico(orcamento)}>
+                                    <History className="w-4 h-4 mr-2 opacity-70" />
+                                    Histórico
+                                    <span className="num ml-auto text-xs text-muted-foreground">
+                                      {orcamento.historico_contatos?.length || 0}
+                                    </span>
+                                  </DropdownMenuItem>
+                                  {orcamento.status === 'enviado' && (
+                                    <DropdownMenuItem onClick={() => window.open('https://www.asaas.com/c/e8z81rc6owbwhpde', '_blank')}>
+                                      <DollarSign className="w-4 h-4 mr-2 opacity-70" />
+                                      Gerar PIX
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(freteMap.get(orcamento.id)?.length || 0) > 0 && (
+                                    <DropdownMenuItem onClick={() => setVerFreteOrcamento(orcamento)}>
+                                      <Truck className="w-4 h-4 mr-2 opacity-70" />
+                                      Ver frete
+                                    </DropdownMenuItem>
+                                  )}
+                                  {resumosExistentes?.has(orcamento.id) && (
+                                    <DropdownMenuItem onClick={() => setVerResumoContrato(orcamento)}>
+                                      <FileSignature className="w-4 h-4 mr-2 opacity-70" />
+                                      Ver projeto do contrato
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setDeletandoId(orcamento.id)}
+                                    className="text-destructive focus:bg-destructive-soft focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </CardContent>
