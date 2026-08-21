@@ -209,12 +209,26 @@ export function useZapMensagens(
     enabled: !!instanceName && !!remoteJid,
     staleTime: 10_000,
     queryFn: async (): Promise<ZapMensagem[]> => {
-      const data = await invokeZap<ZapMensagem[]>('messages.list', {
+      // A Evolution devolve as mensagens embrulhadas em paginação:
+      // { messages: { records: [...], total, pages, currentPage } }.
+      // Algumas versões podem devolver o array diretamente — aceitamos os
+      // dois formatos sem quebrar a tela.
+      const bruto = await invokeZap<
+        | ZapMensagem[]
+        | { messages?: { records?: ZapMensagem[]; total?: number; pages?: number; currentPage?: number } }
+      >('messages.list', {
         instanceName,
         remoteJid,
         limit,
       });
-      return data || [];
+
+      const mensagens: ZapMensagem[] = Array.isArray(bruto)
+        ? bruto
+        : bruto?.messages?.records ?? [];
+
+      // A Evolution devolve em ordem decrescente (mais recente primeiro);
+      // a tela de conversa espera ordem crescente.
+      return [...mensagens].sort((a, b) => (a?.messageTimestamp ?? 0) - (b?.messageTimestamp ?? 0));
     },
   });
 }

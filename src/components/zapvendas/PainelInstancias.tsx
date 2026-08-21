@@ -1,0 +1,303 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { useCriarInstancia, useZapInstancias } from '@/hooks/useZapVendas';
+import { ZapInstanciaCombinada } from '@/types/zapvendas';
+import { cn } from '@/lib/utils';
+import { Plug, Plus, RefreshCw } from 'lucide-react';
+import { DialogQrCode } from './DialogQrCode';
+
+/** Registro mínimo da tabela `usuarios`, só o necessário para esta tela. */
+interface UsuarioSimples {
+  id: string;
+  nome: string;
+}
+
+function useUsuariosAtivos() {
+  return useQuery({
+    queryKey: ['zap-usuarios-ativos'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<UsuarioSimples[]> => {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+function corStatus(status: ZapInstanciaCombinada['connectionStatus']): string {
+  if (status === 'open') return 'bg-success';
+  if (status === 'connecting') return 'bg-warning';
+  return 'bg-muted-foreground';
+}
+
+function textoStatus(status: ZapInstanciaCombinada['connectionStatus']): string {
+  if (status === 'open') return 'Conectado';
+  if (status === 'connecting') return 'Conectando…';
+  if (status === 'close') return 'Desconectado';
+  return 'Estado desconhecido';
+}
+
+interface PainelInstanciasProps {
+  filtro: string;
+  onFiltroChange: (valor: string) => void;
+}
+
+/**
+ * Painel esquerdo: vendedores e o estado de conexão de cada instância do
+ * WhatsApp. Permite conectar (via QR Code) e cadastrar instâncias novas, e
+ * controla o filtro por vendedor que o painel central (conversas) usa.
+ */
+export function PainelInstancias({ filtro, onFiltroChange }: PainelInstanciasProps) {
+  const { data: instancias, isLoading, isError, error, refetch, isFetching } = useZapInstancias();
+  const { data: usuarios } = useUsuariosAtivos();
+  const criarInstancia = useCriarInstancia();
+  const { toast } = useToast();
+
+  const [instanciaParaConectar, setInstanciaParaConectar] = useState<string | null>(null);
+  const [dialogCriarAberto, setDialogCriarAberto] = useState(false);
+  const [novoNome, setNovoNome] = useState('');
+  const [novoUsuarioId, setNovoUsuarioId] = useState<string>('');
+
+  const nomeVendedor = (inst: ZapInstanciaCombinada): string => {
+    const usuario = usuarios?.find((u) => u.id === inst.usuarioId);
+    return usuario?.nome || inst.instanceName;
+  };
+
+  const iniciais = (nome: string): string =>
+    nome
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((parte) => parte[0]?.toUpperCase())
+      .join('') || '?';
+
+  const criarNovaInstancia = () => {
+    const nomeInstancia = novoNome.trim();
+    if (!nomeInstancia) {
+      toast({
+        title: 'Informe o nome da instância',
+        variant: 'destructive',
+      });
+      return;
+    }
+    criarInstancia.mutate(
+      { instanceName: nomeInstancia, usuarioId: novoUsuarioId || null },
+      {
+        onSuccess: () => {
+          setDialogCriarAberto(false);
+          setNovoNome('');
+          setNovoUsuarioId('');
+        },
+      }
+    );
+  };
+
+  return (
+    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-card">
+      <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
+        <span className="eyebrow">Vendedores</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          title="Atualizar"
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', isFetching && 'animate-spin')} />
+        </Button>
+      </div>
+
+      <div className="px-4 pb-3">
+        <Select value={filtro} onValueChange={onFiltroChange}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Todos os vendedores" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os vendedores</SelectItem>
+            {(instancias || []).map((inst) => (
+              <SelectItem key={inst.instanceName} value={inst.instanceName}>
+                {nomeVendedor(inst)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2">
+        {isLoading && (
+          <div className="space-y-3 px-2 py-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isError && !isLoading && (
+          <div className="mx-2 rounded-md border border-destructive-soft bg-destructive-soft p-3 text-sm text-destructive">
+            Não foi possível carregar as instâncias.
+            <div className="mt-1 text-xs">{(error as Error)?.message}</div>
+            <Button variant="outline" size="sm" className="mt-2 h-7" onClick={() => refetch()}>
+              Tentar de novo
+            </Button>
+          </div>
+        )}
+
+        {!isLoading && !isError && (instancias || []).length === 0 && (
+          <div className="mx-2 rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+            Nenhuma instância cadastrada ainda. Crie uma para começar a conectar um vendedor.
+          </div>
+        )}
+
+        {!isLoading &&
+          (instancias || []).map((inst) => (
+            <div
+              key={inst.instanceName}
+              className={cn(
+                'mb-1 flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted',
+                filtro === inst.instanceName && 'bg-primary-soft'
+              )}
+            >
+              <div className="relative shrink-0">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={inst.profilePicUrl} alt={nomeVendedor(inst)} />
+                  <AvatarFallback>{iniciais(nomeVendedor(inst))}</AvatarFallback>
+                </Avatar>
+                <span
+                  className={cn(
+                    'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card',
+                    corStatus(inst.connectionStatus)
+                  )}
+                  title={textoStatus(inst.connectionStatus)}
+                />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{nomeVendedor(inst)}</p>
+                <p className="num truncate text-xs text-muted-foreground">
+                  {inst.numero || textoStatus(inst.connectionStatus)}
+                </p>
+              </div>
+
+              {inst.connectionStatus !== 'open' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 shrink-0 px-2 text-xs"
+                  onClick={() => setInstanciaParaConectar(inst.instanceName)}
+                >
+                  <Plug className="h-3 w-3" />
+                  Conectar
+                </Button>
+              )}
+            </div>
+          ))}
+      </div>
+
+      <div className="border-t border-border p-3">
+        <Button
+          variant="secondary"
+          className="w-full"
+          size="sm"
+          onClick={() => setDialogCriarAberto(true)}
+        >
+          <Plus className="h-4 w-4" />
+          Nova instância
+        </Button>
+      </div>
+
+      <DialogQrCode
+        instanceName={instanciaParaConectar}
+        aberto={!!instanciaParaConectar}
+        onOpenChange={(aberto) => {
+          if (!aberto) setInstanciaParaConectar(null);
+        }}
+      />
+
+      <Dialog open={dialogCriarAberto} onOpenChange={setDialogCriarAberto}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nova instância do WhatsApp</DialogTitle>
+            <DialogDescription>
+              Cria a instância na Evolution e a associa a um vendedor. Depois é só conectar
+              escaneando o QR Code.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="zap-nome-instancia">Nome da instância</Label>
+              <Input
+                id="zap-nome-instancia"
+                placeholder="ex.: vendedor-joao"
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="zap-usuario">Vendedor</Label>
+              <Select value={novoUsuarioId} onValueChange={setNovoUsuarioId}>
+                <SelectTrigger id="zap-usuario">
+                  <SelectValue placeholder="Selecione um vendedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(usuarios || []).map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogCriarAberto(false)}
+              disabled={criarInstancia.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={criarNovaInstancia} disabled={criarInstancia.isPending}>
+              {criarInstancia.isPending ? 'Criando…' : 'Criar instância'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </aside>
+  );
+}

@@ -184,16 +184,32 @@ Deno.serve(async (req) => {
       }
 
       case "messages.list": {
+        // A Evolution v2.3.7 ignora `limit` em /chat/findMessages — quem controla
+        // o tamanho da página é `offset`, e `page` é o número da página.
         const { instanceName, remoteJid } = body;
         if (!validarInstanceName(instanceName)) return json({ ok: false, error: "instanceName inválido" }, 400);
         if (typeof remoteJid !== "string" || !remoteJid.trim()) {
           return json({ ok: false, error: "remoteJid é obrigatório" }, 400);
         }
-        const limiteBruto = Number(body.limit);
-        const limit = Number.isFinite(limiteBruto) && limiteBruto > 0 ? Math.min(Math.floor(limiteBruto), 200) : 50;
+
+        let limit = 50;
+        if (body.limit !== undefined) {
+          const n = Number(body.limit);
+          if (!Number.isInteger(n) || n <= 0) return json({ ok: false, error: "limit deve ser um inteiro positivo" }, 400);
+          limit = Math.min(n, 100);
+        }
+
+        let page = 1;
+        if (body.page !== undefined) {
+          const n = Number(body.page);
+          if (!Number.isInteger(n) || n <= 0) return json({ ok: false, error: "page deve ser um inteiro positivo" }, 400);
+          page = n;
+        }
+
         resultado = await chamarEvolution(`/chat/findMessages/${instanceName}`, "POST", {
           where: { key: { remoteJid } },
-          limit,
+          offset: limit,
+          page,
         });
         break;
       }
