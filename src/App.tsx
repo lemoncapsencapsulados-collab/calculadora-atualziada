@@ -21,6 +21,7 @@ const Pedidos = lazy(() => import("./pages/Pedidos"));
 const Precificacao = lazy(() => import("./pages/Precificacao"));
 const Orcamentos = lazy(() => import("./pages/Orcamentos"));
 const ZapVendas = lazy(() => import("./pages/ZapVendas"));
+const ZapInteligencia = lazy(() => import("./pages/ZapInteligencia"));
 const LeadsOrcamento = lazy(() => import("./pages/LeadsOrcamento"));
 const DashboardComercial = lazy(() => import("./pages/DashboardComercial"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -33,6 +34,7 @@ const VhsysLogs = lazy(() => import("./pages/VhsysLogs"));
 const AsaasLogs = lazy(() => import("./pages/AsaasLogs"));
 const EmailLogs = lazy(() => import("./pages/EmailLogs"));
 const InvestimentoAnuncios = lazy(() => import("./pages/InvestimentoAnuncios"));
+const FunisTrafegoPago = lazy(() => import("./pages/FunisTrafegoPago"));
 const Logistica = lazy(() => import("./pages/Logistica"));
 
 const RouteFallback = () => (
@@ -113,7 +115,11 @@ const AppContent = () => {
             <Route path="/asaas-logs" element={<AsaasLogs />} />
             <Route path="/email-logs" element={<EmailLogs />} />
             <Route path="/investimento-anuncios" element={<InvestimentoAnuncios />} />
+            <Route path="/funis-trafego-pago" element={<FunisTrafegoPago />} />
             <Route path="/zapvendas" element={<ZapVendas />} />
+            {/* O guard de papel vive dentro da página (useTemPapel), como no
+                ZapVendas: a rota existe, mas a tela nega o acesso. */}
+            <Route path="/zap-inteligencia" element={<ZapInteligencia />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

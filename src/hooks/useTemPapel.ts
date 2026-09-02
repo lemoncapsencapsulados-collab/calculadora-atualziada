@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AppRole = 'admin' | 'zapvendas';
+export type AppRole = 'admin' | 'zapvendas' | 'trafego';
 
 /**
  * Verifica se o usuário logado tem um papel.

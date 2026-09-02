@@ -2,8 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Package, Calculator, ClipboardList, DollarSign, Receipt,
   LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature,
-  Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown, MessageCircle,
-} from 'lucide-react';
+  Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown, MessageCircle, Brain, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTemPapel } from '@/hooks/useTemPapel';
 import { LemoncapsLogo } from '@/components/LemoncapsLogo';
@@ -37,6 +36,19 @@ const PRIMARY: NavItem[] = [
    tem o papel. O RLS e a edge function barram de verdade — isto é interface. */
 const ITEM_ZAPVENDAS: NavItem = {
   to: '/zapvendas', label: 'ZapVendas', short: 'ZapVendas', icon: MessageCircle,
+};
+
+/* Mesmo papel do ZapVendas, e pela mesma razão: o painel pontua consultores a
+   partir do conteúdo das conversas deles. */
+/* Funis de Tráfego Pago expõe verba de mídia e custo por lead: papel próprio,
+   porque quem lê funil de tráfego não é necessariamente quem lê conversa de
+   vendedor. Como sempre, isto é interface — o RLS das tabelas é o que barra. */
+const ITEM_FUNIS_TRAFEGO: NavItem = {
+  to: '/funis-trafego-pago', label: 'Funis de Tráfego Pago', short: 'Funis', icon: Filter,
+};
+
+const ITEM_ZAP_INTELIGENCIA: NavItem = {
+  to: '/zap-inteligencia', label: 'Inteligência de Atendimento', short: 'Inteligência', icon: Brain,
 };
 
 const GROUPS: { label: string; items: NavItem[] }[] = [
@@ -76,15 +88,20 @@ export function Navigation({ onLogout }: NavigationProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   const { temPapel: podeZapVendas } = useTemPapel('zapvendas');
+  const { temPapel: podeTrafego } = useTemPapel('trafego');
 
   const grupos = useMemo(
     () =>
-      GROUPS.map((g) =>
-        g.label === 'Operação' && podeZapVendas
-          ? { ...g, items: [...g.items, ITEM_ZAPVENDAS] }
-          : g,
-      ),
-    [podeZapVendas],
+      GROUPS.map((g) => {
+        if (g.label === 'Operação' && podeZapVendas) {
+          return { ...g, items: [...g.items, ITEM_ZAPVENDAS, ITEM_ZAP_INTELIGENCIA] };
+        }
+        if (g.label === 'Análise' && podeTrafego) {
+          return { ...g, items: [...g.items, ITEM_FUNIS_TRAFEGO] };
+        }
+        return g;
+      }),
+    [podeZapVendas, podeTrafego],
   );
 
   const isActive = (to: string) => location.pathname === to;
