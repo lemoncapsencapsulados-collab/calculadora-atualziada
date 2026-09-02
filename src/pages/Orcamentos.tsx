@@ -54,6 +54,23 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
   recusado: { label: 'Recusado', variant: 'destructive' },
 };
 
+/* Estado é sinal, não fundo. A mesma cor aparece em dois lugares — o trilho
+   de 3px na borda do card e o ponto ao lado do nome — para o olho ligar um ao
+   outro sem precisar de uma pílula colorida em cada linha. */
+const STATUS_RAIL: Record<string, string> = {
+  rascunho: 'before:bg-border-strong',
+  enviado: 'before:bg-info',
+  pago: 'before:bg-success',
+  recusado: 'before:bg-destructive',
+};
+
+const STATUS_DOT: Record<string, string> = {
+  rascunho: 'bg-border-strong',
+  enviado: 'bg-info',
+  pago: 'bg-success',
+  recusado: 'bg-destructive',
+};
+
 const CONTRATO_BADGE: Record<string, { label: string; className: string }> = {
   enviado: {
     label: 'Contrato em análise',
@@ -293,24 +310,27 @@ export default function Orcamentos() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center border rounded-md">
+              {/* Trilho de segmento: o ativo é sólido, o outro some no fundo. */}
+              <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/40 p-0.5">
                 <Button
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
-                  className="rounded-r-none"
+                  className="h-8 rounded-md px-2.5"
                   onClick={() => setViewMode('list')}
                   title="Visualização em lista"
+                  aria-pressed={viewMode === 'list'}
                 >
-                  <List className="w-4 h-4" />
+                  <List className="h-4 w-4" />
                 </Button>
                 <Button
                   variant={viewMode === 'kanban' ? 'default' : 'ghost'}
                   size="sm"
-                  className="rounded-l-none"
+                  className="h-8 rounded-md px-2.5"
                   onClick={() => setViewMode('kanban')}
                   title="Visualização Kanban"
+                  aria-pressed={viewMode === 'kanban'}
                 >
-                  <Columns3 className="w-4 h-4" />
+                  <Columns3 className="h-4 w-4" />
                 </Button>
               </div>
               <Button onClick={() => setCriandoNovo(true)} className="flex-1 sm:flex-initial">
@@ -322,18 +342,18 @@ export default function Orcamentos() {
         </CardHeader>
         <CardContent className="space-y-6 p-3 sm:p-6">
           {/* Filtros */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Pesquisar por cliente, consultor ou número..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="h-10 rounded-lg pl-10"
               />
             </div>
             <Select value={consultorFilter || 'all'} onValueChange={(v) => setConsultorFilter(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectTrigger className="h-10 w-full rounded-lg sm:w-[220px]">
                 <SelectValue placeholder="Todos os consultores" />
               </SelectTrigger>
               <SelectContent>
@@ -343,6 +363,11 @@ export default function Orcamentos() {
                 ))}
               </SelectContent>
             </Select>
+            {/* Quantos são: um número, não uma frase. */}
+            <p className="shrink-0 text-xs text-muted-foreground sm:pl-1">
+              <span className="tnum font-medium text-foreground">{totalCount}</span>{' '}
+              {totalCount === 1 ? 'orçamento' : 'orçamentos'}
+            </p>
           </div>
 
           {/* Kanban View */}
@@ -374,7 +399,7 @@ export default function Orcamentos() {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-2.5">
                   {orcamentos.map((orcamento) => {
                     const isPago = orcamento.status === 'pago';
                     return (
@@ -382,171 +407,213 @@ export default function Orcamentos() {
                         key={orcamento.id}
                         id={`orc-card-${orcamento.id}`}
                         className={cn(
-                          'group overflow-hidden transition-shadow duration-200 hover:shadow-medium',
-                          isPago && 'border-success/35 bg-success-soft/50',
+                          // Uma superfície só para todos os estados: o card não muda
+                          // de cor, muda de trilho. Assim uma lista de 15 orçamentos
+                          // continua sendo uma lista, e não um mosaico.
+                          'group relative overflow-hidden border-border shadow-soft',
+                          'transition-[box-shadow,border-color] duration-150 ease-out',
+                          'hover:border-border-strong hover:shadow-medium',
+                          "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:content-['']",
+                          STATUS_RAIL[orcamento.status] || 'before:bg-border-strong',
                         )}
                       >
                         <CardContent className="p-0">
-                          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 p-3 sm:p-4">
-                            <div className="space-y-3 min-w-0">
-                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-base sm:text-lg break-words">{orcamento.nome_cliente}</span>
-                                    <Badge variant={STATUS_CONFIG[orcamento.status]?.variant || 'secondary'}>
-                                      {STATUS_CONFIG[orcamento.status]?.label || orcamento.status}
+                          <div className="grid grid-cols-1 items-start gap-x-6 gap-y-3 p-3 pl-4 sm:p-4 sm:pl-5 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
+
+                            {/* ─── Identidade: quem é, quem atende, o que aconteceu ─── */}
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                <span className="break-words text-base font-semibold tracking-[-0.01em]">{orcamento.nome_cliente}</span>
+
+                                {/* Estado: ponto + palavra. Uma pílula a menos por linha. */}
+                                <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                  <span aria-hidden="true" className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[orcamento.status] || 'bg-border-strong')} />
+                                  {STATUS_CONFIG[orcamento.status]?.label || orcamento.status}
+                                </span>
+
+                                <Badge variant="outline" className={cn(
+                                  'h-5 px-1.5 text-[11px] font-medium',
+                                  (orcamento as any).tipo_orcamento === 'recompra'
+                                    ? 'border-warning/35 bg-warning-soft text-warning'
+                                    : 'border-info/35 bg-info-soft text-info',
+                                )}>
+                                  {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
+                                </Badge>
+                                {(() => {
+                                  const sc = (orcamento as any).status_contrato as string | undefined;
+                                  const cfg = sc && CONTRATO_BADGE[sc];
+                                  return cfg ? (
+                                    <Badge variant="outline" className={cn('h-5 px-1.5 text-[11px] font-medium', cfg.className)}>
+                                      <FileSignature className="mr-1 h-3 w-3" />
+                                      {cfg.label}
                                     </Badge>
-                                    <Badge variant="outline" className={
-                                      (orcamento as any).tipo_orcamento === 'recompra'
-                                        ? 'border-warning/40 bg-warning-soft text-warning'
-                                        : 'border-info/40 bg-info-soft text-info'
-                                    }>
-                                      {(orcamento as any).tipo_orcamento === 'recompra' ? 'Recompra' : 'Novo Produtor'}
-                                    </Badge>
-                                    {(() => {
-                                      const sc = (orcamento as any).status_contrato as string | undefined;
-                                      const cfg = sc && CONTRATO_BADGE[sc];
-                                      return cfg ? (
-                                        <Badge variant="outline" className={cfg.className}>
-                                          <FileSignature className="w-3 h-3 mr-1" />
-                                          {cfg.label}
-                                        </Badge>
-                                      ) : null;
-                                    })()}
-                                    {(orcamento as any).vhsys_liquidado_em && (orcamento as any).status !== 'pago' && (
-                                      <Badge variant="outline" className="border-blue-500 text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20">
-                                        VHSys liquidado · aguardando contrato
+                                  ) : null;
+                                })()}
+                                {(orcamento as any).vhsys_liquidado_em && (orcamento as any).status !== 'pago' && (
+                                  <Badge variant="outline" className="h-5 border-info/35 bg-info-soft px-1.5 text-[11px] font-medium text-info">
+                                    VHSys liquidado · aguardando contrato
+                                  </Badge>
+                                )}
+                                {(() => {
+                                  const cots = freteMap.get(orcamento.id);
+                                  if (!cots || cots.length === 0) return null;
+                                  const cot = cots[0];
+                                  const isEP = cot.tipo === 'estoque_proprio';
+                                  const confirmado = cot.status === 'confirmado';
+                                  const cls = isEP
+                                    ? (confirmado
+                                        ? 'border-success/35 bg-success-soft text-success'
+                                        : 'border-warning/35 bg-warning-soft text-warning')
+                                    : 'border-info/35 bg-info-soft text-info';
+                                  const label = cots.length > 1
+                                    ? `Frete: ${cots.length} produtos vinculados`
+                                    : labelFreteCotacao(cot);
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => setVerFreteOrcamento(orcamento)}
+                                      title="Ver cotações de frete vinculadas"
+                                    >
+                                      <Badge variant="outline" className={cn('h-5 cursor-pointer px-1.5 text-[11px] font-medium hover:opacity-80', cls)}>
+                                        <Truck className="mr-1 h-3 w-3" />
+                                        {label}
                                       </Badge>
-                                    )}
-                                    {(() => {
-                                      const cots = freteMap.get(orcamento.id);
-                                      if (!cots || cots.length === 0) return null;
-                                      const cot = cots[0];
-                                      const isEP = cot.tipo === 'estoque_proprio';
-                                      const confirmado = cot.status === 'confirmado';
-                                      const cls = isEP
-                                        ? (confirmado
-                                            ? 'border-green-500 text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20'
-                                            : 'border-yellow-500 text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20')
-                                        : 'border-sky-500 text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/20';
-                                      const label = cots.length > 1
-                                        ? `Frete: ${cots.length} produtos vinculados`
-                                        : labelFreteCotacao(cot);
-                                      return (
-                                        <button
-                                          type="button"
-                                          onClick={() => setVerFreteOrcamento(orcamento)}
-                                          title="Ver cotações de frete vinculadas"
-                                        >
-                                          <Badge variant="outline" className={`${cls} cursor-pointer hover:opacity-80`}>
-                                            <Truck className="w-3 h-3 mr-1" />
-                                            {label}
-                                          </Badge>
-                                        </button>
-                                      );
-                                    })()}
-                                    {isPago && <CheckCircle2 className="w-5 h-5 text-green-600" />}
-                                  </div>
-                                  <p className="text-muted-foreground text-sm mt-1">
-                                    Consultor: <span className="font-medium text-foreground">{orcamento.consultor_responsavel || '—'}</span>
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-0.5">{orcamento.numero_orcamento}</p>
-                                </div>
-                              <Select
-                                  value={orcamento.status}
-                                  onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
-                                >
-                                  <SelectTrigger className="w-full sm:w-[140px] shrink-0">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="rascunho">Rascunho</SelectItem>
-                                    <SelectItem value="enviado">Enviado</SelectItem>
-                                    <SelectItem value="pago">Pago</SelectItem>
-                                    <SelectItem value="recusado">Recusado</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                    </button>
+                                  );
+                                })()}
                               </div>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3 opacity-60" />
-                                  Criado <span className="num">{format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-                                </div>
+
+                              {/* Consultor e número: um respiro só, não duas linhas. */}
+                              <p className="truncate text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground">{orcamento.consultor_responsavel || '—'}</span>
+                                <span className="mx-1.5 text-border-strong">·</span>
+                                <span className="tnum">{orcamento.numero_orcamento}</span>
+                              </p>
+
+                              {/* Cronologia e volume, em linha única. Os separadores vêm
+                                  do CSS (.meta-row) e o excesso some num fade. */}
+                              <div className="meta-row text-xs text-muted-foreground">
+                                <span>
+                                  Criado <span className="tnum text-foreground/75">{format(new Date(orcamento.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+                                </span>
                                 {orcamento.updated_at && new Date(orcamento.updated_at).getTime() - new Date(orcamento.created_at).getTime() > 60000 && (
-                                  <div className="flex items-center gap-1">
-                                    <Pencil className="w-3 h-3 opacity-60" />
-                                    Editado <span className="num">{format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
-                                  </div>
+                                  <span>
+                                    Editado <span className="tnum text-foreground/75">{format(new Date(orcamento.updated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
+                                  </span>
                                 )}
                                 {isPago && orcamento.data_pagamento && (
-                                  <div className="flex items-center gap-1 font-medium text-success">
-                                    <CalendarIcon className="w-3 h-3" />
-                                    Pago em <span className="num">{format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}</span>
-                                  </div>
+                                  <span className="font-medium text-success">
+                                    Pago em <span className="tnum">{format(new Date(orcamento.data_pagamento), "dd/MM/yyyy", { locale: ptBR })}</span>
+                                  </span>
                                 )}
                                 {orcamento.data_envio && (
-                                  <div className="flex items-center gap-1">
-                                    <Send className="w-3 h-3 opacity-60" />
-                                    Enviado <span className="num">{format(new Date(orcamento.data_envio), "dd/MM/yyyy", { locale: ptBR })}</span>
-                                  </div>
+                                  <span>
+                                    Enviado <span className="tnum text-foreground/75">{format(new Date(orcamento.data_envio), "dd/MM/yyyy", { locale: ptBR })}</span>
+                                  </span>
                                 )}
-                                <div className="flex items-center gap-1">
-                                  <Package className="w-3 h-3 opacity-60" />
+                                <span>
                                   {(orcamento.itens_producao?.length || 0) === 1
                                     ? '1 produto'
                                     : `${orcamento.itens_producao?.length || 0} produtos`}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Palette className="w-3 h-3 opacity-60" />
+                                </span>
+                                <span>
                                   {(orcamento.servicos_marca?.length || 0) === 0
                                     ? 'sem serviços'
                                     : (orcamento.servicos_marca?.length === 1 ? '1 serviço' : `${orcamento.servicos_marca?.length} serviços`)}
-                                </div>
+                                </span>
                               </div>
+
                               {orcamento.observacoes_internas && (
-                                <div className="flex items-start gap-2 text-xs italic text-muted-foreground bg-muted/40 rounded p-2 border border-border/50">
-                                  <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
-                                  <span className="whitespace-pre-wrap break-words line-clamp-3">{orcamento.observacoes_internas}</span>
+                                <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 p-2 text-xs italic text-muted-foreground">
+                                  <MessageSquare className="mt-0.5 h-3 w-3 shrink-0" />
+                                  <span className="line-clamp-2 whitespace-pre-wrap break-words">{orcamento.observacoes_internas}</span>
                                 </div>
                               )}
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
-                                <div>
-                                  <p className="eyebrow">Produção</p>
-                                  <p className="num text-[13px] text-muted-foreground">{formatCurrency(orcamento.subtotal_producao)}</p>
-                                </div>
-                                <div>
-                                  <p className="eyebrow">Serviços</p>
-                                  <p className="num text-[13px] text-muted-foreground">{formatCurrency(orcamento.subtotal_servicos)}</p>
-                                </div>
-                                <div>
-                                  <p className="eyebrow">Total</p>
-                                  <p className={cn('num text-xl font-semibold tracking-[-0.02em]', isPago ? 'text-success' : 'text-foreground')}>
-                                    {formatCurrency(orcamento.valor_total)}
-                                  </p>
-                                </div>
+                            </div>
+
+                            {/* ─── Dinheiro: colunas de largura fixa, alinhadas à direita ─── */}
+                            <div className="flex items-end justify-start gap-4 sm:gap-5 xl:justify-end">
+                              <div className="w-[88px] text-right">
+                                <p className="eyebrow">Produção</p>
+                                <p className={cn('tnum mt-0.5 text-[13px]', orcamento.subtotal_producao ? 'text-foreground' : 'text-muted-foreground')}>
+                                  {formatCurrency(orcamento.subtotal_producao)}
+                                </p>
+                              </div>
+                              <div className="w-[88px] text-right">
+                                <p className="eyebrow">Serviços</p>
+                                <p className={cn('tnum mt-0.5 text-[13px]', orcamento.subtotal_servicos ? 'text-foreground' : 'text-muted-foreground')}>
+                                  {formatCurrency(orcamento.subtotal_servicos)}
+                                </p>
+                              </div>
+                              <div className="w-[124px] border-l border-border pl-4 text-right sm:pl-5">
+                                <p className="eyebrow">Total</p>
+                                <p className={cn('tnum mt-0.5 text-xl font-semibold tracking-[-0.02em]', isPago ? 'text-success' : 'text-foreground')}>
+                                  {formatCurrency(orcamento.valor_total)}
+                                </p>
                               </div>
                             </div>
-                            <div className="flex shrink-0 flex-wrap items-center gap-1.5 lg:self-start">
-                              {/* Ação primária: o passo seguinte do orçamento. Uma só, e cheia. */}
-                              <Button size="sm" className="h-8" onClick={() => setPropostaCompletaOrcamento(orcamento)}>
-                                <FileCheck className="w-4 h-4 mr-1.5" />
+
+                            {/* ─── Ações: o estado, o passo seguinte, e o resto ─── */}
+                            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                              {/* Controle de estado: presente, mas sem borda até ser tocado. */}
+                              <Select
+                                value={orcamento.status}
+                                onValueChange={(value) => handleStatusChange(orcamento.id, value as Orcamento['status'])}
+                              >
+                                <SelectTrigger
+                                  aria-label="Alterar status do orçamento"
+                                  className="h-8 w-[124px] shrink-0 border-transparent bg-transparent text-xs shadow-none transition-colors hover:border-border hover:bg-secondary/60 focus:border-border data-[state=open]:border-border data-[state=open]:bg-background"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="rascunho">Rascunho</SelectItem>
+                                  <SelectItem value="enviado">Enviado</SelectItem>
+                                  <SelectItem value="pago">Pago</SelectItem>
+                                  <SelectItem value="recusado">Recusado</SelectItem>
+                                </SelectContent>
+                              </Select>
+
+                              {/* Ação primária: contorno em repouso, cheia quando a linha
+                                  está sob o cursor. Quinze botões sólidos empilhados não
+                                  são hierarquia — são ruído. */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-citrus/50 text-foreground transition-colors group-hover:border-citrus group-hover:bg-citrus group-hover:text-citrus-foreground focus-visible:border-citrus focus-visible:bg-citrus focus-visible:text-citrus-foreground"
+                                onClick={() => setPropostaCompletaOrcamento(orcamento)}
+                              >
+                                <FileCheck className="mr-1.5 h-4 w-4" />
                                 <span className="hidden sm:inline">Projeto para Contrato</span>
                                 <span className="sm:hidden">Projeto</span>
                               </Button>
 
-                              {/* Frequentes: ícone + tooltip, sem competir com a primária. */}
+                              {/* Frequentes: ícone + tooltip. Discretos em repouso, cheios
+                                  no hover, sempre visíveis no teclado e no toque. */}
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setEditandoOrcamento(orcamento)} aria-label="Editar orçamento">
-                                    <Pencil className="w-4 h-4" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="relative hidden h-8 w-8 opacity-60 transition-opacity after:absolute after:-inset-1 after:content-[''] group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex [@media(hover:none)]:opacity-100"
+                                    onClick={() => setEditandoOrcamento(orcamento)}
+                                    aria-label="Editar orçamento"
+                                  >
+                                    <Pencil className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>Editar</TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPreviewOrcamento(orcamento)} aria-label="Gerar PDF">
-                                    <FileText className="w-4 h-4" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="relative hidden h-8 w-8 opacity-60 transition-opacity after:absolute after:-inset-1 after:content-[''] group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex [@media(hover:none)]:opacity-100"
+                                    onClick={() => setPreviewOrcamento(orcamento)}
+                                    aria-label="Gerar PDF"
+                                  >
+                                    <FileText className="h-4 w-4" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>Gerar PDF</TooltipContent>
@@ -555,33 +622,49 @@ export default function Orcamentos() {
                               {/* O resto continua a um clique, sem ocupar a tela. */}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Mais ações">
-                                    <MoreHorizontal className="w-4 h-4" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="relative h-8 w-8 opacity-60 transition-opacity after:absolute after:-inset-1 after:content-[''] group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+                                    aria-label="Mais ações"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
+                                  {/* Abaixo de sm os ícones saem da linha; os mesmos
+                                      comandos continuam aqui. */}
+                                  <DropdownMenuItem className="sm:hidden" onClick={() => setEditandoOrcamento(orcamento)}>
+                                    <Pencil className="mr-2 h-4 w-4 opacity-70" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="sm:hidden" onClick={() => setPreviewOrcamento(orcamento)}>
+                                    <FileText className="mr-2 h-4 w-4 opacity-70" />
+                                    Gerar PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="sm:hidden" />
                                   <DropdownMenuItem onClick={() => abrirHistorico(orcamento)}>
-                                    <History className="w-4 h-4 mr-2 opacity-70" />
+                                    <History className="mr-2 h-4 w-4 opacity-70" />
                                     Histórico
-                                    <span className="num ml-auto text-xs text-muted-foreground">
+                                    <span className="tnum ml-auto text-xs text-muted-foreground">
                                       {orcamento.historico_contatos?.length || 0}
                                     </span>
                                   </DropdownMenuItem>
                                   {orcamento.status === 'enviado' && (
                                     <DropdownMenuItem onClick={() => window.open('https://www.asaas.com/c/e8z81rc6owbwhpde', '_blank')}>
-                                      <DollarSign className="w-4 h-4 mr-2 opacity-70" />
+                                      <DollarSign className="mr-2 h-4 w-4 opacity-70" />
                                       Gerar PIX
                                     </DropdownMenuItem>
                                   )}
                                   {(freteMap.get(orcamento.id)?.length || 0) > 0 && (
                                     <DropdownMenuItem onClick={() => setVerFreteOrcamento(orcamento)}>
-                                      <Truck className="w-4 h-4 mr-2 opacity-70" />
+                                      <Truck className="mr-2 h-4 w-4 opacity-70" />
                                       Ver frete
                                     </DropdownMenuItem>
                                   )}
                                   {resumosExistentes?.has(orcamento.id) && (
                                     <DropdownMenuItem onClick={() => setVerResumoContrato(orcamento)}>
-                                      <FileSignature className="w-4 h-4 mr-2 opacity-70" />
+                                      <FileSignature className="mr-2 h-4 w-4 opacity-70" />
                                       Ver projeto do contrato
                                     </DropdownMenuItem>
                                   )}
@@ -590,7 +673,7 @@ export default function Orcamentos() {
                                     onClick={() => setDeletandoId(orcamento.id)}
                                     className="text-destructive focus:bg-destructive-soft focus:text-destructive"
                                   >
-                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    <Trash2 className="mr-2 h-4 w-4" />
                                     Excluir
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
