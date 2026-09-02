@@ -59,6 +59,25 @@ while IFS= read -r NOME; do
           and c.labels is not null
           and c.labels::text not in ('null','[]','{}')
       ), '[]'::json),
+      -- Nome do contato, de Message.pushName. Sem crase nestes comentarios: o
+      -- SQL viaja dentro de aspas duplas do shell, e crase ali vira execucao de
+      -- comando -- foi assim que o bloco inteiro quebrou na primeira tentativa.
+      -- pushName cobre 782 de 918 conversas, contra 57 em Chat.name e quase
+      -- nada em Contact. So de mensagem RECEBIDA: no que o consultor envia, o
+      -- pushName e o nome dele proprio.
+      'nomes', coalesce((
+        select json_agg(n) from (
+          select distinct on (m.key->>'remoteJid')
+            m.key->>'remoteJid' as remote_jid,
+            m.\"pushName\" as nome
+          from \"Message\" m
+          where m.\"instanceId\" = i.id
+            and coalesce((m.key->>'fromMe')::boolean, false) = false
+            and m.\"pushName\" is not null
+            and m.\"pushName\" !~ '^[0-9]+\$'
+          order by m.key->>'remoteJid', m.\"messageTimestamp\" desc
+        ) n
+      ), '[]'::json),
       'telefones', coalesce((
         select json_agg(t) from (
           select distinct on (m.key->>'remoteJid')

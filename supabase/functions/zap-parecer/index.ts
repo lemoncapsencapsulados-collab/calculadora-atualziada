@@ -9,7 +9,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { gerarJson } from '../_shared/anthropic.ts';
 
-const VERSAO_PROMPT = 1;
+const VERSAO_PROMPT = 2;
 
 const SISTEMA = [
   'Você é head de vendas de uma indústria brasileira de suplementos, escrevendo o feedback',
@@ -22,6 +22,10 @@ const SISTEMA = [
   'Este texto será lido pelo próprio consultor: seja franco, mas trate-o como profissional.',
   'No plano de ação, cada item precisa de uma meta numérica que parta do valor ATUAL dele.',
   'Não invente número que não esteja nos dados. Se faltar base para uma meta, diga o que medir antes.',
+  'Você recebe CONVERSAS EXEMPLARES reais, com nome do contato, o número que as colocou ali e o resumo do que aconteceu.',
+  'Todo ponto de impacto DEVE citar pelo menos uma dessas conversas, pelo nome do contato, e dizer o que nela sustenta a conclusão.',
+  'Descreva o erro concreto: o que o consultor fez ou deixou de fazer naquela conversa, e o que deveria ter feito.',
+  'Nunca cite conversa que não esteja na lista fornecida. Se uma afirmação não tiver conversa que a sustente, não a faça.',
 ].join(' ');
 
 const SCHEMA = {
@@ -38,8 +42,27 @@ const SCHEMA = {
         properties: {
           titulo: { type: 'string' },
           porque: { type: 'string' },
+          // A métrica que sustenta o ponto, com o valor. Sem isto o leitor não
+          // consegue conferir a afirmação.
+          metrica: { type: 'string' },
+          // As conversas concretas. É o que diferencia "seu tempo de resposta é
+          // alto" de "a Cristiana esperou 71h e não voltou".
+          evidencias: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                contato: { type: 'string' },
+                observado: { type: 'string' },
+                erro: { type: 'string' },
+                deveria: { type: 'string' },
+              },
+              required: ['contato', 'observado', 'erro', 'deveria'],
+              additionalProperties: false,
+            },
+          },
         },
-        required: ['titulo', 'porque'],
+        required: ['titulo', 'porque', 'metrica', 'evidencias'],
         additionalProperties: false,
       },
     },
@@ -87,6 +110,52 @@ function duracao(s: number | null): string {
   return `${(s / 86400).toFixed(1)} dias`;
 }
 
+const ROTULO_CATEGORIA: Record<string, string> = {
+  demora_primeira_resposta: 'DEMOROU PARA A PRIMEIRA RESPOSTA',
+  nunca_respondido: 'ESCREVEU E NUNCA FOI RESPONDIDO',
+  objecao_aberta: 'OBJEÇÃO LEVANTADA E NÃO SUPERADA',
+  sentimento_negativo: 'CLIENTE SAIU INSATISFEITO',
+  parou_apos_catalogo: 'RECEBEU CATÁLOGO E A CONVERSA MORREU',
+  etiqueta_diverge: 'MARCADO COMO NEGOCIAÇÃO ATIVA, MAS PARADO',
+};
+
+/**
+ * Texto legível em vez de JSON: o modelo erra menos lendo "Cristiana — espera
+ * pela 1ª resposta: 71h" do que um objeto com sete campos. O resumo entra
+ * porque é ele que permite descrever o erro concreto, não só o atraso.
+ */
+function blocosExemplares(linhas: any[]): string[] {
+  const porCategoria = new Map<string, any[]>();
+  for (const l of linhas) {
+    const atual = porCategoria.get(l.categoria) ?? [];
+    atual.push(l);
+    porCategoria.set(l.categoria, atual);
+  }
+
+  const saida: string[] = [];
+  for (const [categoria, itens] of porCategoria) {
+    saida.push('', ROTULO_CATEGORIA[categoria] ?? categoria.toUpperCase());
+    for (const i of itens) {
+      const nome = i.identificacao || i.nome || '(contato sem identificacao)';
+      const etiquetas = (i.etiquetas ?? []).length
+        ? ` | etiquetas do consultor: ${(i.etiquetas as string[]).join(', ')}`
+        : '';
+      const abertas = (i.objecoes ?? []).filter(
+        (o: string) => !(i.objecoes_superadas ?? []).includes(o)
+      );
+      saida.push(
+        `  - ${nome} — ${i.metrica_rotulo}: ${i.metrica_valor}` +
+          ` | etapa: ${i.etapa_funil ?? 'nao analisada'}` +
+          ` | sentimento: ${i.sentimento ?? 'nao analisado'}` +
+          (abertas.length ? ` | objeções abertas: ${abertas.join(', ')}` : '') +
+          etiquetas
+      );
+      if (i.resumo) saida.push(`    resumo: ${String(i.resumo).slice(0, 700)}`);
+    }
+  }
+  return saida;
+}
+
 const pct = (parte: number, todo: number) =>
   todo > 0 ? `${((parte / todo) * 100).toFixed(1)}%` : 'sem base';
 
@@ -109,7 +178,7 @@ async function coletar(supabase: SupabaseClient, usuarioId: string, inicio: stri
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   };
 
-  const [dist, objecoes] = await Promise.all([
+  const [dist, objecoes, exemplares] = await Promise.all([
     supabase.rpc('zap_distribuicao_resposta', {
       p_inicio: inicio,
       p_fim: fim,
@@ -120,6 +189,14 @@ async function coletar(supabase: SupabaseClient, usuarioId: string, inicio: stri
       p_fim: fim,
       p_usuario_id: usuarioId,
     }),
+    // A evidência. Sem isto o parecer só tem agregado, e agregado não permite
+    // citar conversa — a IA acabaria inventando exemplo.
+    supabase.rpc('zap_conversas_exemplares', {
+      p_usuario_id: usuarioId,
+      p_inicio: inicio,
+      p_fim: fim,
+      p_por_categoria: 4,
+    }),
   ]);
 
   return {
@@ -128,6 +205,7 @@ async function coletar(supabase: SupabaseClient, usuarioId: string, inicio: stri
     mediaTime,
     distribuicao: (dist.data || []) as any[],
     objecoes: (objecoes.data || []) as any[],
+    exemplares: (exemplares.data || []) as any[],
   };
 }
 
@@ -158,7 +236,7 @@ Deno.serve(async (req) => {
     if (!coletado) {
       return json({ ok: false, error: 'Sem atendimento registrado para este consultor no período.' }, 404);
     }
-    const { m, outros, mediaTime, distribuicao, objecoes } = coletado;
+    const { m, outros, mediaTime, distribuicao, objecoes, exemplares } = coletado;
 
     const analisadas = Number(m.conversas_analisadas) || 0;
     const contatos = Number(m.contatos) || 0;
@@ -201,6 +279,14 @@ Deno.serve(async (req) => {
       '',
       'OBJEÇÕES POR CATEGORIA (total / quantas foram superadas / em quantas conversas)',
       ...objecoes.map((o) => `  ${o.categoria}: ${o.total} / ${o.superadas} / ${o.conversas}`),
+      '',
+      'CONVERSAS EXEMPLARES — use ESTAS para embasar cada ponto de impacto.',
+      'Cada bloco traz o contato, o número que o colocou nesta lista e o resumo do que aconteceu.',
+      'Cite o contato exatamente como aparece na lista. Boa parte não tem nome salvo — nesses casos o identificador é o telefone ou os dígitos finais, e você deve usá-lo como está, sem inventar nome.',
+  'Não cite conversa que não esteja aqui.',
+      ...(exemplares.length === 0
+        ? ['  (nenhuma conversa se destacou no período — não afirme problema específico sem base)']
+        : blocosExemplares(exemplares)),
     ].join('\n');
 
     const { dados, uso } = await gerarJson<any>({

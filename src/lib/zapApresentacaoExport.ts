@@ -111,6 +111,80 @@ function paragrafo(doc: jsPDF, texto: string, y: number, cor = COR.texto, tam = 
   return y + 3;
 }
 
+/**
+ * Funil como pirâmide invertida, em polígonos.
+ *
+ * A tabela anterior dizia quantos ficaram em cada etapa; não mostrava a PERDA,
+ * que é o que a apresentação precisa comunicar. No trapézio o recorte lateral é
+ * exatamente quem saiu, e a queda vai escrita ao lado, em vermelho.
+ */
+function funilPiramidePdf(doc: jsPDF, b: any, yInicial: number): number {
+  const etapas = (b.etapas ?? []).filter((e: any) => Number.isFinite(e.valor));
+  if (etapas.length === 0) return yInicial;
+
+  const ALTURA = 17;
+  const necessario = etapas.length * ALTURA + 18;
+  let y = yInicial;
+  if (y + necessario > 265) y = novaPagina(doc);
+
+  const topo = Math.max(etapas[0].valor || 1, 1);
+  const L_MAX = 120;
+  const L_MIN = 26;   // etapa zerada continua visível, como fita fina
+  const cx = 105;     // centro da página A4 retrato
+  const larg = (v: number) =>
+    L_MIN + (L_MAX - L_MIN) * Math.min(1, Math.max(0, v / topo));
+
+  etapas.forEach((e: any, i: number) => {
+    const yT = y + i * ALTURA;
+    const yB = yT + ALTURA - 3;
+    const wT = larg(i === 0 ? topo : etapas[i - 1].valor);
+    const wB = larg(e.valor);
+
+    // `lines` com deslocamentos relativos e `closed = true`: é como o jsPDF
+    // desenha polígono sem primitiva própria de trapézio.
+    doc.setFillColor(...hex(i === 0 ? COR.acento : COR.borda));
+    doc.lines(
+      [
+        [wT, 0],
+        [(wB - wT) / 2, yB - yT],
+        [-wB, 0],
+      ],
+      cx - wT / 2,
+      yT,
+      [1, 1],
+      'F',
+      true
+    );
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(String(e.etapa), cx, yT + 6, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const pctTopo = topo > 0 ? ((e.valor / topo) * 100).toFixed(1) : '0';
+    doc.text(`${e.valor} · ${pctTopo}% do topo`, cx, yT + 11, { align: 'center' });
+
+    if (e.queda) {
+      doc.setTextColor(200, 40, 40);
+      doc.setFontSize(8);
+      doc.text(`-${e.queda}`, 190, yT + 6, { align: 'right' });
+    }
+  });
+
+  y += etapas.length * ALTURA + 4;
+
+  if (b.nota) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...hex(COR.texto));
+    const linhas = doc.splitTextToSize(String(b.nota), 170);
+    doc.text(linhas, 20, y);
+    y += linhas.length * 4 + 4;
+  }
+  return y;
+}
+
 function tabelaPdf(doc: jsPDF, b: Extract<Bloco, { tipo: 'tabela' }>, y: number): number {
   autoTable(doc, {
     startY: y,
@@ -224,22 +298,7 @@ export function exportarPdf(a: Apresentacao): void {
         y
       );
     } else if (b.tipo === 'funil') {
-      y = tabelaPdf(
-        doc,
-        {
-          tipo: 'tabela',
-          titulo: '',
-          colunas: ['Etapa', 'Contatos', 'Conversão do passo', 'Perdidos'],
-          linhas: b.etapas.map((e) => [
-            e.etapa,
-            String(e.valor),
-            e.conv == null ? '—' : `${e.conv}%`,
-            e.queda ? `-${e.queda}` : '',
-          ]),
-          nota: b.nota,
-        },
-        y
-      );
+      y = funilPiramidePdf(doc, b, y);
     } else if (b.tipo === 'tabela') {
       y = tabelaPdf(doc, b, y);
     } else if (b.tipo === 'cards') {
@@ -340,23 +399,42 @@ export async function exportarPptx(a: Apresentacao): Promise<void> {
         { x: 0.5, y: 2.6, w: 9, fontSize: 10, color: COR.texto, border: { pt: 0.5, color: COR.borda } }
       );
     } else if (b.tipo === 'funil') {
-      s.addTable(
-        [
-          ['Etapa', 'Contatos', 'Conversão do passo', 'Perdidos'].map((h) => ({
-            text: h, options: { bold: true, color: COR.acento },
-          })),
-          ...celulas(
-            b.etapas.map((e) => [
-              e.etapa, String(e.valor), e.conv == null ? '—' : `${e.conv}%`, e.queda ? `-${e.queda}` : '',
-            ])
-          ),
-        ],
-        { x: 0.5, y: 1.1, w: 9, fontSize: 11, color: COR.texto, border: { pt: 0.5, color: COR.borda } }
-      );
+      // Trapézios centralizados em vez de tabela: projetado, o que se enxerga
+      // do fundo da sala é o estreitamento, não uma coluna de números. A perda
+      // fica escrita à direita de cada etapa.
+      const etapas = b.etapas.filter((e) => Number.isFinite(e.valor));
+      const topoV = Math.max(etapas[0]?.valor ?? 1, 1);
+      const ALT = 0.62;
+      const L_MAX = 6.4;
+      const L_MIN = 1.4;
+      etapas.forEach((e, i) => {
+        const w = L_MIN + (L_MAX - L_MIN) * Math.min(1, Math.max(0, e.valor / topoV));
+        const yTop = 1.15 + i * ALT;
+        s.addShape('trapezoid' as never, {
+          x: 5 - w / 2,
+          y: yTop,
+          w,
+          h: ALT - 0.08,
+          fill: { color: i === 0 ? COR.acento : COR.borda },
+          line: { color: COR.fundo, width: 1 },
+          flipV: true,
+        });
+        const pctTopo = ((e.valor / topoV) * 100).toFixed(1);
+        s.addText(`${e.etapa}  ${e.valor} · ${pctTopo}%`, {
+          x: 5 - L_MAX / 2, y: yTop, w: L_MAX, h: ALT - 0.08,
+          align: 'center', valign: 'middle', fontSize: 11, bold: true, color: 'FFFFFF',
+        });
+        if (e.queda) {
+          s.addText(`-${e.queda}`, {
+            x: 8.1, y: yTop, w: 1.4, h: ALT - 0.08,
+            align: 'right', valign: 'middle', fontSize: 10, bold: true, color: 'C82828',
+          });
+        }
+      });
       if (b.nota) {
         s.addText(b.nota, {
-          x: 0.5, y: b.legendas?.length ? 3.62 : 4.6,
-          w: 9, h: 0.4, fontSize: 9, color: COR.texto,
+          x: 0.5, y: Math.min(1.15 + etapas.length * 0.62 + 0.15, 4.6),
+          w: 9, h: 0.5, fontSize: 9, color: COR.texto,
         });
       }
     } else if (b.tipo === 'tabela') {

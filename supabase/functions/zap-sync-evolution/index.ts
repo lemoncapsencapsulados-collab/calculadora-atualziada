@@ -38,6 +38,7 @@ interface Corpo {
   etiquetas?: Array<{ label_id: string; nome: string; cor?: string | null }>;
   associacoes?: Array<{ remote_jid: string; label_ids: string[]; nome?: string | null }>;
   telefones?: Array<{ remote_jid: string; telefone: string }>;
+  nomes?: Array<{ remote_jid: string; nome: string }>;
 }
 
 Deno.serve(async (req) => {
@@ -143,6 +144,38 @@ Deno.serve(async (req) => {
     }
     resultado.telefones_preenchidos = gravados;
     resultado.telefones_recebidos = telefones.length;
+
+    // --- Nomes
+    //
+    // Sem isto, `zap_contatos.nome` guarda o número do `@lid` — 848 de 879 na
+    // conta do Emmanuel. Um parecer que cita "168165401202940 esperou 326h" não
+    // serve para ninguém; citando "Cristiana", serve. A fonte é o `pushName` de
+    // mensagem recebida, que cobre 782 de 918 conversas.
+    //
+    // Só sobrescreve nome ausente ou puramente numérico: nome já legível pode
+    // ter sido corrigido à mão e não deve ser pisado.
+    const nomes = (corpo.nomes ?? []).filter((n) => n?.remote_jid && n?.nome);
+    let nomesGravados = 0;
+    for (const n of nomes) {
+      const { data: atual } = await supabase
+        .from('zap_contatos')
+        .select('nome')
+        .eq('instance_name', instancia)
+        .eq('remote_jid', String(n.remote_jid))
+        .maybeSingle();
+      if (!atual) continue;
+      const atualNome = String(atual.nome ?? '').trim();
+      if (atualNome && !/^\d+$/.test(atualNome)) continue;
+
+      const { error } = await supabase
+        .from('zap_contatos')
+        .update({ nome: String(n.nome).trim(), updated_at: agora })
+        .eq('instance_name', instancia)
+        .eq('remote_jid', String(n.remote_jid));
+      if (error) throw error;
+      nomesGravados++;
+    }
+    resultado.nomes_preenchidos = nomesGravados;
 
     return json({ ok: true, instancia, ...resultado });
   } catch (e) {

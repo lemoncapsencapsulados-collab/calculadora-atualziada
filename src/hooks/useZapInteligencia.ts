@@ -85,9 +85,22 @@ export interface AcaoPlano {
   prazo: string;
 }
 
+export interface EvidenciaConversa {
+  /** Como o contato foi identificado. Boa parte da base não tem nome salvo, e
+   *  nesses casos vem o telefone ou os dígitos finais do identificador. */
+  contato: string;
+  observado: string;
+  erro: string;
+  deveria: string;
+}
+
 export interface PontoImpacto {
   titulo: string;
   porque: string;
+  /** A métrica que sustenta o ponto. Sem ela a afirmação não é conferível. */
+  metrica?: string;
+  /** As conversas concretas por trás da conclusão. */
+  evidencias?: EvidenciaConversa[];
 }
 
 export interface ParecerCompleto {

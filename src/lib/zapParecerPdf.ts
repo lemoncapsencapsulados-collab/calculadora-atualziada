@@ -216,7 +216,53 @@ export function gerarPdfParecer(d: Dados): void {
       }
       doc.text(`${i + 1}. ${p.titulo}`, MARGEM, y);
       y += 5;
+
+      // A métrica que sustenta o ponto vem logo abaixo do título. Sem ela, a
+      // afirmação não é conferível — e era essa a queixa: pontuação sem
+      // embasamento à vista.
+      if (p.metrica) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8.5);
+        doc.setTextColor(110, 110, 110);
+        const lm = doc.splitTextToSize(`Base: ${p.metrica}`, UTIL);
+        doc.text(lm, MARGEM, y);
+        y += lm.length * 3.8 + 1.5;
+        doc.setTextColor(30, 30, 30);
+      }
+
+      doc.setFont('helvetica', 'normal');
       y = paragrafo(doc, p.porque, y, 9.5);
+
+      // As conversas concretas. É o que separa "seu tempo de resposta é alto"
+      // de "este contato esperou 71h e a conversa morreu".
+      for (const e of p.evidencias ?? []) {
+        if (y > 262) {
+          doc.addPage();
+          y = MARGEM + 4;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text(`• ${e.contato}`, MARGEM + 3, y);
+        y += 4;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        for (const [rotulo, texto] of [
+          ['O que aconteceu', e.observado],
+          ['O erro', e.erro],
+          ['O que deveria ter feito', e.deveria],
+        ] as [string, string][]) {
+          if (!texto) continue;
+          const linhas = doc.splitTextToSize(`${rotulo}: ${texto}`, UTIL - 6);
+          if (y + linhas.length * 3.8 > 275) {
+            doc.addPage();
+            y = MARGEM + 4;
+          }
+          doc.text(linhas, MARGEM + 6, y);
+          y += linhas.length * 3.8 + 0.8;
+        }
+        y += 1.5;
+      }
+      y += 2;
     });
   }
 

@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTemPapel } from '@/hooks/useTemPapel';
 import { PainelEtiquetas } from '@/components/zapinteligencia/PainelEtiquetas';
 import { FilaAtendimento } from '@/components/zapinteligencia/FilaAtendimento';
+import { FunilPiramide } from '@/components/zapinteligencia/FunilPiramide';
 import { mensagemErroEdgeFunction } from '@/lib/erroEdgeFunction';
 import { gerarPdfParecer } from '@/lib/zapParecerPdf';
 import {
@@ -405,27 +406,11 @@ export default function ZapInteligencia() {
               <PainelEtiquetas />
             </Bloco>
 
-            {/* Funil */}
+            {/* Funil em pirâmide invertida: a barra horizontal mostrava o
+                tamanho de cada etapa, mas não a PERDA entre elas — que é o que
+                se quer olhar. No trapézio, o recorte lateral é a gente que saiu. */}
             <Bloco titulo="Funil de atendimento">
-              {d.funil.map((e) => {
-                const topo = d.funil[0]?.valor || 1;
-                const pct = (e.valor / topo) * 100;
-                return (
-                  <div key={e.rotulo} className="space-y-1">
-                    <div className="flex justify-between items-baseline text-sm">
-                      <span className="flex items-center gap-1.5">
-                        {e.rotulo}
-                        {!e.deterministica && <SeloIA />}
-                      </span>
-                      <span className="font-semibold">{e.valor}</span>
-                    </div>
-                    <div className="h-2 rounded bg-muted overflow-hidden">
-                      <div className="h-full bg-primary" style={{ width: `${Math.min(pct, 100)}%` }} />
-                    </div>
-                    <p className="text-xs text-muted-foreground">{pct.toFixed(1)}% do topo</p>
-                  </div>
-                );
-              })}
+              <FunilPiramide etapas={d.funil} />
             </Bloco>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -546,7 +531,38 @@ export default function ZapInteligencia() {
                       {parecerVisivel.pontos_impacto.map((p, i) => (
                         <div key={i} className="border-l-2 border-primary/40 pl-3">
                           <p className="font-medium">{p.titulo}</p>
-                          <p className="text-muted-foreground">{p.porque}</p>
+                          {/* A métrica vem antes do texto: é ela que torna a
+                              afirmação conferível, e sem isso a pontuação parece
+                              opinião. */}
+                          {p.metrica && (
+                            <p className="text-xs text-muted-foreground/80">Base: {p.metrica}</p>
+                          )}
+                          <p className="mt-1 text-muted-foreground">{p.porque}</p>
+
+                          {/* As conversas concretas por trás da conclusão. */}
+                          {!!p.evidencias?.length && (
+                            <div className="mt-2 space-y-2">
+                              {p.evidencias.map((e, j) => (
+                                <div key={j} className="rounded-md bg-muted/40 p-2.5 text-xs">
+                                  <p className="font-medium">{e.contato}</p>
+                                  <p className="mt-1 text-muted-foreground">
+                                    <span className="font-medium text-foreground/70">
+                                      O que aconteceu:
+                                    </span>{' '}
+                                    {e.observado}
+                                  </p>
+                                  <p className="mt-0.5 text-muted-foreground">
+                                    <span className="font-medium text-destructive/80">O erro:</span>{' '}
+                                    {e.erro}
+                                  </p>
+                                  <p className="mt-0.5 text-muted-foreground">
+                                    <span className="font-medium text-success/80">Deveria ter:</span>{' '}
+                                    {e.deveria}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
