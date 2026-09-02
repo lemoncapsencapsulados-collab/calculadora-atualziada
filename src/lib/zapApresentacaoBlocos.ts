@@ -198,6 +198,58 @@ export function blocosDaApresentacao(a: Apresentacao): Bloco[] {
     });
   }
 
+  // Fila nominal deste consultor. Existe só na apresentação: na visão geral da
+  // dashboard o mesmo número somava o time inteiro e não tinha dono — e número
+  // sem dono não vira ação.
+  const filaConsultor: any[] = (m as any).fila_sem_atendimento ?? [];
+  if (filaConsultor.length) {
+    const criticos = filaConsultor.filter((f) => Number(f.horas_esperando) >= 24 * 7);
+    blocos.push({
+      tipo: 'tabela',
+      titulo: 'Clientes que escreveram e nunca foram respondidos',
+      colunas: ['Contato', 'Esperando há', 'Mensagens', 'Etiquetas'],
+      larguras: [38, 16, 14, 32],
+      linhas: filaConsultor.slice(0, 12).map((f) => [
+        String(f.identificacao ?? ''),
+        Number(f.horas_esperando) >= 48
+          ? `${Math.round(Number(f.horas_esperando) / 24)} dias`
+          : `${Math.round(Number(f.horas_esperando))} h`,
+        String(f.total_mensagens ?? 0),
+        (f.etiquetas ?? []).join(', '),
+      ]),
+      nota:
+        `${filaConsultor.length} contato(s) escreveram e não tiveram nenhuma resposta. ` +
+        (criticos.length
+          ? `${criticos.length} esperam há mais de uma semana. `
+          : '') +
+        'Cada linha é um cliente que procurou a empresa e não foi atendido.',
+    });
+  }
+
+  // Carteira etiquetada do consultor. O confronto entre a etiqueta que ele
+  // marcou e a etapa que a IA vê é o ponto — não a contagem.
+  const carteiraEtiquetada: any[] = (m as any).carteira_etiquetas ?? [];
+  if (carteiraEtiquetada.length) {
+    blocos.push({
+      tipo: 'tabela',
+      titulo: 'Carteira por etiqueta, como ele mesmo marcou',
+      colunas: ['Etiqueta', 'Contatos', 'Com conversa', 'Sem atendimento', 'Parados +30d', 'Etapa que a IA vê'],
+      larguras: [26, 12, 14, 16, 14, 18],
+      linhas: carteiraEtiquetada.slice(0, 12).map((e) => [
+        String(e.etiqueta ?? ''),
+        String(e.contatos ?? 0),
+        String(e.com_conversa ?? 0),
+        String(e.sem_atendimento ?? 0),
+        String(e.parados_30d ?? 0),
+        ROTULO_ETAPA[e.etapa_ia_mais_comum] ?? e.etapa_ia_mais_comum ?? '—',
+      ]),
+      nota:
+        'A etiqueta é o que o consultor acha do contato; a etapa da IA é o que a conversa mostra. ' +
+        'Onde as duas discordam costuma estar a carteira parada que alguém ainda considera viva. ' +
+        'Contatos sem conversa são marcações cujo histórico a Evolution nunca sincronizou.',
+    });
+  }
+
   blocos.push({
     tipo: 'funil',
     titulo: 'Funil de atendimento, etapa a etapa',

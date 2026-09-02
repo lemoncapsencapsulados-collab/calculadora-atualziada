@@ -162,7 +162,7 @@ function validarNumeros(texto: string, metrics: unknown): string[] {
 }
 
 async function coletar(supabase: SupabaseClient, usuarioId: string, inicio: string, fim: string) {
-  const [rel, score, taxas, metricas] = await Promise.all([
+  const [rel, score, taxas, metricas, fila, etiquetas] = await Promise.all([
     supabase.rpc('zap_relatorio', { p_inicio: inicio, p_fim: fim, p_usuario_id: usuarioId }),
     supabase.rpc('zap_score', { p_inicio: inicio, p_fim: fim, p_usuario_id: usuarioId }),
     // As taxas derivadas entram no objeto porque o modelo é proibido de
@@ -170,6 +170,15 @@ async function coletar(supabase: SupabaseClient, usuarioId: string, inicio: stri
     // vier pronto. O validador da §10 pegou 8 divisões que ele fez sozinho.
     supabase.rpc('zap_taxas', { p_inicio: inicio, p_fim: fim, p_usuario_id: usuarioId }),
     supabase.rpc('zap_metricas_consultor', { p_inicio: inicio, p_fim: fim }),
+    // Fila e carteira por etiqueta só existem aqui, e não na visão geral da
+    // dashboard: somadas sobre o time inteiro elas não têm dono, e número sem
+    // dono não vira ação. Filtradas por consultor, viram.
+    supabase.rpc('zap_fila_por_consultor', {
+      p_usuario_id: usuarioId,
+      p_inicio: null,
+      p_fim: null,
+    }),
+    supabase.rpc('zap_etiquetas_por_consultor', { p_usuario_id: usuarioId }),
   ]);
   if (rel.error) throw new Error(`relatório: ${rel.error.message}`);
   if (score.error) throw new Error(`score: ${score.error.message}`);
@@ -193,6 +202,8 @@ async function coletar(supabase: SupabaseClient, usuarioId: string, inicio: stri
       ...(rel.data as any),
       score: score.data,
       taxas: taxas.data,
+      fila_sem_atendimento: (fila.data || []) as any[],
+      carteira_etiquetas: (etiquetas.data || []) as any[],
       time: {
         consultores_comparados: outros.length,
         tmr1_p50_seg: media('tmr1_mediana_seg'),

@@ -140,6 +140,19 @@ function funilPiramidePdf(doc: jsPDF, b: any, yInicial: number): number {
     const wT = larg(i === 0 ? topo : etapas[i - 1].valor);
     const wB = larg(e.valor);
 
+    // As cunhas da perda vêm ANTES do corpo: são o que o trapézio deixou de
+    // fora dentro do retângulo da etapa anterior — a gente que saiu, com forma
+    // própria em vez de espaço vazio. Mesmo desenho da tela, para a
+    // apresentação e o painel contarem a mesma história.
+    const perdidos = i === 0 ? 0 : Math.max(0, etapas[i - 1].valor - e.valor);
+    if (perdidos > 0) {
+      doc.setFillColor(214, 152, 152);
+      // Cunha esquerda.
+      doc.lines([[0, yB - yT], [(wT - wB) / 2, 0]], cx - wT / 2, yT, [1, 1], 'F', true);
+      // Cunha direita.
+      doc.lines([[0, yB - yT], [-(wT - wB) / 2, 0]], cx + wT / 2, yT, [1, 1], 'F', true);
+    }
+
     // `lines` com deslocamentos relativos e `closed = true`: é como o jsPDF
     // desenha polígono sem primitiva própria de trapézio.
     doc.setFillColor(...hex(i === 0 ? COR.acento : COR.borda));
@@ -165,10 +178,14 @@ function funilPiramidePdf(doc: jsPDF, b: any, yInicial: number): number {
     const pctTopo = topo > 0 ? ((e.valor / topo) * 100).toFixed(1) : '0';
     doc.text(`${e.valor} · ${pctTopo}% do topo`, cx, yT + 11, { align: 'center' });
 
-    if (e.queda) {
-      doc.setTextColor(200, 40, 40);
-      doc.setFontSize(8);
-      doc.text(`-${e.queda}`, 190, yT + 6, { align: 'right' });
+    if (perdidos > 0) {
+      const pctPerda = ((perdidos / Math.max(etapas[i - 1].valor, 1)) * 100).toFixed(0);
+      doc.setTextColor(190, 60, 60);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`-${perdidos}`, cx - wT / 2 - 2, yB - 2, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${pctPerda}% sairam`, cx + wT / 2 + 2, yB - 2);
     }
   });
 

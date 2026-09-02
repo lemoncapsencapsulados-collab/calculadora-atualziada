@@ -28,8 +28,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useTemPapel } from '@/hooks/useTemPapel';
-import { PainelEtiquetas } from '@/components/zapinteligencia/PainelEtiquetas';
-import { FilaAtendimento } from '@/components/zapinteligencia/FilaAtendimento';
 import { FunilPiramide } from '@/components/zapinteligencia/FunilPiramide';
 import { mensagemErroEdgeFunction } from '@/lib/erroEdgeFunction';
 import { gerarPdfParecer } from '@/lib/zapParecerPdf';
@@ -394,17 +392,12 @@ export default function ZapInteligencia() {
 
             <Glossario />
 
-            {/* Fila: quem escreveu e nunca foi respondido. Vem antes do funil
-                de propósito — é a única seção que pede ação hoje, e não leitura. */}
-            <Bloco titulo="Fila de atendimento">
-              <FilaAtendimento />
-            </Bloco>
-
-            {/* Etiquetas: o funil que o time mantém à mão, ao lado do que a IA
-                infere. A divergência entre os dois é o achado. */}
-            <Bloco titulo="Carteira por etiqueta">
-              <PainelEtiquetas />
-            </Bloco>
+            {/* Fila de atendimento e carteira por etiqueta saíram daqui de
+                propósito. Na visão geral elas somavam a base inteira do time, o
+                que responde "quantos leads ficaram parados" — pergunta legítima,
+                mas sem dono. Dentro da apresentação, filtradas por consultor,
+                a mesma informação vira responsabilidade nominal, que é o que
+                faz alguém agir. */}
 
             {/* Funil em pirâmide invertida: a barra horizontal mostrava o
                 tamanho de cada etapa, mas não a PERDA entre elas — que é o que
