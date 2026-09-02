@@ -1,5 +1,12 @@
 import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { ConfigSmtp, enviarPorSmtp, lerConfigSmtp } from '../_shared/smtp.ts'
+
+// Template cujo envio sai pela caixa SMTP propria (Hostinger) em vez do
+// provedor padrao. Restrito a este rotulo de proposito: o provedor padrao
+// segue cuidando dos e-mails de autenticacao, que tem volume muito maior e
+// nao cabem na cota por hora de uma caixa de e-mail comum.
+const TEMPLATE_VIA_SMTP = 'projeto-contrato-financeiro'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -82,9 +89,21 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const configSmtp = lerConfigSmtp()
 
-  if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     console.error('Missing required environment variables')
+    return new Response(
+      JSON.stringify({ error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  // Antes bastava faltar LOVABLE_API_KEY para o despachante devolver 500 e
+  // NENHUM e-mail sair -- inclusive os que teriam saido por SMTP. Agora basta
+  // um provedor estar de pe; a escolha de qual usar e por mensagem, abaixo.
+  if (!apiKey && !configSmtp) {
+    console.error('Nenhum provedor de e-mail configurado (LOVABLE_API_KEY ou SMTP_*)')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -249,26 +268,43 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
-        )
+        if (configSmtp && payload.label === TEMPLATE_VIA_SMTP) {
+          await enviarPorSmtp(configSmtp as ConfigSmtp, {
+            to: payload.to as string,
+            subject: payload.subject as string,
+            html: payload.html as string,
+            text: payload.text as string | undefined,
+          })
+        } else if (!apiKey) {
+          // So acontece quando a unica coisa configurada e o SMTP e chega uma
+          // mensagem de outro template. Falhar aqui (em vez de na guarda de
+          // cima) mantem o erro preso a ESTA mensagem: ela vai para a DLQ com
+          // o motivo escrito, e as demais continuam saindo normalmente.
+          throw new Error(
+            `Sem provedor para o template '${payload.label}': LOVABLE_API_KEY nao configurada e o SMTP so atende '${TEMPLATE_VIA_SMTP}'.`
+          )
+        } else {
+          await sendLovableEmail(
+            {
+              run_id: payload.run_id,
+              to: payload.to,
+              from: payload.from,
+              sender_domain: payload.sender_domain,
+              subject: payload.subject,
+              html: payload.html,
+              text: payload.text,
+              purpose: payload.purpose,
+              label: payload.label,
+              idempotency_key: payload.idempotency_key,
+              unsubscribe_token: payload.unsubscribe_token,
+              message_id: payload.message_id,
+            },
+            // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
+            // falls back to the default Lovable API endpoint (https://api.lovable.dev).
+            // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
+            { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+          )
+        }
 
         // Log success
         await supabase.from('email_send_log').insert({

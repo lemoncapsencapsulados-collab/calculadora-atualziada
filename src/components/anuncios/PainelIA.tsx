@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { mensagemErroEdgeFunction } from '@/lib/erroEdgeFunction';
 import type { KpisAnuncios, LinhaConsultorAnuncio } from '@/hooks/useAnunciosDados';
 
 interface Props {
@@ -29,7 +30,9 @@ export default function PainelIA({ periodoLabel, kpis, anterior, consultores }: 
       const { data, error } = await supabase.functions.invoke('anuncios-insights-ia', {
         body: { periodo: periodoLabel, kpis, anterior, consultores, completa },
       });
-      if (error) throw error;
+      // O corpo da resposta carrega o motivo real da falha; sem lê-lo, toda
+      // causa vira o mesmo "non-2xx status code" e o erro fica indiagnosticável.
+      if (error) throw new Error(await mensagemErroEdgeFunction(error, 'Não foi possível gerar a análise'));
       if ((data as any)?.error) throw new Error((data as any).error);
       const t = (data as any)?.texto || '';
       if (completa) setTextoCompleto(t);

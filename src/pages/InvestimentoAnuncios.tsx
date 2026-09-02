@@ -37,7 +37,8 @@ import FunilVisual, { EtapaFunil } from '@/components/anuncios/FunilVisual';
 import ConsultoresPainel from '@/components/anuncios/ConsultoresPainel';
 import TimelineAnuncios from '@/components/anuncios/TimelineAnuncios';
 import RegistrosTabela from '@/components/anuncios/RegistrosTabela';
-import PainelIA from '@/components/anuncios/PainelIA';
+// Desativado enquanto nao ha provedor de IA configurado -- ver bloco 'IA' no JSX.
+// import PainelIA from '@/components/anuncios/PainelIA';
 import FunilAquisicao from '@/components/anuncios/FunilAquisicao';
 import ContasMetaDialog from '@/components/anuncios/ContasMetaDialog';
 import { CANAIS_VENDAS } from '@/lib/anuncios';
@@ -343,8 +344,14 @@ export default function InvestimentoAnuncios() {
           )}
         </div>
 
-        {/* IA */}
+        {/* IA -- desativado. A funcao `anuncios-insights-ia` depende da
+            LOVABLE_API_KEY, que nao esta configurada nos secrets do projeto;
+            sem ela a funcao responde 500 e a tela abria com um toast de erro
+            a cada carregamento. Para reativar: repor o secret (ou migrar a
+            function para outro provedor) e descomentar este bloco mais o
+            import de PainelIA no topo do arquivo.
         <PainelIA periodoLabel={periodoLabel} kpis={kpis} anterior={anterior} consultores={consultores} />
+        */}
       </div>
 
       <ContasMetaDialog

@@ -98,7 +98,10 @@ Deno.serve(async (req) => {
 
   let finalStatus = 'pending'
   let finalError = ''
-  for (let attempt = 0; attempt < 8; attempt++) {
+  // 16 x 1,5s = 24s. Eram 8 (12s), apertado demais: o cron da fila roda a
+  // cada 5s e um envio por SMTP leva mais alguns segundos, entao o envio
+  // podia dar certo e mesmo assim a tela relatar 'ainda nao confirmou'.
+  for (let attempt = 0; attempt < 16; attempt++) {
     const { data: logs, error: logErr } = await supabase
       .from('email_send_log')
       .select('status,error_message,created_at')
