@@ -226,6 +226,36 @@
     letter-spacing: -0.01em;
   }
 
+  /* Números em leitura corrida (datas e valores dentro de listas): mesma
+     família da interface, mas com largura fixa para alinharem em coluna.
+     Difere de .num — o monoespaçado reservado a código e identificadores. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.005em;
+  }
+
+  /* Linha de metadados: uma linha só. Separadores vêm do CSS (nada de
+     ponto solto no JSX) e o excesso desaparece num fade, não num corte. */
+  .meta-row {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    gap: 0.375rem;
+    overflow: hidden;
+    white-space: nowrap;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
+  .meta-row > * {
+    flex: 0 0 auto;
+  }
+  .meta-row > * + *::before {
+    content: "·";
+    margin-right: 0.375rem;
+    color: hsl(var(--border-strong));
+  }
+
   /* Rótulo de seção: pequeno, espaçado, discreto */
   .eyebrow {
     @apply text-[11px] font-semibold uppercase text-muted-foreground;
@@ -400,4 +430,13 @@
 
 .anuncios-neon .pulse-dot {
   animation: anuncios-pulse-dot 1.6s ease-in-out infinite;
+}
+
+
+/* Barra de carregamento indeterminada do painel de inteligência. Percorre a
+   trilha em vez de crescer: a consulta não tem etapas contáveis, e uma barra
+   que "enche" prometeria um progresso que ninguém sabe medir. */
+@keyframes zapCarregando {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
 }
