@@ -88,8 +88,18 @@ create table if not exists public.meta_criativos (
   vigente_desde date not null,
   vigente_ate date,   -- null = está no ar
   created_at timestamptz not null default now(),
-  unique (ad_id, hash_conteudo)
+  -- `vigente_desde` entra na chave para permitir que um criativo volte ao ar.
+  -- Só `(ad_id, hash_conteudo)` colidiria em A -> B -> A, e a volta apagaria a
+  -- história do primeiro período em vez de registrar um terceiro trecho.
+  unique (ad_id, hash_conteudo, vigente_desde)
 );
+
+-- Um anúncio tem no máximo um criativo no ar por vez. Sem isto, uma coleta
+-- repetida em condição de corrida abriria duas versões abertas e a pergunta
+-- "qual copy estava no ar em 12/08" passaria a ter duas respostas.
+create unique index if not exists idx_criativo_unico_no_ar
+  on public.meta_criativos (ad_id)
+  where vigente_ate is null;
 
 -- ---------------------------------------------------------------------------
 -- Fila de coleta, com checkpoint.
