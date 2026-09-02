@@ -147,6 +147,9 @@ create index if not exists idx_sync_jobs_pendente
   on public.meta_sync_jobs (status, passe, atualizado_em)
   where status in ('pending', 'failed');
 
+-- `create trigger` não aceita `if not exists`, então a queda antes é o que
+-- mantém a migração reaplicável — o resto do arquivo já é.
+drop trigger if exists trg_insights_ad_updated on public.meta_insights_ad;
 create trigger trg_insights_ad_updated
   before update on public.meta_insights_ad
   for each row execute function public.update_updated_at_column();
@@ -165,6 +168,11 @@ alter table public.meta_insights_ad         enable row level security;
 alter table public.meta_insights_ad_recorte enable row level security;
 alter table public.meta_criativos           enable row level security;
 alter table public.meta_sync_jobs           enable row level security;
+
+drop policy if exists "trafego le insights_ad" on public.meta_insights_ad;
+drop policy if exists "trafego le recorte"     on public.meta_insights_ad_recorte;
+drop policy if exists "trafego le criativos"   on public.meta_criativos;
+drop policy if exists "trafego le jobs"        on public.meta_sync_jobs;
 
 create policy "trafego le insights_ad" on public.meta_insights_ad
   for select to authenticated using ((select has_role('trafego'::app_role)));
