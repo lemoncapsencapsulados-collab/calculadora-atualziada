@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Tag } from 'lucide-react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -15,6 +16,11 @@ import {
 import { ZapChat, ZapInstanciaCombinada } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
 import { Search, Users } from 'lucide-react';
+
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { useEtiquetasPorConversa, corDaEtiqueta } from '@/hooks/useEtiquetas';
 
 export interface ChatSelecionado {
   instanceName: string;
@@ -95,7 +101,12 @@ export function ListaConversas({
   onSelecionar,
 }: ListaConversasProps) {
   const [busca, setBusca] = useState('');
+  const [etiquetaFiltro, setEtiquetaFiltro] = useState('todas');
   const { data: usuariosMapa } = useUsuariosMapa();
+  // As etiquetas vêm da NOSSA base, sincronizada do banco da Evolution: a API
+  // dela não devolve quem está em cada etiqueta. O cruzamento é pelo remoteJid,
+  // que é o mesmo dos dois lados.
+  const { etiquetas, porConversa } = useEtiquetasPorConversa(filtroInstanceName);
 
   // Só instâncias vinculadas em `zap_instancias` são utilizáveis: a edge
   // function recusa (403) `chats.list` para qualquer instância sem esse
@@ -150,7 +161,7 @@ export function ListaConversas({
       });
     });
 
-    const filtradas = busca.trim()
+    const porBusca = busca.trim()
       ? lista.filter(({ chat }) => {
           const termo = busca.trim().toLowerCase();
           const nome = (chat.pushName || '').toLowerCase();
@@ -159,9 +170,25 @@ export function ListaConversas({
         })
       : lista;
 
+    const filtradas =
+      etiquetaFiltro === 'todas'
+        ? porBusca
+        : porBusca.filter(({ chat, instanceName }) =>
+            (porConversa.get(`${instanceName}|${chat.remoteJid}`) ?? []).some(
+              (e) => e.label_id === etiquetaFiltro
+            )
+          );
+
     return filtradas.sort((a, b) => timestampOrdenacao(b.chat) - timestampOrdenacao(a.chat));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instanciasRelevantes, resultados.map((r) => r.dataUpdatedAt).join(','), busca, usuariosMapa]);
+  }, [
+    instanciasRelevantes,
+    resultados.map((r) => r.dataUpdatedAt).join(','),
+    busca,
+    usuariosMapa,
+    etiquetaFiltro,
+    porConversa,
+  ]);
 
   const iniciais = (nome: string): string =>
     nome
@@ -187,6 +214,29 @@ export function ListaConversas({
             className="h-9 pl-8 text-sm"
           />
         </div>
+
+        {etiquetas.length > 0 && (
+          <Select value={etiquetaFiltro} onValueChange={setEtiquetaFiltro}>
+            <SelectTrigger className="mt-2 h-9 text-sm">
+              <Tag className="mr-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <SelectValue placeholder="Todas as etiquetas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas as etiquetas</SelectItem>
+              {etiquetas.map((e) => (
+                <SelectItem key={`${e.instance_name}-${e.label_id}`} value={e.label_id}>
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: corDaEtiqueta(e.cor) }}
+                    />
+                    {e.nome}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -274,9 +324,23 @@ export function ListaConversas({
                     </span>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{rotuloUltimaMensagem(chat)}</p>
-                  <Badge variant="outline" className="mt-1 text-[10px] font-normal text-muted-foreground">
-                    {vendedor}
-                  </Badge>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                      {vendedor}
+                    </Badge>
+                    {/* Etiquetas que o consultor marcou no proprio WhatsApp. A
+                        cor vem da Evolution para a lista aqui bater com o que
+                        ele ve no aparelho. */}
+                    {(porConversa.get(`${instanceName}|${chat.remoteJid}`) ?? []).map((e) => (
+                      <span
+                        key={e.label_id}
+                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                        style={{ backgroundColor: corDaEtiqueta(e.cor) }}
+                      >
+                        {e.nome}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </button>
             );

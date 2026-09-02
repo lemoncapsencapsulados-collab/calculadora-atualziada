@@ -28,6 +28,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useTemPapel } from '@/hooks/useTemPapel';
+import { PainelEtiquetas } from '@/components/zapinteligencia/PainelEtiquetas';
+import { FilaAtendimento } from '@/components/zapinteligencia/FilaAtendimento';
 import { mensagemErroEdgeFunction } from '@/lib/erroEdgeFunction';
 import { gerarPdfParecer } from '@/lib/zapParecerPdf';
 import {
@@ -390,6 +392,18 @@ export default function ZapInteligencia() {
             </div>
 
             <Glossario />
+
+            {/* Fila: quem escreveu e nunca foi respondido. Vem antes do funil
+                de propósito — é a única seção que pede ação hoje, e não leitura. */}
+            <Bloco titulo="Fila de atendimento">
+              <FilaAtendimento />
+            </Bloco>
+
+            {/* Etiquetas: o funil que o time mantém à mão, ao lado do que a IA
+                infere. A divergência entre os dois é o achado. */}
+            <Bloco titulo="Carteira por etiqueta">
+              <PainelEtiquetas />
+            </Bloco>
 
             {/* Funil */}
             <Bloco titulo="Funil de atendimento">
