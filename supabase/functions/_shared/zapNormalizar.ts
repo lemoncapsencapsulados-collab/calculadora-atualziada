@@ -11,7 +11,15 @@
 // leitura da mesma mensagem.
 
 export interface MensagemEvolution {
-  key?: { id?: string; fromMe?: boolean; remoteJid?: string };
+  key?: {
+    id?: string;
+    fromMe?: boolean;
+    remoteJid?: string;
+    /** No formato novo (`@lid`) o telefone NÃO está no `remoteJid` — vem aqui,
+     *  como `5531xxxxxxxx@s.whatsapp.net`. */
+    remoteJidAlt?: string;
+    addressingMode?: string;
+  };
   message?: Record<string, unknown> | null;
   messageTimestamp?: number | string;
   pushName?: string;
@@ -29,6 +37,37 @@ export interface LinhaMensagem {
   texto: string | null;
   duracao_segundos: number | null;
   dominios_links: string[];
+  /** Só dígitos, sem sufixo. `null` quando a mensagem não revela o número. */
+  telefone: string | null;
+}
+
+/**
+ * Telefone do contato, quando a mensagem o revela.
+ *
+ * O WhatsApp migrou os identificadores para `@lid`, que por design NÃO contém o
+ * número. Quem carrega o telefone é `key.remoteJidAlt`. Enquanto isso não era
+ * lido, `zap_contatos.telefone` ficou nulo nos 2.259 contatos — sem número não
+ * há como retomar quem ficou sem atendimento nem casar a conversa com
+ * `clientes.telefone`.
+ *
+ * Devolve `null` em vez de improvisar: o número do lid é identificador interno,
+ * e gravá-lo como telefone envenenaria qualquer casamento futuro.
+ */
+export function telefoneDe(m: MensagemEvolution): string | null {
+  const alt = String(m?.key?.remoteJidAlt || '');
+  const principal = String(m?.key?.remoteJid || '');
+  const fonte = alt.endsWith('@s.whatsapp.net')
+    ? alt
+    : principal.endsWith('@s.whatsapp.net')
+      ? principal
+      : '';
+  if (!fonte) return null;
+
+  const numero = fonte.split('@')[0].split(':')[0];
+  // `0@s.whatsapp.net` é placeholder de sistema; abaixo de 8 dígitos não é
+  // telefone de ninguém.
+  if (!/^\d{8,15}$/.test(numero)) return null;
+  return numero;
 }
 
 function conteudo(m: MensagemEvolution): Record<string, any> | null {
@@ -109,5 +148,6 @@ export function normalizar(m: MensagemEvolution, instanceName: string): LinhaMen
     texto: texto || null,
     duracao_segundos: duracaoDe(m),
     dominios_links: dominiosDe(texto),
+    telefone: telefoneDe(m),
   };
 }

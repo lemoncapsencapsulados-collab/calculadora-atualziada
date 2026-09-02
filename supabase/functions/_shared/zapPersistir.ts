@@ -82,11 +82,23 @@ async function atualizarContatos(
   linhas: LinhaMensagem[],
   nomes: Map<string, string>
 ): Promise<void> {
-  const conversas = new Map<string, { instance_name: string; remote_jid: string }>();
+  const conversas = new Map<
+    string,
+    { instance_name: string; remote_jid: string; telefone: string | null }
+  >();
   for (const l of linhas) {
     const chave = `${l.instance_name}|${l.remote_jid}`;
-    if (!conversas.has(chave)) {
-      conversas.set(chave, { instance_name: l.instance_name, remote_jid: l.remote_jid });
+    const atual = conversas.get(chave);
+    if (!atual) {
+      conversas.set(chave, {
+        instance_name: l.instance_name,
+        remote_jid: l.remote_jid,
+        telefone: l.telefone,
+      });
+    } else if (!atual.telefone && l.telefone) {
+      // Basta UMA mensagem do lote revelar o número. Nem toda mensagem traz o
+      // `remoteJidAlt`, então a primeira que trouxer define o contato.
+      atual.telefone = l.telefone;
     }
   }
 
@@ -110,13 +122,11 @@ async function atualizarContatos(
         // Só sobrescreve quando este lote trouxe um nome; passar `undefined`
         // faz a PostgREST omitir a coluna e preservar o que já estava lá.
         ...(nome ? { nome } : {}),
-        // Só extrai telefone de JID no formato antigo. Num `@lid` a parte
-        // local é um identificador interno do WhatsApp, NÃO um número — gravá-lo
-        // como telefone encheria a coluna de lixo e quebraria qualquer
-        // casamento futuro com `clientes.telefone`.
-        telefone: c.remote_jid.endsWith('@s.whatsapp.net')
-          ? c.remote_jid.split('@')[0] || null
-          : null,
+        // Mesmo cuidado do nome: só grava quando ESTE lote revelou o número.
+        // Escrever `null` aqui apagaria um telefone já descoberto — e como o
+        // `remoteJidAlt` só vem em parte das mensagens, isso significaria perder
+        // o número na próxima mensagem que não o trouxesse.
+        ...(c.telefone ? { telefone: c.telefone } : {}),
         primeira_mensagem_at: momentos[0].momento,
         ultima_mensagem_at: momentos[momentos.length - 1].momento,
         total_mensagens: momentos.length,

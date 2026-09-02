@@ -35,6 +35,10 @@ project_id = "njfwoguvfozuaghufcgw"
     verify_jwt = true
   [functions.zap-webhook]
     verify_jwt = false
+  # Chamada por um cron da VPS, que não tem sessão do Supabase. A porta é
+  # protegida por segredo compartilhado (ZAP_SYNC_SECRET), como o zap-webhook.
+  [functions.zap-sync-evolution]
+    verify_jwt = false
   [functions.zap-backfill]
     verify_jwt = true
   [functions.zap-transcrever]
