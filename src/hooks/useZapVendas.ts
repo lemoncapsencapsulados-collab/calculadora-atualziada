@@ -686,7 +686,7 @@ export function useRemoverInstancia() {
 /** Resultado de uma busca de mídia: ou o conteúdo, ou o sinal de que expirou no WhatsApp. */
 export type ResultadoMidia = { expirada: true } | ({ expirada: false } & ZapMidia);
 
-interface ParametrosMidia {
+export interface ParametrosMidia {
   instanceName: string;
   messageId: string;
   remoteJid: string;
@@ -700,7 +700,7 @@ interface ParametrosMidia {
  * comentário na edge function) — que precisa chegar ao chamador sem virar
  * exceção, para a UI mostrar um aviso discreto em vez de um erro.
  */
-async function invokeZapMidia(params: ParametrosMidia): Promise<ResultadoMidia> {
+export async function buscarMidiaZap(params: ParametrosMidia): Promise<ResultadoMidia> {
   const { data, error } = await supabase.functions.invoke('zapvendas', {
     body: { action: 'messages.media', ...params },
   });
@@ -733,7 +733,7 @@ export function useMidia(params: ParametrosMidia | null) {
     retry: false,
     queryFn: async (): Promise<ResultadoMidia> => {
       if (!params) throw new Error('Parâmetros de mídia ausentes.');
-      return invokeZapMidia(params);
+      return buscarMidiaZap(params);
     },
   });
 

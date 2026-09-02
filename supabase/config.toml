@@ -33,3 +33,15 @@ project_id = "njfwoguvfozuaghufcgw"
     verify_jwt = false
   [functions.zapvendas]
     verify_jwt = true
+  [functions.zap-webhook]
+    verify_jwt = false
+  [functions.zap-backfill]
+    verify_jwt = true
+  [functions.zap-transcrever]
+    verify_jwt = true
+  [functions.zap-analisar]
+    verify_jwt = true
+  [functions.zap-parecer]
+    verify_jwt = true
+  [functions.zap-apresentacao]
+    verify_jwt = true

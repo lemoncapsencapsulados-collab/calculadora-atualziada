@@ -16,8 +16,9 @@ import {
 } from '@/hooks/useZapVendas';
 import { ZapMensagem } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
-import { MessageCircleOff, RefreshCw, Send, Users } from 'lucide-react';
+import { FileDown, MessageCircleOff, RefreshCw, Send, Users } from 'lucide-react';
 import type { ChatSelecionado } from './ListaConversas';
+import { ExportarConversaDialog } from './ExportarConversaDialog';
 import { MensagemMidia } from './MensagemMidia';
 
 /** Rótulo de fallback para mensagem sem texto e sem mídia reconhecida. */
@@ -51,6 +52,7 @@ interface JanelaConversaProps {
  */
 export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
   const [texto, setTexto] = useState('');
+  const [exportando, setExportando] = useState(false);
   const fimListaRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -132,6 +134,16 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
           variant="outline"
           size="sm"
           className="h-8 text-xs"
+          onClick={() => setExportando(true)}
+          title="Exportar a conversa inteira em PDF"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Exportar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs"
           onClick={() => {
             refetch();
             queryClient.invalidateQueries({ queryKey: ['zap-chats', chat.instanceName] });
@@ -143,6 +155,11 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
           Atualizar
         </Button>
       </header>
+
+      {/* Montado só enquanto aberto: desmontar cancela uma exportação em andamento. */}
+      {exportando && (
+        <ExportarConversaDialog chat={chat} aberto={exportando} onAbertoChange={setExportando} />
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {isLoading && (
