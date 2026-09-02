@@ -404,6 +404,44 @@ export default function ZapInteligencia() {
                 se quer olhar. No trapézio, o recorte lateral é a gente que saiu. */}
             <Bloco titulo="Funil de atendimento">
               <FunilPiramide etapas={d.funil} />
+
+              {/* A etiqueta PAGO é fato marcado por gente; a etapa anterior é
+                  julgamento da IA. Quando as duas divergem muito, o que está
+                  errado é o processo de marcação ou o critério da IA — e quem
+                  lê precisa saber disso antes de tirar conclusão da conversão. */}
+              {(() => {
+                const f = d.fechamentoEtiqueta;
+                if (!f) return null;
+                const inferidos = d.funil.find((e) => !e.deterministica)?.valor ?? 0;
+                const marcados = Number(f.marcados_pago) || 0;
+                const etiquetados = Number(f.contatos_com_alguma_etiqueta) || 0;
+                const totais = Number(f.contatos_totais) || 0;
+                const cobertura = totais > 0 ? (etiquetados / totais) * 100 : 0;
+                if (marcados >= inferidos * 0.5) return null;
+
+                return (
+                  <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+                    <p className="font-medium">
+                      A etiqueta de pagamento não acompanha o que a IA identifica.
+                    </p>
+                    <p className="mt-1">
+                      A IA reconhece{' '}
+                      <span className="num font-semibold">{inferidos}</span> conversas que
+                      chegaram a reunião, proposta ou fechamento, mas apenas{' '}
+                      <span className="num font-semibold">{marcados}</span>{' '}
+                      {marcados === 1 ? 'contato está marcado' : 'contatos estão marcados'} como
+                      pago. Só{' '}
+                      <span className="num font-semibold">{cobertura.toFixed(0)}%</span> da
+                      carteira tem alguma etiqueta.
+                    </p>
+                    <p className="mt-1 text-amber-700/80 dark:text-amber-300/80">
+                      Enquanto a marcação não for rotina, o número da etiqueta mede disciplina de
+                      registro, não venda. A etapa continua na tela por ser a única medida por
+                      pessoa, e não por inferência.
+                    </p>
+                  </div>
+                );
+              })()}
             </Bloco>
 
             <div className="grid gap-4 lg:grid-cols-2">

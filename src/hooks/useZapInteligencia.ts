@@ -123,6 +123,14 @@ export interface CustoEstimado {
   custo_analise_usd: number;
 }
 
+export interface FechamentoEtiquetado {
+  marcados_pago: number;
+  marcados_pago_com_conversa: number;
+  marcados_pedido_enviado: number;
+  contatos_com_alguma_etiqueta: number;
+  contatos_totais: number;
+}
+
 export interface EtapaFunil {
   rotulo: string;
   valor: number;
@@ -336,6 +344,28 @@ export function useZapInteligencia(
    * — misturar as duas origens sem avisar faria o leitor tratar um palpite de
    * modelo com a mesma confiança de uma contagem.
    */
+  /**
+   * Fechamento pela etiqueta do consultor.
+   *
+   * A última etapa do funil é julgamento da IA; a etiqueta PAGO é fato marcado
+   * por quem estava na conversa. Onde existe, vale mais — por isso entra como
+   * etapa determinística.
+   */
+  const fechamentoEtiqueta = useQuery({
+    ...CACHE,
+    queryKey: ['zap-fechamento-etiqueta', usuarioIdEfetivo, ...janela],
+    enabled: ativo && Boolean(usuarioIdEfetivo),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('zap_fechamento_etiquetado' as any, {
+        p_usuario_id: usuarioIdEfetivo,
+        p_inicio: janela[0],
+        p_fim: janela[1],
+      });
+      if (error) throw new Error(error.message);
+      return ((data || [])[0] ?? null) as FechamentoEtiquetado | null;
+    },
+  });
+
   const funil = useMemo<EtapaFunil[]>(() => {
     if (!selecionado) return [];
     return [
@@ -344,8 +374,18 @@ export function useZapInteligencia(
       { rotulo: 'Cliente respondeu', valor: selecionado.contatos_com_resposta_cliente, deterministica: true },
       { rotulo: 'Recebeu catálogo ou link', valor: selecionado.contatos_com_link, deterministica: true },
       { rotulo: 'Reunião, proposta ou fechamento', valor: selecionado.contatos_com_reuniao, deterministica: false },
+      // Etiqueta PAGO: fato marcado por pessoa, não inferência. Entra como
+      // etapa própria em vez de substituir a anterior — a distância entre as
+      // duas é informação, não erro a esconder.
+      ...(fechamentoEtiqueta.data
+        ? [{
+            rotulo: 'Marcado como pago',
+            valor: Number(fechamentoEtiqueta.data.marcados_pago) || 0,
+            deterministica: true,
+          }]
+        : []),
     ];
-  }, [selecionado]);
+  }, [selecionado, fechamentoEtiqueta.data]);
 
   /**
    * Cobertura da análise por IA. Existe para o painel dizer "cobre 167 de 192
@@ -363,6 +403,7 @@ export function useZapInteligencia(
     usuarioIdEfetivo,
     selecionado,
     funil,
+    fechamentoEtiqueta: fechamentoEtiqueta.data ?? null,
     coberturaIA,
     distribuicao,
     heatmap,
