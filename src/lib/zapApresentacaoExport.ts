@@ -146,7 +146,7 @@ function funilPiramidePdf(doc: jsPDF, b: any, yInicial: number): number {
     // apresentação e o painel contarem a mesma história.
     const perdidos = i === 0 ? 0 : Math.max(0, etapas[i - 1].valor - e.valor);
     if (perdidos > 0) {
-      doc.setFillColor(214, 152, 152);
+      doc.setFillColor(232, 196, 196);
       // Cunha esquerda.
       doc.lines([[0, yB - yT], [(wT - wB) / 2, 0]], cx - wT / 2, yT, [1, 1], 'F', true);
       // Cunha direita.
@@ -155,7 +155,15 @@ function funilPiramidePdf(doc: jsPDF, b: any, yInicial: number): number {
 
     // `lines` com deslocamentos relativos e `closed = true`: é como o jsPDF
     // desenha polígono sem primitiva própria de trapézio.
-    doc.setFillColor(...hex(i === 0 ? COR.acento : COR.borda));
+    // Matiz única, luminosidade caindo — mesma disciplina da tela. Cinco cores
+    // diferentes sugeririam cinco categorias, e as etapas são uma sequência só.
+    const t = etapas.length <= 1 ? 0 : i / (etapas.length - 1);
+    const lum = 0.38 - 0.15 * t;
+    doc.setFillColor(
+      Math.round(255 * lum * 0.42),
+      Math.round(255 * lum * 1.32),
+      Math.round(255 * lum * 1.46)
+    );
     doc.lines(
       [
         [wT, 0],

@@ -3,20 +3,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 /**
  * Funil de atendimento como pirâmide invertida.
  *
- * A DECISÃO DE DESENHO: num funil comum, quem fica é desenhado e quem sai é o
- * espaço vazio ao redor. Aqui é o contrário — a perda ganha forma própria. Cada
- * etapa ocupa um retângulo da largura da etapa anterior, e esse retângulo se
- * divide em duas partes: o trapézio central, que são os que seguiram, e duas
- * cunhas laterais em vermelho, que são os que ficaram pelo caminho.
+ * A DECISÃO CENTRAL: num funil comum, quem fica é desenhado e quem sai é o
+ * espaço vazio ao redor. Aqui a perda ganha forma. Cada etapa ocupa o retângulo
+ * da etapa anterior, dividido entre o trapézio central — os que seguiram — e
+ * duas cunhas laterais, que são os que ficaram pelo caminho. A tela existe para
+ * achar vazamento: perda como espaço negativo não tem rótulo, não tem número, e
+ * o olho passa por cima.
  *
- * O motivo é prático, não estético: esta tela existe para achar vazamento. Se a
- * perda for espaço negativo, ela não tem rótulo, não tem número e o olho passa
- * por cima. Tendo forma, ela compete por atenção com o que sobrou — que é
- * exatamente a hierarquia certa para quem precisa agir.
+ * MATIZ ÚNICA, DE PROPÓSITO. A versão anterior usava um degradê de lima a teal,
+ * e isso mentia sobre o dado: cinco matizes sugerem cinco categorias, quando as
+ * etapas são uma sequência só. Aqui a matiz é uma e o que varia é a
+ * luminosidade — a mesma coisa, aprofundando. O citrus da marca aparece uma vez
+ * só, contornando a etapa final, que é o resultado.
  *
- * A paleta caminha do citrus da marca (topo, abundância) ao teal profundo
- * (base, o que resistiu). Números em IBM Plex Mono, que é a face de dado do
- * projeto; rótulos em Instrument Sans.
+ * ABAIXO DE 640px o desenho dá lugar à lista. Não é degradação: SVG com texto
+ * dentro não reflui, e um funil ilegível é pior que uma tabela legível. A lista
+ * também é o caminho de leitura para quem usa leitor de tela.
  */
 
 export interface EtapaPiramide {
@@ -33,218 +35,349 @@ interface Props {
   unidade?: string;
 }
 
-/** Citrus -> teal, em HSL, para o degradê acompanhar o afunilamento. */
-function corDaEtapa(i: number, total: number): { de: string; para: string } {
-  const t = total <= 1 ? 0 : i / (total - 1);
-  const h = 70 + (187 - 70) * t;
-  const s = 78 - 20 * t;
-  const l = 47 - 12 * t;
-  return {
-    de: `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${(l + 8).toFixed(0)}%)`,
-    para: `hsl(${h.toFixed(0)} ${s.toFixed(0)}% ${l.toFixed(0)}%)`,
-  };
+interface Passo extends EtapaPiramide {
+  perdidos: number;
+  pctPerda: number;
+  pctTopo: number;
+  maiorPerda: boolean;
 }
 
-const L = 760;
-const ALT = 86;
-const MIN = 132;
+const L = 720;
+const ALT = 84;
+const MIN = 150;
+const PAD = 16;
+
+/** Teal da marca, só a luminosidade caindo. Escura o bastante para texto branco
+ *  passar em contraste AA em todas as etapas — o que permite um único
+ *  tratamento de texto, em vez de inverter a cor no meio do gráfico. */
+function tonalidade(i: number, total: number): [string, string] {
+  const t = total <= 1 ? 0 : i / (total - 1);
+  const l = 38 - 15 * t;
+  const sat = 52 - 8 * t;
+  return [`hsl(187 ${sat}% ${l + 6}%)`, `hsl(187 ${sat}% ${l}%)`];
+}
+
+function useTelaEstreita(): boolean {
+  const [estreito, setEstreito] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const aplicar = () => setEstreito(mq.matches);
+    aplicar();
+    mq.addEventListener('change', aplicar);
+    return () => mq.removeEventListener('change', aplicar);
+  }, []);
+  return estreito;
+}
 
 export function FunilPiramide({ etapas, unidade = 'contatos' }: Props) {
-  const validas = useMemo(() => etapas.filter((e) => Number.isFinite(e.valor)), [etapas]);
+  const estreito = useTelaEstreita();
   const [revelado, setRevelado] = useState(false);
-  const ref = useRef<SVGSVGElement>(null);
+  const alvo = useRef<HTMLDivElement>(null);
 
-  // Revela quando entra na tela, não no mount: a seção fica abaixo da dobra, e
-  // animar fora da vista gasta o efeito com ninguém olhando.
+  const passos: Passo[] = useMemo(() => {
+    const validas = etapas.filter((e) => Number.isFinite(e.valor));
+    const brutos = validas.map((e, i) => {
+      const anterior = i === 0 ? e.valor : validas[i - 1].valor;
+      const perdidos = Math.max(0, anterior - e.valor);
+      return {
+        ...e,
+        perdidos,
+        pctPerda: anterior > 0 ? (perdidos / anterior) * 100 : 0,
+        pctTopo: validas[0]?.valor ? (e.valor / validas[0].valor) * 100 : 0,
+        maiorPerda: false,
+      };
+    });
+    // O maior vazamento é o que a tela precisa entregar primeiro. Marcá-lo é
+    // recomendação de leitura de funil, não enfeite.
+    const pior = brutos.reduce((a, b) => (b.perdidos > a.perdidos ? b : a), brutos[0]);
+    if (pior && pior.perdidos > 0) pior.maiorPerda = true;
+    return brutos;
+  }, [etapas]);
+
   useEffect(() => {
-    const el = ref.current;
+    const el = alvo.current;
     if (!el) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setRevelado(true);
       return;
     }
-    const obs = new IntersectionObserver(
-      ([entrada]) => entrada.isIntersecting && setRevelado(true),
-      { threshold: 0.25 }
-    );
+    const obs = new IntersectionObserver(([e]) => e.isIntersecting && setRevelado(true), {
+      threshold: 0.2,
+    });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  if (validas.length === 0) return null;
+  if (passos.length === 0) return null;
 
-  const topo = Math.max(validas[0].valor, 1);
-  const altura = validas.length * ALT + 24;
+  const topo = Math.max(passos[0].valor, 1);
+  const fim = passos[passos.length - 1];
+  const conversao = (fim.valor / topo) * 100;
   const cx = L / 2;
-  const largura = (v: number) => MIN + (L - 40 - MIN) * Math.min(1, Math.max(0, v / topo));
-  const fim = validas[validas.length - 1];
-  const conversao = topo > 0 ? (fim.valor / topo) * 100 : 0;
+  const largura = (v: number) =>
+    MIN + (L - PAD * 2 - MIN) * Math.min(1, Math.max(0, v / topo));
 
-  return (
-    <div className="w-full">
-      <div className="overflow-x-auto">
-        <svg
-          ref={ref}
-          viewBox={`0 0 ${L} ${altura}`}
-          className="w-full"
-          style={{ minWidth: 480 }}
-          role="img"
-          aria-label={`Funil de atendimento: ${validas
-            .map((e) => `${e.rotulo} ${e.valor}`)
-            .join(', ')}`}
-        >
-          <defs>
-            {validas.map((_, i) => {
-              const c = corDaEtapa(i, validas.length);
-              return (
-                <linearGradient key={i} id={`funil-g${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={c.de} />
-                  <stop offset="100%" stopColor={c.para} />
-                </linearGradient>
-              );
-            })}
-            <linearGradient id="funil-perda" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(4 66% 52%)" stopOpacity="0.32" />
-              <stop offset="100%" stopColor="hsl(4 66% 52%)" stopOpacity="0.06" />
-            </linearGradient>
-          </defs>
+  const rodape = (
+    <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-border pt-3">
+      <p className="text-xs text-muted-foreground">
+        <span className="num text-foreground">{topo.toLocaleString('pt-BR')}</span> {unidade} no
+        topo, <span className="num text-foreground">{fim.valor.toLocaleString('pt-BR')}</span>{' '}
+        chegaram ao fim
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Conversão ponta a ponta{' '}
+        <span className="num font-semibold text-foreground">{conversao.toFixed(1)}%</span>
+      </p>
+    </div>
+  );
 
-          {validas.map((e, i) => {
-            const yT = i * ALT + 12;
-            const yB = yT + ALT - 14;
-            const wT = largura(i === 0 ? topo : validas[i - 1].valor);
-            const wB = largura(e.valor);
-            const anterior = i === 0 ? e.valor : validas[i - 1].valor;
-            const perdidos = Math.max(0, anterior - e.valor);
-            const pctPerda = anterior > 0 ? (perdidos / anterior) * 100 : 0;
-            const pctTopo = (e.valor / topo) * 100;
+  const nota = passos.some((e) => e.deterministica === false) && (
+    <p className="mt-2 text-[11px] leading-snug text-muted-foreground/80">
+      Etapas marcadas com <span className="text-foreground">IA</span> são inferidas do conteúdo das
+      conversas, não contadas diretamente.
+    </p>
+  );
 
-            const corpo = [
-              `${cx - wT / 2},${yT}`,
-              `${cx + wT / 2},${yT}`,
-              `${cx + wB / 2},${yB}`,
-              `${cx - wB / 2},${yB}`,
-            ].join(' ');
-
-            // As cunhas: o que o trapézio deixou de fora dentro do retângulo da
-            // etapa anterior. É a gente que saiu, com forma e número.
-            const cunhaEsq = [
-              `${cx - wT / 2},${yT}`,
-              `${cx - wB / 2},${yB}`,
-              `${cx - wT / 2},${yB}`,
-            ].join(' ');
-            const cunhaDir = [
-              `${cx + wT / 2},${yT}`,
-              `${cx + wB / 2},${yB}`,
-              `${cx + wT / 2},${yB}`,
-            ].join(' ');
-
-            const atraso = `${i * 90}ms`;
-
+  // ---------------------------------------------------------------------------
+  // Lista: telas estreitas e leitores de tela.
+  // ---------------------------------------------------------------------------
+  if (estreito) {
+    return (
+      <div ref={alvo}>
+        <ol className="space-y-2">
+          {passos.map((e, i) => {
+            const [, cor] = tonalidade(i, passos.length);
             return (
-              <g
-                key={e.rotulo}
-                style={{
-                  opacity: revelado ? 1 : 0,
-                  transform: revelado ? 'none' : 'translateY(-10px)',
-                  transition: `opacity 520ms cubic-bezier(.16,1,.3,1) ${atraso}, transform 520ms cubic-bezier(.16,1,.3,1) ${atraso}`,
-                }}
-              >
-                {perdidos > 0 && (
-                  <>
-                    <polygon points={cunhaEsq} fill="url(#funil-perda)" />
-                    <polygon points={cunhaDir} fill="url(#funil-perda)" />
-                    <text
-                      x={cx - wT / 2 + 6}
-                      y={yB - 6}
-                      fontSize="11.5"
-                      fontFamily="'IBM Plex Mono', monospace"
-                      fontWeight="500"
-                      fill="hsl(4 72% 62%)"
-                    >
-                      −{perdidos.toLocaleString('pt-BR')}
-                    </text>
-                    <text
-                      x={cx + wT / 2 - 6}
-                      y={yB - 6}
-                      textAnchor="end"
-                      fontSize="11.5"
-                      fontFamily="'IBM Plex Mono', monospace"
-                      fill="hsl(4 72% 62%)"
-                      fillOpacity="0.75"
-                    >
-                      {pctPerda.toFixed(0)}% saíram
-                    </text>
-                  </>
-                )}
-
-                <polygon points={corpo} fill={`url(#funil-g${i})`} />
-
-                {/* Aresta superior clara: dá espessura ao volume sem sombra, que
-                    em fundo escuro vira borrão. */}
-                <line
-                  x1={cx - wT / 2}
-                  y1={yT}
-                  x2={cx + wT / 2}
-                  y2={yT}
-                  stroke="#fff"
-                  strokeOpacity="0.22"
-                  strokeWidth="1"
-                />
-
-                <text
-                  x={cx}
-                  y={yT + 30}
-                  textAnchor="middle"
-                  fontSize="13"
-                  fontWeight="600"
-                  letterSpacing="0.02em"
-                  fill="#0b1220"
-                  fillOpacity="0.88"
-                >
-                  {e.rotulo}
-                  {e.deterministica === false ? ' ✳' : ''}
-                </text>
-                <text
-                  x={cx}
-                  y={yT + 54}
-                  textAnchor="middle"
-                  fontSize="21"
-                  fontWeight="600"
-                  fontFamily="'IBM Plex Mono', monospace"
-                  fill="#0b1220"
-                >
-                  {e.valor.toLocaleString('pt-BR')}
-                  <tspan fontSize="11" fontWeight="400" fillOpacity="0.7">
-                    {'  '}
-                    {pctTopo.toFixed(1)}%
-                  </tspan>
-                </text>
-              </g>
+              <li key={e.rotulo} className="rounded-lg border border-border bg-card/60 p-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: cor }}
+                    />
+                    {e.rotulo}
+                    {e.deterministica === false && (
+                      <span className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+                        IA
+                      </span>
+                    )}
+                  </span>
+                  <span className="num shrink-0 text-base font-semibold">
+                    {e.valor.toLocaleString('pt-BR')}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between gap-3 text-xs">
+                  <span className="text-muted-foreground">
+                    {e.pctTopo.toFixed(1)}% do topo
+                  </span>
+                  {e.perdidos > 0 && (
+                    <span className={e.maiorPerda ? 'font-medium text-destructive' : 'text-destructive/75'}>
+                      −{e.perdidos.toLocaleString('pt-BR')} ({e.pctPerda.toFixed(0)}%)
+                      {e.maiorPerda ? ' · maior perda' : ''}
+                    </span>
+                  )}
+                </div>
+              </li>
             );
           })}
-        </svg>
+        </ol>
+        {rodape}
+        {nota}
       </div>
+    );
+  }
 
-      {/* O número que o funil inteiro existe para produzir. Fora do desenho
-          porque é conclusão, não etapa. */}
-      <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-border pt-3">
-        <span className="text-xs text-muted-foreground">
-          De <span className="num text-foreground">{topo.toLocaleString('pt-BR')}</span> {unidade} no
-          topo, <span className="num text-foreground">{fim.valor.toLocaleString('pt-BR')}</span>{' '}
-          chegaram a {fim.rotulo.toLowerCase()}.
-        </span>
-        <span className="text-xs text-muted-foreground">
-          Conversão ponta a ponta{' '}
-          <span className="num font-semibold text-foreground">{conversao.toFixed(1)}%</span>
-        </span>
-      </div>
+  // ---------------------------------------------------------------------------
+  // Desenho.
+  // ---------------------------------------------------------------------------
+  const altura = passos.length * ALT + 16;
 
-      {validas.some((e) => e.deterministica === false) && (
-        <p className="mt-1.5 text-[11px] text-muted-foreground/80">
-          ✳ etapa inferida por IA a partir do conteúdo das conversas, não contada diretamente.
-        </p>
-      )}
+  return (
+    <div ref={alvo}>
+      <svg
+        viewBox={`0 0 ${L} ${altura}`}
+        className="w-full"
+        role="img"
+        aria-label={`Funil: ${passos.map((e) => `${e.rotulo}, ${e.valor}`).join('; ')}`}
+      >
+        <defs>
+          {passos.map((_, i) => {
+            const [de, para] = tonalidade(i, passos.length);
+            return (
+              <linearGradient key={i} id={`fn-${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={de} />
+                <stop offset="100%" stopColor={para} />
+              </linearGradient>
+            );
+          })}
+        </defs>
+
+        {passos.map((e, i) => {
+          const yT = i * ALT + 10;
+          const yB = yT + ALT - 16;
+          const wT = largura(i === 0 ? topo : passos[i - 1].valor);
+          const wB = largura(e.valor);
+          const ultimo = i === passos.length - 1;
+          const atraso = `${i * 80}ms`;
+
+          const corpo = `${cx - wT / 2},${yT} ${cx + wT / 2},${yT} ${cx + wB / 2},${yB} ${cx - wB / 2},${yB}`;
+          const cunhaE = `${cx - wT / 2},${yT} ${cx - wB / 2},${yB} ${cx - wT / 2},${yB}`;
+          const cunhaD = `${cx + wT / 2},${yT} ${cx + wB / 2},${yB} ${cx + wT / 2},${yB}`;
+
+          return (
+            <g
+              key={e.rotulo}
+              style={{
+                opacity: revelado ? 1 : 0,
+                transform: revelado ? 'none' : 'translateY(-8px)',
+                transition: `opacity 460ms cubic-bezier(.16,1,.3,1) ${atraso}, transform 460ms cubic-bezier(.16,1,.3,1) ${atraso}`,
+              }}
+            >
+              {/* Perda: contorno tracejado e preenchimento mínimo. Bloco
+                  vermelho cheio competiria com o corpo e escureceria o cartão;
+                  o contorno diz "isto saiu" sem gritar. */}
+              {e.perdidos > 0 && (
+                <>
+                  <polygon
+                    points={cunhaE}
+                    fill="hsl(4 70% 55%)"
+                    fillOpacity={e.maiorPerda ? 0.2 : 0.1}
+                    stroke="hsl(4 70% 58%)"
+                    strokeOpacity={e.maiorPerda ? 0.7 : 0.35}
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                  <polygon
+                    points={cunhaD}
+                    fill="hsl(4 70% 55%)"
+                    fillOpacity={e.maiorPerda ? 0.2 : 0.1}
+                    stroke="hsl(4 70% 58%)"
+                    strokeOpacity={e.maiorPerda ? 0.7 : 0.35}
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                </>
+              )}
+
+              {/* O corpo vem ANTES dos rótulos. Na versão anterior era o
+                  contrário e o polígono cobria o texto da perda. */}
+              <polygon
+                points={corpo}
+                fill={`url(#fn-${i})`}
+                stroke={ultimo ? 'hsl(70 78% 47%)' : 'transparent'}
+                strokeWidth={ultimo ? 1.5 : 0}
+              />
+
+              <text
+                x={cx}
+                y={yT + 27}
+                textAnchor="middle"
+                fontSize="13"
+                fontWeight="600"
+                fill="#fff"
+                fillOpacity="0.95"
+              >
+                {e.rotulo}
+              </text>
+              {e.deterministica === false && (
+                <text
+                  x={cx}
+                  y={yT + 27}
+                  dx={
+                    // Deslocamento aproximado pela largura do rótulo: SVG não
+                    // mede texto sem layout, e uma estimativa por caractere
+                    // erra menos que um valor fixo.
+                    e.rotulo.length * 3.6 + 14
+                  }
+                  fontSize="8.5"
+                  fontWeight="600"
+                  letterSpacing="0.06em"
+                  fill="#fff"
+                  fillOpacity="0.55"
+                >
+                  IA
+                </text>
+              )}
+              <text
+                x={cx}
+                y={yT + 50}
+                textAnchor="middle"
+                fontFamily="'IBM Plex Mono', ui-monospace, monospace"
+                fontSize="20"
+                fontWeight="600"
+                fill="#fff"
+              >
+                {e.valor.toLocaleString('pt-BR')}
+                <tspan fontSize="11" fontWeight="400" fillOpacity="0.72" dx="8">
+                  {e.pctTopo.toFixed(1)}%
+                </tspan>
+              </text>
+
+              {/* Um número por fato, não dois. A contagem fica dentro da cunha
+                  esquerda; o percentual, menor, logo abaixo. */}
+              {e.perdidos > 0 && wT - wB > 84 && (
+                <>
+                  <text
+                    x={cx - (wT + wB) / 4}
+                    y={yB - 16}
+                    textAnchor="middle"
+                    fontFamily="'IBM Plex Mono', ui-monospace, monospace"
+                    fontSize="12"
+                    fontWeight="600"
+                    fill="hsl(4 76% 66%)"
+                  >
+                    −{e.perdidos.toLocaleString('pt-BR')}
+                  </text>
+                  <text
+                    x={cx - (wT + wB) / 4}
+                    y={yB - 5}
+                    textAnchor="middle"
+                    fontSize="9.5"
+                    fill="hsl(4 76% 66%)"
+                    fillOpacity="0.8"
+                  >
+                    {e.pctPerda.toFixed(0)}% saíram
+                  </text>
+                </>
+              )}
+
+              {/* Quando a cunha é estreita demais para conter texto, o número
+                  vai para fora, à direita — em vez de sumir ou vazar. */}
+              {e.perdidos > 0 && wT - wB <= 84 && (
+                <text
+                  x={L - 4}
+                  y={yB - 8}
+                  textAnchor="end"
+                  fontFamily="'IBM Plex Mono', ui-monospace, monospace"
+                  fontSize="11"
+                  fontWeight="600"
+                  fill="hsl(4 76% 66%)"
+                >
+                  −{e.perdidos.toLocaleString('pt-BR')} · {e.pctPerda.toFixed(0)}%
+                </text>
+              )}
+
+              {e.maiorPerda && (
+                <text
+                  x={cx - (wT + wB) / 4}
+                  y={yT + 14}
+                  textAnchor="middle"
+                  fontSize="8.5"
+                  fontWeight="700"
+                  letterSpacing="0.08em"
+                  fill="hsl(4 76% 66%)"
+                  fillOpacity="0.9"
+                >
+                  MAIOR PERDA
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+
+      {rodape}
+      {nota}
     </div>
   );
 }
