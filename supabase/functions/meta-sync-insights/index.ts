@@ -1,6 +1,15 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { detectarVendedorNaCampanha } from './vendedores.ts';
+// Contagem de lead vem do módulo compartilhado, e não de uma cópia local, porque
+// as duas coletas alimentam telas diferentes sobre o MESMO mês: divergirem sobre
+// o que é um lead faz uma tela contradizer a outra, e ninguém sabe em qual crer.
+//
+// A versão anterior daqui somava `lead` + `fb_pixel_lead` + `lead_grouped`, mas
+// `lead` é o TOTAL que já engloba os outros dois — cada lead de formulário
+// contava duas vezes. Em agosto/2026 isso virou 1.457 leads no lugar de 885, e
+// CPL de R$ 4,99 no lugar de R$ 5,91.
+import { extrairLeads } from '../_shared/metaMapear.ts';
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
@@ -24,15 +33,7 @@ function ultimoDiaMesAtual(): string {
   return d.toISOString().slice(0, 10);
 }
 
-function extrairLeads(actions: any[]): number {
-  if (!Array.isArray(actions)) return 0;
-  const tipos = ['lead', 'onsite_conversion.lead_grouped', 'offsite_conversion.fb_pixel_lead', 'onsite_conversion.messaging_conversation_started_7d'];
-  let total = 0;
-  for (const a of actions) {
-    if (tipos.includes(a.action_type)) total += Number(a.value) || 0;
-  }
-  return total;
-}
+
 
 function consultorDaCampanha(nome: string): string | null {
   const explicito = /consultor[=:_\-\s]+([a-zà-ú]+(?:\s[a-zà-ú]+)?)/i.exec(nome || '');
