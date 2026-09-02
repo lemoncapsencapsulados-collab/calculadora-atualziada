@@ -26,11 +26,44 @@ export interface PeriodoTrafego {
   investimento: number;
   impressoes: number;
   cliques: number;
+  cliques_link: number;
   leads: number;
+  /** Lead de formulário na landing (Pixel). Funil diferente do de conversa. */
+  leads_formulario: number;
+  /** Conversa de WhatsApp iniciada direto do anúncio (Click-to-WhatsApp). */
+  conversas: number;
+  visitas_landing: number;
+  video_views: number;
+  engajamento: number;
   anuncios: number;
+  campanhas: number;
   ctr: number | null;
-  cpl: number | null;
+  ctr_link: number | null;
+  cpc: number | null;
   cpm: number | null;
+  cpl: number | null;
+  custo_por_conversa: number | null;
+  custo_por_visita: number | null;
+  taxa_chegada_landing: number | null;
+}
+
+export interface PontoSerie {
+  data: string;
+  investimento: number;
+  impressoes: number;
+  cliques_link: number;
+  leads: number;
+  leads_formulario: number;
+  conversas: number;
+  cpl: number | null;
+  ctr_link: number | null;
+}
+
+export interface EventoMeta {
+  evento: string;
+  total: number;
+  anuncios: number;
+  custo_por_evento: number | null;
 }
 
 export interface LinhaHierarquia {
@@ -40,10 +73,20 @@ export interface LinhaHierarquia {
   investimento: number;
   impressoes: number;
   cliques: number;
+  cliques_link: number;
   leads: number;
+  leads_formulario: number;
+  conversas: number;
+  visitas_landing: number;
   ctr: number | null;
+  ctr_link: number | null;
   cpl: number | null;
   cpc: number | null;
+  cpm: number | null;
+  custo_por_conversa: number | null;
+  /** Média das frequências diárias, NÃO a frequência do período: esta exigiria
+   *  o alcance real, que não se obtém somando dias. */
+  frequencia_media: number | null;
 }
 
 export interface LinhaCriativo {
@@ -132,6 +175,18 @@ export function useFunilTrafego(filtros: FiltrosTrafego) {
     staleTime: CINCO_MIN,
   });
 
+  const serie = useQuery({
+    queryKey: ['trafego-serie', ...chave],
+    queryFn: () => rpc<PontoSerie>('trafego_serie_diaria', argsPeriodo),
+    staleTime: CINCO_MIN,
+  });
+
+  const eventos = useQuery({
+    queryKey: ['trafego-eventos', ...chave],
+    queryFn: () => rpc<EventoMeta>('trafego_eventos', argsPeriodo),
+    staleTime: CINCO_MIN,
+  });
+
   const atual = visaoGeral.data?.find((p) => p.periodo === 'atual') ?? null;
   const anterior = visaoGeral.data?.find((p) => p.periodo === 'anterior') ?? null;
 
@@ -139,6 +194,8 @@ export function useFunilTrafego(filtros: FiltrosTrafego) {
     atual,
     anterior,
     criativos: criativos.data ?? [],
+    serie: serie.data ?? [],
+    eventos: eventos.data ?? [],
     status: status.data?.[0] ?? null,
     carregando: visaoGeral.isLoading || criativos.isLoading,
     erro: (visaoGeral.error || criativos.error || status.error) as Error | null,

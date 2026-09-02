@@ -24,7 +24,7 @@ function Delta({
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-medium ${cor}`}>
       <Icon className="h-3.5 w-3.5" />
-      {neutro ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs. anterior`}
+      {neutro ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`}
     </span>
   );
 }
@@ -32,27 +32,37 @@ function Delta({
 function Cartao({
   label,
   valor,
-  anterior,
+  delta,
   menorMelhor,
   formula,
+  destaque,
 }: {
   label: string;
   valor: string;
-  anterior?: { atual: number; anterior: number };
+  delta?: { atual: number; anterior: number };
   menorMelhor?: boolean;
   formula: string;
+  destaque?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-2 font-mono text-2xl">{valor}</div>
-      <div className="mt-1.5 flex items-center gap-2">
-        {anterior && <Delta {...anterior} menorMelhor={menorMelhor} />}
+    <div
+      className={`rounded-xl border bg-card p-4 ${
+        destaque ? 'border-primary/40' : 'border-border'
+      }`}
+    >
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1.5 font-mono text-xl">{valor}</div>
+      <div className="mt-1 flex items-center gap-2">
+        {delta && <Delta {...delta} menorMelhor={menorMelhor} />}
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground/70">{formula}</p>
+      <p className="mt-1 text-[10px] leading-tight text-muted-foreground/70">{formula}</p>
     </div>
   );
 }
+
+const int = (n: number) => n.toLocaleString('pt-BR');
+const pct = (n: number | null) => (n != null ? `${n.toFixed(2)}%` : '—');
+const brl = (n: number | null) => (n != null ? formatBRL(n) : '—');
 
 interface Props {
   atual: PeriodoTrafego | null;
@@ -69,72 +79,155 @@ export function VisaoGeralTrafego({ atual, anterior }: Props) {
   }
 
   const ant = anterior;
-  const par = (a: number, b: number | undefined) => (ant ? { atual: a, anterior: b ?? 0 } : undefined);
+  const d = (a: number, b: number | null | undefined) =>
+    ant ? { atual: a, anterior: b ?? 0 } : undefined;
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <h2 className="text-base font-semibold">Visão geral</h2>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* Dinheiro e volume */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Cartao
           label="Investimento"
           valor={formatBRL(atual.investimento)}
-          anterior={par(atual.investimento, ant?.investimento)}
+          delta={d(atual.investimento, ant?.investimento)}
           formula="Soma de spend por anúncio/dia"
+          destaque
         />
         <Cartao
-          label="Leads"
-          valor={atual.leads.toLocaleString('pt-BR')}
-          anterior={par(atual.leads, ant?.leads)}
-          formula="Como a Meta os conta, no anúncio"
+          label="Contatos gerados"
+          valor={int(atual.leads)}
+          delta={d(atual.leads, ant?.leads)}
+          formula="Leads de formulário + conversas iniciadas"
+          destaque
         />
         <Cartao
-          label="CPL"
-          valor={atual.cpl != null ? formatBRL(atual.cpl) : '—'}
-          anterior={par(atual.cpl ?? 0, ant?.cpl ?? 0)}
+          label="Custo por contato"
+          valor={brl(atual.cpl)}
+          delta={d(atual.cpl ?? 0, ant?.cpl)}
           menorMelhor
-          formula="Investimento ÷ leads"
+          formula="Investimento ÷ contatos"
+          destaque
         />
         <Cartao
-          label="CTR"
-          valor={atual.ctr != null ? `${atual.ctr.toFixed(2)}%` : '—'}
-          anterior={par(atual.ctr ?? 0, ant?.ctr ?? 0)}
-          formula="Cliques ÷ impressões"
-        />
-        <Cartao
-          label="Impressões"
-          valor={atual.impressoes.toLocaleString('pt-BR')}
-          anterior={par(atual.impressoes, ant?.impressoes)}
-          formula="Soma por anúncio/dia"
-        />
-        <Cartao
-          label="Cliques"
-          valor={atual.cliques.toLocaleString('pt-BR')}
-          anterior={par(atual.cliques, ant?.cliques)}
-          formula="Soma por anúncio/dia"
-        />
-
-        {/* Medir isto exige ligar venda a anúncio, e não existe atribuição
-            lead<->campanha neste sistema. A página de anúncios atual mostra um
-            CAC que é verba do mês dividida por vendas do mês, sem vínculo entre
-            elas — número que parece medição e é coincidência. Aqui fica
-            bloqueado até haver o que medir. */}
-        <CartaoBloqueado
-          label="CAC"
-          motivo="Requer ligar venda ao anúncio que a originou. Sem atribuição lead↔campanha, só daria coincidência temporal."
-        />
-        <CartaoBloqueado
-          label="ROAS"
-          motivo="Mesma dependência do CAC: sem receita atribuída à campanha, não há retorno que se possa dividir pelo gasto."
+          label="Anúncios / campanhas"
+          valor={`${int(atual.anuncios)} / ${int(atual.campanhas)}`}
+          formula="Distintos com entrega no período"
         />
       </div>
 
-      {/* Alcance e frequência não aparecem por um motivo diferente, e ele
-          precisa estar escrito em algum lugar visível. */}
-      <p className="text-xs text-muted-foreground/80">
-        Alcance e frequência do período não são exibidos: <span className="font-medium">alcance
-        não é somável</span> — a mesma pessoa atingida em dois dias conta uma vez no alcance
-        real e duas ao somar linhas diárias.
+      {/* Os dois funis, separados. Somá-los num número só apaga as duas
+          leituras: o custo e a qualidade de cada um são diferentes. */}
+      <div>
+        <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Os dois funis, separados
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Cartao
+            label="Conversas no WhatsApp"
+            valor={int(atual.conversas)}
+            delta={d(atual.conversas, ant?.conversas)}
+            formula="Click-to-WhatsApp: conversa iniciada pelo anúncio"
+          />
+          <Cartao
+            label="Custo por conversa"
+            valor={brl(atual.custo_por_conversa)}
+            delta={d(atual.custo_por_conversa ?? 0, ant?.custo_por_conversa)}
+            menorMelhor
+            formula="Investimento ÷ conversas"
+          />
+          <Cartao
+            label="Leads de formulário"
+            valor={int(atual.leads_formulario)}
+            delta={d(atual.leads_formulario, ant?.leads_formulario)}
+            formula="Pixel na landing (evento lead)"
+          />
+          <Cartao
+            label="Visitas na landing"
+            valor={int(atual.visitas_landing)}
+            delta={d(atual.visitas_landing, ant?.visitas_landing)}
+            formula="landing_page_view, do Pixel"
+          />
+        </div>
+      </div>
+
+      {/* Entrega e engajamento */}
+      <div>
+        <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Entrega
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Cartao
+            label="Impressões"
+            valor={int(atual.impressoes)}
+            delta={d(atual.impressoes, ant?.impressoes)}
+            formula="Soma por anúncio/dia"
+          />
+          <Cartao
+            label="Cliques no link"
+            valor={int(atual.cliques_link)}
+            delta={d(atual.cliques_link, ant?.cliques_link)}
+            formula="link_click — só o clique que leva ao destino"
+          />
+          <Cartao
+            label="CTR do link"
+            valor={pct(atual.ctr_link)}
+            delta={d(atual.ctr_link ?? 0, ant?.ctr_link)}
+            formula="Cliques no link ÷ impressões"
+          />
+          <Cartao
+            label="CTR total"
+            valor={pct(atual.ctr)}
+            delta={d(atual.ctr ?? 0, ant?.ctr)}
+            formula="Todos os cliques ÷ impressões"
+          />
+          <Cartao
+            label="CPM"
+            valor={brl(atual.cpm)}
+            delta={d(atual.cpm ?? 0, ant?.cpm)}
+            menorMelhor
+            formula="Custo por mil impressões"
+          />
+          <Cartao
+            label="CPC"
+            valor={brl(atual.cpc)}
+            delta={d(atual.cpc ?? 0, ant?.cpc)}
+            menorMelhor
+            formula="Investimento ÷ cliques"
+          />
+          <Cartao
+            label="Chegada na landing"
+            valor={pct(atual.taxa_chegada_landing)}
+            delta={d(atual.taxa_chegada_landing ?? 0, ant?.taxa_chegada_landing)}
+            formula="Visitas ÷ cliques no link. Queda aqui é velocidade ou destino, não criativo"
+          />
+          <Cartao
+            label="Views de vídeo"
+            valor={int(atual.video_views)}
+            delta={d(atual.video_views, ant?.video_views)}
+            formula="video_view"
+          />
+        </div>
+      </div>
+
+      {/* O que ainda não pode ser medido */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <CartaoBloqueado
+          label="CAC"
+          motivo="Requer ligar venda ao anúncio que a originou. Sem atribuição, só daria coincidência temporal."
+        />
+        <CartaoBloqueado
+          label="ROAS"
+          motivo="Mesma dependência do CAC: sem receita atribuída à campanha, não há retorno a dividir pelo gasto."
+        />
+      </div>
+
+      <p className="text-xs leading-relaxed text-muted-foreground/80">
+        <span className="font-medium">Alcance e frequência do período não são exibidos:</span>{' '}
+        alcance não é somável — a mesma pessoa atingida em dois dias conta uma vez no alcance
+        real e duas ao somar linhas diárias. A frequência média diária aparece por anúncio na
+        tabela abaixo.
       </p>
     </section>
   );

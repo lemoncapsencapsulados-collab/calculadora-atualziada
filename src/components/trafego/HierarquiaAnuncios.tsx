@@ -79,11 +79,16 @@ export function HierarquiaAnuncios({ filtros }: { filtros: FiltrosTrafego }) {
           <TableHeader>
             <TableRow>
               <TableHead>{ROTULO[atual.nivel]}</TableHead>
-              <TableHead className="text-right">Investimento</TableHead>
-              <TableHead className="text-right">Leads</TableHead>
-              <TableHead className="text-right">CPL</TableHead>
-              <TableHead className="text-right">CTR</TableHead>
-              <TableHead className="text-right">CPC</TableHead>
+              <TableHead className="text-right">Investido</TableHead>
+              <TableHead className="text-right">Contatos</TableHead>
+              <TableHead className="text-right">Custo/contato</TableHead>
+              <TableHead className="text-right">Conversas</TableHead>
+              <TableHead className="text-right">Custo/conversa</TableHead>
+              <TableHead className="text-right">Form.</TableHead>
+              <TableHead className="text-right">Cliques link</TableHead>
+              <TableHead className="text-right">CTR link</TableHead>
+              <TableHead className="text-right">CPM</TableHead>
+              <TableHead className="text-right">Freq. média</TableHead>
               <TableHead className="text-right">
                 {/* A coluna fica, desabilitada, em vez de sumir: some e ninguém
                     sabe que essa leitura falta; fica assim e o buraco é visível. */}
@@ -109,7 +114,7 @@ export function HierarquiaAnuncios({ filtros }: { filtros: FiltrosTrafego }) {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="py-8 text-center text-sm text-muted-foreground">
                   Carregando…
                 </TableCell>
               </TableRow>
@@ -117,7 +122,7 @@ export function HierarquiaAnuncios({ filtros }: { filtros: FiltrosTrafego }) {
 
             {!isLoading && linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="py-8 text-center text-sm text-muted-foreground">
                   Nenhuma entrega neste período.
                 </TableCell>
               </TableRow>
@@ -134,10 +139,25 @@ export function HierarquiaAnuncios({ filtros }: { filtros: FiltrosTrafego }) {
                   {l.cpl != null ? formatBRL(l.cpl) : '—'}
                 </TableCell>
                 <TableCell className="text-right font-mono">
-                  {l.ctr != null ? `${l.ctr.toFixed(2)}%` : '—'}
+                  {l.conversas.toLocaleString('pt-BR')}
                 </TableCell>
                 <TableCell className="text-right font-mono">
-                  {l.cpc != null ? formatBRL(l.cpc) : '—'}
+                  {l.custo_por_conversa != null ? formatBRL(l.custo_por_conversa) : '—'}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {l.leads_formulario.toLocaleString('pt-BR')}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {l.cliques_link.toLocaleString('pt-BR')}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {l.ctr_link != null ? `${l.ctr_link.toFixed(2)}%` : '—'}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {l.cpm != null ? formatBRL(l.cpm) : '—'}
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {l.frequencia_media != null ? l.frequencia_media.toFixed(2) : '—'}
                 </TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground/40">—</TableCell>
                 <TableCell className="text-right">
@@ -156,6 +176,10 @@ export function HierarquiaAnuncios({ filtros }: { filtros: FiltrosTrafego }) {
 
       <p className="text-xs text-muted-foreground/70">
         Ordenado por investimento. Linhas sem impressão no período não aparecem.
+        <span className="ml-1">
+          "Freq. média" é a média das frequências diárias, não a frequência do período —
+          esta exigiria o alcance real, que não se obtém somando dias.
+        </span>
       </p>
     </section>
   );

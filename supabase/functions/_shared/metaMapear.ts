@@ -25,6 +25,12 @@ export interface LinhaBase {
   action_values: unknown;
   cost_per_action_type: unknown;
   leads: number;
+  leads_formulario: number;
+  conversas_iniciadas: number;
+  link_clicks: number;
+  landing_page_views: number;
+  video_views: number;
+  engajamento: number;
 }
 
 export interface LinhaRecorte {
@@ -40,22 +46,50 @@ export interface LinhaRecorte {
   actions: unknown;
 }
 
-/** Os mesmos tipos que `meta-sync-insights` já conta como lead, para as duas
- *  coletas não divergirem sobre o que é um lead. */
-const TIPOS_LEAD = [
-  'lead',
-  'onsite_conversion.lead_grouped',
-  'offsite_conversion.fb_pixel_lead',
-  'onsite_conversion.messaging_conversation_started_7d',
-];
-
-export function extrairLeads(actions: unknown): number {
+/** Valor de um `action_type` específico. Zero quando o evento não veio. */
+export function extrairAcao(actions: unknown, tipo: string): number {
   if (!Array.isArray(actions)) return 0;
-  let total = 0;
   for (const a of actions) {
-    if (TIPOS_LEAD.includes(a?.action_type)) total += Number(a?.value) || 0;
+    if (a?.action_type === tipo) return Number(a?.value) || 0;
   }
-  return total;
+  return 0;
+}
+
+/**
+ * Leads de formulário (Pixel na landing).
+ *
+ * CUIDADO COM DUPLA CONTAGEM: `lead` é o TOTAL que a Meta já calcula, e ele
+ * ENGLOBA `offsite_conversion.fb_pixel_lead` e `onsite_conversion.lead_grouped`.
+ * Verificado nos dados de produção: em 121 de 121 linhas, `lead` era exatamente
+ * a soma das outras duas. Somar os três — como fazia `meta-sync-insights` —
+ * contava cada lead de formulário duas vezes: 20% de inflação no total e CPL
+ * ~17% mais barato do que realmente é.
+ *
+ * Então: usa o agregado quando ele vem; só cai nos componentes quando não vem.
+ */
+export function extrairLeadsFormulario(actions: unknown): number {
+  const total = extrairAcao(actions, 'lead');
+  if (total > 0) return total;
+  return (
+    extrairAcao(actions, 'offsite_conversion.fb_pixel_lead') +
+    extrairAcao(actions, 'onsite_conversion.lead_grouped')
+  );
+}
+
+/** Conversas de WhatsApp iniciadas pelo anúncio (Click-to-WhatsApp). */
+export function extrairConversas(actions: unknown): number {
+  return extrairAcao(actions, 'onsite_conversion.messaging_conversation_started_7d');
+}
+
+/**
+ * Total de contatos gerados: formulário + conversa.
+ *
+ * São dois funis diferentes, com custo e qualidade diferentes — por isso ficam
+ * também em colunas separadas. Este total existe para quem quer a leitura de
+ * topo, e não substitui olhar os dois em separado.
+ */
+export function extrairLeads(actions: unknown): number {
+  return extrairLeadsFormulario(actions) + extrairConversas(actions);
 }
 
 function num(v: unknown): number {
@@ -88,6 +122,15 @@ export function paraLinhaBase(l: any, adAccountId: string): LinhaBase {
     action_values: l?.action_values ?? null,
     cost_per_action_type: l?.cost_per_action_type ?? null,
     leads: extrairLeads(l?.actions),
+    // Os dois funis em separado: lead de formulário e conversa de WhatsApp têm
+    // custo e qualidade diferentes, e somados num número só nenhuma das duas
+    // leituras sobrevive.
+    leads_formulario: extrairLeadsFormulario(l?.actions),
+    conversas_iniciadas: extrairConversas(l?.actions),
+    link_clicks: extrairAcao(l?.actions, 'link_click'),
+    landing_page_views: extrairAcao(l?.actions, 'landing_page_view'),
+    video_views: extrairAcao(l?.actions, 'video_view'),
+    engajamento: extrairAcao(l?.actions, 'post_engagement'),
   };
 }
 

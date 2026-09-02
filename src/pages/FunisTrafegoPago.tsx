@@ -13,6 +13,7 @@ import { VisaoGeralTrafego } from '@/components/trafego/VisaoGeralTrafego';
 import { HierarquiaAnuncios } from '@/components/trafego/HierarquiaAnuncios';
 import { CriativosPainel } from '@/components/trafego/CriativosPainel';
 import { SecaoPendente } from '@/components/trafego/SecaoPendente';
+import { EventosMeta } from '@/components/trafego/EventosMeta';
 
 /**
  * Funis de Tráfego Pago — fase C.
@@ -69,7 +70,8 @@ export default function FunisTrafegoPago() {
     };
   }, [mes, conta, contas]);
 
-  const { atual, anterior, criativos, status, carregando, erro } = useFunilTrafego(filtros);
+  const { atual, anterior, criativos, eventos, status, carregando, erro } =
+    useFunilTrafego(filtros);
 
   const nomeConta =
     contas.find((c) => c.ad_account_id === filtros.conta)?.nome ?? null;
@@ -142,6 +144,8 @@ export default function FunisTrafegoPago() {
         <HierarquiaAnuncios filtros={filtros} />
 
         <CriativosPainel criativos={criativos} />
+
+        <EventosMeta eventos={eventos} />
 
         <SecaoPendente
           titulo="Comportamento no site"

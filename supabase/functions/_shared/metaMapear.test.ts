@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { extrairLeads, paraLinhaBase, paraLinhaRecorte } from './metaMapear.ts';
+import {
+  extrairLeads, extrairLeadsFormulario, extrairConversas, extrairAcao,
+  paraLinhaBase, paraLinhaRecorte,
+} from './metaMapear.ts';
 
 describe('extrairLeads', () => {
-  it('soma os tipos que contam como lead', () => {
+  it('soma lead de formulario com conversa iniciada', () => {
     expect(
       extrairLeads([
         { action_type: 'lead', value: '3' },
@@ -10,6 +13,29 @@ describe('extrairLeads', () => {
         { action_type: 'link_click', value: '99' },
       ])
     ).toBe(5);
+  });
+
+  // A Meta devolve `lead` como TOTAL que ja inclui `fb_pixel_lead` e
+  // `lead_grouped`. Verificado em producao: em 121 de 121 linhas, lead era
+  // exatamente a soma das duas. Somar as tres contava todo lead de formulario
+  // duas vezes -- 20% de inflacao no total e CPL ~17% mais barato do que e.
+  it('NAO conta em dobro: lead ja engloba fb_pixel_lead e lead_grouped', () => {
+    expect(
+      extrairLeads([
+        { action_type: 'lead', value: '589' },
+        { action_type: 'offsite_conversion.fb_pixel_lead', value: '497' },
+        { action_type: 'onsite_conversion.lead_grouped', value: '92' },
+      ])
+    ).toBe(589);
+  });
+
+  it('usa os componentes quando o total agregado nao vem', () => {
+    expect(
+      extrairLeads([
+        { action_type: 'offsite_conversion.fb_pixel_lead', value: '10' },
+        { action_type: 'onsite_conversion.lead_grouped', value: '4' },
+      ])
+    ).toBe(14);
   });
 
   it('tolera entrada que não é lista', () => {
@@ -39,6 +65,38 @@ const cru = {
   actions: [{ action_type: 'lead', value: '4' }],
   action_values: [{ action_type: 'lead', value: '250' }],
 };
+
+describe('separacao dos dois funis', () => {
+  // Lead de formulario e conversa de WhatsApp sao funis diferentes, com custo e
+  // qualidade diferentes. Somados num numero so, nenhuma das duas leituras
+  // sobrevive.
+  it('separa lead de formulario de conversa iniciada', () => {
+    const a = [
+      { action_type: 'lead', value: '10' },
+      { action_type: 'onsite_conversion.messaging_conversation_started_7d', value: '40' },
+    ];
+    expect(extrairLeadsFormulario(a)).toBe(10);
+    expect(extrairConversas(a)).toBe(40);
+  });
+
+  it('conta zero quando o funil nao existe naquele anuncio', () => {
+    expect(extrairConversas([{ action_type: 'lead', value: '10' }])).toBe(0);
+    expect(extrairLeadsFormulario([{ action_type: 'link_click', value: '9' }])).toBe(0);
+  });
+});
+
+describe('metricas de entrega', () => {
+  it('extrai o evento pedido pelo nome', () => {
+    const a = [
+      { action_type: 'link_click', value: '30' },
+      { action_type: 'landing_page_view', value: '18' },
+      { action_type: 'video_view', value: '200' },
+    ];
+    expect(extrairAcao(a, 'link_click')).toBe(30);
+    expect(extrairAcao(a, 'landing_page_view')).toBe(18);
+    expect(extrairAcao(a, 'nao_existe')).toBe(0);
+  });
+});
 
 describe('paraLinhaBase', () => {
   it('converte número que a Meta manda como string', () => {
