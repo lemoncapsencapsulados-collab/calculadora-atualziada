@@ -12,12 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy } from 'lucide-react';
+import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy, FlaskConical } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
+import EditarFormulaDialog from './EditarFormulaDialog';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 
 import { Formula } from '@/types/formula';
@@ -77,6 +78,7 @@ export default function PrecificacoesSalvas({
   const [formulaParaVer, setFormulaParaVer] = useState<Formula | null>(null);
 
   // Duplicação
+  const [editandoFormula, setEditandoFormula] = useState<PrecificacaoComFormula | null>(null);
   const [duplicarPrecificacao, setDuplicarPrecificacao] = useState<PrecificacaoComFormula | null>(null);
   const [duplicarCliente, setDuplicarCliente] = useState('');
   const [duplicarFormula, setDuplicarFormula] = useState('');
@@ -332,6 +334,16 @@ export default function PrecificacoesSalvas({
                       <Eye className="w-4 h-4 mr-2" />
                       Ver Fórmula
                     </Button>
+                    {precificacao.formula_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditandoFormula(precificacao)}
+                      >
+                        <FlaskConical className="w-4 h-4 mr-2" />
+                        Editar Fórmula
+                      </Button>
+                    )}
                     {!ehCatalogo(precificacao) && (
                       <>
                         <Button 
@@ -407,6 +419,24 @@ export default function PrecificacoesSalvas({
             </div>
           )}
         </div>
+      )}
+
+      {editandoFormula?.formula_id && (
+        <EditarFormulaDialog
+          open
+          onOpenChange={(o) => !o && setEditandoFormula(null)}
+          precificacaoId={editandoFormula.id}
+          formulaId={editandoFormula.formula_id}
+          nomeFormula={editandoFormula.formulas?.nome_formula || 'Fórmula'}
+          tipoProduto={editandoFormula.formulas?.tipo_produto || ''}
+          custoEmbalagem={Number(editandoFormula.custo_embalagem) || 0}
+          precoVendaAtual={Number(editandoFormula.preco_venda) || 0}
+          configuracaoAtiva={configuracaoAtiva}
+          onSalvo={() => {
+            queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+            queryClient.invalidateQueries({ queryKey: ['formulas'] });
+          }}
+        />
       )}
 
       {/* Dialog de Edição */}

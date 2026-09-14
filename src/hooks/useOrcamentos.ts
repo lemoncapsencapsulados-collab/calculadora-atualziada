@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { numeroAoPagar, numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
 import { Orcamento, OrcamentoInsert, OrcamentoUpdate, OrcamentoSnapshot, ItemProducao, ServicoMarca, DadosCliente, DetalhamentoFrete, CondicoesPagamento, ContatoOrcamento } from '@/types/orcamento';
 import { useToast } from '@/hooks/use-toast';
 
@@ -282,6 +283,52 @@ export function useOrcamentos(options?: { enabled?: boolean }) {
     },
   });
 
+  /**
+   * Atribui o numero definitivo quando o orcamento e' pago.
+   *
+   * A sequencia e' do cliente e conta so' os pagos, entao o numero so' pode ser
+   * decidido aqui -- na criacao ainda nao se sabe se o orcamento vira pedido.
+   * Devolve o numero novo para quem chamou usar no snapshot do pedido.
+   */
+  const definirNumeroAoPagar = async ({
+    id,
+    clienteId,
+    nomeCliente,
+    numeroAtual,
+  }: {
+    id: string;
+    clienteId?: string | null;
+    nomeCliente?: string | null;
+    numeroAtual: string;
+  }): Promise<string> => {
+    let consulta = supabase
+      .from('orcamentos')
+      .select('numero_orcamento, data_pagamento, created_at')
+      .eq('status', 'pago')
+      .neq('id', id);
+
+    // O cliente cadastrado e' o vinculo confiavel; o nome e' o fallback de
+    // registros antigos que nunca receberam cliente_id.
+    consulta = clienteId
+      ? consulta.eq('cliente_id', clienteId)
+      : consulta.ilike('nome_cliente', (nomeCliente || '').trim());
+
+    const { data, error } = await consulta;
+    if (error) throw error;
+
+    const novo = numeroAoPagar(numeroAtual, data || []);
+    const { error: erroUpdate } = await supabase
+      .from('orcamentos')
+      .update({
+        numero_orcamento: novo,
+        ...({ numero_contrato: numeroContratoDoMes(new Date()) } as any),
+      })
+      .eq('id', id);
+    if (erroUpdate) throw erroUpdate;
+
+    return novo;
+  };
+
   // Adicionar item ao histórico de contatos
   const addContato = useMutation({
     mutationFn: async ({ id, contato }: { id: string; contato: Omit<ContatoOrcamento, 'id'> }) => {
@@ -420,6 +467,7 @@ export function useOrcamentos(options?: { enabled?: boolean }) {
     updateDetalhamentoFrete,
     updateObservacoesInternas,
     addContato,
+    definirNumeroAoPagar,
     removeContato,
     getNextNumeroOrcamento,
   };

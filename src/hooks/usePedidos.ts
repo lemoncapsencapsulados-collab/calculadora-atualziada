@@ -252,7 +252,13 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
         return data;
       }
 
-      const nextNum = await getNextPedNumber();
+      // O numero do Pedido de Compra e' o proprio numero do orcamento quando ele
+      // ja' foi renumerado pela sequencia do cliente (400, 400-01...). Orcamentos
+      // antigos continuam com ORC-xxx e caem na sequencia PED-xxx de sempre.
+      const numeroCliente = (orcamento.numero_orcamento || '').trim();
+      const nextNum = /^\d+(-\d+)?$/.test(numeroCliente)
+        ? numeroCliente
+        : await getNextPedNumber();
       const totalQtd = (orcamento.itens_producao || []).reduce((sum: number, item) => sum + (item.quantidade || 1), 0);
 
       const { data, error } = await supabase
@@ -269,6 +275,7 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
           formula_id: null,
           formula_snapshot: null,
           observacoes: orcamento.observacoes || null,
+          ...({ numero_contrato: (orcamento as any).numero_contrato || null } as any),
         }])
         .select()
         .single();

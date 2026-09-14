@@ -182,7 +182,7 @@ function CidadeSelectPJ({ estado, cidade, onChange }: { estado: string; cidade: 
 }
 
 export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess }: AprovacaoOrcamentoDialogProps) {
-  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus } = useOrcamentos({ enabled: false });
+  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento, updateStatus, definirNumeroAoPagar } = useOrcamentos({ enabled: false });
   const { createPedidoFromOrcamento, registrarVhsysAsync } = usePedidos({ enabled: false });
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
 
@@ -541,8 +541,25 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
         data_pagamento: dataPagamento!.toISOString(),
       });
 
+      // So' agora da' para numerar: a sequencia do cliente conta apenas os pagos.
+      // Tem que vir antes do pedido, senao o snapshot carregaria o numero velho.
+      let numeroDefinitivo = orcamento.numero_orcamento;
+      try {
+        numeroDefinitivo = await definirNumeroAoPagar({
+          id: orcamento.id,
+          clienteId: (orcamento as any).cliente_id,
+          nomeCliente: orcamento.nome_cliente,
+          numeroAtual: orcamento.numero_orcamento,
+        });
+      } catch (err: any) {
+        // Numeracao nao pode barrar a aprovacao: o pedido segue com o numero atual.
+        console.error('Erro ao definir o número do orçamento:', err);
+        sonnerToast.error('Não foi possível gerar o número definitivo; o orçamento manteve o número atual.');
+      }
+
       const orcamentoCompleto = {
         ...orcamento,
+        numero_orcamento: numeroDefinitivo,
         itens_producao: itensComDetalhes,
         dados_cliente: dadosClienteCompletos,
         detalhamento_frete: detalhamentoFrete,

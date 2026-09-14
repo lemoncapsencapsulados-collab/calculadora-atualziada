@@ -1161,7 +1161,12 @@ const Pedidos = () => {
                   </p>
                   <div className="space-y-2">
                     {grupo.pedidos.map((pedido: any, indice: number) => {
-                      const { numeroContrato, completo } = parseNumeroPedido(pedido.numero_pedido);
+                      // O contrato e' o campo proprio (YYMM ou o numero do
+                      // financeiro). So' cai no parse do numero para os pedidos
+                      // antigos, do formato {contrato}-{sequencial}.
+                      const doParse = parseNumeroPedido(pedido.numero_pedido);
+                      const numeroContrato = pedido.numero_contrato || doParse.numeroContrato;
+                      const completo = !!numeroContrato;
                       // Sequencial do Pedido de Compra dentro do produtor: a lista
                       // ja' vem ordenada por data de pagamento, entao e' a posicao.
                       const numeroCompra = String(indice + 1).padStart(2, '0');
