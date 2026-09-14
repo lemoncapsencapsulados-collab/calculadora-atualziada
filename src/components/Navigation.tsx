@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Package, Calculator, ClipboardList, DollarSign, Receipt,
   LayoutDashboard, LogOut, Menu, Users, Shield, HeartHandshake, FileSignature,
-  Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown, MessageCircle, Brain, Filter } from 'lucide-react';
+  Webhook, Mail, CreditCard, Megaphone, FileEdit, Truck, Search, ChevronDown, MessageCircle, Brain, Filter, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTemPapel } from '@/hooks/useTemPapel';
 import { LemoncapsLogo } from '@/components/LemoncapsLogo';
@@ -64,6 +64,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Análise',
     items: [
+      { to: '/analise-orcamentos', label: 'Análise de Orçamentos', short: 'Análise', icon: Lightbulb },
       { to: '/dashboard', label: 'Dashboard', short: 'Dashboard', icon: LayoutDashboard },
       { to: '/investimento-anuncios', label: 'Investimento em Anúncios', short: 'Anúncios', icon: Megaphone },
     ],

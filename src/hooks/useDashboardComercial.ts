@@ -1,3 +1,4 @@
+import type { ContatoOrcamento } from '@/types/orcamento';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,7 +76,7 @@ interface OrcamentoData {
   itens_producao: any;
   data_envio?: string | null;
   observacoes_internas?: string | null;
-  historico_contatos?: Array<{ id: string; data: string; tipo: 'envio' | 'contato'; observacao: string }> | null;
+  historico_contatos?: ContatoOrcamento[] | null;
 }
 
 interface ItemProducao {
@@ -114,7 +115,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return (data || []) as OrcamentoData[];
+      return (data || []) as unknown as OrcamentoData[];
     }
   });
 
@@ -240,6 +241,7 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
 
       return {
         orcamento_id: o.id,
+        historico_contatos: hist,
         numero_orcamento: o.numero_orcamento || undefined,
         cliente: (o.nome_cliente || 'Sem cliente').trim(),
         consultor: (o.consultor_responsavel || 'Sem consultor').trim(),

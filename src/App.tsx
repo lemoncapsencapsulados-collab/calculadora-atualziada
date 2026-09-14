@@ -24,6 +24,7 @@ const ZapVendas = lazy(() => import("./pages/ZapVendas"));
 const ZapInteligencia = lazy(() => import("./pages/ZapInteligencia"));
 const LeadsOrcamento = lazy(() => import("./pages/LeadsOrcamento"));
 const DashboardComercial = lazy(() => import("./pages/DashboardComercial"));
+const AnaliseOrcamentos = lazy(() => import("./pages/AnaliseOrcamentos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PainelAdministrador = lazy(() => import("./pages/PainelAdministrador"));
 const SucessoCliente = lazy(() => import("./pages/SucessoCliente"));
@@ -106,6 +107,7 @@ const AppContent = () => {
             <Route path="/pedidos" element={<Pedidos />} />
             <Route path="/sucesso-cliente" element={<SucessoCliente />} />
             <Route path="/inventario" element={<Inventario />} />
+            <Route path="/analise-orcamentos" element={<AnaliseOrcamentos />} />
             <Route path="/dashboard" element={<DashboardComercial />} />
             <Route path="/painel-administrador" element={<PainelAdministrador />} />
             <Route path="/configuracao-contratos" element={<ConfiguracaoContratos />} />

@@ -1,3 +1,4 @@
+import type { ContatoOrcamento } from '@/types/orcamento';
 export interface DashboardFiltros {
   consultor: string | null;
   periodoTipo: 'mensal' | 'bimestral' | 'trimestral' | 'semestral' | 'customizado';
@@ -100,6 +101,8 @@ export interface OrcamentoDetalhado {
   /** true quando o orçamento é anterior ao período mas continua em aberto */
   foraDoPeriodo?: boolean;
   emAberto: boolean;
+  /** Historico completo, para a Analise de Orcamentos montar a linha do tempo. */
+  historico_contatos?: ContatoOrcamento[];
 }
 
 export interface OrcamentoEmAberto {

@@ -5,7 +5,6 @@ import { useDashboardComercial } from '@/hooks/useDashboardComercial';
 import { DashboardKPIs } from '@/components/dashboard/DashboardKPIs';
 import { DashboardFiltrosComponent } from '@/components/dashboard/DashboardFiltros';
 import { DashboardVendas } from '@/components/dashboard/DashboardVendas';
-import { DashboardInsights } from '@/components/dashboard/DashboardInsights';
 import { DashboardOrcamentos, DashboardOrcamentosDistribuicao } from '@/components/dashboard/DashboardOrcamentos';
 import { DashboardAlteracoesPagamento } from '@/components/dashboard/DashboardAlteracoesPagamento';
 import { AnaliseVendedorDialog } from '@/components/dashboard/AnaliseVendedorDialog';
@@ -32,8 +31,6 @@ export default function DashboardComercial() {
     pipelineConsultores,
     produtosMaisVendidos,
     mixVendas,
-    insights,
-    orcamentosDetalhados,
     vendasPorTipo,
     clientesPorModelo,
     orcamentosPorConsultorStatus,
@@ -97,7 +94,6 @@ export default function DashboardComercial() {
       <DashboardOrcamentosDistribuicao dados={orcamentosPorConsultorStatus} />
 
       {/* Insights */}
-      <DashboardInsights insights={insights} orcamentosDetalhados={orcamentosDetalhados} />
 
       {/* Funil de Anúncios (Leads → Orçamentos → Vendas) */}
       <DashboardFunilAnuncios

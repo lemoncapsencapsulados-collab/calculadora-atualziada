@@ -347,18 +347,18 @@ export default function Precificacao() {
       </div>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+        <TabsList className="grid h-auto w-full max-w-3xl grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="produtos" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
             Produtos Criados
           </TabsTrigger>
-          <TabsTrigger value="salvas" className="flex items-center gap-2">
+          <TabsTrigger value="salvas" className="flex h-auto items-center gap-2 whitespace-normal py-2 text-center">
             <FileText className="w-4 h-4" />
-            Produtos Precificados
+            Private Label (Fórmulas Personalizadas)
           </TabsTrigger>
-          <TabsTrigger value="catalogo" className="flex items-center gap-2">
+          <TabsTrigger value="catalogo" className="flex h-auto items-center gap-2 whitespace-normal py-2 text-center">
             <Star className="w-4 h-4" />
-            Produtos do Catálogo
+            White Label (Fórmulas do Catálogo)
           </TabsTrigger>
         </TabsList>
 

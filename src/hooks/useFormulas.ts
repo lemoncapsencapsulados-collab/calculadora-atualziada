@@ -125,6 +125,9 @@ export function useFormulas() {
     formulas,
     loading: isLoading,
     addFormula: addFormula.mutate,
+    // Versao async: quem precisa do id da formula recem-criada (ex.: para
+    // vincular uma precificacao) usa esta.
+    addFormulaAsync: addFormula.mutateAsync,
     deleteFormula: deleteFormula.mutate,
     updateFormula: updateFormula.mutate,
   };

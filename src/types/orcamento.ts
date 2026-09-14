@@ -177,11 +177,22 @@ export interface IntermediadorOrcamento {
 
 export type TipoContato = 'envio' | 'contato';
 
+/** Como o cliente reagiu no checkup. E' o que colore o card na Analise. */
+export type ResultadoCheckup = 'positiva' | 'negativa' | 'neutra';
+
 export interface ContatoOrcamento {
   id: string;
   data: string; // ISO timestamp
   tipo: TipoContato;
   observacao: string;
+  /** Campos do checkup. Opcionais: o historico antigo nao os tem. */
+  resultado?: ResultadoCheckup;
+  /** Objecao principal do cliente, da taxonomia em `lib/checkupOrcamento`. */
+  objecao?: string;
+  /** O que foi combinado de fazer a seguir. */
+  proximo_passo?: string;
+  /** Quem registrou, para o gestor saber de quem veio a nota. */
+  registrado_por?: string;
 }
 
 export interface OrcamentoSnapshot {

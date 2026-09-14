@@ -14,6 +14,11 @@ import ImportarDoseDialog from '@/components/ImportarDoseDialog';
 import { useInsumos } from '@/hooks/useInsumos';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { useFormulas } from '@/hooks/useFormulas';
+import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
+import { usePrecificacao } from '@/hooks/usePrecificacao';
+import SalvarCalculoDialog, {
+  CLIENTE_CATALOGO, type SalvarCalculoResultado,
+} from '@/components/SalvarCalculoDialog';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatCurrencyPrecise, formatUnit } from '@/lib/unitConversion';
@@ -58,8 +63,13 @@ export default function Calculator() {
     loading: loadingEmbalagens
   } = useEmbalagens();
   const {
-    addFormula
+    addFormula,
+    addFormulaAsync
   } = useFormulas();
+  const { configuracaoAtiva } = useConfiguracaoCustos();
+  const { salvarPrecificacao } = usePrecificacao();
+  const [salvarDialogAberto, setSalvarDialogAberto] = useState(false);
+  const [salvandoCalculo, setSalvandoCalculo] = useState(false);
 
   // Load formula from "Carregar no Calculador" if present
   useEffect(() => {
@@ -511,7 +521,33 @@ export default function Calculator() {
     
     toast.success(`${parsedItems.length} matéria${parsedItems.length !== 1 ? 's' : ''}-prima${parsedItems.length !== 1 ? 's' : ''} importada${parsedItems.length !== 1 ? 's' : ''}!`);
   };
-  const handleSave = async () => {
+  /** Valida o que da' para validar antes de abrir o dialogo de departamento. */
+  const handleSave = () => {
+    if (capacidadeExcedida) {
+      toast.error('Capacidade de matéria-prima por dose excedida. Ajuste as quantidades antes de salvar.');
+      return;
+    }
+    if (!cliente.trim()) {
+      toast.error('Informe o nome do cliente');
+      return;
+    }
+    if (calculatedItems.filter(item => item && !item.error && item.custo > 0).length === 0) {
+      toast.error('Adicione pelo menos um item válido à fórmula');
+      return;
+    }
+    if (!configuracaoAtiva) {
+      toast.error('Configuração de custos não carregada. Tente novamente em instantes.');
+      return;
+    }
+    setSalvarDialogAberto(true);
+  };
+
+  /**
+   * Salva a formula e ja' cria a precificacao escolhida no dialogo. White Label
+   * grava no cliente do catalogo -- e' assim que o resto do sistema reconhece
+   * uma formula de catalogo.
+   */
+  const salvarComDepartamento = async ({ departamento, resultado }: SalvarCalculoResultado) => {
     if (capacidadeExcedida) {
       toast.error('Capacidade de matéria-prima por dose excedida. Ajuste as quantidades antes de salvar.');
       return;
@@ -567,9 +603,13 @@ export default function Calculator() {
       }
     });
     
+    // White Label pertence ao catalogo, nao ao cliente que estava na tela.
+    const ehCatalogo = departamento === 'white_label';
+    const clienteFormula = ehCatalogo ? CLIENTE_CATALOGO : (clienteSelecionado?.nome || cliente);
+
     const formulaData = {
-      cliente: clienteSelecionado?.nome || cliente,
-      cliente_id: clienteSelecionado?.id || null,
+      cliente: clienteFormula,
+      cliente_id: ehCatalogo ? null : (clienteSelecionado?.id || null),
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
@@ -582,18 +622,20 @@ export default function Calculator() {
       custo_total: custoTotal,
     };
 
+    setSalvandoCalculo(true);
     try {
       // Verificar se já existe fórmula com mesmo cliente e nome_formula (upsert)
       const { data: existing, error: searchError } = await supabase
         .from('formulas')
         .select('id')
-        .ilike('cliente', cliente.trim())
+        .ilike('cliente', clienteFormula.trim())
         .eq('nome_formula', (nomeFormula || 'Fórmula sem nome').trim())
         .limit(1)
         .maybeSingle();
 
       if (searchError) throw searchError;
 
+      let formulaId: string | undefined;
       if (existing) {
         // Atualizar fórmula existente
         const { error: updateError } = await supabase
@@ -602,16 +644,61 @@ export default function Calculator() {
           .eq('id', existing.id);
         
         if (updateError) throw updateError;
+        formulaId = existing.id;
         toast.success('Fórmula atualizada com sucesso!');
       } else {
         // Inserir nova
-        addFormula(formulaData);
+        const criada = await addFormulaAsync(formulaData as any);
+        formulaId = (criada as any)?.id;
+      }
+
+      // A precificacao escolhida no dialogo nasce junto com a formula.
+      if (formulaId && configuracaoAtiva) {
+        await salvarPrecificacao.mutateAsync({
+          formula_id: formulaId,
+          configuracao_custos_id: configuracaoAtiva.id,
+          custo_materia_prima: resultado.custoMateriaPrima,
+          custo_embalagem: resultado.custoEmbalagem,
+          custo_mao_obra_direta: resultado.custoMaoObraDireta,
+          custo_energia: resultado.custoEnergia,
+          custo_depreciacao: resultado.custoDepreciacao,
+          custo_administrativo: resultado.custoAdministrativo,
+          subtotal_custos_diretos: resultado.subtotalCustosDiretos,
+          subtotal_custos_indiretos: resultado.subtotalCustosIndiretos,
+          margem_seguranca: resultado.margemSeguranca,
+          total_custos_producao: resultado.totalCustosProducao,
+          icms_credito_nf: resultado.icmsCreditoNF,
+          icms_saida: resultado.icmsSaida,
+          icms_credito_prodeic: resultado.icmsCreditoProdeic,
+          fundeb_fundes: resultado.fundebFundes,
+          icms_recolher: resultado.icmsRecolher,
+          pis_cofins_saida: resultado.pisCOFINSSaida,
+          pis_cofins_credito: resultado.pisCOFINSCredito,
+          pis_cofins_recolher: resultado.pisCOFINSRecolher,
+          ipi_valor: resultado.ipiValor,
+          base_calculo_irpj_csll: resultado.baseCalculoIRPJCSLL,
+          irpj_csll_valor: resultado.irpjCsllValor,
+          total_impostos: resultado.totalImpostos,
+          preco_venda: resultado.precoVenda,
+          markup_bruto: resultado.markupBruto,
+          margem_lucro_percentual: resultado.margemLucroPercentual,
+          margem_lucro_valor: resultado.margemLucroValor,
+        } as any);
+        toast.success(
+          ehCatalogo
+            ? 'Salvo em White Label (Fórmulas do Catálogo).'
+            : 'Salvo em Private Label (Fórmulas Personalizadas).',
+        );
       }
     } catch (error: any) {
       console.error('Erro ao salvar fórmula:', error);
       toast.error('Erro ao salvar fórmula: ' + error.message);
       return;
+    } finally {
+      setSalvandoCalculo(false);
     }
+
+    setSalvarDialogAberto(false);
 
     // Reset form
     setCliente('');
@@ -1409,6 +1496,18 @@ export default function Calculator() {
         </Button>
       </div>
       </>}
+
+      <SalvarCalculoDialog
+        open={salvarDialogAberto}
+        onOpenChange={setSalvarDialogAberto}
+        nomeFormula={nomeFormula}
+        tipoProduto={tipoProduto}
+        totalMp={totalMP}
+        totalEmbalagem={totalEmbalagem}
+        configuracaoAtiva={configuracaoAtiva}
+        salvando={salvandoCalculo}
+        onConfirmar={salvarComDepartamento}
+      />
 
       {/* Dialog para importar dose copiada */}
       <ImportarDoseDialog
