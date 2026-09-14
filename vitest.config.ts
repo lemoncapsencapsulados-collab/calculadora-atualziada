@@ -1,6 +1,11 @@
+import path from 'path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Mesmo alias do vite.config.ts, senao os modulos de src/ nao resolvem '@/'.
+  resolve: {
+    alias: { '@': path.resolve(__dirname, './src') },
+  },
   test: {
     // Os módulos de `_shared` são TypeScript puro, sem nenhuma API do Deno — é
     // isso que permite testá-los aqui, sem subir uma edge function. Manter essa

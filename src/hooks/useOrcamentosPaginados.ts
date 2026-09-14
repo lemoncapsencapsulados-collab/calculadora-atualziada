@@ -18,14 +18,63 @@ interface UseOrcamentosPaginadosParams {
   pageSize: number;
   searchTerm: string;
   consultorFilter?: string;
+  /** Recorte de data sobre created_at, em ISO. O filtro precisa ir na consulta:
+   *  filtrar so' a pagina atual daria contagem e resultado errados. */
+  dataInicio?: string;
+  dataFim?: string;
   enabled?: boolean;
 }
 
-export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFilter, enabled = true }: UseOrcamentosPaginadosParams) {
+interface UseTopOrcamentosParams {
+  consultorFilter?: string;
+  dataInicio?: string;
+  dataFim?: string;
+  limite?: number;
+  enabled?: boolean;
+}
+
+/**
+ * Os maiores orcamentos do recorte, por valor. Vai ao banco com `order` e
+ * `limit` proprios -- ordenar a pagina atual devolveria o topo daquela pagina,
+ * nao o topo do periodo.
+ */
+export function useTopOrcamentosPorValor({
+  consultorFilter,
+  dataInicio,
+  dataFim,
+  limite = 5,
+  enabled = true,
+}: UseTopOrcamentosParams) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['orcamentos-top-valor', consultorFilter, dataInicio, dataFim, limite],
+    enabled,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      let query = supabase
+        .from('orcamentos')
+        .select('*')
+        .order('valor_total', { ascending: false })
+        .limit(limite);
+
+      if (consultorFilter) query = query.eq('consultor_responsavel', consultorFilter);
+      if (dataInicio) query = query.gte('created_at', dataInicio);
+      if (dataFim) query = query.lte('created_at', dataFim);
+
+      const { data: rows, error } = await query;
+      if (error) throw error;
+      return (rows || []).map(parseOrcamento);
+    },
+  });
+
+  return { topOrcamentos: data ?? [], isLoading };
+}
+
+export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFilter, dataInicio, dataFim, enabled = true }: UseOrcamentosPaginadosParams) {
   const trimmed = searchTerm.trim();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orcamentos-paginados', page, pageSize, trimmed, consultorFilter],
+    queryKey: ['orcamentos-paginados', page, pageSize, trimmed, consultorFilter, dataInicio, dataFim],
     enabled,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
@@ -42,6 +91,8 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFi
       if (consultorFilter) {
         countQuery = countQuery.eq('consultor_responsavel', consultorFilter);
       }
+      if (dataInicio) countQuery = countQuery.gte('created_at', dataInicio);
+      if (dataFim) countQuery = countQuery.lte('created_at', dataFim);
 
       const { count, error: countError } = await countQuery;
       if (countError) throw countError;
@@ -63,6 +114,8 @@ export function useOrcamentosPaginados({ page, pageSize, searchTerm, consultorFi
       if (consultorFilter) {
         dataQuery = dataQuery.eq('consultor_responsavel', consultorFilter);
       }
+      if (dataInicio) dataQuery = dataQuery.gte('created_at', dataInicio);
+      if (dataFim) dataQuery = dataQuery.lte('created_at', dataFim);
 
       const { data: rows, error: dataError } = await dataQuery;
       if (dataError) throw dataError;

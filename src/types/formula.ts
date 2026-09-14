@@ -130,6 +130,14 @@ export interface Pedido {
   formula_snapshot?: Formula;
   orcamento_snapshot?: OrcamentoSnapshot;
   acompanhamento_processos?: AcompanhamentoProcessos;
+  /** Pedido de Compra: contrato de fabricacao ao qual este pedido esta' vinculado. */
+  numero_contrato?: string;
+  /** CNPJ/CPF do contratante, so' digitos -- base do sequencial do numero do pedido. */
+  cnpj_contratante?: string;
+  /** pendente_assinatura -> pre_aprovado -> aprovado. Ausente nos pedidos anteriores ao fluxo. */
+  status_aprovacao?: 'pendente_assinatura' | 'pre_aprovado' | 'aprovado';
+  /** Campos preenchidos do Pedido de Compra v3. */
+  pedido_compra_dados?: unknown;
   pagamento_alteracoes?: Array<{
     alterado_em: string;
     alterado_por?: string | null;

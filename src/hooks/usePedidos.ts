@@ -103,6 +103,11 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
         formula_snapshot: p.formula_snapshot as any || undefined,
         orcamento_snapshot: p.orcamento_snapshot as unknown as OrcamentoSnapshot | undefined,
         acompanhamento_processos: (p as any).acompanhamento_processos as AcompanhamentoProcessos | undefined,
+        // Pedido de Compra: o mapeamento e' explicito, entao campo novo tem que entrar aqui.
+        numero_contrato: (p as any).numero_contrato || undefined,
+        cnpj_contratante: (p as any).cnpj_contratante || undefined,
+        status_aprovacao: (p as any).status_aprovacao || undefined,
+        pedido_compra_dados: (p as any).pedido_compra_dados || undefined,
         pagamento_alteracoes: ((p as any).pagamento_alteracoes as PagamentoAlteracao[]) || [],
         historico_vhsys: (((p as any).historico_vhsys as HistoricoVhsysEntry[]) || []),
         created_at: new Date(p.created_at),
@@ -325,6 +330,59 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
     },
     onError: () => {
       toast.error('Erro ao atualizar observações');
+    },
+  });
+
+  /**
+   * Vincula um Pedido de Compra ao pedido: numero de contrato, numero definitivo
+   * (`contrato-sequencial`) e os campos do documento. O pedido entra como
+   * pendente de assinatura -- so' o retorno do ZapSign o move para pre-aprovado.
+   */
+  const vincularPedidoCompra = useMutation({
+    mutationFn: async ({
+      id,
+      numeroContrato,
+      numeroPedido,
+      cnpjContratante,
+      dados,
+    }: {
+      id: string;
+      numeroContrato: string;
+      numeroPedido: string;
+      cnpjContratante: string;
+      dados: unknown;
+    }) => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .update({
+          numero_contrato: numeroContrato,
+          numero_pedido: numeroPedido,
+          cnpj_contratante: cnpjContratante,
+          status_aprovacao: 'pendente_assinatura',
+          pedido_compra_dados: dados as any,
+        } as any)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast.success('Pedido de Compra vinculado. Falta a assinatura do cliente e da Lemon.');
+    },
+    onError: (error: any) => {
+      // 42703/PGRST204: as colunas do Pedido de Compra ainda nao existem no banco.
+      const semColuna =
+        error?.code === '42703' ||
+        error?.code === 'PGRST204' ||
+        /column .* does not exist/i.test(error?.message || '');
+      toast.error(
+        semColuna
+          ? 'A migração do Pedido de Compra ainda não foi aplicada no banco. O PDF pode ser baixado normalmente, mas o vínculo com o pedido só grava depois dela.'
+          : `Erro ao vincular o Pedido de Compra: ${error.message}`,
+      );
     },
   });
 
@@ -581,6 +639,7 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
     deletePedidoAsync: deletePedido.mutateAsync,
     deletandoPedido: deletePedido.isPending,
     alterarPagamento: alterarPagamento.mutateAsync,
+    vincularPedidoCompra: vincularPedidoCompra.mutateAsync,
     toggleParcelaPagaAsync: toggleParcelaPaga.mutateAsync,
     registrarVhsysAsync: registrarVhsys.mutateAsync,
   };

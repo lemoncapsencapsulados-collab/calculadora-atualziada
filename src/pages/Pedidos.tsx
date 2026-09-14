@@ -14,8 +14,8 @@ import {
 import { 
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
-  FileSpreadsheet, ChevronDown, ChevronUp, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw,
-  MoreVertical,
+  FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw,
+  MoreVertical, ShoppingCart, AlertTriangle, FileSignature,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
@@ -49,25 +49,18 @@ import AcompanhamentoProcessos from '@/components/AcompanhamentoProcessos';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
-import { buildWhatsappUrl, isTelefoneValido } from '@/lib/whatsapp';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  CATEGORIAS_ENTREGAVEIS, EntregavelCategoria, extrairTodasDemandas,
-} from '@/lib/entregaveis';
-import DemandasSetupResumo from '@/components/pedidos/DemandasSetupResumo';
-import SubpaginaEntregaveis from '@/components/pedidos/SubpaginaEntregaveis';
+import { buildWhatsappUrl, formatTelefone, isTelefoneValido } from '@/lib/whatsapp';
 import AdicionarRecompraDialog from '@/components/pedidos/AdicionarRecompraDialog';
-import AdicionarMarcaDialog from '@/components/AdicionarMarcaDialog';
-import { Tag, Plus } from 'lucide-react';
-import DemandasMarcaDialog from '@/components/pedidos/DemandasMarcaDialog';
-import PainelDemandasMarcaDialog from '@/components/pedidos/PainelDemandasMarcaDialog';
-import { useDemandasMarca } from '@/hooks/useDemandasMarca';
-import { Sparkles } from 'lucide-react';
+import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
+import type { Orcamento } from '@/types/orcamento';
+import { MSG_PEDIDO_INCOMPLETO, compararPorSequencial, parseNumeroPedido } from '@/lib/numeroPedido';
+import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
+import PreviewPdfDialog from '@/components/PreviewPdfDialog';
+import {
+  STATUS_APROVACAO_CLASSE, STATUS_APROVACAO_LABEL, type StatusAprovacao,
+} from '@/types/pedidoCompra';
 
 const getStatusFromAcompanhamento = (acomp?: AcompanhamentoType): StatusPedido | null => {
   if (!acomp) return null;
@@ -102,6 +95,89 @@ const getPedidoValorEfetivo = (snap: any): number => {
   return somaItens + somaServicos;
 };
 
+
+/** Um produtor e' um CNPJ (ou, sem CNPJ, um cliente) com todos os seus pedidos. */
+interface GrupoProdutor {
+  chave: string;
+  /** Id do cliente cadastrado, quando existe. E' o que pre-seleciona o cliente
+   *  no gerador de orcamento -- sem ele o campo abre vazio. */
+  clienteId?: string;
+  cnpj: string;
+  razaoSocial: string;
+  nomeCliente: string;
+  telefone: string;
+  /** Do primeiro pedido para o mais recente. */
+  pedidos: any[];
+}
+
+const normalizeDoc = (doc: string | null | undefined): string => (doc || '').replace(/\D/g, '');
+
+/**
+ * O Pedido de Compra pode partir de um pedido que ja' existe ou de um orcamento
+ * de recompra recem-gerado, que ainda nao virou pedido.
+ */
+type AlvoPedidoCompra =
+  | { tipo: 'pedido'; pedido: any; grupo: GrupoProdutor }
+  | { tipo: 'orcamento'; orcamento: Orcamento; grupo: GrupoProdutor };
+
+/**
+ * O caminho inverso: reconstitui um Orcamento a partir do snapshot do pedido,
+ * para gerar o mesmo PDF que "Orçamentos Gerados" entrega ao cliente. O snapshot
+ * ja' carrega tudo que o gerador le'; o resto e' preenchido com neutros.
+ */
+const snapshotComoOrcamento = (pedido: any): Orcamento => {
+  const snap = pedido?.orcamento_snapshot || {};
+  return {
+    id: pedido?.orcamento_id || pedido?.id || '',
+    numero_orcamento: snap.numero_orcamento || pedido?.numero_pedido || '',
+    nome_cliente: snap.nome_cliente || '',
+    cliente_id: snap.cliente_id,
+    consultor_responsavel: snap.consultor_responsavel,
+    tipo_orcamento: snap.tipo_orcamento || 'novo_produtor',
+    itens_producao: snap.itens_producao || [],
+    servicos_marca: snap.servicos_marca || [],
+    dados_cliente: snap.dados_cliente,
+    detalhamento_frete: snap.detalhamento_frete,
+    condicoes_pagamento: snap.condicoes_pagamento,
+    subtotal_producao: Number(snap.subtotal_producao) || 0,
+    subtotal_servicos: Number(snap.subtotal_servicos) || 0,
+    valor_total: Number(snap.valor_total) || 0,
+    observacoes: snap.observacoes,
+    forma_pagamento: snap.forma_pagamento,
+    validade_dias: Number(snap.validade_dias) || 7,
+    status: 'pago',
+    created_at: (pedido?.data_pedido instanceof Date
+      ? pedido.data_pedido
+      : new Date(pedido?.data_pedido || Date.now())
+    ).toISOString(),
+    updated_at: new Date().toISOString(),
+  } as Orcamento;
+};
+
+/** O orcamento tem os mesmos campos que o snapshot guarda; so' reempacota. */
+const orcamentoComoSnapshot = (o: Orcamento): any => ({
+  numero_orcamento: o.numero_orcamento,
+  nome_cliente: o.nome_cliente,
+  consultor_responsavel: o.consultor_responsavel,
+  tipo_orcamento: o.tipo_orcamento,
+  itens_producao: o.itens_producao || [],
+  servicos_marca: o.servicos_marca || [],
+  dados_cliente: o.dados_cliente,
+  detalhamento_frete: o.detalhamento_frete,
+  condicoes_pagamento: o.condicoes_pagamento,
+  subtotal_producao: o.subtotal_producao,
+  subtotal_servicos: o.subtotal_servicos,
+  valor_total: o.valor_total,
+  observacoes: o.observacoes,
+});
+
+/** Data que posiciona o pedido na linha do tempo do produtor. */
+const getDataPedidoOrdenacao = (pedido: any): Date | null => {
+  const raw = pedido.data_pedido || pedido.orcamento_snapshot?.data_pagamento || pedido.created_at;
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
 
 const getDataBaseEntrega = (pedido: any): Date => {
   const dataPgto = pedido.orcamento_snapshot?.data_pagamento;
@@ -168,10 +244,9 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, updateAcompanhamento, deletePedidoAsync, deletandoPedido, alterarPagamento } = usePedidos();
-  const { clientes } = useClientes();
+  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra, createPedidoFromOrcamento } = usePedidos();
+  const { clientes, atualizarCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
   const [dataInicioFiltro, setDataInicioFiltro] = useState<Date | undefined>();
   const [dataFimFiltro, setDataFimFiltro] = useState<Date | undefined>();
@@ -181,47 +256,17 @@ const Pedidos = () => {
   const [editingObs, setEditingObs] = useState<{ id: string; obs: string } | null>(null);
   const [fichaTecnicaPedido, setFichaTecnicaPedido] = useState<any>(null);
   const [documentosDialogPedidoId, setDocumentosDialogPedidoId] = useState<string | null>(null);
-  const [tabAtiva, setTabAtiva] = useState<string>('overview');
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
   const [pedidoParaEditarPagto, setPedidoParaEditarPagto] = useState<any | null>(null);
-  const [sortBy, setSortBy] = useState<'data_pagamento' | 'valor_faturado' | null>('data_pagamento');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [marcaDialog, setMarcaDialog] = useState<{ clienteId: string | null; razaoSocial: string; marcaAtual?: string } | null>(null);
-  const [demandasPedido, setDemandasPedido] = useState<any>(null);
-  const [painelDemandasAberto, setPainelDemandasAberto] = useState(false);
-  const [filtroMarca, setFiltroMarca] = useState<string>('todas');
-  const { demandas: todasDemandasMarca } = useDemandasMarca();
-
-  const contarDemandasPendentes = (pedidoId: string) =>
-    todasDemandasMarca.filter((d) => d.pedido_id === pedidoId && d.status !== 'concluida').length;
-
-  const renderBotaoDemandas = (pedido: any, className?: string) => {
-    const pendentes = contarDemandasPendentes(pedido.id);
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        className={className}
-        onClick={() => setDemandasPedido(pedido)}
-        title="Demandas de Marca"
-      >
-        <Sparkles className="h-4 w-4 mr-1" /> Demandas de Marca
-        {pendentes > 0 && (
-          <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{pendentes}</Badge>
-        )}
-      </Button>
-    );
-  };
-
-  const toggleSort = (col: 'data_pagamento' | 'valor_faturado') => {
-    if (sortBy === col) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortBy(col);
-      setSortDir('desc');
-    }
-  };
+  const [rascunhoRecompra, setRascunhoRecompra] = useState<
+    { rascunho: Partial<Orcamento>; grupo: GrupoProdutor } | null
+  >(null);
+  const [pedidoCompraAlvo, setPedidoCompraAlvo] = useState<AlvoPedidoCompra | null>(null);
+  const [orcamentoPdf, setOrcamentoPdf] = useState<Orcamento | null>(null);
+  const [editandoOrcamento, setEditandoOrcamento] = useState<
+    { orcamento: Orcamento; grupo: GrupoProdutor } | null
+  >(null);
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
   useEffect(() => {
@@ -241,7 +286,6 @@ const Pedidos = () => {
   const pedidoIds = useMemo(() => pedidos.map(p => p.id), [pedidos]);
   const { getAnexosPorPedido, uploadAnexo, deleteAnexo, reordenarAnexos } = usePedidoAnexos(pedidoIds);
 
-  const todasDemandas = useMemo(() => extrairTodasDemandas(pedidos as any), [pedidos]);
 
   const contratoInputRef = useRef<HTMLInputElement>(null);
   const comprovanteInputRef = useRef<HTMLInputElement>(null);
@@ -272,32 +316,19 @@ const Pedidos = () => {
     return Array.from(set).sort();
   }, [pedidos]);
 
-  const marcasContagem = useMemo(() => {
-    const counts = new Map<string, number>();
-    let semMarca = 0;
-    // build a quick lookup similar to getClienteVinculado without depending on the function
-    pedidos.forEach((p: any) => {
-      const snap = p.orcamento_snapshot;
-      const dc = snap?.dados_cliente || {};
-      const clienteId = snap?.cliente_id || dc.cliente_id;
-      let cliente = clienteId ? clientes.find(c => c.id === clienteId) : undefined;
-      if (!cliente) {
-        const nome = (dc.nome_completo || snap?.nome_cliente || p.formula_snapshot?.cliente || '').trim().toLowerCase();
-        if (nome) cliente = clientes.find(c => (c.nome || '').trim().toLowerCase() === nome);
-      }
-      const marca = (cliente?.marca || '').trim();
-      if (!marca) { semMarca += 1; return; }
-      counts.set(marca, (counts.get(marca) || 0) + 1);
-    });
-    const lista = Array.from(counts.entries())
-      .map(([marca, count]) => ({ marca, count }))
-      .sort((a, b) => a.marca.localeCompare(b.marca));
-    return { lista, semMarca };
-  }, [pedidos, clientes]);
 
   const clientesById = useMemo(() => {
     const map = new Map<string, Cliente>();
     clientes.forEach(c => map.set(c.id, c));
+    return map;
+  }, [clientes]);
+
+  const clientesByCnpj = useMemo(() => {
+    const map = new Map<string, Cliente>();
+    clientes.forEach((c) => {
+      const doc = normalizeDoc(c.cnpj) || normalizeDoc(c.cpf);
+      if (doc) map.set(doc, c);
+    });
     return map;
   }, [clientes]);
 
@@ -440,21 +471,9 @@ const Pedidos = () => {
           formulaSnap.nome_formula?.toLowerCase().includes(searchLower);
       }
 
-      const matchesStatus = filterStatus === 'todos' || pedido.status === filterStatus;
 
       const matchesConsultor = filtroConsultor === 'todos' || 
         (snapshot?.consultor_responsavel || '') === filtroConsultor;
-
-      let matchesMarca = true;
-      if (filtroMarca !== 'todas') {
-        const cliente = getClienteVinculado(pedido);
-        const marca = (cliente?.marca || '').trim();
-        if (filtroMarca === '__sem_marca__') {
-          matchesMarca = !marca;
-        } else {
-          matchesMarca = marca.toLowerCase() === filtroMarca.toLowerCase();
-        }
-      }
 
       let matchesData = true;
       if (dataInicioFiltro || dataFimFiltro) {
@@ -475,9 +494,9 @@ const Pedidos = () => {
         if (entregaFimFiltro && dataPrevStr > format(entregaFimFiltro, 'yyyy-MM-dd')) matchesEntrega = false;
       }
 
-      return matchesSearch && matchesStatus && matchesConsultor && matchesMarca && matchesData && matchesEntrega;
+      return matchesSearch && matchesConsultor && matchesData && matchesEntrega;
     });
-  }, [pedidos, searchTerm, filterStatus, filtroConsultor, filtroMarca, clientesById, clientesByNome, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
+  }, [pedidos, searchTerm, filtroConsultor, clientesById, clientesByNome, dataInicioFiltro, dataFimFiltro, entregaInicioFiltro, entregaFimFiltro]);
 
   const getValorFaturado = (pedido: any): number => {
     const snap = pedido.orcamento_snapshot;
@@ -508,66 +527,144 @@ const Pedidos = () => {
     const dc = snap?.dados_cliente || {};
     const clienteId = snap?.cliente_id || dc.cliente_id;
     if (clienteId && clientesById.has(clienteId)) return clientesById.get(clienteId)!;
+    // Antes do nome: o documento e' o identificador estavel do produtor, e o
+    // nome no snapshot costuma divergir do cadastro (grafia, razao x fantasia).
+    const doc = normalizeDoc(dc.cnpj) || normalizeDoc(dc.cpf) || normalizeDoc(pedido.cnpj_contratante);
+    if (doc && clientesByCnpj.has(doc)) return clientesByCnpj.get(doc)!;
     const nome = (dc.nome_completo || snap?.nome_cliente || pedido.formula_snapshot?.cliente || '').trim().toLowerCase();
     if (nome && clientesByNome.has(nome)) return clientesByNome.get(nome)!;
     return null;
   };
 
-  const renderMarcaInline = (pedido: any) => {
-    const cliente = getClienteVinculado(pedido);
-    const razao = getRazaoSocialOuNome(pedido);
-    if (cliente?.marca) {
-      return (
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-            <Tag className="h-3 w-3" />
-            {cliente.marca}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5"
-            title="Editar marca"
-            onClick={() => setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
-          >
-            <Pencil className="h-3 w-3" />
-          </Button>
-        </span>
-      );
-    }
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-        disabled={!cliente}
-        title={cliente ? 'Adicionar marca' : 'Cliente ainda não cadastrado'}
-        onClick={() => cliente && setMarcaDialog({ clienteId: cliente.id, razaoSocial: razao, marcaAtual: cliente.marca })}
-      >
-        <Plus className="h-3 w-3 mr-1" /> Adicionar marca
-      </Button>
+  /**
+   * Agrupa os pedidos por produtor. A chave e' o CNPJ quando existe -- e' o que
+   * o Pedido de Compra usa para numerar a sequencia -- caindo para o id do
+   * cliente e, por ultimo, para o nome normalizado quando o cadastro ainda
+   * nao tem CNPJ.
+   */
+  const gruposProdutores = useMemo<GrupoProdutor[]>(() => {
+    const mapa = new Map<string, GrupoProdutor>();
+
+    filteredPedidos.forEach((pedido: any) => {
+      const cliente = getClienteVinculado(pedido);
+      const dc = pedido.orcamento_snapshot?.dados_cliente || {};
+      const cnpj = normalizeDoc(cliente?.cnpj || dc.cnpj);
+      const razaoSocial = getRazaoSocialOuNome(pedido);
+      const nomeCliente = (
+        cliente?.nome ||
+        dc.nome_completo ||
+        pedido.orcamento_snapshot?.nome_cliente ||
+        pedido.formula_snapshot?.cliente ||
+        ''
+      ).trim();
+
+      const chave =
+        cnpj ||
+        cliente?.id ||
+        (razaoSocial || nomeCliente).trim().toLowerCase() ||
+        pedido.id;
+
+      let grupo = mapa.get(chave);
+      if (!grupo) {
+        grupo = {
+          chave,
+          clienteId: cliente?.id,
+          cnpj: cliente?.cnpj || dc.cnpj || '',
+          razaoSocial,
+          nomeCliente,
+          telefone: cliente?.telefone || dc.telefone || '',
+          pedidos: [],
+        };
+        mapa.set(chave, grupo);
+      }
+      // O cadastro do cliente e' mais confiavel que o snapshot antigo do pedido.
+      if (!grupo.clienteId) grupo.clienteId = cliente?.id;
+      if (!grupo.telefone) grupo.telefone = cliente?.telefone || dc.telefone || '';
+      if (!grupo.nomeCliente) grupo.nomeCliente = nomeCliente;
+      grupo.pedidos.push(pedido);
+    });
+
+    const emMs = (pedido: any): number => {
+      const d = getDataPedidoOrdenacao(pedido);
+      return d ? d.getTime() : 0;
+    };
+
+    /** A compra acontece quando e' paga; sem pagamento, vale a data do pedido. */
+    const pagoEmMs = (pedido: any): number => {
+      const raw = pedido.orcamento_snapshot?.data_pagamento;
+      const d = raw ? new Date(raw) : null;
+      return d && !Number.isNaN(d.getTime()) ? d.getTime() : emMs(pedido);
+    };
+
+    const grupos = Array.from(mapa.values());
+    // Dentro do bloco: do primeiro pagamento para o mais recente. E' essa ordem
+    // que numera os Pedidos de Compra (01, 02, 03...). Datas iguais desempatam
+    // pelo sequencial do numero.
+    grupos.forEach((g) =>
+      g.pedidos.sort((a, b) => {
+        const porPagamento = pagoEmMs(a) - pagoEmMs(b);
+        return porPagamento !== 0
+          ? porPagamento
+          : compararPorSequencial(a.numero_pedido, b.numero_pedido);
+      }),
     );
+    // Entre blocos: quem comprou mais recentemente aparece primeiro.
+    grupos.sort((a, b) => emMs(b.pedidos[b.pedidos.length - 1]) - emMs(a.pedidos[a.pedidos.length - 1]));
+    return grupos;
+  }, [filteredPedidos, clientesById, clientesByCnpj, clientesByNome]);
+
+  /**
+   * O numero de contrato e' do produtor. Procura no cadastro do cliente e, na
+   * falta, em qualquer pedido dele que ja' carregue um -- assim o consultor nao
+   * redigita o mesmo numero a cada recompra.
+   */
+  const contratoDoGrupo = (grupo: GrupoProdutor): string | undefined => {
+    const doCadastro = grupo.clienteId
+      ? (clientesById.get(grupo.clienteId) as any)?.numero_contrato
+      : undefined;
+    if (doCadastro) return String(doCadastro);
+    for (const p of grupo.pedidos) {
+      const direto = (p as any).numero_contrato;
+      if (direto) return String(direto);
+      const { numeroContrato } = parseNumeroPedido(p.numero_pedido);
+      if (numeroContrato) return numeroContrato;
+    }
+    return undefined;
   };
 
-  const sortedPedidos = useMemo(() => {
-    if (!sortBy) return filteredPedidos;
-    const arr = [...filteredPedidos];
-    arr.sort((a: any, b: any) => {
-      let va = 0, vb = 0;
-      if (sortBy === 'data_pagamento') {
-        va = a.orcamento_snapshot?.data_pagamento ? new Date(a.orcamento_snapshot.data_pagamento).getTime() : 0;
-        vb = b.orcamento_snapshot?.data_pagamento ? new Date(b.orcamento_snapshot.data_pagamento).getTime() : 0;
-      } else {
-        va = getValorFaturado(a);
-        vb = getValorFaturado(b);
-      }
-      return sortDir === 'asc' ? va - vb : vb - va;
+  /**
+   * Abre o gerador de orcamento ja' preenchido com o ultimo pedido do produtor.
+   * O orcamento e' o passo anterior ao Pedido de Compra: o consultor ajusta
+   * precos e quantidades, acrescenta produtos das precificacoes salvas ou do
+   * catalogo, monta um setup novo se for o caso, e envia para o cliente
+   * confirmar antes de virar pedido.
+   */
+  const abrirNovoPedidoCompra = (grupo: GrupoProdutor) => {
+    const ultimo = grupo.pedidos[grupo.pedidos.length - 1];
+    const snap = ultimo?.orcamento_snapshot || {};
+    const clienteId =
+      grupo.clienteId || snap.cliente_id || (snap.dados_cliente as any)?.cliente_id;
+    setRascunhoRecompra({
+      grupo,
+      rascunho: {
+      tipo_orcamento: 'recompra',
+      nome_cliente: snap.nome_cliente || grupo.nomeCliente || grupo.razaoSocial,
+      consultor_responsavel: snap.consultor_responsavel || '',
+      validade_dias: 7,
+      // Itens do pedido anterior entram como ponto de partida editavel.
+      itens_producao: snap.itens_producao || [],
+      // Setup nao se repete numa recompra: entra vazio e o consultor acrescenta
+      // um novo pelo perfil "Produtor Experiente" se houver entregaveis a cobrar.
+      servicos_marca: [],
+      dados_cliente: snap.dados_cliente,
+      detalhamento_frete: snap.detalhamento_frete,
+      condicoes_pagamento: snap.condicoes_pagamento,
+      // Sem cliente_id o passo 1 abre com "Nome do Cliente" em branco: o campo
+      // e' preenchido pelo cliente selecionado, nao pelo nome solto.
+      ...(clienteId ? { cliente_id: clienteId } : {}),
+      } as Partial<Orcamento>,
     });
-    return arr;
-  }, [filteredPedidos, sortBy, sortDir]);
-
-  const renderSortIcon = (col: 'data_pagamento' | 'valor_faturado') =>
-    sortBy !== col ? null : (sortDir === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />);
+  };
 
   const renderOrcamentoPedido = (pedido: any) => {
     const snap = pedido.orcamento_snapshot;
@@ -823,7 +920,7 @@ const Pedidos = () => {
           </DropdownMenuItem>
           {isOrcamento && (
             <DropdownMenuItem onClick={() => setRecompraPedido(pedido)}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Recompra
+              <RefreshCw className="h-4 w-4 mr-2" /> Registrar recompra já paga (POD)
             </DropdownMenuItem>
           )}
           {isOrcamento && (
@@ -853,20 +950,7 @@ const Pedidos = () => {
 
   return (
     <div className="container mx-auto p-3 sm:p-4 lg:p-6 space-y-6">
-      <Tabs value={tabAtiva} onValueChange={setTabAtiva} className="space-y-4">
-        <TabsList className="flex flex-wrap h-auto w-full justify-start">
-          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          {CATEGORIAS_ENTREGAVEIS.map((c) => (
-            <TabsTrigger key={c.value} value={c.value}>{c.label}</TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6 mt-0">
-          <DemandasSetupResumo
-            demandas={todasDemandas}
-            onAbrirAba={(cat) => setTabAtiva(cat)}
-          />
-          <Card>
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
@@ -887,27 +971,6 @@ const Pedidos = () => {
             />
           </div>
 
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={filterStatus === 'todos' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilterStatus('todos')}
-            >
-              Todos ({pedidos.length})
-            </Button>
-            {(['aguardando_producao', 'no_estoque', 'enviado', 'concluido'] as StatusPedido[]).map((status) => {
-              const config = getStatusConfig(status);
-              const count = pedidos.filter(p => p.status === status).length;
-              const StatusIcon = config.icon;
-              return (
-                <Button key={status} variant={filterStatus === status ? 'default' : 'outline'} size="sm" onClick={() => setFilterStatus(status)}>
-                  <StatusIcon className="h-4 w-4 mr-1" />
-                  {config.label} ({count})
-                </Button>
-              );
-            })}
-          </div>
-
           {/* Filtros de Consultor e Data de Pagamento */}
           <div className="flex gap-3 flex-wrap items-end">
             <div className="space-y-1">
@@ -920,24 +983,6 @@ const Pedidos = () => {
                   <SelectItem value="todos">Todos</SelectItem>
                   {consultoresUnicos.map(c => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Marca</Label>
-              <Select value={filtroMarca} onValueChange={setFiltroMarca}>
-                <SelectTrigger className="w-[220px] h-9">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas ({pedidos.length})</SelectItem>
-                  {marcasContagem.semMarca > 0 && (
-                    <SelectItem value="__sem_marca__">Sem marca ({marcasContagem.semMarca})</SelectItem>
-                  )}
-                  {marcasContagem.lista.map(({ marca, count }) => (
-                    <SelectItem key={marca} value={marca}>{marca} ({count})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1003,8 +1048,8 @@ const Pedidos = () => {
               </Popover>
             </div>
 
-            {(filtroConsultor !== 'todos' || filtroMarca !== 'todas' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
-              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setFiltroMarca('todas'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
+            {(filtroConsultor !== 'todos' || dataInicioFiltro || dataFimFiltro || entregaInicioFiltro || entregaFimFiltro) && (
+              <Button variant="ghost" size="sm" className="h-9" onClick={() => { setFiltroConsultor('todos'); setDataInicioFiltro(undefined); setDataFimFiltro(undefined); setEntregaInicioFiltro(undefined); setEntregaFimFiltro(undefined); }}>
                 Limpar filtros
               </Button>
             )}
@@ -1025,7 +1070,6 @@ const Pedidos = () => {
                   dataInicio: dataInicioFiltro,
                   dataFim: dataFimFiltro,
                   consultor: filtroConsultor !== 'todos' ? filtroConsultor : undefined,
-                  status: filterStatus !== 'todos' ? filterStatus : undefined,
                 })}>
                   <FileText className="h-4 w-4 mr-2" /> PDF
                 </DropdownMenuItem>
@@ -1033,7 +1077,6 @@ const Pedidos = () => {
                   dataInicio: dataInicioFiltro,
                   dataFim: dataFimFiltro,
                   consultor: filtroConsultor !== 'todos' ? filtroConsultor : undefined,
-                  status: filterStatus !== 'todos' ? filterStatus : undefined,
                 })}>
                   <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
                 </DropdownMenuItem>
@@ -1043,147 +1086,179 @@ const Pedidos = () => {
               <FileSpreadsheet className="h-4 w-4 mr-1" />
               Exportar CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setPainelDemandasAberto(true)}>
-              <Sparkles className="h-4 w-4 mr-1" />
-              Demandas de Marca (acompanhamento)
-              {todasDemandasMarca.filter((d) => d.status !== 'concluida').length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                  {todasDemandasMarca.filter((d) => d.status !== 'concluida').length}
-                </Badge>
-              )}
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {filteredPedidos.length === 0 ? (
+      {gruposProdutores.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-lg font-medium">
-              {searchTerm || filterStatus !== 'todos' ? 'Nenhum pedido encontrado' : 'Nenhum pedido gerado ainda'}
+              {searchTerm ? 'Nenhum produtor encontrado' : 'Nenhum pedido gerado ainda'}
             </p>
             <p className="text-sm mt-2">
-              {!searchTerm && filterStatus === 'todos' && 'Pedidos são criados automaticamente ao aprovar orçamentos'}
+              {!searchTerm && 'Pedidos são criados automaticamente ao aprovar orçamentos'}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <>
-          {/* Desktop: tabela */}
-          <div className="hidden md:block rounded-lg border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Razão Social</TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleSort('data_pagamento')}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      Data de Pagamento {renderSortIcon('data_pagamento')}
-                    </span>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none text-right"
-                    onClick={() => toggleSort('valor_faturado')}
-                  >
-                    <span className="inline-flex items-center gap-1 justify-end w-full">
-                      Valor Faturado {renderSortIcon('valor_faturado')}
-                    </span>
-                  </TableHead>
-                  <TableHead className="text-right w-[380px]">Detalhes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedPedidos.map((pedido) => {
-                  const razao = getRazaoSocialOuNome(pedido);
-                  const snap = pedido.orcamento_snapshot;
-                  const dataPgto = snap?.data_pagamento;
-                  const valor = getValorFaturado(pedido);
-                  return (
-                    <TableRow key={pedido.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-foreground">{razao}</span>
-                          {renderMarcaInline(pedido)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">{pedido.numero_pedido}</div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {dataPgto ? format(new Date(dataPgto), 'dd/MM/yyyy', { locale: ptBR }) : '—'}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">{formatCurrency(valor)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="inline-flex items-center gap-1 justify-end">
-                          {renderBotaoDemandas(pedido)}
-                          <Button variant="outline" size="sm" onClick={() => setPedidoDetalhe(pedido)}>
-                            <Info className="h-4 w-4 mr-1" /> Detalhes
-                          </Button>
-                          {renderAcoesMenu(pedido)}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Mobile: blocos */}
-          <div className="md:hidden space-y-3">
-            {sortedPedidos.map((pedido) => {
-              const razao = getRazaoSocialOuNome(pedido);
-              const snap = pedido.orcamento_snapshot;
-              const dataPgto = snap?.data_pagamento;
-              const valor = getValorFaturado(pedido);
-              return (
-                <Card key={pedido.id}>
-                  <CardContent className="p-4 space-y-2">
-                    <div>
-                      <p className="font-semibold text-base leading-tight">{razao}</p>
-                      <div className="mt-0.5">{renderMarcaInline(pedido)}</div>
-                      <p className="text-xs text-muted-foreground">{pedido.numero_pedido}</p>
+        <div className="space-y-3">
+          {/* Nivel 1: o produtor, identificado pelo CNPJ contratante. */}
+          {gruposProdutores.map((grupo) => {
+            const whatsappUrl = buildWhatsappUrl(
+              grupo.telefone,
+              `Olá, ${grupo.nomeCliente}! Aqui é da Lemoncaps.`,
+            );
+            const incompletos = grupo.pedidos.filter(
+              (p: any) => !parseNumeroPedido(p.numero_pedido).completo,
+            ).length;
+            return (
+              <Card key={grupo.chave}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-base leading-tight">{grupo.razaoSocial}</p>
+                      {grupo.nomeCliente && grupo.nomeCliente !== grupo.razaoSocial && (
+                        <p className="text-sm text-muted-foreground">{grupo.nomeCliente}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        {grupo.cnpj ? `CNPJ ${grupo.cnpj}` : 'Sem CNPJ cadastrado'}
+                      </p>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Data de Pagamento</span>
-                      <span>{dataPgto ? format(new Date(dataPgto), 'dd/MM/yyyy', { locale: ptBR }) : '—'}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Valor Faturado</span>
-                      <span className="font-semibold">{formatCurrency(valor)}</span>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => setPedidoDetalhe(pedido)}>
-                        <Info className="h-4 w-4 mr-1" /> Detalhes
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {whatsappUrl ? (
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                            <MessageCircle className="h-4 w-4 mr-1" />
+                            {formatTelefone(grupo.telefone)}
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" disabled title="Sem WhatsApp cadastrado">
+                          <MessageCircle className="h-4 w-4 mr-1" /> Sem contato
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={() => abrirNovoPedidoCompra(grupo)}>
+                        <ShoppingCart className="h-4 w-4 mr-1" />
+                        Novo pedido de compra
                       </Button>
-                      {renderAcoesMenu(pedido)}
                     </div>
-                    <div className="flex pt-1">
-                      {renderBotaoDemandas(pedido, 'w-full')}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </>
-      )}
-        </TabsContent>
+                  </div>
 
-        {CATEGORIAS_ENTREGAVEIS.map((c) => (
-          <TabsContent key={c.value} value={c.value} className="mt-0">
-            <SubpaginaEntregaveis
-              categoria={c.value as EntregavelCategoria}
-              demandas={todasDemandas}
-              onAbrirPedido={(p) => setPedidoDetalhe(p)}
-              onAtualizarStatus={(pedidoId, acomp) =>
-                updateAcompanhamento({ id: pedidoId, acompanhamento: acomp, pedidoId })
-              }
-            />
-          </TabsContent>
-        ))}
-      </Tabs>
+                  {incompletos > 0 && (
+                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-500 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {incompletos === 1
+                        ? '1 pedido sem número de contrato'
+                        : `${incompletos} pedidos sem número de contrato`}
+                    </p>
+                  )}
+
+                  {/* Nivel 2: os pedidos do produtor, na ordem do sequencial. */}
+                  <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Pedidos de compra ({grupo.pedidos.length})
+                  </p>
+                  <div className="space-y-2">
+                    {grupo.pedidos.map((pedido: any, indice: number) => {
+                      const { numeroContrato, completo } = parseNumeroPedido(pedido.numero_pedido);
+                      // Sequencial do Pedido de Compra dentro do produtor: a lista
+                      // ja' vem ordenada por data de pagamento, entao e' a posicao.
+                      const numeroCompra = String(indice + 1).padStart(2, '0');
+                      const dataPgto = pedido.orcamento_snapshot?.data_pagamento;
+                      const dataPedido = getDataPedidoOrdenacao(pedido);
+                      const statusAprovacao = pedido.status_aprovacao as StatusAprovacao | null;
+                      return (
+                        <Collapsible key={pedido.id} className="rounded-md border">
+                          <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge className="h-5 px-1.5 text-[10px]">
+                                  Pedido de Compra {numeroCompra}
+                                </Badge>
+                                <span className="text-sm font-medium">{pedido.numero_pedido}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {dataPedido
+                                  ? `Pedido em ${format(dataPedido, 'dd/MM/yyyy', { locale: ptBR })}`
+                                  : 'Sem data de pedido'}
+                                {' • '}
+                                {dataPgto
+                                  ? `pago em ${format(new Date(dataPgto), 'dd/MM/yyyy', { locale: ptBR })}`
+                                  : 'sem pagamento'}
+                                {' • '}
+                                <span className="font-semibold text-foreground">
+                                  {formatCurrency(getValorFaturado(pedido))}
+                                </span>
+                              </p>
+                              {completo ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Contrato nº {numeroContrato}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-amber-700 dark:text-amber-500 flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {MSG_PEDIDO_INCOMPLETO}
+                                </p>
+                              )}
+                              {statusAprovacao && (
+                                <Badge
+                                  variant="outline"
+                                  className={cn('mt-1 h-5 px-1.5 text-[10px]', STATUS_APROVACAO_CLASSE[statusAprovacao])}
+                                >
+                                  {STATUS_APROVACAO_LABEL[statusAprovacao]}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setOrcamentoPdf(snapshotComoOrcamento(pedido))}
+                                title="Orçamento do cliente, no mesmo formato de Orçamentos Gerados"
+                              >
+                                <FileText className="h-4 w-4 mr-1" /> Orçamento
+                              </Button>
+                              {/* Sempre disponivel: e' por aqui que se baixa o PDF de novo. */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setPedidoCompraAlvo({ tipo: 'pedido', pedido, grupo })}
+                                title={
+                                  completo
+                                    ? 'Rever ou baixar o Pedido de Compra'
+                                    : 'Preencher o Pedido de Compra'
+                                }
+                              >
+                                <FileSignature className="h-4 w-4 mr-1" /> Pedido de Compra
+                              </Button>
+                              {renderAcoesMenu(pedido)}
+                              <CollapsibleTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Info className="h-4 w-4 mr-1" /> Detalhamento
+                                  <ChevronDown className="h-3 w-3 ml-1" />
+                                </Button>
+                              </CollapsibleTrigger>
+                            </div>
+                          </div>
+                          {/* Nivel 3: o detalhamento do pedido. */}
+                          <CollapsibleContent className="border-t px-3 py-3">
+                            {renderOrcamentoPedido(pedido) || (
+                              <p className="text-sm text-muted-foreground">
+                                Este pedido não tem orçamento vinculado.
+                              </p>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       <DetalhesPedidoDialog
         pedido={pedidoDetalhe}
@@ -1254,6 +1329,97 @@ const Pedidos = () => {
         onOpenChange={(open) => !open && setFichaTecnicaPedido(null)}
       />
 
+      {orcamentoPdf && (
+        <PreviewPdfDialog orcamento={orcamentoPdf} onClose={() => setOrcamentoPdf(null)} />
+      )}
+
+      {pedidoCompraAlvo && (
+        <PedidoDeCompraDialog
+          open
+          onOpenChange={(o) => !o && setPedidoCompraAlvo(null)}
+          snapshot={
+            pedidoCompraAlvo.tipo === 'pedido'
+              ? pedidoCompraAlvo.pedido.orcamento_snapshot || {}
+              : orcamentoComoSnapshot(pedidoCompraAlvo.orcamento)
+          }
+          cliente={
+            pedidoCompraAlvo.tipo === 'pedido'
+              ? getClienteVinculado(pedidoCompraAlvo.pedido)
+              : clientesById.get((pedidoCompraAlvo.orcamento as any).cliente_id) ?? null
+          }
+          // Um pedido que ja' existe nao conta a si mesmo; um orcamento novo entra
+          // depois de todos os que o produtor ja' tem.
+          pedidosDoCnpj={
+            pedidoCompraAlvo.tipo === 'pedido'
+              ? Math.max(0, pedidoCompraAlvo.grupo.pedidos.length - 1)
+              : pedidoCompraAlvo.grupo.pedidos.length
+          }
+          onGerar={async ({ numeroContrato, numeroPedido, dados }) => {
+            const cnpjContratante = (pedidoCompraAlvo.grupo.cnpj || '').replace(/\D/g, '');
+            // Vindo de um orcamento novo, o pedido ainda precisa ser criado.
+            const pedidoId =
+              pedidoCompraAlvo.tipo === 'pedido'
+                ? pedidoCompraAlvo.pedido.id
+                : (await createPedidoFromOrcamento(pedidoCompraAlvo.orcamento as any))?.id;
+            if (!pedidoId) return;
+            await vincularPedidoCompra({
+              id: pedidoId,
+              numeroContrato,
+              numeroPedido,
+              cnpjContratante,
+              dados,
+            });
+            // Guarda o contrato no cliente para os proximos pedidos herdarem.
+            const clienteId = pedidoCompraAlvo.grupo.clienteId;
+            if (clienteId && contratoDoGrupo(pedidoCompraAlvo.grupo) !== numeroContrato) {
+              try {
+                await atualizarCliente.mutateAsync({ id: clienteId, numero_contrato: numeroContrato } as any);
+              } catch {
+                // Nao impede o pedido: o contrato ja' foi gravado nele.
+              }
+            }
+          }}
+          numeroContratoSugerido={contratoDoGrupo(pedidoCompraAlvo.grupo)}
+          onEditarOrcamento={
+            pedidoCompraAlvo.tipo === 'orcamento'
+              ? () => {
+                  const alvo = pedidoCompraAlvo;
+                  setPedidoCompraAlvo(null);
+                  setEditandoOrcamento({ orcamento: alvo.orcamento, grupo: alvo.grupo });
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {editandoOrcamento && (
+        <GerarOrcamentoDialog
+          orcamentoExistente={editandoOrcamento.orcamento}
+          onClose={() => setEditandoOrcamento(null)}
+          onSuccess={(orcamentoSalvo) => {
+            const { orcamento, grupo } = editandoOrcamento;
+            setEditandoOrcamento(null);
+            // Reabre com a versao salva, senao o documento mostraria os produtos antigos.
+            setPedidoCompraAlvo({ tipo: 'orcamento', orcamento: orcamentoSalvo ?? orcamento, grupo });
+          }}
+        />
+      )}
+
+      {rascunhoRecompra && (
+        <GerarOrcamentoDialog
+          rascunhoInicial={rascunhoRecompra.rascunho}
+          onClose={() => setRascunhoRecompra(null)}
+          onSuccess={(orcamentoCriado) => {
+            const grupo = rascunhoRecompra.grupo;
+            setRascunhoRecompra(null);
+            if (!orcamentoCriado) return;
+            toast.success('Orçamento de recompra criado. Agora monte o Pedido de Compra.');
+            // Emenda direto: o Pedido de Compra nasce do orcamento recem-gerado.
+            setPedidoCompraAlvo({ tipo: 'orcamento', orcamento: orcamentoCriado, grupo });
+          }}
+        />
+      )}
+
       <AdicionarRecompraDialog
         pedido={recompraPedido}
         open={!!recompraPedido}
@@ -1323,26 +1489,7 @@ const Pedidos = () => {
         }}
       />
 
-      <AdicionarMarcaDialog
-        open={!!marcaDialog}
-        onOpenChange={(o) => !o && setMarcaDialog(null)}
-        clienteId={marcaDialog?.clienteId ?? null}
-        razaoSocial={marcaDialog?.razaoSocial ?? ''}
-        marcaAtual={marcaDialog?.marcaAtual}
-      />
 
-      <DemandasMarcaDialog
-        open={!!demandasPedido}
-        onOpenChange={(o) => !o && setDemandasPedido(null)}
-        pedido={demandasPedido}
-        clienteNome={demandasPedido ? getRazaoSocialOuNome(demandasPedido) : ''}
-      />
-
-      <PainelDemandasMarcaDialog
-        open={painelDemandasAberto}
-        onOpenChange={setPainelDemandasAberto}
-        pedidos={pedidos}
-      />
     </div>
   );
 };

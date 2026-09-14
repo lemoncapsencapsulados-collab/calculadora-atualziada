@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
-import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis } from '@/hooks/useOrcamentosPaginados';
+import { useOrcamentosPaginados, useOrcamentosKanban, useConsultoresDisponiveis, useTopOrcamentosPorValor } from '@/hooks/useOrcamentosPaginados';
 import { Orcamento, ContatoOrcamento, TipoContato } from '@/types/orcamento';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import {
   ChevronLeft, ChevronRight, List, Columns3, CalendarIcon, DollarSign,
   Send, MessageSquare, History, X
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
@@ -90,10 +92,50 @@ const PAGE_SIZE = 15;
 
 type ViewMode = 'list' | 'kanban';
 
+type PeriodoFiltro = 'todos' | 'semanal' | 'quinzenal' | 'mensal' | 'personalizado';
+
+const PERIODO_LABEL: Record<PeriodoFiltro, string> = {
+  todos: 'Todo o período',
+  semanal: 'Últimos 7 dias',
+  quinzenal: 'Últimos 15 dias',
+  mensal: 'Últimos 30 dias',
+  personalizado: 'Personalizado',
+};
+
+/**
+ * Converte o periodo escolhido em um intervalo ISO para a consulta. Os presets
+ * contam para tras a partir de hoje; o personalizado usa as datas informadas,
+ * com o dia final inteiro (ate' 23:59:59) para nao cortar o proprio dia.
+ */
+function intervaloDoPeriodo(
+  periodo: PeriodoFiltro,
+  inicio?: Date,
+  fim?: Date,
+): { inicio?: string; fim?: string } {
+  if (periodo === 'todos') return {};
+
+  if (periodo === 'personalizado') {
+    const ini = inicio ? new Date(inicio) : undefined;
+    if (ini) ini.setHours(0, 0, 0, 0);
+    const f = fim ? new Date(fim) : undefined;
+    if (f) f.setHours(23, 59, 59, 999);
+    return { inicio: ini?.toISOString(), fim: f?.toISOString() };
+  }
+
+  const dias = periodo === 'semanal' ? 7 : periodo === 'quinzenal' ? 15 : 30;
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  desde.setHours(0, 0, 0, 0);
+  return { inicio: desde.toISOString() };
+}
+
 export default function Orcamentos() {
   const queryClient = useQueryClient();
   const { deleteOrcamento, updateStatus, addContato, removeContato } = useOrcamentos({ enabled: false });
   const [searchParams, setSearchParams] = useSearchParams();
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>('todos');
+  const [periodoInicio, setPeriodoInicio] = useState<Date | undefined>();
+  const [periodoFim, setPeriodoFim] = useState<Date | undefined>();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [consultorFilter, setConsultorFilter] = useState('');
@@ -131,13 +173,32 @@ export default function Orcamentos() {
     return m;
   }, [freteCotacoes]);
 
+  // O recorte de data vale para a lista, para a contagem e para o Top 5.
+  const intervalo = useMemo(
+    () => intervaloDoPeriodo(periodo, periodoInicio, periodoFim),
+    [periodo, periodoInicio, periodoFim],
+  );
+
   const { orcamentos, totalCount, totalPages, isLoading: listLoading } = useOrcamentosPaginados({
     page: currentPage,
     pageSize: PAGE_SIZE,
     searchTerm,
     consultorFilter: consultorFilter || undefined,
+    dataInicio: intervalo.inicio,
+    dataFim: intervalo.fim,
     enabled: viewMode === 'list',
   });
+
+  const { topOrcamentos } = useTopOrcamentosPorValor({
+    consultorFilter: consultorFilter || undefined,
+    dataInicio: intervalo.inicio,
+    dataFim: intervalo.fim,
+  });
+
+  // Trocar o periodo pode deixar a pagina atual fora do novo total.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [periodo, periodoInicio, periodoFim]);
 
   const { orcamentos: kanbanOrcamentos, isLoading: kanbanLoading } = useOrcamentosKanban({
     searchTerm,
@@ -363,12 +424,114 @@ export default function Orcamentos() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={periodo} onValueChange={(v) => setPeriodo(v as PeriodoFiltro)}>
+              <SelectTrigger className="h-10 w-full rounded-lg sm:w-[180px]">
+                <CalendarIcon className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(PERIODO_LABEL) as PeriodoFiltro[]).map((k) => (
+                  <SelectItem key={k} value={k}>{PERIODO_LABEL[k]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Quantos são: um número, não uma frase. */}
             <p className="shrink-0 text-xs text-muted-foreground sm:pl-1">
               <span className="tnum font-medium text-foreground">{totalCount}</span>{' '}
               {totalCount === 1 ? 'orçamento' : 'orçamentos'}
             </p>
           </div>
+
+          {periodo === 'personalizado' && (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">De</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-10 w-[160px] justify-start font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {periodoInicio ? format(periodoInicio, 'dd/MM/yyyy') : 'Início'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={periodoInicio}
+                      onSelect={setPeriodoInicio}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground">Até</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-10 w-[160px] justify-start font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {periodoFim ? format(periodoFim, 'dd/MM/yyyy') : 'Fim'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={periodoFim}
+                      onSelect={setPeriodoFim}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {(periodoInicio || periodoFim) && (
+                <Button
+                  variant="ghost"
+                  className="h-10"
+                  onClick={() => { setPeriodoInicio(undefined); setPeriodoFim(undefined); }}
+                >
+                  Limpar datas
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Top 5 por valor: sai de uma consulta propria, ordenada no banco. */}
+          {topOrcamentos.length > 0 && (
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Top 5 orçamentos por valor</span>
+                <span className="text-xs text-muted-foreground">
+                  {PERIODO_LABEL[periodo].toLowerCase()}
+                </span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {topOrcamentos.map((o, i) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => setPreviewOrcamento(o)}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left hover:bg-background"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">
+                        {i + 1}º
+                      </Badge>
+                      <span className="truncate text-sm">{o.nome_cliente}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {o.numero_orcamento}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold">
+                      {formatCurrency(o.valor_total)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Kanban View */}
           {viewMode === 'kanban' && (

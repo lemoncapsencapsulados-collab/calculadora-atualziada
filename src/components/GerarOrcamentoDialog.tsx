@@ -89,12 +89,20 @@ const CUSTOS_IMPRESSAO: Record<string, number> = {
 
 interface GerarOrcamentoDialogProps {
   orcamentoExistente?: Orcamento | null;
+  /**
+   * Orcamento nao salvo usado so' para pre-preencher os campos -- e' assim que a
+   * recompra chega aqui, ja' com cliente, itens e pagamento do pedido anterior.
+   * Diferente de `orcamentoExistente`, o salvar continua criando um orcamento novo.
+   */
+  rascunhoInicial?: Partial<Orcamento> | null;
   onClose: () => void;
-  onSuccess?: () => void;
+  /** Recebe o orcamento criado, para quem precisa encadear o proximo passo. */
+  onSuccess?: (orcamentoCriado?: Orcamento) => void;
 }
 
 export default function GerarOrcamentoDialog({ 
   orcamentoExistente, 
+  rascunhoInicial,
   onClose,
   onSuccess 
 }: GerarOrcamentoDialogProps) {
@@ -372,18 +380,19 @@ export default function GerarOrcamentoDialog({
     'Setup'
   );
 
-  // Carregar dados se editando
+  // Carregar dados ao editar um orcamento ou ao partir de um rascunho.
   useEffect(() => {
-    if (orcamentoExistente) {
-      setTipoOrcamento(orcamentoExistente.tipo_orcamento || 'novo_produtor');
-      setNomeCliente(orcamentoExistente.nome_cliente);
-      setModeloAquisicao(((orcamentoExistente as any).modelo_aquisicao as string) || '');
-      setConsultorResponsavel(orcamentoExistente.consultor_responsavel || '');
-      setValidadeDias(orcamentoExistente.validade_dias);
-      setObservacoes(orcamentoExistente.observacoes || '');
-      setItensProducao(orcamentoExistente.itens_producao || []);
-      setCondicoesPagamento(orcamentoExistente.condicoes_pagamento || {});
-      const interm = (orcamentoExistente as any).intermediador;
+    const base = orcamentoExistente ?? rascunhoInicial;
+    if (base) {
+      setTipoOrcamento(base.tipo_orcamento || 'novo_produtor');
+      setNomeCliente(base.nome_cliente || '');
+      setModeloAquisicao(((base as any).modelo_aquisicao as string) || '');
+      setConsultorResponsavel(base.consultor_responsavel || '');
+      setValidadeDias(base.validade_dias ?? 7);
+      setObservacoes(base.observacoes || '');
+      setItensProducao(base.itens_producao || []);
+      setCondicoesPagamento(base.condicoes_pagamento || {});
+      const interm = (base as any).intermediador;
       if (interm && interm.nome) {
         setIntermediadorAtivo(true);
         setIntermediadorNome(interm.nome || '');
@@ -394,13 +403,13 @@ export default function GerarOrcamentoDialog({
         setIntermediadorAtivo(false);
       }
       // Carregar cliente vinculado para validar telefone
-      if ((orcamentoExistente as any).cliente_id) {
-        buscarPorId((orcamentoExistente as any).cliente_id).then((c) => {
+      if ((base as any).cliente_id) {
+        buscarPorId((base as any).cliente_id).then((c) => {
           if (c) setClienteSelecionado(c);
         }).catch(() => {});
       }
-      if (orcamentoExistente.dados_cliente) {
-        const dc = orcamentoExistente.dados_cliente as DadosCliente;
+      if (base.dados_cliente) {
+        const dc = base.dados_cliente as DadosCliente;
         const inferredTipo: 'pj' | 'pf' = dc.tipo_pessoa
           ? dc.tipo_pessoa
           : (dc.cnpj || dc.razao_social) ? 'pj' : 'pf';
@@ -423,11 +432,11 @@ export default function GerarOrcamentoDialog({
         }
         setDadosClienteTemp(merged);
       }
-      if (orcamentoExistente.detalhamento_frete) {
-        setDetalhamentoFreteTemp(orcamentoExistente.detalhamento_frete);
+      if (base.detalhamento_frete) {
+        setDetalhamentoFreteTemp(base.detalhamento_frete);
       }
       // Restaurar custos de Estabilidade + Anvisa, se existirem (formato novo: 2 entradas separadas; legado: 1 combinada)
-      const servicosProd = (orcamentoExistente.servicos_marca || []).filter(
+      const servicosProd = (base.servicos_marca || []).filter(
         (s: any) => s?.setup_detalhes?.categoria === 'producao' || s?.setup_detalhes?.tipo === 'estabilidade_anvisa'
       ) as any[];
       let restoredEstab = false;
@@ -449,12 +458,12 @@ export default function GerarOrcamentoDialog({
       }
       // Se o orçamento existente tem serviços de marca definidos, respeitar exatamente o que foi salvo.
       // Se nunca foi salvo nenhum (array vazio), assumir ambos ativos (default).
-      if ((orcamentoExistente.servicos_marca || []).length > 0) {
+      if ((base.servicos_marca || []).length > 0) {
         setEstabilidadeAtiva(restoredEstab);
         setAnvisaAtiva(restoredAnvisa);
       }
       // Restore setup
-      const servicosSetup = (orcamentoExistente.servicos_marca || []).filter(
+      const servicosSetup = (base.servicos_marca || []).filter(
         (s: any) => s.nome_plano === 'Setup' || (s.nome_plano || '').startsWith('Setup') || s?.setup_detalhes
       );
       // 1) Tenta formato "Novo Produtor" (planos fixos)
@@ -491,7 +500,7 @@ export default function GerarOrcamentoDialog({
         }
       }
     }
-  }, [orcamentoExistente]);
+  }, [orcamentoExistente, rascunhoInicial]);
 
   // Cálculos
   const subtotalProducao = itensProducao.reduce((acc, item) => acc + item.subtotal, 0);
@@ -835,8 +844,9 @@ export default function GerarOrcamentoDialog({
         return dc;
       })();
 
+      let criado: Orcamento | undefined;
       if (orcamentoExistente) {
-        await updateOrcamento.mutateAsync({
+        criado = await updateOrcamento.mutateAsync({
           id: orcamentoExistente.id,
           updates: {
             nome_cliente: nomeCliente,
@@ -880,11 +890,11 @@ export default function GerarOrcamentoDialog({
           ...(intermediadorFinal && { intermediador: intermediadorFinal }),
         };
         
-        await createOrcamento.mutateAsync(novoOrcamento);
+        criado = await createOrcamento.mutateAsync(novoOrcamento);
       }
       
       onClose();
-      onSuccess?.();
+      onSuccess?.(criado);
     } catch (error) {
       console.error('Erro ao salvar orçamento:', error);
     } finally {
@@ -1052,36 +1062,30 @@ export default function GerarOrcamentoDialog({
           {/* STEP 1: Informações Básicas */}
           {step === 1 && (
             <div className="space-y-4">
-              {/* Tipo de Orçamento */}
+              {/* Tipo de Orcamento -- somente leitura.
+                  Recompra saiu daqui: agora nasce em Pedidos > Pedidos de Compra.
+                  Orcamentos de recompra ja existentes continuam abrindo com o tipo certo. */}
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Tipo de Orçamento *</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setTipoOrcamento('novo_produtor')}
-                    className={cn(
-                      'flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all',
-                      tipoOrcamento === 'novo_produtor'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400'
-                        : 'border-muted hover:border-muted-foreground/30'
-                    )}
-                  >
-                    <User className="w-4 h-4" />
-                    Novo Produtor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTipoOrcamento('recompra')}
-                    className={cn(
-                      'flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all',
-                      tipoOrcamento === 'recompra'
-                        ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-400'
-                        : 'border-muted hover:border-muted-foreground/30'
-                    )}
-                  >
-                    <Package className="w-4 h-4" />
-                    Recompra
-                  </button>
+                <Label className="text-sm font-semibold">Tipo de Orçamento</Label>
+                <div
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium',
+                    tipoOrcamento === 'recompra'
+                      ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-400'
+                      : 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-400'
+                  )}
+                >
+                  {tipoOrcamento === 'recompra' ? (
+                    <>
+                      <Package className="w-4 h-4" />
+                      Recompra
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-4 h-4" />
+                      Novo Produtor
+                    </>
+                  )}
                 </div>
               </div>
 
