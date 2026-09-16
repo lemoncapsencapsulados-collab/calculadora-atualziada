@@ -1,0 +1,1 @@
+ALTER TABLE public.orcamentos ADD COLUMN tipo_orcamento text NOT NULL DEFAULT 'novo_produtor';

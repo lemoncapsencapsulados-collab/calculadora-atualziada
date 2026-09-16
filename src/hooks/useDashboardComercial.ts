@@ -1,0 +1,703 @@
+import type { ContatoOrcamento } from '@/types/orcamento';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { differenceInDays, parseISO, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import type {
+  DashboardFiltros,
+  KPIsGerais,
+  MetricaConsultor,
+  PipelineConsultor,
+  ProdutoVendido,
+  MixVendas,
+  InsightDashboard,
+  OrcamentosPorConsultorStatus,
+  OrcamentoDetalhado,
+  StatusOrcamentoDetalhado
+} from '@/types/dashboard';
+
+// Faturamento efetivo de um item POD = qtd consumida × preço unitário
+// (cobre registros antigos salvos com quantidade/subtotal zerados).
+const getItemValorEfetivo = (item: any): number => {
+  const subtotal = Number(item?.subtotal) || 0;
+  if (subtotal > 0) return subtotal;
+  if (item?.modelo_negocio === 'print_on_demand') {
+    const qtd = Number(item?.pod_consumo_quantidade) || Number(item?.quantidade) || 0;
+    const preco = Number(item?.preco_unitario) || 0;
+    return qtd * preco;
+  }
+  return (Number(item?.quantidade) || 0) * (Number(item?.preco_unitario) || 0);
+};
+
+// Total efetivo do snapshot — recalcula quando o snapshot veio com 0
+const getSnapValorEfetivo = (snap: any): number => {
+  const total = Number(snap?.valor_total) || 0;
+  if (total > 0) return total;
+  const itens = (snap?.itens_producao || []) as any[];
+  const servicos = (snap?.servicos_marca || []) as any[];
+  const somaItens = itens.reduce((s, i) => s + getItemValorEfetivo(i), 0);
+  const somaServicos = servicos.reduce((s, i) => s + (Number(i?.valor) || 0), 0);
+  return somaItens + somaServicos;
+};
+
+// subtotal_producao efetivo
+const getSnapSubtotalProducaoEfetivo = (snap: any): number => {
+  const v = Number(snap?.subtotal_producao) || 0;
+  if (v > 0) return v;
+  const itens = (snap?.itens_producao || []) as any[];
+  return itens.reduce((s, i) => s + getItemValorEfetivo(i), 0);
+};
+
+
+interface PedidoData {
+  id: string;
+  numero_pedido: string;
+  status: string;
+  created_at: string | null;
+  data_pedido: string;
+  orcamento_snapshot: any;
+  pagamento_alteracoes?: any[] | null;
+}
+
+interface OrcamentoData {
+  id: string;
+  numero_orcamento: string;
+  nome_cliente: string;
+  consultor_responsavel: string | null;
+  status: string;
+  valor_total: number;
+  subtotal_producao: number;
+  subtotal_servicos: number;
+  tipo_orcamento: string;
+  created_at: string | null;
+  updated_at: string | null;
+  dados_cliente: any;
+  itens_producao: any;
+  data_envio?: string | null;
+  observacoes_internas?: string | null;
+  historico_contatos?: ContatoOrcamento[] | null;
+}
+
+interface ItemProducao {
+  nome?: string;
+  nome_produto?: string;
+  nomeFormula?: string;
+  quantidade?: number;
+  quantidadePote?: number;
+  precoVenda?: number;
+  valorTotal?: number;
+  subtotal?: number;
+  modelo_negocio?: string;
+}
+
+export function useDashboardComercial(filtros: DashboardFiltros) {
+  const { data: pedidos = [], isLoading: loadingPedidos } = useQuery({
+    queryKey: ['pedidos-dashboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select('id, numero_pedido, status, created_at, data_pedido, orcamento_snapshot, pagamento_alteracoes')
+        .not('orcamento_snapshot', 'is', null)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []) as PedidoData[];
+    }
+  });
+
+  const { data: todosOrcamentos = [], isLoading: loadingOrcamentos } = useQuery({
+    queryKey: ['orcamentos-dashboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .select('id, numero_orcamento, nome_cliente, consultor_responsavel, status, valor_total, subtotal_producao, subtotal_servicos, tipo_orcamento, created_at, updated_at, dados_cliente, itens_producao, data_envio, observacoes_internas, historico_contatos')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []) as unknown as OrcamentoData[];
+    }
+  });
+
+  // Helper to extract snapshot fields
+  const getSnap = (p: PedidoData) => p.orcamento_snapshot || {};
+
+  // Helper to calculate only the first installment (entry payment) from payment conditions
+  const calcularEntradaFinanceira = (snap: any): number => {
+    const condicoes = snap.condicoes_pagamento;
+    const valorTotal = getSnapValorEfetivo(snap);
+    if (!condicoes) return valorTotal;
+
+    const calcValorParcela = (parcela: any, base: number): number => {
+      if (!parcela) return 0;
+      const valor = Number(parcela.valor || 0);
+      if (parcela.tipo_valor === 'percentual') return (valor / 100) * base;
+      return valor;
+    };
+
+    const metodo = condicoes.metodo_principal;
+
+    if (metodo === 'pix_boleto') {
+      const parcelas = condicoes.parcelas_pix_boleto;
+      if (Array.isArray(parcelas) && parcelas.length > 0) {
+        return calcValorParcela(parcelas[0], valorTotal);
+      }
+      return valorTotal;
+    }
+
+    if (metodo === 'cartao_credito') {
+      const cartoes = condicoes.cartoes;
+      if (Array.isArray(cartoes) && cartoes.length > 0) {
+        return calcValorParcela(cartoes[0], valorTotal);
+      }
+      return valorTotal;
+    }
+
+    if (metodo === 'misto') {
+      const parcelasPix = condicoes.misto_parcelas_pix_boleto;
+      if (Array.isArray(parcelasPix) && parcelasPix.length > 0) {
+        return calcValorParcela(parcelasPix[0], valorTotal);
+      }
+      return valorTotal;
+    }
+
+    // Legacy format
+    if (condicoes.valor_entrada != null) {
+      return Number(condicoes.valor_entrada);
+    }
+
+    return valorTotal;
+  };
+
+  const pedidosFiltrados = useMemo(() => {
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
+    return pedidos.filter(p => {
+      const snap = getSnap(p);
+      if (filtros.consultor && snap.consultor_responsavel !== filtros.consultor) return false;
+      const dataPgto = snap.data_pagamento;
+      if (dataPgto) {
+        const dataPgtoStr = dataPgto.substring(0, 10);
+        if (dataPgtoStr < inicioStr || dataPgtoStr > fimStr) return false;
+      } else {
+        return false;
+      }
+      return true;
+    });
+  }, [pedidos, filtros]);
+
+  // Orçamentos filtrados por consultor E período (data de criação)
+  const orcamentosFiltrados = useMemo(() => {
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
+    return todosOrcamentos.filter(o => {
+      if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) return false;
+      const ref = (o.created_at || '').substring(0, 10);
+      if (!ref) return false;
+      return ref >= inicioStr && ref <= fimStr;
+    });
+  }, [todosOrcamentos, filtros.consultor, filtros.dataInicio, filtros.dataFim]);
+
+  // Todos os orçamentos do período + os em aberto anteriores ao período,
+  // normalizados para a visão "Por cliente" dos Insights.
+  const orcamentosDetalhados = useMemo((): OrcamentoDetalhado[] => {
+    const hoje = new Date();
+    const inicioStr = format(filtros.dataInicio, 'yyyy-MM-dd');
+    const fimStr = format(filtros.dataFim, 'yyyy-MM-dd');
+
+    const mapear = (o: OrcamentoData, foraDoPeriodo: boolean): OrcamentoDetalhado => {
+      const statusBruto = (o.status || '') as string;
+      const status: StatusOrcamentoDetalhado = ['rascunho', 'enviado', 'pago', 'recusado'].includes(statusBruto)
+        ? (statusBruto as StatusOrcamentoDetalhado)
+        : 'outro';
+
+      const hist = (o.historico_contatos || []).slice().sort(
+        (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
+      );
+      const envios = hist.filter(h => h.tipo === 'envio');
+      const contatos = hist.filter(h => h.tipo === 'contato');
+      const primeiroEnvio = envios[0]?.data || o.data_envio || undefined;
+      const ultimoEvento = hist[hist.length - 1]?.data;
+
+      const referencia =
+        status === 'enviado'
+          ? ultimoEvento || o.data_envio || o.updated_at || o.created_at || undefined
+          : o.updated_at || o.created_at || undefined;
+
+      const dias = referencia ? Math.max(0, differenceInDays(hoje, parseISO(referencia))) : 0;
+
+      let situacao = '';
+      if (status === 'rascunho') situacao = `Rascunho há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+      else if (status === 'enviado') situacao = `Enviado — sem retorno há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+      else if (status === 'pago') situacao = 'Pago';
+      else if (status === 'recusado') situacao = 'Recusado';
+      else situacao = statusBruto || 'Sem status';
+
+      const ultimoFeedback = [...contatos].reverse().find(c => c.observacao?.trim())?.observacao
+        || (o.observacoes_internas || '').trim()
+        || undefined;
+
+      return {
+        orcamento_id: o.id,
+        historico_contatos: hist,
+        numero_orcamento: o.numero_orcamento || undefined,
+        cliente: (o.nome_cliente || 'Sem cliente').trim(),
+        consultor: (o.consultor_responsavel || 'Sem consultor').trim(),
+        status,
+        valor: Number(o.valor_total || 0),
+        created_at: o.created_at || undefined,
+        data_envio: primeiroEnvio,
+        data_referencia: referencia,
+        dias_parado: dias,
+        situacao,
+        observacao: ultimoFeedback,
+        foraDoPeriodo,
+        emAberto: status === 'rascunho' || status === 'enviado',
+      };
+    };
+
+    const lista: OrcamentoDetalhado[] = [];
+    todosOrcamentos.forEach(o => {
+      if (filtros.consultor && o.consultor_responsavel !== filtros.consultor) return;
+      const ref = (o.created_at || '').substring(0, 10);
+      const dentro = !!ref && ref >= inicioStr && ref <= fimStr;
+      const emAberto = o.status === 'rascunho' || o.status === 'enviado';
+      if (dentro) lista.push(mapear(o, false));
+      else if (emAberto && (!ref || ref < inicioStr)) lista.push(mapear(o, true));
+    });
+
+    return lista;
+  }, [todosOrcamentos, filtros.consultor, filtros.dataInicio, filtros.dataFim]);
+
+  const consultoresUnicos = useMemo(() => {
+    const set = new Set<string>();
+    pedidos.forEach(p => {
+      const c = getSnap(p).consultor_responsavel;
+      if (c) set.add(c);
+    });
+    todosOrcamentos.forEach(o => {
+      if (o.consultor_responsavel) set.add(o.consultor_responsavel);
+    });
+    return Array.from(set).sort();
+  }, [pedidos, todosOrcamentos]);
+
+  // Orçamentos por consultor e status
+  const orcamentosPorConsultorStatus = useMemo((): OrcamentosPorConsultorStatus[] => {
+    const porConsultor = new Map<string, { rascunho: number; enviado: number; pago: number; recusado: number; valorRascunho: number; valorEnviado: number; valorPago: number; valorRecusado: number }>();
+
+    orcamentosFiltrados.forEach(o => {
+      const consultor = o.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || { rascunho: 0, enviado: 0, pago: 0, recusado: 0, valorRascunho: 0, valorEnviado: 0, valorPago: 0, valorRecusado: 0 };
+      const status = o.status as 'rascunho' | 'enviado' | 'pago' | 'recusado';
+      if (status in atual) {
+        atual[status] += 1;
+        const valorKey = `valor${status.charAt(0).toUpperCase() + status.slice(1)}` as keyof typeof atual;
+        (atual as any)[valorKey] += Number(o.valor_total || 0);
+      }
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({
+        consultor,
+        ...dados,
+        total: dados.rascunho + dados.enviado + dados.pago + dados.recusado
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [orcamentosFiltrados]);
+
+  const kpis = useMemo((): KPIsGerais => {
+    const faturamentoTotal = pedidosFiltrados.reduce((acc, p) => acc + getSnapValorEfetivo(getSnap(p)), 0);
+    const entradaFinanceira = pedidosFiltrados.reduce((acc, p) => acc + calcularEntradaFinanceira(getSnap(p)), 0);
+    const novasVendas = pedidosFiltrados.length;
+    const ticketMedio = novasVendas > 0 ? faturamentoTotal / novasVendas : 0;
+    
+    // Pipeline = valor em rascunho + enviado
+    const pipelineNegociacao = orcamentosFiltrados
+      .filter(o => ['rascunho', 'enviado'].includes(o.status))
+      .reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
+
+    // Taxa de conversão real
+    const totalPagos = orcamentosFiltrados.filter(o => o.status === 'pago').length;
+    const totalRecusados = orcamentosFiltrados.filter(o => o.status === 'recusado').length;
+    const totalDecididos = totalPagos + totalRecusados;
+    const taxaConversao = totalDecididos > 0 ? (totalPagos / totalDecididos) * 100 : 0;
+
+    return {
+      faturamentoTotal,
+      entradaFinanceira,
+      novasVendas,
+      pipelineNegociacao,
+      ticketMedio,
+      taxaConversao,
+      totalRecusados
+    };
+  }, [pedidosFiltrados, orcamentosFiltrados]);
+
+  const rankingConsultores = useMemo((): MetricaConsultor[] => {
+    const porConsultor = new Map<string, { vendas: number; faturamento: number; clientes: Set<string> }>();
+    
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || { vendas: 0, faturamento: 0, clientes: new Set<string>() };
+      atual.vendas += 1;
+      atual.faturamento += getSnapValorEfetivo(snap);
+      atual.clientes.add(snap.nome_cliente || '');
+      porConsultor.set(consultor, atual);
+    });
+    
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({
+        consultor,
+        vendas: dados.vendas,
+        faturamento: dados.faturamento,
+        ticketMedio: dados.vendas > 0 ? dados.faturamento / dados.vendas : 0,
+        clientesUnicos: dados.clientes.size
+      }))
+      .sort((a, b) => b.faturamento - a.faturamento);
+  }, [pedidosFiltrados]);
+
+  const vendasPorTipo = useMemo(() => {
+    const porConsultor = new Map<string, { novo_produtor: { qtd: number; valor: number }; recompra: { qtd: number; valor: number } }>();
+
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || {
+        novo_produtor: { qtd: 0, valor: 0 },
+        recompra: { qtd: 0, valor: 0 },
+      };
+      const tipo = (snap.tipo_orcamento === 'recompra' || snap.tipo_orcamento === 'recompra_pod') ? 'recompra' : 'novo_produtor';
+      atual[tipo].qtd += 1;
+      atual[tipo].valor += getSnapValorEfetivo(snap);
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({ consultor, ...dados }))
+      .sort((a, b) => (b.novo_produtor.valor + b.recompra.valor) - (a.novo_produtor.valor + a.recompra.valor));
+  }, [pedidosFiltrados]);
+
+  const pipelineConsultores = useMemo((): PipelineConsultor[] => {
+    const emProducao = pedidosFiltrados.filter(p => p.status === 'aguardando_producao');
+    const porConsultor = new Map<string, { propostas: number; valorTotal: number; diasTotal: number }>();
+    const hoje = new Date();
+    
+    emProducao.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || { propostas: 0, valorTotal: 0, diasTotal: 0 };
+      atual.propostas += 1;
+      atual.valorTotal += getSnapValorEfetivo(snap);
+      if (p.created_at) {
+        atual.diasTotal += differenceInDays(hoje, parseISO(p.created_at));
+      }
+      porConsultor.set(consultor, atual);
+    });
+    
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({
+        consultor,
+        propostas: dados.propostas,
+        valorTotal: dados.valorTotal,
+        ticketMedio: dados.propostas > 0 ? dados.valorTotal / dados.propostas : 0,
+        diasMedioAberto: dados.propostas > 0 ? Math.round(dados.diasTotal / dados.propostas) : 0
+      }))
+      .sort((a, b) => b.valorTotal - a.valorTotal);
+  }, [pedidosFiltrados]);
+
+  const produtosMaisVendidos = useMemo((): ProdutoVendido[] => {
+    const produtos = new Map<string, { quantidade: number; faturamento: number }>();
+    
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const itens = snap.itens_producao as ItemProducao[] | null;
+      if (Array.isArray(itens)) {
+        itens.forEach(item => {
+          const nome = item.nome_produto || item.nome || item.nomeFormula || 'Produto sem nome';
+          const atual = produtos.get(nome) || { quantidade: 0, faturamento: 0 };
+          atual.quantidade += Number(item.quantidade || item.quantidadePote || (item as any).pod_consumo_quantidade || 0);
+          atual.faturamento += getItemValorEfetivo(item);
+          produtos.set(nome, atual);
+        });
+      }
+    });
+    
+    const totalFaturamento = Array.from(produtos.values()).reduce((acc, p) => acc + p.faturamento, 0);
+    
+    return Array.from(produtos.entries())
+      .map(([nome, dados]) => ({
+        nome,
+        quantidade: dados.quantidade,
+        faturamento: dados.faturamento,
+        percentualTotal: totalFaturamento > 0 ? (dados.faturamento / totalFaturamento) * 100 : 0
+      }))
+      .sort((a, b) => b.faturamento - a.faturamento)
+      .slice(0, 10);
+  }, [pedidosFiltrados]);
+
+  const mixVendas = useMemo((): MixVendas => {
+    const totalProducao = pedidosFiltrados.reduce((acc, p) => acc + getSnapSubtotalProducaoEfetivo(getSnap(p)), 0);
+    const totalServicos = pedidosFiltrados.reduce((acc, p) => acc + Number(getSnap(p).subtotal_servicos || 0), 0);
+    const total = totalProducao + totalServicos;
+    
+    return {
+      producao: {
+        valor: totalProducao,
+        percentual: total > 0 ? (totalProducao / total) * 100 : 0
+      },
+      servicos: {
+        valor: totalServicos,
+        percentual: total > 0 ? (totalServicos / total) * 100 : 0
+      },
+      equilibrado: total > 0 ? Math.abs((totalProducao / total) - 0.5) < 0.2 : true
+    };
+  }, [pedidosFiltrados]);
+
+  const insights = useMemo((): InsightDashboard[] => {
+    const resultado: InsightDashboard[] = [];
+    const hoje = new Date();
+    
+    // Alert for pedidos stuck in production
+    pedidosFiltrados
+      .filter(p => p.status === 'aguardando_producao' && p.created_at)
+      .forEach(p => {
+        const snap = getSnap(p);
+        const dias = differenceInDays(hoje, parseISO(p.created_at!));
+        if (dias > 7) {
+          resultado.push({
+            tipo: 'alerta',
+            mensagem: `${snap.consultor_responsavel || 'Sem consultor'} tem R$ ${getSnapValorEfetivo(snap).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} aguardando produção há ${dias} dias (${snap.nome_cliente})`,
+            consultor: snap.consultor_responsavel || undefined,
+            valor: getSnapValorEfetivo(snap),
+            cliente: snap.nome_cliente || undefined,
+            dias_parado: dias,
+            data_referencia: p.created_at || undefined,
+            situacao: `Aguardando produção há ${dias} dias`,
+            numero_orcamento: snap.numero_orcamento || undefined,
+          });
+        }
+      });
+
+    // Orçamentos parados em rascunho há mais de 5 dias
+    orcamentosFiltrados
+      .filter(o => o.status === 'rascunho' && o.created_at)
+      .forEach(o => {
+        const dias = differenceInDays(hoje, parseISO(o.created_at!));
+        if (dias > 5) {
+          resultado.push({
+            tipo: 'atencao',
+            mensagem: `Orçamento "${o.nome_cliente}" em rascunho há ${dias} dias (${o.consultor_responsavel || 'Sem consultor'}) - R$ ${Number(o.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            consultor: o.consultor_responsavel || undefined,
+            valor: Number(o.valor_total || 0),
+            orcamento_id: o.id,
+            numero_orcamento: o.numero_orcamento,
+            observacao: o.observacoes_internas || undefined,
+            cliente: o.nome_cliente || undefined,
+            dias_parado: dias,
+            data_referencia: o.created_at || undefined,
+            situacao: `Rascunho há ${dias} dias`,
+          });
+        }
+      });
+
+    // Orçamentos enviados — relatório consolidado por orçamento (1º envio, 2º envio, último contato, feedback)
+    const enviadosSemRetorno = orcamentosFiltrados.filter(o =>
+      o.status === 'enviado' && (o.data_envio || (o.historico_contatos && o.historico_contatos.length > 0) || o.updated_at)
+    );
+
+    const enviadosPorConsultor = new Map<string, number>();
+
+    enviadosSemRetorno.forEach(o => {
+      const hist = (o.historico_contatos || []).slice().sort(
+        (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
+      );
+      const envios = hist.filter(h => h.tipo === 'envio');
+      const contatos = hist.filter(h => h.tipo === 'contato');
+
+      const primeiroEnvio = envios[0]?.data || o.data_envio || o.updated_at!;
+      const segundoEnvio = envios[1]?.data;
+      const ultimoEvento = hist[hist.length - 1];
+      const ultimoContato = ultimoEvento?.data || primeiroEnvio;
+      const ultimoFeedback = [...contatos].reverse().find(c => c.observacao?.trim())?.observacao
+        || (o.observacoes_internas || '').trim()
+        || undefined;
+
+      const diasDesdeUltimo = differenceInDays(hoje, parseISO(ultimoContato));
+      const valor = Number(o.valor_total || 0);
+      const consultor = o.consultor_responsavel || 'Sem consultor';
+      const fmt = (d?: string) => (d ? format(parseISO(d), 'dd/MM/yyyy', { locale: ptBR }) : '—');
+
+      let tipo: InsightDashboard['tipo'];
+      if (diasDesdeUltimo > 14) tipo = 'alerta';
+      else if (diasDesdeUltimo >= 5) tipo = 'atencao';
+      else tipo = 'oportunidade';
+
+      const partes: string[] = [];
+      partes.push(`1º envio: ${fmt(primeiroEnvio)}`);
+      partes.push(`2º envio: ${segundoEnvio ? fmt(segundoEnvio) : '—'}`);
+      partes.push(`último contato: ${fmt(ultimoContato)} (há ${diasDesdeUltimo} ${diasDesdeUltimo === 1 ? 'dia' : 'dias'})`);
+
+      resultado.push({
+        tipo,
+        mensagem: `"${o.nome_cliente}" (${consultor}) — R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. ${partes.join(' · ')}.`,
+        consultor: o.consultor_responsavel || undefined,
+        valor,
+        orcamento_id: o.id,
+        numero_orcamento: o.numero_orcamento,
+        observacao: ultimoFeedback,
+        data_envio: primeiroEnvio,
+        cliente: o.nome_cliente || undefined,
+        dias_parado: diasDesdeUltimo,
+        data_referencia: ultimoContato,
+        situacao: `Enviado — sem retorno há ${diasDesdeUltimo} ${diasDesdeUltimo === 1 ? 'dia' : 'dias'}`,
+        historico: {
+          primeiro_envio: primeiroEnvio,
+          segundo_envio: segundoEnvio,
+          ultimo_contato: ultimoContato,
+          ultimo_feedback: ultimoFeedback,
+          total_envios: envios.length || 1,
+          total_contatos: contatos.length,
+          dias_desde_ultimo: diasDesdeUltimo,
+        },
+      });
+
+      if (diasDesdeUltimo >= 5) {
+        enviadosPorConsultor.set(consultor, (enviadosPorConsultor.get(consultor) || 0) + 1);
+      }
+    });
+
+    // Resumo de orçamentos enviados aguardando retorno
+    if (enviadosSemRetorno.length > 0) {
+      const valorTotalEnviados = enviadosSemRetorno.reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
+      resultado.push({
+        tipo: 'oportunidade',
+        mensagem: `${enviadosSemRetorno.length} orçamento(s) enviado(s) aguardando retorno, totalizando R$ ${valorTotalEnviados.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        valor: valorTotalEnviados,
+      });
+    }
+
+    enviadosPorConsultor.forEach((qtd, consultor) => {
+      if (qtd >= 2) {
+        resultado.push({
+          tipo: 'atencao',
+          mensagem: `${consultor} tem ${qtd} orçamentos enviados sem contato recente`,
+          consultor,
+        });
+      }
+    });
+
+    // Consultor com taxa de recusa alta
+    orcamentosPorConsultorStatus.forEach(c => {
+      const decididos = c.pago + c.recusado;
+      if (decididos >= 3 && c.recusado / decididos > 0.5) {
+        resultado.push({
+          tipo: 'atencao',
+          mensagem: `${c.consultor} tem ${(c.recusado / decididos * 100).toFixed(0)}% de recusa (${c.recusado} de ${decididos} orçamentos)`,
+          consultor: c.consultor
+        });
+      }
+    });
+
+    // Oportunidade: valor alto em pipeline
+    const valorPipeline = orcamentosFiltrados
+      .filter(o => ['rascunho', 'enviado'].includes(o.status))
+      .reduce((acc, o) => acc + Number(o.valor_total || 0), 0);
+    if (valorPipeline > 0) {
+      const qtdPipeline = orcamentosFiltrados.filter(o => ['rascunho', 'enviado'].includes(o.status)).length;
+      resultado.push({
+        tipo: 'oportunidade',
+        mensagem: `${qtdPipeline} orçamento(s) em negociação totalizando R$ ${valorPipeline.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        valor: valorPipeline
+      });
+    }
+    
+    // Biggest sale
+    if (pedidosFiltrados.length > 0) {
+      const maior = pedidosFiltrados.reduce((max, p) => {
+        const vMax = getSnapValorEfetivo(getSnap(max));
+        const vP = getSnapValorEfetivo(getSnap(p));
+        return vP > vMax ? p : max;
+      });
+      const snapMaior = getSnap(maior);
+      resultado.push({
+        tipo: 'positivo',
+        mensagem: `Maior venda do período: ${snapMaior.consultor_responsavel || 'Sem consultor'} - R$ ${getSnapValorEfetivo(snapMaior).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${snapMaior.nome_cliente})`,
+        consultor: snapMaior.consultor_responsavel || undefined,
+        valor: getSnapValorEfetivo(snapMaior)
+      });
+    }
+    
+    if (!mixVendas.equilibrado && mixVendas.producao.valor + mixVendas.servicos.valor > 0) {
+      resultado.push({
+        tipo: 'oportunidade',
+        mensagem: `Mix desbalanceado: ${mixVendas.producao.percentual.toFixed(0)}% produção, ${mixVendas.servicos.percentual.toFixed(0)}% serviços`
+      });
+    }
+    
+    const ticketMedioGeral = kpis.ticketMedio;
+    rankingConsultores.forEach(c => {
+      if (c.ticketMedio < ticketMedioGeral * 0.8 && c.vendas >= 2) {
+        resultado.push({
+          tipo: 'atencao',
+          mensagem: `${c.consultor} tem ticket médio ${((1 - c.ticketMedio / ticketMedioGeral) * 100).toFixed(0)}% abaixo da média geral`,
+          consultor: c.consultor,
+          valor: c.ticketMedio
+        });
+      }
+    });
+    
+    return resultado;
+  }, [pedidosFiltrados, orcamentosFiltrados, orcamentosPorConsultorStatus, mixVendas, kpis, rankingConsultores]);
+
+  const clientesPorModelo = useMemo(() => {
+    const porConsultor = new Map<string, { estoque: { qtd: number; valor: number }; pod: { qtd: number; valor: number } }>();
+
+    pedidosFiltrados.forEach(p => {
+      const snap = getSnap(p);
+      const consultor = snap.consultor_responsavel || 'Sem Consultor';
+      const atual = porConsultor.get(consultor) || {
+        estoque: { qtd: 0, valor: 0 },
+        pod: { qtd: 0, valor: 0 },
+      };
+      const itens = snap.itens_producao as any[] | null;
+      const temPod = Array.isArray(itens) && itens.some((i: any) => i.modelo_negocio === 'print_on_demand');
+      const tipo = temPod ? 'pod' : 'estoque';
+      atual[tipo].qtd += 1;
+      atual[tipo].valor += getSnapValorEfetivo(snap);
+      porConsultor.set(consultor, atual);
+    });
+
+    return Array.from(porConsultor.entries())
+      .map(([consultor, dados]) => ({ consultor, ...dados }))
+      .sort((a, b) => (b.estoque.valor + b.pod.valor) - (a.estoque.valor + a.pod.valor));
+  }, [pedidosFiltrados]);
+
+  return {
+    orcamentos: pedidosFiltrados,
+    consultoresUnicos,
+    kpis,
+    rankingConsultores,
+    pipelineConsultores,
+    produtosMaisVendidos,
+    mixVendas,
+    insights,
+    orcamentosDetalhados,
+    vendasPorTipo,
+    clientesPorModelo,
+    orcamentosPorConsultorStatus,
+    alteracoesPagamento: pedidosFiltrados
+      .filter(p => Array.isArray((p as any).pagamento_alteracoes) && (p as any).pagamento_alteracoes.length > 0)
+      .map(p => ({
+        id: p.id,
+        numero_pedido: p.numero_pedido,
+        nome_cliente: getSnap(p).nome_cliente || '-',
+        consultor: getSnap(p).consultor_responsavel || '-',
+        alteracoes: (p as any).pagamento_alteracoes as any[],
+      })),
+    isLoading: loadingPedidos || loadingOrcamentos
+  };
+}

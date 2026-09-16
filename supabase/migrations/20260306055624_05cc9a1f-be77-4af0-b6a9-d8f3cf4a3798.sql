@@ -1,0 +1,1 @@
+ALTER TABLE public.lotes ADD COLUMN codigo text;

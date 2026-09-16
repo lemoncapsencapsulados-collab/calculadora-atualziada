@@ -1,0 +1,442 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================================================
+   SISTEMA DE DESIGN — Calculadora LemonCaps
+   Direção: instrumento de precisão. Densidade calma, cor com significado,
+   números como protagonistas. Todas as cores em HSL.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    /* --- Superfícies: grafite frio, não azulado --- */
+    --background: 210 22% 97.5%;
+    --foreground: 215 28% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 13%;
+
+    /* --- Marca: teal profundo (ação) + citrus LemonCaps (assinatura) --- */
+    --primary: 187 70% 29%;
+    --primary-foreground: 180 40% 98%;
+    --primary-glow: 187 62% 44%;
+    --primary-soft: 187 44% 93%;
+
+    --citrus: 70 78% 47%;
+    --citrus-foreground: 75 65% 11%;
+    --citrus-soft: 70 70% 92%;
+
+    /* --- Interação neutra (semântica shadcn) ---
+       `accent` é o hover de menus e dropdowns: precisa ser DISCRETO.
+       Antes era um ciano saturado, que fazia todo hover do sistema piscar. */
+    --secondary: 210 20% 93.5%;
+    --secondary-foreground: 215 22% 24%;
+    --muted: 210 20% 95.5%;
+    --muted-foreground: 215 14% 44%;
+    --accent: 210 22% 92.5%;
+    --accent-foreground: 215 28% 16%;
+
+    /* --- Status: distintos entre si, com variante suave para badges --- */
+    --success: 156 58% 30%;
+    --success-foreground: 150 40% 98%;
+    --success-soft: 152 48% 92%;
+
+    --warning: 33 88% 42%;
+    --warning-foreground: 40 60% 98%;
+    --warning-soft: 40 88% 91%;
+
+    --destructive: 4 66% 45%;
+    --destructive-foreground: 0 40% 98%;
+    --destructive-soft: 4 72% 94%;
+
+    --info: 214 70% 42%;
+    --info-foreground: 210 40% 98%;
+    --info-soft: 214 72% 93%;
+
+    /* --- Linhas e foco --- */
+    --border: 214 20% 88%;
+    --border-strong: 214 18% 80%;
+    --input: 214 20% 85%;
+    --ring: 187 70% 34%;
+
+    /* --- Forma: mais contido que o padrão "bolha" --- */
+    --radius: 0.625rem;
+    --radius-card: 0.875rem;
+
+    /* --- Elevação: sombras curtas e frias (Rams: discreto) --- */
+    --shadow-soft: 0 1px 2px hsl(215 25% 20% / 0.05), 0 1px 1px hsl(215 25% 20% / 0.04);
+    --shadow-medium: 0 2px 4px hsl(215 25% 20% / 0.06), 0 4px 12px -4px hsl(215 25% 20% / 0.09);
+    --shadow-strong: 0 4px 8px hsl(215 25% 20% / 0.07), 0 12px 32px -8px hsl(215 25% 20% / 0.14);
+    --shadow-glow: 0 0 0 3px hsl(var(--ring) / 0.16);
+
+    /* --- Gradientes da marca --- */
+    --gradient-primary: linear-gradient(140deg, hsl(187 70% 29%), hsl(187 62% 40%));
+    --gradient-accent: linear-gradient(140deg, hsl(187 66% 34%), hsl(70 78% 47%));
+    --gradient-subtle: linear-gradient(180deg, hsl(210 24% 99%), hsl(210 20% 96%));
+
+    /* --- Movimento: curvas próprias, não o ease padrão --- */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --transition-smooth: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-bounce: all 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* --- Sidebar --- */
+    --sidebar-background: 210 24% 99%;
+    --sidebar-foreground: 215 22% 26%;
+    --sidebar-primary: 187 70% 29%;
+    --sidebar-primary-foreground: 180 40% 98%;
+    --sidebar-accent: 210 22% 93%;
+    --sidebar-accent-foreground: 215 28% 16%;
+    --sidebar-border: 214 20% 88%;
+    --sidebar-ring: 187 70% 34%;
+  }
+
+  .dark {
+    --background: 215 28% 8%;
+    --foreground: 210 20% 94%;
+    --card: 215 26% 11%;
+    --card-foreground: 210 20% 94%;
+    --popover: 215 26% 12%;
+    --popover-foreground: 210 20% 94%;
+
+    --primary: 187 62% 46%;
+    --primary-foreground: 215 30% 7%;
+    --primary-glow: 187 62% 58%;
+    --primary-soft: 187 40% 17%;
+
+    --citrus: 70 72% 55%;
+    --citrus-foreground: 75 70% 9%;
+    --citrus-soft: 70 40% 16%;
+
+    --secondary: 215 22% 17%;
+    --secondary-foreground: 210 18% 88%;
+    --muted: 215 22% 15%;
+    --muted-foreground: 215 14% 62%;
+    --accent: 215 22% 19%;
+    --accent-foreground: 210 20% 94%;
+
+    --success: 156 50% 44%;
+    --success-foreground: 150 60% 6%;
+    --success-soft: 156 38% 16%;
+
+    --warning: 36 86% 55%;
+    --warning-foreground: 40 70% 8%;
+    --warning-soft: 36 44% 17%;
+
+    --destructive: 4 70% 56%;
+    --destructive-foreground: 0 40% 98%;
+    --destructive-soft: 4 42% 19%;
+
+    --info: 214 76% 60%;
+    --info-foreground: 214 60% 8%;
+    --info-soft: 214 42% 19%;
+
+    --border: 215 20% 21%;
+    --border-strong: 215 18% 29%;
+    --input: 215 20% 22%;
+    --ring: 187 62% 46%;
+
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3);
+    --shadow-medium: 0 2px 4px hsl(0 0% 0% / 0.35), 0 4px 12px -4px hsl(0 0% 0% / 0.45);
+    --shadow-strong: 0 4px 8px hsl(0 0% 0% / 0.4), 0 12px 32px -8px hsl(0 0% 0% / 0.55);
+    --shadow-glow: 0 0 0 3px hsl(var(--ring) / 0.26);
+
+    --gradient-primary: linear-gradient(140deg, hsl(187 62% 38%), hsl(187 62% 52%));
+    --gradient-accent: linear-gradient(140deg, hsl(187 62% 42%), hsl(70 72% 50%));
+    --gradient-subtle: linear-gradient(180deg, hsl(215 26% 12%), hsl(215 28% 8%));
+
+    --sidebar-background: 215 28% 9%;
+    --sidebar-foreground: 210 18% 88%;
+    --sidebar-primary: 187 62% 46%;
+    --sidebar-primary-foreground: 215 30% 7%;
+    --sidebar-accent: 215 22% 17%;
+    --sidebar-accent-foreground: 210 20% 94%;
+    --sidebar-border: 215 20% 21%;
+    --sidebar-ring: 187 62% 46%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Tracking depende do tamanho: títulos grandes fecham, corpo fica em 0.
+     Um único letter-spacing global estaria errado em algum tamanho. */
+  h1, h2, h3, h4 {
+    @apply font-semibold text-foreground;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  h1 { letter-spacing: -0.028em; line-height: 1.12; }
+  h2 { letter-spacing: -0.022em; line-height: 1.2; }
+
+  p { text-wrap: pretty; }
+
+  /* Foco visível e consistente em todo o sistema */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 4px);
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  /* Scrollbar discreta, no tom da interface */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 99px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.55);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Números são o conteúdo de um sistema de cotação: largura fixa para
+     alinharem em coluna, e "zero" cortado para não confundir com O. */
+  .num {
+    font-family: theme('fontFamily.mono');
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: -0.01em;
+  }
+
+  /* Números em leitura corrida (datas e valores dentro de listas): mesma
+     família da interface, mas com largura fixa para alinharem em coluna.
+     Difere de .num — o monoespaçado reservado a código e identificadores. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.005em;
+  }
+
+  /* Linha de metadados: uma linha só. Separadores vêm do CSS (nada de
+     ponto solto no JSX) e o excesso desaparece num fade, não num corte. */
+  .meta-row {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    gap: 0.375rem;
+    overflow: hidden;
+    white-space: nowrap;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  }
+  .meta-row > * {
+    flex: 0 0 auto;
+  }
+  .meta-row > * + *::before {
+    content: "·";
+    margin-right: 0.375rem;
+    color: hsl(var(--border-strong));
+  }
+
+  /* Rótulo de seção: pequeno, espaçado, discreto */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase text-muted-foreground;
+    letter-spacing: 0.08em;
+  }
+
+  /* Superfície padrão de conteúdo */
+  .surface-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+@layer utilities {
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-medium { box-shadow: var(--shadow-medium); }
+  .shadow-strong { box-shadow: var(--shadow-strong); }
+}
+
+/* Movimento reduzido: preserva opacidade e cor, corta deslocamento e mola */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Editor de contratos (TipTap) — canvas A4 fiel ao Word */
+.contrato-editor {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  color: #000;
+  width: 595.3pt;
+  min-height: 841.9pt;
+  max-width: none;
+  padding: 72pt !important;
+  box-sizing: border-box;
+  margin: 24px auto;
+  overflow: visible;
+}
+.contrato-editor p { margin: 0 0 10pt; text-align: justify; font-family: "Times New Roman", Times, serif; font-size: 12pt; }
+.contrato-editor h1 { font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; font-family: "Times New Roman", Times, serif; }
+.contrato-editor h2 { font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; font-family: "Times New Roman", Times, serif; }
+.contrato-editor h3 { font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; font-family: "Times New Roman", Times, serif; }
+.contrato-editor h4, .contrato-editor h5 { font-size: 11pt; font-weight: 700; margin: 6pt 0 3pt; font-family: "Times New Roman", Times, serif; }
+.contrato-editor strong, .contrato-editor b { font-weight: 700; }
+.contrato-editor em, .contrato-editor i { font-style: italic; }
+.contrato-editor u { text-decoration: underline; }
+.contrato-editor ul { list-style: disc; padding-left: 24pt; margin: 4pt 0 8pt; }
+.contrato-editor ol { list-style: decimal; padding-left: 24pt; margin: 4pt 0 8pt; }
+.contrato-editor li { margin: 2pt 0; }
+.contrato-editor li p { margin: 0; }
+.contrato-editor blockquote { border-left: 3px solid #ccc; padding-left: 12pt; margin: 6pt 0 6pt 12pt; color: #333; font-style: italic; }
+.contrato-editor table { border-collapse: collapse; width: auto; margin: 8pt 0; table-layout: fixed; }
+.contrato-editor td, .contrato-editor th { border: 0.5pt solid #000; padding: 0 4pt; vertical-align: top; }
+.contrato-editor hr { border: 0; border-top: 1px dashed hsl(var(--border)); margin: 24pt -12pt; height: 0; position: relative; }
+.contrato-editor hr::after { content: "Quebra de página"; display: block; text-align: center; color: hsl(var(--muted-foreground)); font-family: Arial, sans-serif; font-size: 9pt; margin-top: -7pt; background: hsl(var(--card)); width: 92pt; margin-left: auto; margin-right: auto; }
+.contrato-editor a { color: #1e40af; text-decoration: underline; }
+.contrato-editor img { max-width: 100%; height: auto; }
+.contrato-editor img.ProseMirror-selectednode { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+
+/* Animação de brilho dourado para celebração "LEMON RICA" */
+@keyframes gold-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f59e0b 0%,
+    #fcd34d 25%,
+    #fef3c7 50%,
+    #fcd34d 75%,
+    #f59e0b 100%
+  );
+  background-size: 200% auto;
+  animation: gold-shimmer 3s linear infinite;
+}
+
+/* Animação de estrelinhas */
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(180deg);
+  }
+}
+
+.sparkle {
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.sparkle-delay-1 {
+  animation-delay: 0.2s;
+}
+
+.sparkle-delay-2 {
+  animation-delay: 0.4s;
+}
+
+.sparkle-delay-3 {
+  animation-delay: 0.6s;
+}
+
+.sparkle-delay-4 {
+  animation-delay: 0.8s;
+}
+
+/* ================= Investimento em Anúncios — tema escopado ================= */
+.anuncios-neon {
+  --background: 225 16% 7%;
+  --foreground: 220 15% 95%;
+  --card: 225 15% 10%;
+  --card-foreground: 220 15% 95%;
+  --popover: 225 15% 10%;
+  --popover-foreground: 220 15% 95%;
+  --primary: 172 70% 45%;
+  --primary-foreground: 225 16% 7%;
+  --secondary: 220 80% 65%;
+  --secondary-foreground: 225 16% 7%;
+  --muted: 225 12% 16%;
+  --muted-foreground: 220 8% 62%;
+  --accent: 220 80% 65%;
+  --accent-foreground: 225 16% 7%;
+  --destructive: 356 72% 58%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 152 55% 45%;
+  --success-foreground: 225 16% 7%;
+  --warning: 38 88% 58%;
+  --warning-foreground: 225 16% 7%;
+  --border: 225 12% 19%;
+  --input: 225 12% 19%;
+  --ring: 172 70% 45%;
+  --radius: 0.75rem;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.anuncios-neon .surface {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+
+@keyframes anuncios-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.anuncios-neon .anim-rise {
+  animation: anuncios-rise 150ms ease-out both;
+}
+
+@keyframes anuncios-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.anuncios-neon .pulse-dot {
+  animation: anuncios-pulse-dot 1.6s ease-in-out infinite;
+}
+
+
+/* Barra de carregamento indeterminada do painel de inteligência. Percorre a
+   trilha em vez de crescer: a consulta não tem etapas contáveis, e uma barra
+   que "enche" prometeria um progresso que ninguém sabe medir. */
+@keyframes zapCarregando {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}

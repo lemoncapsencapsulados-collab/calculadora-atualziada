@@ -1,0 +1,1 @@
+ALTER TABLE public.ad_investments ADD COLUMN IF NOT EXISTS nome_campanha text NOT NULL DEFAULT '';

@@ -1,0 +1,1 @@
+ALTER TABLE public.orcamentos ADD COLUMN data_pagamento timestamp with time zone DEFAULT NULL;

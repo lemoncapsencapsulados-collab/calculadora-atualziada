@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  calculadora:
+    image: calculadora:${TAG:-latest}
+    networks:
+      - lemon
+    deploy:
+      replicas: 1
+      # start-first: sobe a tarefa nova e so' derruba a antiga quando ela
+      # estiver de pe'. Sem isso o Traefik fica ~15s sem backend (404) a cada
+      # deploy, ate' o proximo ciclo do provider.
+      update_config:
+        order: start-first
+        failure_action: rollback
+        delay: 5s
+      restart_policy:
+        condition: any
+        delay: 5s
+      labels:
+        - "traefik.enable=true"
+        # Os dois dominios apontam para a mesma stack: o novo entra sem derrubar
+        # o antigo, que continua valendo enquanto houver link circulando.
+        - "traefik.http.routers.calculadora.rule=Host(`calculadora.lemoncaps.com.br`) || Host(`calculadora.lemoncapsauto.com`)"
+        - "traefik.http.routers.calculadora.entrypoints=websecure"
+        - "traefik.http.routers.calculadora.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.calculadora.loadbalancer.server.port=80"
+
+networks:
+  lemon:
+    external: true
