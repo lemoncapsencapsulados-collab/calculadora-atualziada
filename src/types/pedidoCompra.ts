@@ -55,8 +55,8 @@ export const CAPSULA_CORES = [
   'Transparente', 'Verde', 'Vermelha', 'Branca', 'Roxo', 'Azul', 'Creme',
 ] as const;
 export const POTE_CORES = ['Branco', 'Preto', 'Transparente'] as const;
-/** O usuario pediu estas opcoes em "Tampa - tipo"; sao cores, mantidas como pedido. */
-export const TAMPA_TIPOS = ['Branco', 'Preto', 'Transparente', 'Azul'] as const;
+export const TAMPA_TIPOS = ['Rosca', 'Flip-top', 'Pump'] as const;
+export const TAMPA_CORES = ['Branco', 'Preto', 'Transparente', 'Azul'] as const;
 export const ROTULO_MATERIAIS = ['BOPP'] as const;
 export const ROTULO_ACABAMENTOS = ['Metalizado', 'Transparente', 'Fosco', 'Perolizado'] as const;
 export const EMBALAGEM_SECUNDARIA = ['Sim', 'Não'] as const;

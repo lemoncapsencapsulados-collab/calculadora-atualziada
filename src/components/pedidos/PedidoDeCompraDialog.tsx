@@ -10,13 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/unitConversion';
 import { numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
 import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
 import { baixarPedidoCompraPDF } from '@/lib/pedidoCompraPdf';
 import {
   APRESENTACOES, CAPSULA_CORES, CAPSULA_TIPOS, CANAIS_FORMAIS, EMBALAGEM_SECUNDARIA,
-  PLANO_MARCA_LABEL, POTE_CORES, ROTULO_ACABAMENTOS, ROTULO_MATERIAIS, TAMPA_TIPOS,
+  PLANO_MARCA_LABEL, POTE_CORES, ROTULO_ACABAMENTOS, ROTULO_MATERIAIS, TAMPA_CORES, TAMPA_TIPOS,
   listarCamposFaltantes,
   type DadosPedidoCompra,
   type EmbalagemPedidoCompra,
@@ -185,6 +186,57 @@ export default function PedidoDeCompraDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, numeroContratoSugerido]);
+
+  /**
+   * Completa a composicao a partir de "Produtos Criados".
+   *
+   * O snapshot do orcamento nem sempre carrega `insumos_formula` -- orcamentos
+   * antigos nao guardavam. A formula e' a fonte que sempre tem insumo e dose,
+   * entao ela preenche o que falta, sem sobrescrever o que ja' veio do que foi
+   * efetivamente vendido.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const itens = (snapshot.itens_producao || []) as any[];
+    const ids = itens.map((i) => i.precificacao_id).filter(Boolean);
+    if (ids.length === 0) return;
+
+    let cancelado = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('precificacoes')
+        .select('id, formulas(itens)')
+        .in('id', ids);
+      if (cancelado || error || !data) return;
+
+      const porPrecificacao = new Map<string, { insumo: string; dose: string }[]>();
+      data.forEach((row: any) => {
+        const formulaItens = (row.formulas?.itens || []) as any[];
+        porPrecificacao.set(
+          row.id,
+          formulaItens
+            .filter((it) => String(it?.nome_insumo_snapshot || '').trim())
+            .map((it) => ({
+              insumo: String(it.nome_insumo_snapshot).trim(),
+              dose: `${String(it.qtd_informada ?? '').replace('.', ',')} ${it.unidade_informada || ''}`.trim(),
+            })),
+        );
+      });
+
+      setDados((d) => ({
+        ...d,
+        especificacoes: d.especificacoes.map((esp, i) => {
+          if (esp.composicao.some((a) => a.insumo.trim())) return esp;
+          const daFormula = porPrecificacao.get(itens[i]?.precificacao_id);
+          return daFormula?.length ? { ...esp, composicao: daFormula } : esp;
+        }),
+      }));
+    })();
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const set = <K extends keyof DadosPedidoCompra>(campo: K, valor: DadosPedidoCompra[K]) =>
     setDados((d) => ({ ...d, [campo]: valor }));
@@ -640,6 +692,12 @@ export default function PedidoDeCompraDialog({
                   valor={esp.embalagem.tampa_tipo}
                   opcoes={TAMPA_TIPOS}
                   onChange={(v) => setEmb(idx, { tampa_tipo: v })}
+                />
+                <CampoLista
+                  label="Tampa — cor"
+                  valor={esp.embalagem.tampa_cor}
+                  opcoes={TAMPA_CORES}
+                  onChange={(v) => setEmb(idx, { tampa_cor: v })}
                 />
                 <Campo
                   label="Dosador / acessório"
