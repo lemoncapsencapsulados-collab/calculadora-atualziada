@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/unitConversion';
-import { montarNumeroPedido } from '@/lib/numeroPedido';
+import { numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
 import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
 import { baixarPedidoCompraPDF } from '@/lib/pedidoCompraPdf';
 import {
@@ -34,8 +34,11 @@ interface Props {
     cpf?: string | null;
     telefone?: string | null;
   } | null;
-  /** Quantos pedidos aquele CNPJ já teve -- define o sequencial do número. */
-  pedidosDoCnpj: number;
+  /**
+   * Número do Pedido de Compra. É o mesmo número do orçamento: definitivo
+   * (400, 400-01) quando já foi pago, ou o provisório ORC-xxx antes disso.
+   */
+  numeroPedido: string;
   onGerar: (payload: {
     numeroContrato: string;
     numeroPedido: string;
@@ -107,12 +110,14 @@ export default function PedidoDeCompraDialog({
   onOpenChange,
   snapshot,
   cliente,
-  pedidosDoCnpj,
+  numeroPedido,
   onGerar,
   onEditarOrcamento,
   numeroContratoSugerido,
 }: Props) {
-  const [numeroContrato, setNumeroContrato] = useState(numeroContratoSugerido || '');
+  const [numeroContrato, setNumeroContrato] = useState(
+    numeroContratoSugerido || numeroContratoDoMes(),
+  );
   const [dados, setDados] = useState<DadosPedidoCompra>(() =>
     montarDadosPedidoCompra({ snapshot, cliente }),
   );
@@ -122,7 +127,7 @@ export default function PedidoDeCompraDialog({
   useEffect(() => {
     if (open) {
       setDados(montarDadosPedidoCompra({ snapshot, cliente }));
-      setNumeroContrato(numeroContratoSugerido || '');
+      setNumeroContrato(numeroContratoSugerido || numeroContratoDoMes());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, numeroContratoSugerido]);
@@ -134,11 +139,6 @@ export default function PedidoDeCompraDialog({
     campo: K,
     valor: DadosPedidoCompra['embalagem'][K],
   ) => setDados((d) => ({ ...d, embalagem: { ...d.embalagem, [campo]: valor } }));
-
-  const numeroPedido = useMemo(
-    () => (numeroContrato.trim() ? montarNumeroPedido(numeroContrato, pedidosDoCnpj) : ''),
-    [numeroContrato, pedidosDoCnpj],
-  );
 
   const faltantes = useMemo(
     () => listarCamposFaltantes(dados, numeroContrato),
@@ -201,7 +201,7 @@ export default function PedidoDeCompraDialog({
             <p className="text-[11px] text-muted-foreground">
               {numeroContratoSugerido
                 ? 'Contrato já cadastrado para este cliente.'
-                : 'Ao salvar, fica vinculado a este cliente e vale para os próximos pedidos.'}
+                : `Sugerido pelo mês (${numeroContratoDoMes()}). Substitua pelo número que o financeiro informar.`}
             </p>
           </div>
           <div className="space-y-1">
@@ -210,7 +210,7 @@ export default function PedidoDeCompraDialog({
               {numeroPedido || '—'}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {pedidosDoCnpj} pedido(s) neste CNPJ, então o novo entra como nº {pedidosDoCnpj + 1}.
+              Mesmo número do orçamento que originou este pedido.
             </p>
           </div>
         </div>

@@ -32,6 +32,7 @@ import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { ADMIN_PANEL_PASSWORD } from '@/lib/adminConfig';
 import { RevisaoContratoZapSignDialog } from '@/components/zapsign/RevisaoContratoZapSignDialog';
 import { EnviarContratoInternoDialog } from '@/components/contratos-docx/EnviarContratoInternoDialog';
+import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
 import FreteOrcamentoDialog from '@/components/frete/FreteOrcamentoDialog';
 import { fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 
@@ -175,11 +176,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
-  const [enviandoFinanceiro, setEnviandoFinanceiro] = useState(false);
-  const [enviadoFinanceiro, setEnviadoFinanceiro] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
 
   // Tipo pessoa
@@ -886,149 +882,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     }
   };
 
-  const handleGenerateProposta = async () => {
-    // Bloquear se houver pendências (incluindo detalhes do produto)
-    if (camposPendentes.length > 0) {
-      toast.error(`Preencha os campos obrigatórios antes de gerar o Projeto para Contrato (${camposPendentes.length} pendente${camposPendentes.length > 1 ? 's' : ''}).`);
-      return;
-    }
-    // CNPJ obrigatório para PJ
-    if (tipoPessoa === 'pj') {
-      const cnpjNums = (dadosCliente.cnpj || '').replace(/\D/g, '');
-      if (cnpjNums.length !== 14) {
-        toast.error('CNPJ é obrigatório e deve conter 14 dígitos.');
-        return;
-      }
-    }
-    // Validar condições de pagamento
-    const erros = validarCondicoesPagamento(condicoesPagamento, orcamento.valor_total);
-    if (erros.length > 0) {
-      setErrosPagamento(erros);
-      return;
-    }
-    setErrosPagamento([]);
+  const [pedidoCompraAberto, setPedidoCompraAberto] = useState(false);
 
-    setIsSubmitting(true);
-
-    try {
-      const dadosClienteCompletos: DadosCliente = {
-        ...dadosCliente,
-        tipo_pessoa: tipoPessoa,
-        forma_venda: formaVenda as DadosCliente['forma_venda'],
-        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
-        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
-      };
-
-      const detalhamentoFrete: DetalhamentoFrete = {
-        frete_lemon_caps: freteLemonCaps,
-        usa_tabela_tradicional: usaTabelaTradicional,
-        planos_customizados: orcamento.detalhamento_frete?.planos_customizados || [],
-        detalhamento_envio: detalhamentoEnvio,
-      };
-
-      const itensComDetalhes = orcamento.itens_producao.map((item, idx) => ({
-        ...item,
-        detalhes_producao: detalhesProducao[idx] || undefined,
-      }));
-
-      // Salvar dados no orçamento (sem mudar status, sem criar pedido)
-      await updateDadosCliente.mutateAsync({ id: orcamento.id, dados_cliente: dadosClienteCompletos });
-      await updateDetalhamentoFrete.mutateAsync({ id: orcamento.id, detalhamento_frete: detalhamentoFrete });
-      await updateOrcamento.mutateAsync({
-        id: orcamento.id,
-        updates: { condicoes_pagamento: condicoesPagamento, itens_producao: itensComDetalhes },
-      });
-
-      // Persistir na tabela clientes
-      const clienteData = {
-        nome: tipoPessoa === 'pj' ? (dadosCliente.razao_social || orcamento.nome_cliente) : (pessoasFisicas[0]?.nome || orcamento.nome_cliente),
-        telefone: dadosCliente.telefone || pessoasFisicas[0]?.telefone || '',
-        tipo_pessoa: tipoPessoa,
-        razao_social: dadosCliente.razao_social,
-        cnpj: dadosCliente.cnpj,
-        cpf: tipoPessoa === 'pf' ? pessoasFisicas[0]?.cpf : undefined,
-        rg: tipoPessoa === 'pf' ? pessoasFisicas[0]?.rg : undefined,
-        email: dadosCliente.email || pessoasFisicas[0]?.email,
-        endereco_cnpj: dadosCliente.endereco_cnpj,
-        cep_cnpj: dadosCliente.cep_cnpj,
-        cidade_cnpj: dadosCliente.cidade,
-        estado_cnpj: dadosCliente.estado,
-        inscricao_estadual: dadosCliente.inscricao_estadual,
-        inscricao_municipal: dadosCliente.inscricao_municipal,
-        forma_venda: formaVenda,
-        responsavel_pj: tipoPessoa === 'pj' ? responsavelPJ : undefined,
-        pessoas_fisicas: tipoPessoa === 'pf' ? pessoasFisicas : undefined,
-      };
-
-      try {
-        let clienteIdFinal: string | undefined;
-        // Use the original contact phone (from client or budget) for duplicate detection
-        const telefoneContato = clienteSelecionado?.telefone || clienteData.telefone;
-
-        if (clienteSelecionado) {
-          await atualizarCliente.mutateAsync({ id: clienteSelecionado.id, ...clienteData });
-          clienteIdFinal = clienteSelecionado.id;
-        } else if (telefoneContato) {
-          const existente = await buscarPorTelefone(telefoneContato);
-          if (existente) {
-            await atualizarCliente.mutateAsync({ id: existente.id, ...clienteData });
-            clienteIdFinal = existente.id;
-          } else {
-            const novo = await criarCliente.mutateAsync({ ...clienteData, telefone: telefoneContato });
-            clienteIdFinal = novo.id;
-          }
-        }
-
-        // Save cliente_id back to orcamento
-        if (clienteIdFinal) {
-          await updateOrcamento.mutateAsync({
-            id: orcamento.id,
-            updates: { cliente_id: clienteIdFinal },
-          });
-        }
-      } catch (err: any) {
-        console.error('Erro ao salvar cliente:', err);
-        toast.error('Erro ao salvar cliente: ' + (err?.message || 'erro desconhecido'));
-      }
-
-      // Gerar preview do PDF
-      const orcamentoAtualizado: Orcamento = {
-        ...orcamento,
-        itens_producao: itensComDetalhes,
-        dados_cliente: dadosClienteCompletos,
-        detalhamento_frete: detalhamentoFrete,
-        condicoes_pagamento: condicoesPagamento,
-      };
-
-      const blob = await generateOrcamentoPDFBlob(orcamentoAtualizado, { incluirIntermediador: true });
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
-      setPdfBlob(blob);
-      setEnviadoFinanceiro(false);
-      setShowPreview(true);
-
-      // Salvar PDF + dados no storage/tabela (substitui versão anterior)
-      try {
-        await salvarResumoMutation.mutateAsync({
-          orcamento: orcamentoAtualizado,
-          dadosCliente: dadosClienteCompletos,
-          detalhamentoFrete,
-          condicoesPagamento,
-          detalhesProducao,
-          clienteId: clienteSelecionado?.id ?? orcamento.cliente_id ?? null,
-          pdfBlob: blob,
-        });
-      } catch (err) {
-        console.error('Erro ao salvar resumo no storage:', err);
-      }
-    } catch (error) {
-      console.error('Erro ao gerar resumo para contrato:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDownload = async () => {
+  /**
+   * Monta o orcamento com tudo que foi preenchido nesta tela. Serve tanto para o
+   * PDF do Contrato Mae quanto para o Pedido de Compra -- os dois documentos
+   * saem dos mesmos dados, que e' o ponto de coleta-los uma vez so'.
+   */
+  const montarOrcamentoAtualizado = (): Orcamento => {
     const dadosClienteCompletos: DadosCliente = {
       ...dadosCliente,
       tipo_pessoa: tipoPessoa,
@@ -1040,7 +901,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       ...item,
       detalhes_producao: detalhesProducao[idx] || undefined,
     }));
-    const orcamentoAtualizado: Orcamento = {
+    return {
       ...orcamento,
       itens_producao: itensComDetalhes,
       dados_cliente: dadosClienteCompletos,
@@ -1052,63 +913,19 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       },
       condicoes_pagamento: condicoesPagamento,
     };
-    await generateOrcamentoPDF(orcamentoAtualizado, { incluirIntermediador: true });
-    onClose();
   };
 
-  const handleEnviarFinanceiro = async () => {
-    if (!pdfBlob) {
-      toast.error('PDF não disponível para envio.');
+  /** Contrato Mae: o mesmo PDF do Projeto para Contrato, para o financeiro. */
+  const handleGerarContratoMae = async () => {
+    if (camposPendentes.length > 0) {
+      toast.error(`Preencha os ${camposPendentes.length} campo(s) obrigatório(s) antes de gerar o Contrato Mãe.`);
       return;
     }
-    setEnviandoFinanceiro(true);
-    try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(pdfBlob);
-      });
-
-      const valorTotal = (orcamento as any).valor_total ?? (orcamento as any).total ?? 0;
-      const valorTotalFmt = typeof valorTotal === 'number'
-        ? valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-        : String(valorTotal || '');
-
-      const razaoSocial = tipoPessoa === 'pj' ? (dadosCliente.razao_social || '') : '';
-      const cnpj = tipoPessoa === 'pj' ? (dadosCliente.cnpj || '') : '';
-
-      const { data, error } = await supabase.functions.invoke('enviar-projeto-financeiro', {
-        body: {
-          pdfBase64: base64,
-          filename: `projeto-${orcamento.numero_orcamento || orcamento.id}.pdf`,
-          consultorNome: orcamento.consultor_responsavel || '',
-          razaoSocial,
-          cnpj,
-          cliente: orcamento.nome_cliente || '',
-          valorTotal: valorTotalFmt,
-          orcamentoId: orcamento.id,
-          orcamentoNumero: orcamento.numero_orcamento || '',
-        },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      setEnviadoFinanceiro(true);
-      toast.success('Projeto enviado ao Financeiro.');
-    } catch (err: any) {
-      console.error('Erro ao enviar ao Financeiro:', err);
-      toast.error('Erro ao enviar ao Financeiro: ' + (err?.message || 'desconhecido'));
-    } finally {
-      setEnviandoFinanceiro(false);
-    }
+    await generateOrcamentoPDF(montarOrcamentoAtualizado(), { incluirIntermediador: true });
   };
 
-  // Cleanup URL on unmount
-  useEffect(() => {
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
+
+
 
   const zapSignDialog = () => (
     <>
@@ -1455,45 +1272,6 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
     </>
   );
 
-  if (showPreview && pdfUrl) {
-    return (
-      <>
-        <Dialog open onOpenChange={() => onClose()}>
-          <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Preview do Projeto para Contrato</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 min-h-0">
-              <iframe src={pdfUrl} className="w-full h-full border rounded-lg" title="Preview PDF" />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={handleDownload}>
-                <Download className="w-4 h-4 mr-2" />
-                Baixar Documento
-              </Button>
-              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={enviandoFinanceiro}>
-                Voltar e editar documento
-              </Button>
-              <Button
-                onClick={handleEnviarFinanceiro}
-                disabled={enviandoFinanceiro || enviadoFinanceiro}
-                className={enviadoFinanceiro ? 'bg-green-600 hover:bg-green-600 text-white' : ''}
-              >
-                {enviandoFinanceiro ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
-                ) : enviadoFinanceiro ? (
-                  'Enviado'
-                ) : (
-                  'Enviar Documento'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        {zapSignDialog()}
-      </>
-    );
-  }
 
   // Modo visualizar: mostra o PDF salvo no storage com opção de baixar/editar
   if (viewMode === 'visualizar') {
@@ -2210,23 +1988,48 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             </AlertDescription>
           </Alert>
         )}
-        <DialogFooter className="gap-2 sm:gap-0">
+        {/* Os dois documentos saem do mesmo formulario: Contrato Mae e Pedido
+            de Compra. O consultor preenche uma vez e baixa os dois. */}
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
-            onClick={handleGenerateProposta}
+            variant="outline"
+            onClick={handleGerarContratoMae}
             disabled={isSubmitting || camposPendentes.length > 0}
             title={camposPendentes.length > 0 ? `Preencha ${camposPendentes.length} campo(s) obrigatório(s)` : undefined}
           >
-            {isSubmitting ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
-            ) : camposPendentes.length > 0 ? (
-              `Enviar contrato para Financeiro (${camposPendentes.length} pendente${camposPendentes.length > 1 ? 's' : ''})`
-            ) : (
-              'Enviar contrato para Financeiro'
-            )}
+            <Download className="w-4 h-4 mr-2" />
+            Gerar PDF para Contrato Mãe
+          </Button>
+          <Button
+            onClick={() => setPedidoCompraAberto(true)}
+            disabled={isSubmitting || camposPendentes.length > 0}
+            title={camposPendentes.length > 0 ? `Preencha ${camposPendentes.length} campo(s) obrigatório(s)` : undefined}
+          >
+            <FileCheck className="w-4 h-4 mr-2" />
+            Elaborar Pedido de Compra
           </Button>
         </DialogFooter>
       </DialogContent>
+      {pedidoCompraAberto && (
+        <PedidoDeCompraDialog
+          open
+          onOpenChange={setPedidoCompraAberto}
+          snapshot={montarOrcamentoAtualizado() as any}
+          cliente={{
+            razao_social: dadosCliente.razao_social,
+            nome: dadosCliente.nome_completo || orcamento.nome_cliente,
+            cnpj: dadosCliente.cnpj,
+            cpf: dadosCliente.cpf,
+            telefone: dadosCliente.telefone,
+          }}
+          numeroPedido={orcamento.numero_orcamento || ''}
+          // Aqui o documento e' so' gerado para o financeiro: quem transforma em
+          // pedido e' a aprovacao do orcamento, na tela de Pedidos.
+          onGerar={() => setPedidoCompraAberto(false)}
+        />
+      )}
+
       {freteDialogAberto && (
         <FreteOrcamentoDialog
           orcamentoId={orcamento.id}

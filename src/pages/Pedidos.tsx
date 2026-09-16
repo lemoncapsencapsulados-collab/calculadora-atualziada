@@ -1352,12 +1352,11 @@ const Pedidos = () => {
               ? getClienteVinculado(pedidoCompraAlvo.pedido)
               : clientesById.get((pedidoCompraAlvo.orcamento as any).cliente_id) ?? null
           }
-          // Um pedido que ja' existe nao conta a si mesmo; um orcamento novo entra
-          // depois de todos os que o produtor ja' tem.
-          pedidosDoCnpj={
+          // O numero do Pedido de Compra e' o do orcamento que o originou.
+          numeroPedido={
             pedidoCompraAlvo.tipo === 'pedido'
-              ? Math.max(0, pedidoCompraAlvo.grupo.pedidos.length - 1)
-              : pedidoCompraAlvo.grupo.pedidos.length
+              ? pedidoCompraAlvo.pedido.numero_pedido
+              : pedidoCompraAlvo.orcamento.numero_orcamento
           }
           onGerar={async ({ numeroContrato, numeroPedido, dados }) => {
             const cnpjContratante = (pedidoCompraAlvo.grupo.cnpj || '').replace(/\D/g, '');
