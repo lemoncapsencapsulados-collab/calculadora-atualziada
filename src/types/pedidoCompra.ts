@@ -43,12 +43,35 @@ export interface ParcelaPedidoCompra {
   valor: number;
 }
 
+/**
+ * Opcoes fechadas das secoes 4 e 5. Fechar a lista e' o que torna o documento
+ * padronizado -- e o que permite, depois, agrupar pedidos por tipo de embalagem.
+ */
+export const CANAIS_FORMAIS = ['Grupo de WhatsApp', 'E-mail'] as const;
+
+export const APRESENTACOES = ['Encapsulado', 'Líquido', 'Goma', 'Solúvel'] as const;
+export const CAPSULA_TIPOS = ['Cápsula 0'] as const;
+export const CAPSULA_CORES = [
+  'Transparente', 'Verde', 'Vermelha', 'Branca', 'Roxo', 'Azul', 'Creme',
+] as const;
+export const POTE_CORES = ['Branco', 'Preto', 'Transparente'] as const;
+/** O usuario pediu estas opcoes em "Tampa - tipo"; sao cores, mantidas como pedido. */
+export const TAMPA_TIPOS = ['Branco', 'Preto', 'Transparente', 'Azul'] as const;
+export const ROTULO_MATERIAIS = ['BOPP'] as const;
+export const ROTULO_ACABAMENTOS = ['Metalizado', 'Transparente', 'Fosco', 'Perolizado'] as const;
+export const EMBALAGEM_SECUNDARIA = ['Sim', 'Não'] as const;
+
+/** Um ativo da formula: o insumo e a dose diaria dele. */
+export interface AtivoFormula {
+  insumo: string;
+  dose: string;
+}
+
 /** Secao 5 do documento: descricao da embalagem. */
 export interface EmbalagemPedidoCompra {
   apresentacao: string;
   capsula_tipo: string;
   capsula_cor: string;
-  capsula_tamanho: string;
   pote_material: string;
   pote_capacidade: string;
   pote_cor: string;
@@ -61,6 +84,14 @@ export interface EmbalagemPedidoCompra {
   rotulo_quantidade: string;
   embalagem_secundaria: string;
   fornecimento_embalagem: 'CONTRATADA' | 'CONTRATANTE' | '';
+}
+
+export interface EspecificacaoProduto {
+  produto_nome: string;
+  quantidade_por_frasco: string;
+  /** Ativos e suas doses diarias, em linhas. */
+  composicao: AtivoFormula[];
+  embalagem: EmbalagemPedidoCompra;
 }
 
 export interface DadosPedidoCompra {
@@ -86,13 +117,12 @@ export interface DadosPedidoCompra {
   contato_local: string;
   // 4. Condicoes de pagamento
   parcelas: ParcelaPedidoCompra[];
-  // 5. Especificacao tecnica
-  produto_nome: string;
-  quantidade_por_frasco: string;
-  dose_diaria: string;
-  composicao: string;
-  // 6. Embalagem
-  embalagem: EmbalagemPedidoCompra;
+  /**
+   * 5 e 6. Especificacao tecnica e embalagem, uma por produto.
+   * Um pedido com tres produtos tem tres composicoes e tres embalagens; juntar
+   * tudo num bloco so' era o que tornava o documento ambiguo na fabrica.
+   */
+  especificacoes: EspecificacaoProduto[];
   // Assinatura
   representante_nome: string;
   representante_cpf: string;
@@ -147,14 +177,24 @@ export function listarCamposFaltantes(
   exigir(!!dados.endereco_entrega?.trim(), 'endereco_entrega', 'Endereço de entrega');
   exigir(!!dados.contato_local?.trim(), 'contato_local', 'Contato no local (nome e telefone)');
   exigir((dados.parcelas?.length ?? 0) > 0, 'parcelas', 'Condições de pagamento');
-  exigir(!!dados.produto_nome?.trim(), 'produto_nome', 'Nome do produto (especificação técnica)');
-  exigir(!!dados.composicao?.trim(), 'composicao', 'Composição da fórmula');
-  exigir(!!dados.embalagem?.apresentacao?.trim(), 'embalagem', 'Apresentação da embalagem');
-  exigir(
-    !!dados.embalagem?.fornecimento_embalagem,
-    'embalagem',
-    'Fornecimento da embalagem (CONTRATADA ou CONTRATANTE)',
-  );
+  (dados.especificacoes ?? []).forEach((e, i) => {
+    const qual = (dados.especificacoes!.length > 1)
+      ? ` — ${e.produto_nome?.trim() || `produto ${i + 1}`}`
+      : '';
+    exigir(!!e.produto_nome?.trim(), 'especificacoes', `Nome do produto${qual}`);
+    exigir(
+      (e.composicao || []).some((a) => a.insumo?.trim()),
+      'especificacoes',
+      `Composição da fórmula${qual}`,
+    );
+    exigir(!!e.embalagem?.apresentacao?.trim(), 'especificacoes', `Apresentação da embalagem${qual}`);
+    exigir(
+      !!e.embalagem?.fornecimento_embalagem,
+      'especificacoes',
+      `Fornecimento da embalagem${qual}`,
+    );
+  });
+  exigir((dados.especificacoes?.length ?? 0) > 0, 'especificacoes', 'Especificação técnica');
   exigir(!!dados.representante_nome?.trim(), 'representante_nome', 'Nome do representante legal');
   exigir(!!dados.representante_cpf?.trim(), 'representante_cpf', 'CPF do representante legal');
 

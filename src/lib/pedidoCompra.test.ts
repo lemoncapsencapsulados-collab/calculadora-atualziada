@@ -127,8 +127,21 @@ describe('preenchimento automático', () => {
     expect(dados.valor_producao).toBe(12000);
   });
 
-  it('descreve a composição a partir dos insumos', () => {
-    expect(dados.composicao).toBe('Colágeno - 500 mg; Amido de milho - 100 mg');
+  it('gera uma especificação por produto', () => {
+    expect(dados.especificacoes).toHaveLength(1);
+    expect(dados.especificacoes[0].produto_nome).toBe('Colágeno Verisol');
+  });
+
+  it('descreve a composição em linhas de insumo e dose', () => {
+    // A quantidade sai como está na fórmula — já é por dose.
+    expect(dados.especificacoes[0].composicao).toEqual([
+      { insumo: 'Colágeno', dose: '500 mg' },
+      { insumo: 'Amido de milho', dose: '100 mg' },
+    ]);
+  });
+
+  it('sugere o dobro de potes na quantidade de rótulo', () => {
+    expect(dados.especificacoes[0].embalagem.rotulo_quantidade).toBe('1000');
   });
 
   it('deixa o canal formal vazio, porque não existe no cadastro', () => {
@@ -149,7 +162,7 @@ describe('cobrança do que falta', () => {
     expect(campos).toContain('numero_contrato');
     expect(campos).toContain('canal_formal');
     // Fornecimento da embalagem nunca vem do orçamento: sempre é perguntado.
-    expect(campos).toContain('embalagem');
+    expect(campos).toContain('especificacoes');
   });
 
   it('não sobra nada quando o consultor completa', () => {
@@ -157,7 +170,10 @@ describe('cobrança do que falta', () => {
     const completo = {
       ...dados,
       canal_formal: 'Grupo de WhatsApp',
-      embalagem: { ...dados.embalagem, fornecimento_embalagem: 'CONTRATADA' as const },
+      especificacoes: dados.especificacoes.map((e) => ({
+        ...e,
+        embalagem: { ...e.embalagem, fornecimento_embalagem: 'CONTRATADA' as const },
+      })),
     };
     expect(listarCamposFaltantes(completo, '260922')).toEqual([]);
   });
@@ -172,7 +188,10 @@ describe('geração do PDF', () => {
       dados: {
         ...dados,
         canal_formal: 'Grupo de WhatsApp',
-        embalagem: { ...dados.embalagem, fornecimento_embalagem: 'CONTRATADA' },
+        especificacoes: dados.especificacoes.map((e) => ({
+          ...e,
+          embalagem: { ...e.embalagem, fornecimento_embalagem: 'CONTRATADA' as const },
+        })),
       },
     });
 

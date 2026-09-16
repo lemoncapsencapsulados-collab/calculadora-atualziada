@@ -191,42 +191,60 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     8,
   );
 
-  // 5. Especificacao tecnica
-  tituloSecao('4. ESPECIFICAÇÃO TÉCNICA');
-  paragrafo(
-    `Produto: ${ou(dados.produto_nome)}  |  Quantidade por frasco: ${ou(dados.quantidade_por_frasco, '____')}  |  Dose diária sugerida: ${ou(dados.dose_diaria, '____')}`,
-  );
-  paragrafo(`Composição da fórmula: ${ou(dados.composicao)}`);
+  // 5 e 6. Especificacao tecnica e embalagem, produto a produto. Cada um ganha
+  // seu bloco: na fabrica, composicao solta sem dizer de qual produto e' erro.
+  const especificacoes = dados.especificacoes || [];
+  especificacoes.forEach((esp, i) => {
+    if (y > 190) {
+      doc.addPage();
+      y = MARGEM;
+    }
+    const rotulo = especificacoes.length > 1
+      ? `${i + 1}. ${ou(esp.produto_nome, 'Produto')}`
+      : ou(esp.produto_nome, 'Produto');
 
-  // 6. Embalagem
-  if (y > 200) {
-    doc.addPage();
-    y = MARGEM;
-  }
-  tituloSecao('5. DESCRIÇÃO DA EMBALAGEM');
-  const emb = dados.embalagem;
-  tabelaCampos([
-    ['Apresentação', ou(emb.apresentacao)],
-    [
-      'Cápsula / comprimido',
-      `tipo ${ou(emb.capsula_tipo, '____')} | cor ${ou(emb.capsula_cor, '____')} | tamanho nº ${ou(emb.capsula_tamanho, '__')}`,
-    ],
-    [
-      'Pote / frasco',
-      `material ${ou(emb.pote_material, '____')} | capacidade ${ou(emb.pote_capacidade, '____')} | cor ${ou(emb.pote_cor, '____')}`,
-    ],
-    [
-      'Tampa',
-      `tipo ${ou(emb.tampa_tipo, '____')} | cor ${ou(emb.tampa_cor, '____')} | lacre de indução: ${emb.lacre_inducao ? 'sim' : 'não'}`,
-    ],
-    ['Dosador / acessório', ou(emb.dosador, 'não')],
-    [
-      'Rótulo',
-      `material ${ou(emb.rotulo_material, '____')} | acabamento ${ou(emb.rotulo_acabamento, '____')} | quantidade ${ou(emb.rotulo_quantidade, '____')}`,
-    ],
-    ['Embalagem secundária', ou(emb.embalagem_secundaria, 'não')],
-    ['Fornecimento da embalagem', `por conta de ${ou(emb.fornecimento_embalagem)}`],
-  ]);
+    tituloSecao(`4.${i + 1} ESPECIFICAÇÃO TÉCNICA — ${rotulo.toUpperCase()}`);
+    paragrafo(
+      `Produto: ${ou(esp.produto_nome)}  |  Quantidade por frasco: ${ou(esp.quantidade_por_frasco, '____')}`,
+    );
+
+    autoTable(doc, {
+      startY: y + 2,
+      margin: { left: MARGEM, right: MARGEM },
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
+      headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold' },
+      head: [['INSUMO', 'DOSE DIÁRIA']],
+      columnStyles: { 1: { cellWidth: 55 } },
+      body: (esp.composicao || []).length
+        ? esp.composicao.map((a) => [ou(a.insumo), ou(a.dose, '____')])
+        : [['________', '________']],
+    });
+    y = (doc as any).lastAutoTable.finalY;
+
+    const emb = esp.embalagem || ({} as typeof esp.embalagem);
+    tituloSecao(`5.${i + 1} DESCRIÇÃO DA EMBALAGEM — ${rotulo.toUpperCase()}`);
+    tabelaCampos([
+      ['Apresentação', ou(emb.apresentacao)],
+      ['Cápsula / comprimido', `tipo ${ou(emb.capsula_tipo, '____')} | cor ${ou(emb.capsula_cor, '____')}`],
+      [
+        'Pote / frasco',
+        `material ${ou(emb.pote_material, '____')} | capacidade ${ou(emb.pote_capacidade, '____')} | cor ${ou(emb.pote_cor, '____')}`,
+      ],
+      [
+        'Tampa',
+        `tipo ${ou(emb.tampa_tipo, '____')} | cor ${ou(emb.tampa_cor, '____')} | lacre de indução: ${emb.lacre_inducao ? 'sim' : 'não'}`,
+      ],
+      ['Dosador / acessório', ou(emb.dosador, 'não')],
+      [
+        'Rótulo',
+        `material ${ou(emb.rotulo_material, '____')} | acabamento ${ou(emb.rotulo_acabamento, '____')} | quantidade ${ou(emb.rotulo_quantidade, '____')}`,
+      ],
+      ['Embalagem secundária', ou(emb.embalagem_secundaria, 'Não')],
+      ['Fornecimento da embalagem', `por conta de ${ou(emb.fornecimento_embalagem)}`],
+    ]);
+  });
+
   paragrafo(
     'A CONTRATANTE declara ter conferido e aprovado a composição, a dosagem e as especificações de embalagem acima, que constituem a base da produção contratada.',
   );

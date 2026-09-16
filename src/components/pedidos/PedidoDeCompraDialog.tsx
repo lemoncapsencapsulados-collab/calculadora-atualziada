@@ -15,9 +15,12 @@ import { numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
 import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
 import { baixarPedidoCompraPDF } from '@/lib/pedidoCompraPdf';
 import {
-  PLANO_MARCA_LABEL,
+  APRESENTACOES, CAPSULA_CORES, CAPSULA_TIPOS, CANAIS_FORMAIS, EMBALAGEM_SECUNDARIA,
+  PLANO_MARCA_LABEL, POTE_CORES, ROTULO_ACABAMENTOS, ROTULO_MATERIAIS, TAMPA_TIPOS,
   listarCamposFaltantes,
   type DadosPedidoCompra,
+  type EmbalagemPedidoCompra,
+  type EspecificacaoProduto,
   type PlanoMarca,
 } from '@/types/pedidoCompra';
 import type { OrcamentoSnapshot } from '@/types/orcamento';
@@ -105,6 +108,57 @@ function Campo({
   );
 }
 
+/** Select de lista fechada, com o mesmo visual dos campos de texto. */
+function CampoLista({
+  label,
+  valor,
+  opcoes,
+  onChange,
+  obrigatorio,
+}: {
+  label: string;
+  valor: string;
+  opcoes: readonly string[];
+  onChange: (v: string) => void;
+  obrigatorio?: boolean;
+}) {
+  const vazio = obrigatorio && !valor.trim();
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">
+        {label} {obrigatorio && <span className="text-destructive">*</span>}
+      </Label>
+      <Select value={valor} onValueChange={onChange}>
+        <SelectTrigger className={vazio ? 'border-amber-500' : undefined}>
+          <SelectValue placeholder="Selecione..." />
+        </SelectTrigger>
+        <SelectContent>
+          {opcoes.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+/**
+ * Valor em real: mostra formatado (R$ 12.134,82) e digita so' digitos, tratando
+ * os dois ultimos como centavos. Evita a ambiguidade de ponto e virgula.
+ */
+function CampoMoeda({ valor, onChange }: { valor: number; onChange: (v: number) => void }) {
+  return (
+    <Input
+      inputMode="numeric"
+      value={formatCurrency(valor || 0)}
+      onChange={(e) => {
+        const digitos = e.target.value.replace(/\D/g, '');
+        onChange(digitos ? Number(digitos) / 100 : 0);
+      }}
+    />
+  );
+}
+
 export default function PedidoDeCompraDialog({
   open,
   onOpenChange,
@@ -135,10 +189,29 @@ export default function PedidoDeCompraDialog({
   const set = <K extends keyof DadosPedidoCompra>(campo: K, valor: DadosPedidoCompra[K]) =>
     setDados((d) => ({ ...d, [campo]: valor }));
 
-  const setEmbalagem = <K extends keyof DadosPedidoCompra['embalagem']>(
-    campo: K,
-    valor: DadosPedidoCompra['embalagem'][K],
-  ) => setDados((d) => ({ ...d, embalagem: { ...d.embalagem, [campo]: valor } }));
+  /** Atualiza uma especificacao de produto pelo indice. */
+  const setEspec = (indice: number, patch: Partial<EspecificacaoProduto>) =>
+    setDados((d) => ({
+      ...d,
+      especificacoes: d.especificacoes.map((e, i) => (i === indice ? { ...e, ...patch } : e)),
+    }));
+
+  const setEmb = (indice: number, patch: Partial<EmbalagemPedidoCompra>) =>
+    setDados((d) => ({
+      ...d,
+      especificacoes: d.especificacoes.map((e, i) =>
+        i === indice ? { ...e, embalagem: { ...e.embalagem, ...patch } } : e,
+      ),
+    }));
+
+  /** O dobro dos potes daquele produto -- a regra de sobra de rotulo. */
+  const sugestaoRotulo = (indice: number): string => {
+    const nome = dados.especificacoes[indice]?.produto_nome?.trim().toLowerCase();
+    const produto = dados.produtos.find((p) => p.descricao.trim().toLowerCase() === nome)
+      ?? dados.produtos[indice];
+    const qtd = Number(produto?.quantidade) || 0;
+    return qtd > 0 ? String(qtd * 2) : '';
+  };
 
   const faltantes = useMemo(
     () => listarCamposFaltantes(dados, numeroContrato),
@@ -257,11 +330,11 @@ export default function PedidoDeCompraDialog({
                   onChange={(e) => set('data_pedido', e.target.value)}
                 />
               </div>
-              <Campo
+              <CampoLista
                 label="Canal formal"
                 valor={dados.canal_formal}
+                opcoes={CANAIS_FORMAIS}
                 onChange={(v) => set('canal_formal', v)}
-                placeholder="Grupo de WhatsApp ou e-mail"
                 obrigatorio
               />
             </div>
@@ -393,6 +466,9 @@ export default function PedidoDeCompraDialog({
           </Secao>
 
           <Secao titulo={`4. Condições de pagamento (${dados.parcelas.length})`}>
+            <p className="text-[11px] text-muted-foreground">
+              Vem das condições fechadas no Contrato Mãe. Ajuste aqui só se o financeiro pedir.
+            </p>
             {dados.parcelas.map((parcela, i) => (
               <div key={i} className="grid gap-2 sm:grid-cols-4 items-end rounded-md border p-3">
                 <Campo
@@ -400,10 +476,7 @@ export default function PedidoDeCompraDialog({
                   valor={parcela.meio_pagamento}
                   placeholder="PIX / cartão / boleto"
                   onChange={(v) =>
-                    set(
-                      'parcelas',
-                      dados.parcelas.map((x, j) => (j === i ? { ...x, meio_pagamento: v } : x)),
-                    )
+                    set('parcelas', dados.parcelas.map((x, j) => (j === i ? { ...x, meio_pagamento: v } : x)))
                   }
                 />
                 <div className="space-y-1">
@@ -412,202 +485,230 @@ export default function PedidoDeCompraDialog({
                     type="date"
                     value={parcela.vencimento}
                     onChange={(e) =>
-                      set(
-                        'parcelas',
-                        dados.parcelas.map((x, j) =>
-                          j === i ? { ...x, vencimento: e.target.value } : x,
-                        ),
-                      )
+                      set('parcelas', dados.parcelas.map((x, j) => (j === i ? { ...x, vencimento: e.target.value } : x)))
                     }
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Valor</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={parcela.valor}
-                    onChange={(e) =>
-                      set(
-                        'parcelas',
-                        dados.parcelas.map((x, j) =>
-                          j === i ? { ...x, valor: Number(e.target.value) || 0 } : x,
-                        ),
-                      )
+                  <CampoMoeda
+                    valor={parcela.valor}
+                    onChange={(v) =>
+                      set('parcelas', dados.parcelas.map((x, j) => (j === i ? { ...x, valor: v } : x)))
                     }
                   />
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() =>
-                    set(
-                      'parcelas',
-                      dados.parcelas.filter((_, j) => j !== i),
-                    )
-                  }
+                  onClick={() => set('parcelas', dados.parcelas.filter((_, j) => j !== i))}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
             ))}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                set('parcelas', [
-                  ...dados.parcelas,
-                  { meio_pagamento: '', vencimento: '', valor: 0 },
-                ])
-              }
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  set('parcelas', [...dados.parcelas, { meio_pagamento: '', vencimento: '', valor: 0 }])
+                }
+              >
+                <Plus className="h-4 w-4 mr-1" /> Adicionar parcela
+              </Button>
+              <span className="text-sm font-semibold">
+                Total {formatCurrency(dados.parcelas.reduce((s, p) => s + (p.valor || 0), 0))}
+              </span>
+            </div>
+          </Secao>
+
+          {/* Uma secao por produto: composicao e embalagem andam juntas, porque
+              e' assim que a fabrica le' -- produto, formula, embalagem. */}
+          {dados.especificacoes.map((esp, idx) => (
+            <Secao
+              key={idx}
+              titulo={`5.${idx + 1} ${esp.produto_nome || `Produto ${idx + 1}`} — fórmula e embalagem`}
+              aberta={dados.especificacoes.length === 1}
             >
-              <Plus className="h-4 w-4 mr-1" /> Adicionar parcela
-            </Button>
-          </Secao>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Campo
+                  label="Produto"
+                  valor={esp.produto_nome}
+                  onChange={(v) => setEspec(idx, { produto_nome: v })}
+                  obrigatorio
+                />
+                <Campo
+                  label="Quantidade por frasco"
+                  valor={esp.quantidade_por_frasco}
+                  onChange={(v) => setEspec(idx, { quantidade_por_frasco: v })}
+                />
+              </div>
 
-          <Secao titulo="5. Especificação técnica">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Campo
-                label="Produto"
-                valor={dados.produto_nome}
-                onChange={(v) => set('produto_nome', v)}
-                obrigatorio
-              />
-              <Campo
-                label="Quantidade por frasco"
-                valor={dados.quantidade_por_frasco}
-                onChange={(v) => set('quantidade_por_frasco', v)}
-              />
-              <Campo
-                label="Dose diária sugerida"
-                valor={dados.dose_diaria}
-                onChange={(v) => set('dose_diaria', v)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">
-                Composição da fórmula <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                value={dados.composicao}
-                placeholder="ativo – 500 mg; ativo – 200 mg; excipiente q.s.p."
-                onChange={(e) => set('composicao', e.target.value)}
-                className={!dados.composicao.trim() ? 'border-amber-500' : undefined}
-              />
-            </div>
-          </Secao>
-
-          <Secao titulo="6. Descrição da embalagem">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Campo
-                label="Apresentação"
-                valor={dados.embalagem.apresentacao}
-                placeholder="cápsula / comprimido / gummy / pó / líquido / sachê"
-                onChange={(v) => setEmbalagem('apresentacao', v)}
-                obrigatorio
-              />
-              <Campo
-                label="Cápsula / comprimido — tipo"
-                valor={dados.embalagem.capsula_tipo}
-                onChange={(v) => setEmbalagem('capsula_tipo', v)}
-              />
-              <Campo
-                label="Cápsula — cor"
-                valor={dados.embalagem.capsula_cor}
-                onChange={(v) => setEmbalagem('capsula_cor', v)}
-              />
-              <Campo
-                label="Cápsula — tamanho nº"
-                valor={dados.embalagem.capsula_tamanho}
-                onChange={(v) => setEmbalagem('capsula_tamanho', v)}
-              />
-              <Campo
-                label="Pote / frasco — material"
-                valor={dados.embalagem.pote_material}
-                placeholder="PET / PEAD / vidro"
-                onChange={(v) => setEmbalagem('pote_material', v)}
-              />
-              <Campo
-                label="Pote — capacidade"
-                valor={dados.embalagem.pote_capacidade}
-                onChange={(v) => setEmbalagem('pote_capacidade', v)}
-              />
-              <Campo
-                label="Pote — cor"
-                valor={dados.embalagem.pote_cor}
-                onChange={(v) => setEmbalagem('pote_cor', v)}
-              />
-              <Campo
-                label="Tampa — tipo"
-                valor={dados.embalagem.tampa_tipo}
-                placeholder="rosca / flip-top / pump"
-                onChange={(v) => setEmbalagem('tampa_tipo', v)}
-              />
-              <Campo
-                label="Tampa — cor"
-                valor={dados.embalagem.tampa_cor}
-                onChange={(v) => setEmbalagem('tampa_cor', v)}
-              />
-              <Campo
-                label="Dosador / acessório"
-                valor={dados.embalagem.dosador}
-                placeholder="não / dosador N mL / colher medida / conta-gotas / válvula pump"
-                onChange={(v) => setEmbalagem('dosador', v)}
-              />
-              <Campo
-                label="Rótulo — material"
-                valor={dados.embalagem.rotulo_material}
-                onChange={(v) => setEmbalagem('rotulo_material', v)}
-              />
-              <Campo
-                label="Rótulo — acabamento"
-                valor={dados.embalagem.rotulo_acabamento}
-                onChange={(v) => setEmbalagem('rotulo_acabamento', v)}
-              />
-              <Campo
-                label="Rótulo — quantidade"
-                valor={dados.embalagem.rotulo_quantidade}
-                onChange={(v) => setEmbalagem('rotulo_quantidade', v)}
-              />
-              <Campo
-                label="Embalagem secundária"
-                valor={dados.embalagem.embalagem_secundaria}
-                placeholder="não / cartucho / caixa"
-                onChange={(v) => setEmbalagem('embalagem_secundaria', v)}
-              />
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Fornecimento da embalagem <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={dados.embalagem.fornecimento_embalagem}
-                  onValueChange={(v) =>
-                    setEmbalagem('fornecimento_embalagem', v as 'CONTRATADA' | 'CONTRATANTE')
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Composição da fórmula</Label>
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-[11px] text-muted-foreground">
+                  <span>Insumo</span>
+                  <span>Dose diária</span>
+                  <span />
+                </div>
+                {esp.composicao.map((ativo, ai) => (
+                  <div key={ai} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                    <Input
+                      value={ativo.insumo}
+                      placeholder="Ativo"
+                      onChange={(e) =>
+                        setEspec(idx, {
+                          composicao: esp.composicao.map((a, j) =>
+                            j === ai ? { ...a, insumo: e.target.value } : a,
+                          ),
+                        })
+                      }
+                    />
+                    <Input
+                      value={ativo.dose}
+                      placeholder="500 mg"
+                      onChange={(e) =>
+                        setEspec(idx, {
+                          composicao: esp.composicao.map((a, j) =>
+                            j === ai ? { ...a, dose: e.target.value } : a,
+                          ),
+                        })
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        setEspec(idx, { composicao: esp.composicao.filter((_, j) => j !== ai) })
+                      }
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEspec(idx, { composicao: [...esp.composicao, { insumo: '', dose: '' }] })
                   }
                 >
-                  <SelectTrigger
-                    className={!dados.embalagem.fornecimento_embalagem ? 'border-amber-500' : undefined}
-                  >
-                    <SelectValue placeholder="Por conta de..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CONTRATADA">CONTRATADA (Lemoncaps)</SelectItem>
-                    <SelectItem value="CONTRATANTE">CONTRATANTE (produtor)</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <Plus className="h-4 w-4 mr-1" /> Adicionar insumo
+                </Button>
               </div>
-              <div className="flex items-center gap-2 pt-6">
-                <Checkbox
-                  id="lacre"
-                  checked={dados.embalagem.lacre_inducao}
-                  onCheckedChange={(c) => setEmbalagem('lacre_inducao', c === true)}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <CampoLista
+                  label="Apresentação"
+                  valor={esp.embalagem.apresentacao}
+                  opcoes={APRESENTACOES}
+                  onChange={(v) => setEmb(idx, { apresentacao: v })}
+                  obrigatorio
                 />
-                <Label htmlFor="lacre" className="text-xs">
-                  Lacre de indução
-                </Label>
+                <CampoLista
+                  label="Cápsula / comprimido — tipo"
+                  valor={esp.embalagem.capsula_tipo}
+                  opcoes={CAPSULA_TIPOS}
+                  onChange={(v) => setEmb(idx, { capsula_tipo: v })}
+                />
+                <CampoLista
+                  label="Cápsula — cor"
+                  valor={esp.embalagem.capsula_cor}
+                  opcoes={CAPSULA_CORES}
+                  onChange={(v) => setEmb(idx, { capsula_cor: v })}
+                />
+                <Campo
+                  label="Pote / frasco — material"
+                  valor={esp.embalagem.pote_material}
+                  onChange={(v) => setEmb(idx, { pote_material: v })}
+                  placeholder="Fechado no orçamento"
+                />
+                <Campo
+                  label="Pote — capacidade"
+                  valor={esp.embalagem.pote_capacidade}
+                  onChange={(v) => setEmb(idx, { pote_capacidade: v })}
+                />
+                <CampoLista
+                  label="Pote — cor"
+                  valor={esp.embalagem.pote_cor}
+                  opcoes={POTE_CORES}
+                  onChange={(v) => setEmb(idx, { pote_cor: v })}
+                />
+                <CampoLista
+                  label="Tampa — tipo"
+                  valor={esp.embalagem.tampa_tipo}
+                  opcoes={TAMPA_TIPOS}
+                  onChange={(v) => setEmb(idx, { tampa_tipo: v })}
+                />
+                <Campo
+                  label="Dosador / acessório"
+                  valor={esp.embalagem.dosador}
+                  onChange={(v) => setEmb(idx, { dosador: v })}
+                  placeholder="Opcional"
+                />
+                <CampoLista
+                  label="Rótulo — material"
+                  valor={esp.embalagem.rotulo_material}
+                  opcoes={ROTULO_MATERIAIS}
+                  onChange={(v) => setEmb(idx, { rotulo_material: v })}
+                />
+                <CampoLista
+                  label="Rótulo — acabamento"
+                  valor={esp.embalagem.rotulo_acabamento}
+                  opcoes={ROTULO_ACABAMENTOS}
+                  onChange={(v) => setEmb(idx, { rotulo_acabamento: v })}
+                />
+                <div className="space-y-1">
+                  <Label className="text-xs">Rótulo — quantidade</Label>
+                  <Input
+                    value={esp.embalagem.rotulo_quantidade}
+                    onChange={(e) => setEmb(idx, { rotulo_quantidade: e.target.value })}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Sugestão: o dobro dos potes do pedido
+                    {sugestaoRotulo(idx) ? ` (${sugestaoRotulo(idx)})` : ''}.
+                  </p>
+                </div>
+                <CampoLista
+                  label="Embalagem secundária"
+                  valor={esp.embalagem.embalagem_secundaria}
+                  opcoes={EMBALAGEM_SECUNDARIA}
+                  onChange={(v) => setEmb(idx, { embalagem_secundaria: v })}
+                />
+                <div className="space-y-1">
+                  <Label className="text-xs">
+                    Fornecimento da embalagem <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={esp.embalagem.fornecimento_embalagem}
+                    onValueChange={(v) =>
+                      setEmb(idx, { fornecimento_embalagem: v as 'CONTRATADA' | 'CONTRATANTE' })
+                    }
+                  >
+                    <SelectTrigger
+                      className={!esp.embalagem.fornecimento_embalagem ? 'border-amber-500' : undefined}
+                    >
+                      <SelectValue placeholder="Por conta de..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CONTRATADA">CONTRATADA (Lemoncaps)</SelectItem>
+                      <SelectItem value="CONTRATANTE">CONTRATANTE (produtor)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <Checkbox
+                    id={`lacre-${idx}`}
+                    checked={esp.embalagem.lacre_inducao}
+                    onCheckedChange={(c) => setEmb(idx, { lacre_inducao: c === true })}
+                  />
+                  <Label htmlFor={`lacre-${idx}`} className="text-xs">Lacre de indução</Label>
+                </div>
               </div>
-            </div>
-          </Secao>
+            </Secao>
+          ))}
+
 
           <Secao titulo="Assinatura do contratante">
             <div className="grid gap-3 sm:grid-cols-2">

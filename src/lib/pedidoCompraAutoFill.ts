@@ -9,8 +9,10 @@
 
 import type { DadosCliente, ItemProducao, OrcamentoSnapshot, ServicoMarca } from '@/types/orcamento';
 import type {
+  AtivoFormula,
   DadosPedidoCompra,
   EmbalagemPedidoCompra,
+  EspecificacaoProduto,
   ParcelaPedidoCompra,
   PlanoMarca,
   ProdutoPedidoCompra,
@@ -51,21 +53,24 @@ function descreverApresentacao(item: ItemProducao): string {
   return [tipo, porPote].filter(Boolean).join(' - ');
 }
 
-/** Ativos da formula, no formato "Ativo - 500 mg; Ativo - 200 mg". */
-function descreverComposicao(item: ItemProducao | undefined): string {
+/**
+ * Ativos da formula em linhas de insumo + dose.
+ *
+ * A quantidade vem como esta' na formula, que ja' e' por dose. Nao multiplico
+ * por nada: inventar um fator aqui mudaria a dosagem impressa no documento que
+ * vai para a fabrica.
+ */
+function descreverComposicao(item: ItemProducao | undefined): AtivoFormula[] {
   const insumos = item?.insumos_formula || [];
-  if (insumos.length === 0) return '';
   return insumos
+    .filter((i) => txt(i.nome))
     .map((i) => {
-      const nome = txt(i.nome);
-      if (!nome) return '';
-      const qtd = i.quantidade != null ? String(i.quantidade).replace('.', ',') : '';
-      const unidade = txt(i.unidade);
-      const medida = [qtd, unidade].filter(Boolean).join(' ');
-      return medida ? `${nome} - ${medida}` : nome;
-    })
-    .filter(Boolean)
-    .join('; ');
+      const qtd = Number(i.quantidade);
+      const medida = Number.isFinite(qtd)
+        ? `${String(qtd).replace('.', ',')} ${txt(i.unidade)}`.trim()
+        : '';
+      return { insumo: txt(i.nome), dose: medida };
+    });
 }
 
 /** O plano de marca vem do nome do servico contratado no setup. */
@@ -123,8 +128,8 @@ function montarEmbalagem(item: ItemProducao | undefined): EmbalagemPedidoCompra 
     apresentacao: txt(item?.tipo_produto) || txt(item?.segmento),
     capsula_tipo: '',
     capsula_cor: '',
-    capsula_tamanho: '',
-    pote_material: '',
+    // O material do pote vem do que foi fechado no orcamento, quando houver.
+    pote_material: txt((item as any)?.embalagem_pote_material),
     pote_capacidade: '',
     pote_cor: txt(det.cor_pote),
     tampa_tipo: '',
@@ -133,7 +138,8 @@ function montarEmbalagem(item: ItemProducao | undefined): EmbalagemPedidoCompra 
     dosador: '',
     rotulo_material: '',
     rotulo_acabamento: '',
-    rotulo_quantidade: item?.quantidade != null ? String(item.quantidade) : '',
+    // Regra da fabrica: sempre o dobro de potes, para cobrir perda de aplicacao.
+    rotulo_quantidade: item?.quantidade != null ? String(Number(item.quantidade) * 2) : '',
     embalagem_secundaria: '',
     fornecimento_embalagem: '',
   };
@@ -149,7 +155,6 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
   const dc = (snapshot.dados_cliente || {}) as DadosCliente;
   const itens = (snapshot.itens_producao || []) as ItemProducao[];
   const servicos = (snapshot.servicos_marca || []) as ServicoMarca[];
-  const principal = itens[0];
   const representante = acharRepresentante(dc);
 
   const produtos: ProdutoPedidoCompra[] = itens.map((item) => ({
@@ -192,14 +197,18 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
     endereco_entrega: montarEndereco(dc),
     contato_local: [representante.nome, telefone].filter(Boolean).join(' - '),
     parcelas: montarParcelas(snapshot),
-    produto_nome: txt(principal?.nome_produto),
-    quantidade_por_frasco:
-      principal?.quantidade_por_pote != null
-        ? `${principal.quantidade_por_pote} ${txt(principal.unidade_por_pote) || ''}`.trim()
-        : '',
-    dose_diaria: txt(principal?.dose_diaria_sugerida),
-    composicao: descreverComposicao(principal),
-    embalagem: montarEmbalagem(principal),
+    // Uma especificacao por produto: cada um tem sua formula e sua embalagem.
+    especificacoes: itens.map(
+      (item): EspecificacaoProduto => ({
+        produto_nome: txt(item.nome_produto),
+        quantidade_por_frasco:
+          item.quantidade_por_pote != null
+            ? `${item.quantidade_por_pote} ${txt(item.unidade_por_pote) || ''}`.trim()
+            : '',
+        composicao: descreverComposicao(item),
+        embalagem: montarEmbalagem(item),
+      }),
+    ),
     representante_nome: representante.nome,
     representante_cpf: representante.cpf,
   };
