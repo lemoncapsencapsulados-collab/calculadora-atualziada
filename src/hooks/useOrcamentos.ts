@@ -329,6 +329,45 @@ export function useOrcamentos(options?: { enabled?: boolean }) {
     return novo;
   };
 
+  /**
+   * Guarda o Pedido de Compra preenchido no proprio orcamento.
+   *
+   * Antes de existir pedido, e' aqui que o documento mora. Quando o orcamento e'
+   * aprovado, esses dados sao copiados para o pedido.
+   */
+  const salvarPedidoCompra = useMutation({
+    mutationFn: async ({
+      id,
+      dados,
+      numeroContrato,
+    }: {
+      id: string;
+      dados: unknown;
+      numeroContrato: string;
+    }) => {
+      const { error } = await supabase
+        .from('orcamentos')
+        .update({
+          pedido_compra_dados: dados as any,
+          ...(numeroContrato.trim() ? { numero_contrato: numeroContrato.trim() } : {}),
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao salvar o Pedido de Compra',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Adicionar item ao histórico de contatos
   const addContato = useMutation({
     mutationFn: async ({ id, contato }: { id: string; contato: Omit<ContatoOrcamento, 'id'> }) => {
@@ -468,6 +507,7 @@ export function useOrcamentos(options?: { enabled?: boolean }) {
     updateObservacoesInternas,
     addContato,
     definirNumeroAoPagar,
+    salvarPedidoCompra,
     removeContato,
     getNextNumeroOrcamento,
   };

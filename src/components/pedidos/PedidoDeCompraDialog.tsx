@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/unitConversion';
@@ -50,6 +50,18 @@ interface Props {
   }) => Promise<void> | void;
   /** Abre o gerador de orçamento; sem isso o botão de editar não aparece. */
   onEditarOrcamento?: () => void;
+  /**
+   * Preenchimento já salvo. Quando existe, manda sobre o autopreenchimento --
+   * o que o consultor digitou vale mais que o que dá para deduzir.
+   */
+  dadosSalvos?: DadosPedidoCompra | null;
+  /** Número de contrato já salvo junto com os dados. */
+  contratoSalvo?: string | null;
+  /**
+   * Chamado ao fechar, com o estado atual. É o que evita perder o preenchimento
+   * quando o consultor fecha o popup sem clicar em salvar.
+   */
+  onAutoSalvar?: (dados: DadosPedidoCompra, numeroContrato: string) => void;
   /**
    * Contrato já conhecido deste cliente. O número é do produtor, não do pedido:
    * uma vez informado, todos os pedidos de compra dele herdam o mesmo.
@@ -169,23 +181,26 @@ export default function PedidoDeCompraDialog({
   onGerar,
   onEditarOrcamento,
   numeroContratoSugerido,
+  dadosSalvos,
+  contratoSalvo,
+  onAutoSalvar,
 }: Props) {
   const [numeroContrato, setNumeroContrato] = useState(
     numeroContratoSugerido || numeroContratoDoMes(),
   );
-  const [dados, setDados] = useState<DadosPedidoCompra>(() =>
-    montarDadosPedidoCompra({ snapshot, cliente }),
+  const [dados, setDados] = useState<DadosPedidoCompra>(
+    () => dadosSalvos ?? montarDadosPedidoCompra({ snapshot, cliente }),
   );
   const [salvando, setSalvando] = useState(false);
 
   // Reabrir o diálogo para outro produtor tem que recomeçar do zero.
   useEffect(() => {
     if (open) {
-      setDados(montarDadosPedidoCompra({ snapshot, cliente }));
-      setNumeroContrato(numeroContratoSugerido || numeroContratoDoMes());
+      setDados(dadosSalvos ?? montarDadosPedidoCompra({ snapshot, cliente }));
+      setNumeroContrato(contratoSalvo || numeroContratoSugerido || numeroContratoDoMes());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, numeroContratoSugerido]);
+  }, [open, numeroContratoSugerido, contratoSalvo]);
 
   /**
    * Completa a composicao a partir de "Produtos Criados".
@@ -196,7 +211,7 @@ export default function PedidoDeCompraDialog({
    * efetivamente vendido.
    */
   useEffect(() => {
-    if (!open) return;
+    if (!open || dadosSalvos) return;
     const itens = (snapshot.itens_producao || []) as any[];
     const ids = itens.map((i) => i.precificacao_id).filter(Boolean);
     if (ids.length === 0) return;
@@ -299,7 +314,14 @@ export default function PedidoDeCompraDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(aberto) => {
+        // Fechar sem salvar era o que apagava tudo que o consultor preencheu.
+        if (!aberto) onAutoSalvar?.(dados, numeroContrato);
+        onOpenChange(aberto);
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -796,15 +818,30 @@ export default function PedidoDeCompraDialog({
             {completo ? 'Pronto para assinatura' : `${faltantes.length} campo(s) pendente(s)`}
           </Badge>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleGerar}
-              disabled={!completo || salvando}
-              title="Grava o número do contrato no pedido e marca como pendente de assinatura"
-            >
-              <FileSignature className="h-4 w-4 mr-1" />
-              {salvando ? 'Salvando...' : 'Salvar no pedido'}
-            </Button>
+            {/* Salvar avulso: guarda o preenchimento mesmo incompleto, para o
+                consultor voltar depois sem perder o que ja' digitou. */}
+            {onAutoSalvar && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onAutoSalvar(dados, numeroContrato);
+                  toast.success('Pedido de Compra salvo.');
+                }}
+              >
+                <Save className="h-4 w-4 mr-1" /> Salvar
+              </Button>
+            )}
+            {!onAutoSalvar && (
+              <Button
+                variant="outline"
+                onClick={handleGerar}
+                disabled={!completo || salvando}
+                title="Grava o número do contrato no pedido e marca como pendente de assinatura"
+              >
+                <FileSignature className="h-4 w-4 mr-1" />
+                {salvando ? 'Salvando...' : 'Salvar no pedido'}
+              </Button>
+            )}
             <Button onClick={handleBaixar} disabled={!completo}>
               <Download className="h-4 w-4 mr-1" /> Baixar Pedido de Compra
             </Button>

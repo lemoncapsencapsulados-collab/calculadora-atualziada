@@ -157,7 +157,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 }
 
 export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
-  const { updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos({ enabled: false });
+  const { salvarPedidoCompra, updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos({ enabled: false });
   const [freteVinculadoCount, setFreteVinculadoCount] = useState<number>(0);
   const [freteDialogAberto, setFreteDialogAberto] = useState(false);
 
@@ -2024,6 +2024,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             telefone: dadosCliente.telefone,
           }}
           numeroPedido={orcamento.numero_orcamento || ''}
+          dadosSalvos={(orcamento as any).pedido_compra_dados || null}
+          contratoSalvo={(orcamento as any).numero_contrato || null}
+          // Fechar o popup salva: era aqui que o preenchimento se perdia.
+          onAutoSalvar={(dados, numeroContrato) =>
+            salvarPedidoCompra.mutate({ id: orcamento.id, dados, numeroContrato })
+          }
           // Aqui o documento e' so' gerado para o financeiro: quem transforma em
           // pedido e' a aprovacao do orcamento, na tela de Pedidos.
           onGerar={() => setPedidoCompraAberto(false)}

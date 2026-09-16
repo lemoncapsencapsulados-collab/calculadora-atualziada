@@ -34,6 +34,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
+import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
+import { listarCamposFaltantes } from '@/types/pedidoCompra';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 import AprovacaoOrcamentoDialog from '@/components/AprovacaoOrcamentoDialog';
 import OrcamentoKanbanView from '@/components/OrcamentoKanbanView';
@@ -131,7 +133,7 @@ function intervaloDoPeriodo(
 
 export default function Orcamentos() {
   const queryClient = useQueryClient();
-  const { deleteOrcamento, updateStatus, addContato, removeContato } = useOrcamentos({ enabled: false });
+  const { deleteOrcamento, updateStatus, addContato, removeContato, salvarPedidoCompra } = useOrcamentos({ enabled: false });
   const [searchParams, setSearchParams] = useSearchParams();
   const [periodo, setPeriodo] = useState<PeriodoFiltro>('todos');
   const [periodoInicio, setPeriodoInicio] = useState<Date | undefined>();
@@ -144,6 +146,7 @@ export default function Orcamentos() {
   const [editandoOrcamento, setEditandoOrcamento] = useState<Orcamento | null>(null);
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
+  const [pedidoCompraOrcamento, setPedidoCompraOrcamento] = useState<Orcamento | null>(null);
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
   const [verFreteOrcamento, setVerFreteOrcamento] = useState<Orcamento | null>(null);
@@ -751,6 +754,37 @@ export default function Orcamentos() {
                                 <span className="sm:hidden">Projeto</span>
                               </Button>
 
+                              {/* O Pedido de Compra salvo fica acessivel aqui: da'
+                                  para reabrir, conferir e baixar quantas vezes
+                                  precisar, sem refazer o preenchimento. */}
+                              {(() => {
+                                const salvos = (orcamento as any).pedido_compra_dados;
+                                if (!salvos) return null;
+                                const pendentes = listarCamposFaltantes(
+                                  salvos,
+                                  (orcamento as any).numero_contrato || '',
+                                ).length;
+                                return (
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      'h-8',
+                                      pendentes === 0
+                                        ? 'border-green-500/60 text-green-700 dark:text-green-400'
+                                        : 'border-amber-500/60 text-amber-700 dark:text-amber-500',
+                                    )}
+                                    onClick={() => setPedidoCompraOrcamento(orcamento)}
+                                  >
+                                    <FileSignature className="mr-1.5 h-4 w-4" />
+                                    <span className="hidden sm:inline">Pedido de Compra</span>
+                                    <span className="sm:hidden">Pedido</span>
+                                    <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-[10px]">
+                                      {pendentes === 0 ? 'completo' : `${pendentes} pend.`}
+                                    </Badge>
+                                  </Button>
+                                );
+                              })()}
+
                               {/* Frequentes: ícone + tooltip. Discretos em repouso, cheios
                                   no hover, sempre visíveis no teclado e no toque. */}
                               <Tooltip>
@@ -876,6 +910,28 @@ export default function Orcamentos() {
           orcamentoExistente={editandoOrcamento}
           onClose={() => { setCriandoNovo(false); setEditandoOrcamento(null); }}
           onSuccess={invalidateAll}
+        />
+      )}
+
+      {pedidoCompraOrcamento && (
+        <PedidoDeCompraDialog
+          open
+          onOpenChange={(o) => !o && setPedidoCompraOrcamento(null)}
+          snapshot={pedidoCompraOrcamento as any}
+          cliente={{
+            razao_social: pedidoCompraOrcamento.dados_cliente?.razao_social,
+            nome: pedidoCompraOrcamento.nome_cliente,
+            cnpj: pedidoCompraOrcamento.dados_cliente?.cnpj,
+            cpf: pedidoCompraOrcamento.dados_cliente?.cpf,
+            telefone: pedidoCompraOrcamento.dados_cliente?.telefone,
+          }}
+          numeroPedido={pedidoCompraOrcamento.numero_orcamento || ''}
+          dadosSalvos={(pedidoCompraOrcamento as any).pedido_compra_dados || null}
+          contratoSalvo={(pedidoCompraOrcamento as any).numero_contrato || null}
+          onAutoSalvar={(dados, numeroContrato) =>
+            salvarPedidoCompra.mutate({ id: pedidoCompraOrcamento.id, dados, numeroContrato })
+          }
+          onGerar={() => setPedidoCompraOrcamento(null)}
         />
       )}
 
