@@ -13,7 +13,8 @@ VPS_HOST="root@177.7.39.163"
 SSH_KEY="$HOME/.ssh/lemon_deploy"
 REMOTE_DIR="/opt/calculadora"
 SERVICE="calculadora_calculadora"
-DOMAIN="calculadora.lemoncapsauto.com"
+DOMAIN="calculadora.lemoncaps.com.br"
+DOMAIN_LEGADO="calculadora.lemoncapsauto.com"
 EXPECTED_REF="njfwoguvfozuaghufcgw"   # projeto Supabase que o bundle DEVE apontar
 
 cd "$(dirname "$0")"
@@ -54,4 +55,12 @@ done
 [ "$ok" = "1" ] || { echo "ERRO: site nao respondeu 200 apos 60s"; exit 1; }
 
 echo
+# O dominio antigo continua roteado; conferir evita derrubar quem ainda o usa.
+code_legado=$(curl -s -o /dev/null -w '%{http_code}' --resolve "$DOMAIN_LEGADO:443:177.7.39.163" "https://$DOMAIN_LEGADO/" || true)
+if [ "$code_legado" = "200" ]; then
+  echo "    $DOMAIN_LEGADO tambem respondendo (HTTP 200)"
+else
+  echo "    AVISO: $DOMAIN_LEGADO respondeu HTTP ${code_legado:-?}"
+fi
+
 echo "OK  https://$DOMAIN  (imagem calculadora:$TAG)"

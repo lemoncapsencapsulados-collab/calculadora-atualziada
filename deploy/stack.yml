@@ -19,7 +19,9 @@ services:
         delay: 5s
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.calculadora.rule=Host(`calculadora.lemoncapsauto.com`)"
+        # Os dois dominios apontam para a mesma stack: o novo entra sem derrubar
+        # o antigo, que continua valendo enquanto houver link circulando.
+        - "traefik.http.routers.calculadora.rule=Host(`calculadora.lemoncaps.com.br`) || Host(`calculadora.lemoncapsauto.com`)"
         - "traefik.http.routers.calculadora.entrypoints=websecure"
         - "traefik.http.routers.calculadora.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.calculadora.loadbalancer.server.port=80"
