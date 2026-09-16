@@ -1174,7 +1174,7 @@ export default function GerarOrcamentoDialog({
                     onClick={() => { setShowPrecificacaoSelector(true); setShowCatalogoSelector(false); }}
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    Precificação Salva
+                    Private Label (Fórmulas Personalizadas)
                   </Button>
                   <Button 
                     variant="outline" 
@@ -1183,7 +1183,7 @@ export default function GerarOrcamentoDialog({
                     className="border-amber-500 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
                   >
                     <Star className="w-4 h-4 mr-1" />
-                    Fórmulas do Catálogo
+                    White Label (Fórmulas do Catálogo)
                   </Button>
                 </div>
               </div>
@@ -1193,7 +1193,7 @@ export default function GerarOrcamentoDialog({
                 <Card className="border-primary">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label>Selecionar Precificações</Label>
+                      <Label>Private Label (Fórmulas Personalizadas)</Label>
                       <Button variant="ghost" size="sm" onClick={() => { setShowPrecificacaoSelector(false); setBuscaPrecificacao(''); }}>
                         <X className="w-4 h-4" />
                       </Button>
@@ -1271,7 +1271,7 @@ export default function GerarOrcamentoDialog({
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-amber-500" />
-                        Fórmulas do Catálogo
+                        White Label (Fórmulas do Catálogo)
                       </Label>
                       <Button variant="ghost" size="sm" onClick={() => { setShowCatalogoSelector(false); setBuscaPrecificacao(''); }}>
                         <X className="w-4 h-4" />
