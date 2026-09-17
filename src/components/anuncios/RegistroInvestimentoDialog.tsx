@@ -150,7 +150,7 @@ export default function RegistroInvestimentoDialog({ open, onOpenChange, registr
           <DialogTitle>{registro ? 'Editar registro de investimento' : 'Novo registro de investimento'}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-3">
+        <ScrollArea className="min-h-0 flex-1 pr-3">
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Nome da Campanha *</Label>
