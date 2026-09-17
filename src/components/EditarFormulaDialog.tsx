@@ -11,13 +11,14 @@ import { AlertTriangle, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useInsumos } from '@/hooks/useInsumos';
+import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import { cn } from '@/lib/utils';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 import { calcularPrecificacaoPorPreco, precoParaMargem, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { ConfiguracaoCustos } from '@/types/precificacao';
-import type { FormulaItem, Insumo, UnitType } from '@/types/formula';
+import type { EmbalagemItem, FormulaItem, Insumo, UnitType } from '@/types/formula';
 
 const UNIDADES: UnitType[] = ['mcg', 'mg', 'g', 'kg', 'mL', 'L', 'UI', 'unidade'];
 
@@ -39,8 +40,6 @@ interface Props {
   tipoProduto: string;
   /** Margem que a precificação tinha ao abrir; base da sugestão de preço. */
   margemOriginal?: number;
-  /** Embalagem não é editada aqui; entra fixa na conta da margem. */
-  custoEmbalagem: number;
   precoVendaAtual: number;
   configuracaoAtiva: ConfiguracaoCustos | null;
   onSalvo?: () => void;
@@ -54,16 +53,17 @@ export default function EditarFormulaDialog({
   nomeFormula,
   tipoProduto,
   margemOriginal,
-  custoEmbalagem,
   precoVendaAtual,
   configuracaoAtiva,
   onSalvo,
 }: Props) {
   const { insumos } = useInsumos();
+  const { embalagens } = useEmbalagens();
   const { atualizarPrecificacao } = usePrecificacao();
 
   const [nome, setNome] = useState(nomeFormula);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [embalagensItens, setEmbalagensItens] = useState<EmbalagemItem[]>([]);
   const [precoVenda, setPrecoVenda] = useState(String(precoVendaAtual ?? 0));
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -77,7 +77,7 @@ export default function EditarFormulaDialog({
     (async () => {
       const { data, error } = await supabase
         .from('formulas')
-        .select('itens, total_mp')
+        .select('itens, embalagens, total_mp')
         .eq('id', formulaId)
         .single();
       if (cancelado) return;
@@ -96,6 +96,7 @@ export default function EditarFormulaDialog({
           unidade: (i.unidade_informada || 'mg') as UnitType,
         })),
       );
+      setEmbalagensItens(((data?.embalagens || []) as unknown as EmbalagemItem[]) || []);
       setMpOriginal(Number(data?.total_mp) || 0);
       setPrecoVenda(String(precoVendaAtual ?? 0));
       setNome(nomeFormula);
@@ -142,6 +143,12 @@ export default function EditarFormulaDialog({
     () => calculadas.reduce((s, c) => s + (c.custo || 0), 0),
     [calculadas],
   );
+
+  /** Embalagem tambem muda o custo, entao a margem tem que segui-la. */
+  const totalEmbalagem = useMemo(
+    () => embalagensItens.reduce((s, e) => s + (Number(e.custo_calculado) || 0), 0),
+    [embalagensItens],
+  );
   const temErro = calculadas.some((c) => c.erro);
   const diferencaMp = totalMp - mpOriginal;
 
@@ -150,7 +157,7 @@ export default function EditarFormulaDialog({
     if (!configuracaoAtiva || !Number.isFinite(preco) || preco <= 0) return null;
     try {
       return calcularPrecificacaoPorPreco(
-        { custoMateriaPrima: totalMp, custoEmbalagem: Number(custoEmbalagem) || 0 },
+        { custoMateriaPrima: totalMp, custoEmbalagem: totalEmbalagem },
         { maoObraDireta: 0, energia: 0, depreciacao: 0, administrativo: 0 },
         preco,
         configuracaoAtiva,
@@ -158,7 +165,7 @@ export default function EditarFormulaDialog({
     } catch {
       return null;
     }
-  }, [precoVenda, totalMp, custoEmbalagem, configuracaoAtiva]);
+  }, [precoVenda, totalMp, totalEmbalagem, configuracaoAtiva]);
 
   const validacao = resultado
     ? validarMargemPorTipo(resultado.margemLucroPercentual, tipoProduto)
@@ -217,7 +224,9 @@ export default function EditarFormulaDialog({
           ...(nome.trim() ? { nome_formula: nome.trim() } : {}),
           itens: itens as any,
           total_mp: totalMp,
-          custo_total: totalMp + (Number(custoEmbalagem) || 0),
+          embalagens: embalagensItens as any,
+          total_embalagem: totalEmbalagem,
+          custo_total: totalMp + totalEmbalagem,
         })
         .eq('id', formulaId);
       if (erroFormula) throw erroFormula;
@@ -251,9 +260,9 @@ export default function EditarFormulaDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle>Editar fórmula</DialogTitle>
+          <DialogTitle>Editar produto</DialogTitle>
           <DialogDescription>
-            {nomeFormula} — ajuste as matérias-primas e veja a margem se refazer na hora.
+            {nomeFormula} — ajuste matérias-primas e embalagens, e veja a margem se refazer na hora.
           </DialogDescription>
         </DialogHeader>
 
@@ -355,6 +364,76 @@ export default function EditarFormulaDialog({
                 <Plus className="mr-1 h-4 w-4" /> Adicionar matéria-prima
               </Button>
 
+              <div className="grid grid-cols-[1fr_84px_32px] items-center gap-2 px-1 pt-2 text-[11px] text-muted-foreground">
+                <span>Embalagem</span>
+                <span className="text-right">Custo</span>
+                <span />
+              </div>
+              <div className="space-y-1">
+                {embalagensItens.length === 0 && (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    Nenhuma embalagem neste produto.
+                  </p>
+                )}
+                {embalagensItens.map((emb, i) => (
+                  <div key={`${emb.embalagem_id}-${i}`} className="grid grid-cols-[1fr_84px_32px] items-center gap-2 px-1 py-1">
+                    <Select
+                      value={emb.embalagem_id}
+                      onValueChange={(v) => {
+                        const escolhida = embalagens.find((e) => e.id === v);
+                        if (!escolhida) return;
+                        setEmbalagensItens((prev) =>
+                          prev.map((x, j) =>
+                            j === i
+                              ? {
+                                  embalagem_id: escolhida.id,
+                                  descricao_snapshot: `${escolhida.nome}${escolhida.descricao ? ` - ${escolhida.descricao}` : ''}`,
+                                  custo_calculado: Number(escolhida.preco_unitario) || 0,
+                                }
+                              : x,
+                          ),
+                        );
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder={emb.descricao_snapshot || 'Selecione...'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {embalagens.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.nome}
+                            {e.descricao ? ` - ${e.descricao}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-right text-xs tabular-nums">
+                      {formatCurrency(Number(emb.custo_calculado) || 0)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEmbalagensItens((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setEmbalagensItens((prev) => [
+                    ...prev,
+                    { embalagem_id: '', descricao_snapshot: '', custo_calculado: 0 },
+                  ])
+                }
+              >
+                <Plus className="mr-1 h-4 w-4" /> Adicionar embalagem
+              </Button>
+
             </div>
           )}
         </div>
@@ -372,7 +451,7 @@ export default function EditarFormulaDialog({
                 </span>
               )}
               <span className="mx-2 opacity-40">·</span>
-              <span>Emb {formatCurrency(Number(custoEmbalagem) || 0)}</span>
+              <span>Emb {formatCurrency(totalEmbalagem)}</span>
               {resultado && (
                 <>
                   <span className="mx-2 opacity-40">·</span>
@@ -439,7 +518,7 @@ export default function EditarFormulaDialog({
           </Button>
           <Button onClick={salvar} disabled={salvando || carregando || temErro || !resultado}>
             <Save className="mr-1 h-4 w-4" />
-            {salvando ? 'Salvando...' : 'Salvar fórmula e margem'}
+            {salvando ? 'Salvando...' : 'Salvar produto e margem'}
           </Button>
         </DialogFooter>
       </DialogContent>
