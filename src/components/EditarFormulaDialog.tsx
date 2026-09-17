@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -258,7 +257,13 @@ export default function EditarFormulaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1 px-6 py-4">
+        {/* div com overflow-y em vez de ScrollArea, de proposito. O ScrollArea
+            do Radix usa height:100% no viewport, e porcentagem so resolve
+            contra altura DEFINIDA -- este dialogo tem so max-h, que e teto,
+            nao altura. Resultado: o miolo crescia ate o tamanho da lista e
+            era cortado sem rolar. Um div com overflow-y rola pelo proprio
+            tamanho que o flex lhe da, sem depender de porcentagem. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {carregando ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando fórmula...</p>
           ) : (
@@ -352,7 +357,7 @@ export default function EditarFormulaDialog({
 
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Rodape enxuto: custo, preco e margem numa linha. E' a decisao do
             consultor, entao fica sempre visivel -- mas sem roubar altura da

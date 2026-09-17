@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { CANAIS_VENDAS, OBJETIVOS_CAMPANHA, calcularCPL, diasEntre, formatBRL } from '@/lib/anuncios';
 import { AdInvestment, AdInvestmentConsultor, AdInvestmentInput, useAdInvestments } from '@/hooks/useAdInvestments';
@@ -150,7 +149,7 @@ export default function RegistroInvestimentoDialog({ open, onOpenChange, registr
           <DialogTitle>{registro ? 'Editar registro de investimento' : 'Novo registro de investimento'}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1 pr-3">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-3">
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Nome da Campanha *</Label>
@@ -320,7 +319,7 @@ export default function RegistroInvestimentoDialog({ open, onOpenChange, registr
               <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={3} />
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
