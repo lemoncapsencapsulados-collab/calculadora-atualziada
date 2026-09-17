@@ -352,93 +352,96 @@ export default function EditarFormulaDialog({
                 <Plus className="mr-1 h-4 w-4" /> Adicionar matéria-prima
               </Button>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1 rounded-lg border p-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Matéria-prima</span>
-                    <span className="font-medium">{formatCurrency(totalMp)}</span>
-                  </div>
-                  {Math.abs(diferencaMp) > 0.004 && (
-                    <p
-                      className={cn(
-                        'text-xs',
-                        diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400',
-                      )}
-                    >
-                      {diferencaMp > 0 ? '+' : '−'}
-                      {formatCurrency(Math.abs(diferencaMp))} em relação ao salvo
-                    </p>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Embalagem</span>
-                    <span>{formatCurrency(Number(custoEmbalagem) || 0)}</span>
-                  </div>
-                  {resultado && (
-                    <div className="flex justify-between border-t pt-1 text-sm font-semibold">
-                      <span>Custo de produção</span>
-                      <span>{formatCurrency(resultado.totalCustosProducao)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Preço de venda (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.00001"
-                      value={precoVenda}
-                      onChange={(e) => setPrecoVenda(e.target.value)}
-                    />
-                  </div>
-                  {sugestao !== null && (
-                    <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
-                      <p className="text-xs">
-                        Para manter a margem de{' '}
-                        <span className="font-semibold">{margemOriginal!.toFixed(1)}%</span>, o preço
-                        seria <span className="font-semibold">{formatCurrency(sugestao)}</span>.
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" onClick={() => setPrecoVenda(sugestao.toFixed(2))}>
-                          Usar {formatCurrency(sugestao)}
-                        </Button>
-                        {mudouPreco && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setPrecoVenda(precoAnterior.toFixed(2))}
-                          >
-                            Voltar ao anterior ({formatCurrency(precoAnterior)})
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Ou digite outro preço no campo acima — a margem recalcula sozinha.
-                      </p>
-                    </div>
-                  )}
-
-                  {resultado && (
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold">Margem de lucro</span>
-                        <Badge variant="outline" className={cn(validacao?.color, validacao?.borderColor)}>
-                          {resultado.margemLucroPercentual.toFixed(1)}%
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Lucro de {formatCurrency(resultado.margemLucroValor)} por unidade
-                      </p>
-                      {validacao?.mensagem && (
-                        <p className={cn('mt-1 text-xs', validacao.color)}>{validacao.mensagem}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           )}
         </ScrollArea>
+
+        <div className="max-h-[45vh] shrink-0 overflow-y-auto border-t bg-muted/20 px-6 py-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1 rounded-lg border p-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Matéria-prima</span>
+                <span className="font-medium">{formatCurrency(totalMp)}</span>
+              </div>
+              {Math.abs(diferencaMp) > 0.004 && (
+                <p
+                  className={cn(
+                    'text-xs',
+                    diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400',
+                  )}
+                >
+                  {diferencaMp > 0 ? '+' : '−'}
+                  {formatCurrency(Math.abs(diferencaMp))} em relação ao salvo
+                </p>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Embalagem</span>
+                <span>{formatCurrency(Number(custoEmbalagem) || 0)}</span>
+              </div>
+              {resultado && (
+                <div className="flex justify-between border-t pt-1 text-sm font-semibold">
+                  <span>Custo de produção</span>
+                  <span>{formatCurrency(resultado.totalCustosProducao)}</span>
+                </div>
+              )}
+            </div>
+  
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Preço de venda (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.00001"
+                  value={precoVenda}
+                  onChange={(e) => setPrecoVenda(e.target.value)}
+                />
+              </div>
+              {sugestao !== null && (
+                <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+                  <p className="text-xs">
+                    Para manter a margem de{' '}
+                    <span className="font-semibold">{margemOriginal!.toFixed(1)}%</span>, o preço
+                    seria <span className="font-semibold">{formatCurrency(sugestao)}</span>.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => setPrecoVenda(sugestao.toFixed(2))}>
+                      Usar {formatCurrency(sugestao)}
+                    </Button>
+                    {mudouPreco && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPrecoVenda(precoAnterior.toFixed(2))}
+                      >
+                        Voltar ao anterior ({formatCurrency(precoAnterior)})
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Ou digite outro preço no campo acima — a margem recalcula sozinha.
+                  </p>
+                </div>
+              )}
+  
+              {resultado && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">Margem de lucro</span>
+                    <Badge variant="outline" className={cn(validacao?.color, validacao?.borderColor)}>
+                      {resultado.margemLucroPercentual.toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Lucro de {formatCurrency(resultado.margemLucroValor)} por unidade
+                  </p>
+                  {validacao?.mensagem && (
+                    <p className={cn('mt-1 text-xs', validacao.color)}>{validacao.mensagem}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         <DialogFooter className="border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>
