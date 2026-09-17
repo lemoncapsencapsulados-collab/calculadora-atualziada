@@ -268,64 +268,62 @@ export default function EditarFormulaDialog({
                 <Input value={nome} onChange={(e) => setNome(e.target.value)} />
               </div>
 
-              <div className="space-y-2">
+              {/* Cabecalho uma vez so': repetir rotulo em cada linha inflava a
+                  altura e empurrava os insumos do fim para fora da tela. */}
+              <div className="grid grid-cols-[1fr_90px_84px_84px_32px] items-center gap-2 px-1 text-[11px] text-muted-foreground">
+                <span>Matéria-prima</span>
+                <span>Qtd. por dose</span>
+                <span>Unidade</span>
+                <span className="text-right">Custo</span>
+                <span />
+              </div>
+
+              <div className="space-y-1">
                 {calculadas.map(({ linha, custo, erro }) => (
-                  <div
-                    key={linha.chave}
-                    className={cn(
-                      'grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_110px_110px_auto]',
-                      erro && 'border-destructive/50',
-                    )}
-                  >
-                    <div className="space-y-1">
-                      <Label className="text-xs">Matéria-prima</Label>
+                  <div key={linha.chave}>
+                    <div
+                      className={cn(
+                        'grid grid-cols-[1fr_90px_84px_84px_32px] items-center gap-2 rounded-md px-1 py-1',
+                        erro && 'bg-destructive/5',
+                      )}
+                    >
                       <InsumoAutocomplete
                         insumos={insumos}
                         value={linha.nome}
-                        onSelect={(i) =>
-                          atualizarLinha(linha.chave, { insumoId: i.id, nome: i.nome })
-                        }
+                        onSelect={(i) => atualizarLinha(linha.chave, { insumoId: i.id, nome: i.nome })}
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Qtd. por dose</Label>
                       <Input
                         type="number"
                         step="any"
+                        className="h-9"
                         value={linha.quantidade}
                         onChange={(e) => atualizarLinha(linha.chave, { quantidade: e.target.value })}
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Unidade</Label>
                       <Select
                         value={linha.unidade}
                         onValueChange={(v) => atualizarLinha(linha.chave, { unidade: v as UnitType })}
                       >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {UNIDADES.map((u) => (
                             <SelectItem key={u} value={u}>{u}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="flex items-end justify-between gap-2 sm:flex-col sm:items-end">
-                      <span className="text-sm font-medium tabular-nums">
+                      <span className="text-right text-xs tabular-nums">
                         {formatCurrencyPrecise(custo)}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() =>
-                          setLinhas((prev) => prev.filter((l) => l.chave !== linha.chave))
-                        }
+                        className="h-8 w-8"
+                        onClick={() => setLinhas((prev) => prev.filter((l) => l.chave !== linha.chave))}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                     {erro && (
-                      <p className="flex items-center gap-1 text-xs text-destructive sm:col-span-4">
+                      <p className="flex items-center gap-1 px-1 pb-1 text-[11px] text-destructive">
                         <AlertTriangle className="h-3 w-3" /> {erro}
                       </p>
                     )}
@@ -356,91 +354,78 @@ export default function EditarFormulaDialog({
           )}
         </ScrollArea>
 
-        <div className="max-h-[45vh] shrink-0 overflow-y-auto border-t bg-muted/20 px-6 py-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1 rounded-lg border p-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Matéria-prima</span>
-                <span className="font-medium">{formatCurrency(totalMp)}</span>
-              </div>
+        {/* Rodape enxuto: custo, preco e margem numa linha. E' a decisao do
+            consultor, entao fica sempre visivel -- mas sem roubar altura da
+            lista de insumos, que e' o que ele esta' editando. */}
+        <div className="shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3">
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+            <div className="text-xs text-muted-foreground">
+              <span>MP {formatCurrency(totalMp)}</span>
               {Math.abs(diferencaMp) > 0.004 && (
-                <p
-                  className={cn(
-                    'text-xs',
-                    diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400',
-                  )}
-                >
-                  {diferencaMp > 0 ? '+' : '−'}
-                  {formatCurrency(Math.abs(diferencaMp))} em relação ao salvo
-                </p>
+                <span className={cn('ml-1', diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400')}>
+                  ({diferencaMp > 0 ? '+' : '−'}{formatCurrency(Math.abs(diferencaMp))})
+                </span>
               )}
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Embalagem</span>
-                <span>{formatCurrency(Number(custoEmbalagem) || 0)}</span>
-              </div>
+              <span className="mx-2 opacity-40">·</span>
+              <span>Emb {formatCurrency(Number(custoEmbalagem) || 0)}</span>
               {resultado && (
-                <div className="flex justify-between border-t pt-1 text-sm font-semibold">
-                  <span>Custo de produção</span>
-                  <span>{formatCurrency(resultado.totalCustosProducao)}</span>
-                </div>
+                <>
+                  <span className="mx-2 opacity-40">·</span>
+                  <span className="font-medium text-foreground">
+                    Custo {formatCurrency(resultado.totalCustosProducao)}
+                  </span>
+                </>
               )}
             </div>
-  
-            <div className="space-y-2">
+
+            <div className="ml-auto flex items-end gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Preço de venda (R$)</Label>
+                <Label className="text-[11px] text-muted-foreground">Preço de venda</Label>
                 <Input
                   type="number"
                   step="0.00001"
+                  className="h-9 w-32"
                   value={precoVenda}
                   onChange={(e) => setPrecoVenda(e.target.value)}
                 />
               </div>
-              {sugestao !== null && (
-                <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
-                  <p className="text-xs">
-                    Para manter a margem de{' '}
-                    <span className="font-semibold">{margemOriginal!.toFixed(1)}%</span>, o preço
-                    seria <span className="font-semibold">{formatCurrency(sugestao)}</span>.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button size="sm" onClick={() => setPrecoVenda(sugestao.toFixed(2))}>
-                      Usar {formatCurrency(sugestao)}
-                    </Button>
-                    {mudouPreco && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setPrecoVenda(precoAnterior.toFixed(2))}
-                      >
-                        Voltar ao anterior ({formatCurrency(precoAnterior)})
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Ou digite outro preço no campo acima — a margem recalcula sozinha.
-                  </p>
-                </div>
-              )}
-  
               {resultado && (
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">Margem de lucro</span>
-                    <Badge variant="outline" className={cn(validacao?.color, validacao?.borderColor)}>
-                      {resultado.margemLucroPercentual.toFixed(1)}%
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Lucro de {formatCurrency(resultado.margemLucroValor)} por unidade
+                <div className="pb-1 text-right">
+                  <Badge variant="outline" className={cn('text-sm', validacao?.color, validacao?.borderColor)}>
+                    {resultado.margemLucroPercentual.toFixed(1)}%
+                  </Badge>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {formatCurrency(resultado.margemLucroValor)} / un.
                   </p>
-                  {validacao?.mensagem && (
-                    <p className={cn('mt-1 text-xs', validacao.color)}>{validacao.mensagem}</p>
-                  )}
                 </div>
               )}
             </div>
           </div>
+
+          {sugestao !== null && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">
+                Manter {margemOriginal!.toFixed(1)}% pede {formatCurrency(sugestao)}
+              </span>
+              <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setPrecoVenda(sugestao.toFixed(2))}>
+                Usar
+              </Button>
+              {mudouPreco && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setPrecoVenda(precoAnterior.toFixed(2))}
+                >
+                  Voltar a {formatCurrency(precoAnterior)}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {validacao?.mensagem && (
+            <p className={cn('text-[11px]', validacao.color)}>{validacao.mensagem}</p>
+          )}
         </div>
 
         <DialogFooter className="border-t px-6 py-4">
