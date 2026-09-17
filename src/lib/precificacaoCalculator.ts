@@ -201,3 +201,26 @@ export function validarMargem(
     };
   }
 }
+
+/**
+ * Preco que devolve uma margem liquida alvo, dado o custo de producao.
+ *
+ * Da definicao de margem, com imposto proporcional ao preco:
+ *   margem = (preco - custo - preco*aliquota) / preco
+ *   margem = (1 - aliquota) - custo/preco
+ *   preco  = custo / (1 - aliquota - margem)
+ *
+ * Devolve null quando a margem alvo e' inalcancavel -- a partir de
+ * (1 - aliquota) nao existe preco finito que a satisfaca.
+ */
+export function precoParaMargem(
+  custoProducao: number,
+  margemPercentual: number,
+): number | null {
+  const custo = Number(custoProducao);
+  const margem = Number(margemPercentual) / 100;
+  if (!Number.isFinite(custo) || custo <= 0) return null;
+  const denominador = 1 - ALIQUOTA_IMPOSTO - margem;
+  if (!Number.isFinite(denominador) || denominador <= 0) return null;
+  return arredondarReais(custo / denominador);
+}

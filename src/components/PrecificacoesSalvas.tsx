@@ -431,6 +431,7 @@ export default function PrecificacoesSalvas({
           tipoProduto={editandoFormula.formulas?.tipo_produto || ''}
           custoEmbalagem={Number(editandoFormula.custo_embalagem) || 0}
           precoVendaAtual={Number(editandoFormula.preco_venda) || 0}
+          margemOriginal={Number(editandoFormula.margem_lucro_percentual) || undefined}
           configuracaoAtiva={configuracaoAtiva}
           onSalvo={() => {
             queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });

@@ -16,7 +16,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import { cn } from '@/lib/utils';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
-import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
+import { calcularPrecificacaoPorPreco, precoParaMargem, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { ConfiguracaoCustos } from '@/types/precificacao';
 import type { FormulaItem, Insumo, UnitType } from '@/types/formula';
 
@@ -38,6 +38,8 @@ interface Props {
   formulaId: string;
   nomeFormula: string;
   tipoProduto: string;
+  /** Margem que a precificação tinha ao abrir; base da sugestão de preço. */
+  margemOriginal?: number;
   /** Embalagem não é editada aqui; entra fixa na conta da margem. */
   custoEmbalagem: number;
   precoVendaAtual: number;
@@ -52,6 +54,7 @@ export default function EditarFormulaDialog({
   formulaId,
   nomeFormula,
   tipoProduto,
+  margemOriginal,
   custoEmbalagem,
   precoVendaAtual,
   configuracaoAtiva,
@@ -60,6 +63,7 @@ export default function EditarFormulaDialog({
   const { insumos } = useInsumos();
   const { atualizarPrecificacao } = usePrecificacao();
 
+  const [nome, setNome] = useState(nomeFormula);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [precoVenda, setPrecoVenda] = useState(String(precoVendaAtual ?? 0));
   const [carregando, setCarregando] = useState(false);
@@ -95,6 +99,7 @@ export default function EditarFormulaDialog({
       );
       setMpOriginal(Number(data?.total_mp) || 0);
       setPrecoVenda(String(precoVendaAtual ?? 0));
+      setNome(nomeFormula);
       setCarregando(false);
     })();
     return () => {
@@ -160,6 +165,23 @@ export default function EditarFormulaDialog({
     ? validarMargemPorTipo(resultado.margemLucroPercentual, tipoProduto)
     : null;
 
+  /**
+   * Preco que devolveria a margem que a precificacao tinha ao abrir.
+   * So' aparece quando o custo mudou e o preco atual ja' nao entrega essa
+   * margem -- sugerir o que ja' esta' na tela seria ruido.
+   */
+  const sugestao = useMemo(() => {
+    if (!margemOriginal || !resultado) return null;
+    const alvo = precoParaMargem(resultado.totalCustosProducao, margemOriginal);
+    if (alvo === null) return null;
+    const precoAtual = parseFloat(precoVenda);
+    if (Number.isFinite(precoAtual) && Math.abs(alvo - precoAtual) < 0.01) return null;
+    return alvo;
+  }, [margemOriginal, resultado, precoVenda]);
+
+  const precoAnterior = Number(precoVendaAtual) || 0;
+  const mudouPreco = Math.abs((parseFloat(precoVenda) || 0) - precoAnterior) >= 0.01;
+
   const atualizarLinha = (chave: string, patch: Partial<Linha>) =>
     setLinhas((prev) => prev.map((l) => (l.chave === chave ? { ...l, ...patch } : l)));
 
@@ -193,6 +215,7 @@ export default function EditarFormulaDialog({
       const { error: erroFormula } = await supabase
         .from('formulas')
         .update({
+          ...(nome.trim() ? { nome_formula: nome.trim() } : {}),
           itens: itens as any,
           total_mp: totalMp,
           custo_total: totalMp + (Number(custoEmbalagem) || 0),
@@ -227,7 +250,7 @@ export default function EditarFormulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Editar fórmula</DialogTitle>
           <DialogDescription>
@@ -235,11 +258,16 @@ export default function EditarFormulaDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        <ScrollArea className="min-h-0 flex-1 px-6 py-4">
           {carregando ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando fórmula...</p>
           ) : (
             <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome da fórmula</Label>
+                <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+              </div>
+
               <div className="space-y-2">
                 {calculadas.map(({ linha, custo, erro }) => (
                   <div
@@ -363,6 +391,33 @@ export default function EditarFormulaDialog({
                       onChange={(e) => setPrecoVenda(e.target.value)}
                     />
                   </div>
+                  {sugestao !== null && (
+                    <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+                      <p className="text-xs">
+                        Para manter a margem de{' '}
+                        <span className="font-semibold">{margemOriginal!.toFixed(1)}%</span>, o preço
+                        seria <span className="font-semibold">{formatCurrency(sugestao)}</span>.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" onClick={() => setPrecoVenda(sugestao.toFixed(2))}>
+                          Usar {formatCurrency(sugestao)}
+                        </Button>
+                        {mudouPreco && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPrecoVenda(precoAnterior.toFixed(2))}
+                          >
+                            Voltar ao anterior ({formatCurrency(precoAnterior)})
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Ou digite outro preço no campo acima — a margem recalcula sozinha.
+                      </p>
+                    </div>
+                  )}
+
                   {resultado && (
                     <div className="rounded-lg border bg-muted/30 p-3">
                       <div className="flex items-center justify-between">
