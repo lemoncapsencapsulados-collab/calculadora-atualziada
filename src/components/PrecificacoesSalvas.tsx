@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import EditarFormulaDialog from './EditarFormulaDialog';
+import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 
 import { Formula } from '@/types/formula';
@@ -307,15 +308,21 @@ export default function PrecificacoesSalvas({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs">Custo Produção</p>
-                        <p className="font-medium">R$ {Number(precificacao.total_custos_producao).toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrencyPrecise(Number(precificacao.total_custos_producao))}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">Impostos</p>
-                        <p className="font-medium">R$ {Number(precificacao.total_impostos).toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrencyPrecise(Number(precificacao.total_impostos))}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">Preço de Venda</p>
-                        <p className="font-bold text-primary text-lg">R$ {Number(precificacao.preco_venda).toFixed(2)}</p>
+                        <PrecoVendaInline
+                          precificacao={precificacao}
+                          configuracaoAtiva={configuracaoAtiva}
+                          onSalvo={() =>
+                            queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] })
+                          }
+                        />
                       </div>
                       {(() => {
                         const styles = getMargemStyles(

@@ -1,5 +1,5 @@
 import { ConfiguracaoCustos, PrecificacaoCalculada } from '@/types/precificacao';
-import { arredondarReais } from '@/lib/utils';
+import { arredondarCusto, arredondarReais } from '@/lib/utils';
 
 interface CustosBase {
   custoMateriaPrima: number;
@@ -57,7 +57,9 @@ export function calcularPrecificacaoPorPreco(
     ? ((precoVenda - totalCustosProducao) / totalCustosProducao) * 100
     : 0;
 
-  const r = arredondarReais;
+  // Custos vao com 6 casas: arredondar para centavos zera dose micro e ela
+  // desaparece do montante. A exibicao continua mostrando em reais.
+  const r = arredondarCusto;
   return {
     custoMateriaPrima: r(custoMP),
     custoEmbalagem: r(custoEmb),

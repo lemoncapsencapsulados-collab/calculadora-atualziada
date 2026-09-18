@@ -42,3 +42,19 @@ export function arredondarReais(valor: number): number {
 
   return sign * parseFloat(`${intNum}.${digits.map(d => Math.min(d, 9)).join('')}`);
 }
+
+/**
+ * Arredonda um custo preservando fracoes de centavo.
+ *
+ * Micronutriente em microgramas custa fracao de centavo por dose: vitamina D3 a
+ * R$ 900/kg numa dose de 50 mcg da' R$ 0,000045. Arredondar isso para centavos
+ * zera o custo e some do montante -- foi o que aconteceu com as formulas "d3" e
+ * "DRENAGEM LINFATICA", gravadas com materia-prima 0.
+ *
+ * Seis casas e' o que a coluna `numeric(_, 6)` de `precificacoes` guarda; mais
+ * do que isso o banco descartaria de qualquer jeito.
+ */
+export function arredondarCusto(valor: number): number {
+  if (!isFinite(valor)) return valor;
+  return Number(valor.toFixed(6));
+}
