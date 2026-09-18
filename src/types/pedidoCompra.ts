@@ -52,7 +52,7 @@ export const CANAIS_FORMAIS = ['Grupo de WhatsApp', 'E-mail'] as const;
 export const APRESENTACOES = ['Encapsulado', 'Líquido', 'Goma', 'Solúvel'] as const;
 export const CAPSULA_TIPOS = ['Cápsula 0'] as const;
 export const CAPSULA_CORES = [
-  'Transparente', 'Verde', 'Vermelha', 'Branca', 'Roxo', 'Azul', 'Creme',
+  'Transparente', 'Verde', 'Vermelha', 'Branca', 'Roxo', 'Azul', 'Creme', 'Laranja',
 ] as const;
 export const POTE_CORES = ['Branco', 'Preto', 'Transparente'] as const;
 export const TAMPA_TIPOS = ['Rosca', 'Flip-top', 'Pump'] as const;
@@ -187,12 +187,22 @@ export function listarCamposFaltantes(
       'especificacoes',
       `Composição da fórmula${qual}`,
     );
-    exigir(!!e.embalagem?.apresentacao?.trim(), 'especificacoes', `Apresentação da embalagem${qual}`);
-    exigir(
-      !!e.embalagem?.fornecimento_embalagem,
-      'especificacoes',
-      `Fornecimento da embalagem${qual}`,
-    );
+    const emb = e.embalagem || ({} as typeof e.embalagem);
+    const listas: [string, string][] = [
+      [emb.apresentacao, 'Apresentação da embalagem'],
+      [emb.capsula_tipo, 'Tipo de cápsula / comprimido'],
+      [emb.capsula_cor, 'Cor da cápsula'],
+      [emb.pote_cor, 'Cor do pote'],
+      [emb.tampa_tipo, 'Tipo de tampa'],
+      [emb.tampa_cor, 'Cor da tampa'],
+      [emb.rotulo_material, 'Material do rótulo'],
+      [emb.rotulo_acabamento, 'Acabamento do rótulo'],
+      [emb.embalagem_secundaria, 'Embalagem secundária'],
+      [emb.fornecimento_embalagem, 'Fornecimento da embalagem'],
+    ];
+    listas.forEach(([valor, label]) => {
+      exigir(!!valor?.trim(), 'especificacoes', `${label}${qual}`);
+    });
   });
   exigir((dados.especificacoes?.length ?? 0) > 0, 'especificacoes', 'Especificação técnica');
   exigir(!!dados.representante_nome?.trim(), 'representante_nome', 'Nome do representante legal');

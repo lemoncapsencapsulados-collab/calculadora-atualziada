@@ -809,8 +809,9 @@ export default function PedidoDeCompraDialog({
         </div>
 
         <p className="text-[11px] text-muted-foreground">
-          O envio automático ao ZapSign ainda não está ligado. Baixe o PDF e conduza a assinatura
-          normalmente; depois volte aqui para registrar o pedido.
+          {onAutoSalvar ? 'O preenchimento é salvo sozinho. ' : ''}
+          O envio automático ao ZapSign ainda não está ligado: baixe o PDF e conduza a assinatura
+          normalmente.
         </p>
 
         <DialogFooter className="gap-2 sm:justify-between">
@@ -818,8 +819,8 @@ export default function PedidoDeCompraDialog({
             {completo ? 'Pronto para assinatura' : `${faltantes.length} campo(s) pendente(s)`}
           </Badge>
           <div className="flex gap-2">
-            {/* Salvar avulso: guarda o preenchimento mesmo incompleto, para o
-                consultor voltar depois sem perder o que ja' digitou. */}
+            {/* O preenchimento ja' e' salvo sozinho; este botao e' so' a
+                confirmacao imediata, para quem quer ver que gravou. */}
             {onAutoSalvar && (
               <Button
                 variant="outline"
@@ -827,8 +828,9 @@ export default function PedidoDeCompraDialog({
                   onAutoSalvar(dados, numeroContrato);
                   toast.success('Pedido de Compra salvo.');
                 }}
+                title="O preenchimento já é salvo sozinho; use para confirmar agora"
               >
-                <Save className="h-4 w-4 mr-1" /> Salvar
+                <Save className="h-4 w-4 mr-1" /> Salvar agora
               </Button>
             )}
             {!onAutoSalvar && (

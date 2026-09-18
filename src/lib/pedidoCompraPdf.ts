@@ -270,48 +270,51 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     { align: 'center' },
   );
 
-  // Assinaturas
-  y += 22;
+  // Assinaturas empilhadas, uma abaixo da outra.
+  //
+  // Lado a lado sobrava meia largura para cada uma, e assinatura eletronica --
+  // GOV.br, ZapSign -- carimba um bloco largo que nao cabe nessa metade. Em
+  // pilha cada parte tem a largura inteira e uma faixa livre acima da linha.
+  const ESPACO_ASSINATURA = 26; // mm livres para o carimbo ou a assinatura
+  const larguraLinha = Math.min(larguraUtil, 120);
   const meio = doc.internal.pageSize.getWidth() / 2;
-  const colEsq = MARGEM + larguraUtil * 0.22;
-  const colDir = meio + larguraUtil * 0.25;
-  doc.setDrawColor(60);
-  doc.line(MARGEM + 5, y, meio - 5, y);
-  doc.line(meio + 5, y, MARGEM + larguraUtil - 5, y);
-  y += 5;
 
-  const bloco = (linhas: string[], x: number) => {
-    let yy = y;
-    doc.setFontSize(8);
+  const blocoAssinatura = (linhas: string[]) => {
+    // Cada bloco precisa de espaco livre + linha + identificacao.
+    if (y + ESPACO_ASSINATURA + 24 > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = MARGEM;
+    }
+    y += ESPACO_ASSINATURA;
+    doc.setDrawColor(60);
+    doc.line(meio - larguraLinha / 2, y, meio + larguraLinha / 2, y);
+    y += 5;
+    doc.setFontSize(9);
     linhas.forEach((linha, i) => {
       doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
-      doc.splitTextToSize(linha, larguraUtil / 2 - 10).forEach((l: string) => {
-        doc.text(l, x, yy, { align: 'center' });
-        yy += 3.6;
+      doc.splitTextToSize(linha, larguraUtil - 20).forEach((l: string) => {
+        doc.text(l, meio, y, { align: 'center' });
+        y += 4.2;
       });
     });
+    y += 4;
   };
 
-  bloco(
-    [
-      dados.contratante || '[RAZÃO SOCIAL / NOME DA CONTRATANTE]',
-      `CNPJ/CPF nº ${ou(dados.cnpj_cpf)}`,
-      ou(dados.representante_nome, '[NOME DO REPRESENTANTE LEGAL]'),
-      `CPF nº ${ou(dados.representante_cpf)}`,
-      'CONTRATANTE',
-    ],
-    colEsq,
-  );
-  bloco(
-    [
-      CONTRATADA.razao_social,
-      `CNPJ nº ${CONTRATADA.cnpj}`,
-      CONTRATADA.representante,
-      `CPF nº ${CONTRATADA.representante_cpf}`,
-      'CONTRATADA',
-    ],
-    colDir,
-  );
+  y += 6;
+  blocoAssinatura([
+    dados.contratante || '[RAZÃO SOCIAL / NOME DA CONTRATANTE]',
+    `CNPJ/CPF nº ${ou(dados.cnpj_cpf)}`,
+    ou(dados.representante_nome, '[NOME DO REPRESENTANTE LEGAL]'),
+    `CPF nº ${ou(dados.representante_cpf)}`,
+    'CONTRATANTE',
+  ]);
+  blocoAssinatura([
+    CONTRATADA.razao_social,
+    `CNPJ nº ${CONTRATADA.cnpj}`,
+    CONTRATADA.representante,
+    `CPF nº ${CONTRATADA.representante_cpf}`,
+    'CONTRATADA',
+  ]);
 
   // Rodape em todas as paginas
   const total = doc.getNumberOfPages();

@@ -154,6 +154,28 @@ describe('preenchimento automático', () => {
   });
 });
 
+/** Preenche as listas fechadas, que sao todas obrigatorias para baixar. */
+const completarSelecoes = (dados: any) => ({
+  ...dados,
+  canal_formal: 'Grupo de WhatsApp',
+  especificacoes: dados.especificacoes.map((e: any) => ({
+    ...e,
+    embalagem: {
+      ...e.embalagem,
+      apresentacao: 'Encapsulado',
+      capsula_tipo: 'Cápsula 0',
+      capsula_cor: 'Laranja',
+      pote_cor: 'Branco',
+      tampa_tipo: 'Rosca',
+      tampa_cor: 'Preto',
+      rotulo_material: 'BOPP',
+      rotulo_acabamento: 'Fosco',
+      embalagem_secundaria: 'Não',
+      fornecimento_embalagem: 'CONTRATADA' as const,
+    },
+  })),
+});
+
 describe('cobrança do que falta', () => {
   it('cobra o número do contrato e o canal formal de um preenchimento cru', () => {
     const dados = montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null });
@@ -165,17 +187,19 @@ describe('cobrança do que falta', () => {
     expect(campos).toContain('especificacoes');
   });
 
+  it('cobra toda lista de seleção não preenchida', () => {
+    const dados = montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null });
+    const labels = listarCamposFaltantes(dados, '260922').map((f) => f.label);
+    // As listas fechadas existem para padronizar; em branco o documento sai ambíguo.
+    expect(labels).toContain('Cor da cápsula');
+    expect(labels).toContain('Tipo de tampa');
+    expect(labels).toContain('Acabamento do rótulo');
+    expect(labels).toContain('Embalagem secundária');
+  });
+
   it('não sobra nada quando o consultor completa', () => {
     const dados = montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null });
-    const completo = {
-      ...dados,
-      canal_formal: 'Grupo de WhatsApp',
-      especificacoes: dados.especificacoes.map((e) => ({
-        ...e,
-        embalagem: { ...e.embalagem, fornecimento_embalagem: 'CONTRATADA' as const },
-      })),
-    };
-    expect(listarCamposFaltantes(completo, '260922')).toEqual([]);
+    expect(listarCamposFaltantes(completarSelecoes(dados), '260922')).toEqual([]);
   });
 });
 
@@ -185,14 +209,7 @@ describe('geração do PDF', () => {
     const doc = gerarPedidoCompraPDF({
       numeroPedido: '260922-4',
       numeroContrato: '260922',
-      dados: {
-        ...dados,
-        canal_formal: 'Grupo de WhatsApp',
-        especificacoes: dados.especificacoes.map((e) => ({
-          ...e,
-          embalagem: { ...e.embalagem, fornecimento_embalagem: 'CONTRATADA' as const },
-        })),
-      },
+      dados: completarSelecoes(dados),
     });
 
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(3);
