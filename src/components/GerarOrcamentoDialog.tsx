@@ -7,6 +7,7 @@ import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { validarMargemPorTipo, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import { arredondarReais } from '@/lib/utils';
+import { linhaDoCliente } from '@/lib/linhaProduto';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -735,6 +736,7 @@ export default function GerarOrcamentoDialog({
         return {
           tipo: 'precificacao' as const,
           precificacao_id: precId,
+          linha_produto: linhaDoCliente(prec?.formulas?.cliente),
           nome_produto: prec?.formulas?.nome_formula || 'Produto',
           segmento: prec?.formulas?.tipo_produto || '',
           preco_unitario: Number(prec?.preco_venda) || 0,

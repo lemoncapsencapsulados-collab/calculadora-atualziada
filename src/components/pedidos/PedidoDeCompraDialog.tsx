@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
 import { numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
 import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
@@ -25,6 +26,7 @@ import {
   type PlanoMarca,
 } from '@/types/pedidoCompra';
 import type { OrcamentoSnapshot } from '@/types/orcamento';
+import { LINHA_PRODUTO_CURTO, linhaDoCliente, type LinhaProduto } from '@/lib/linhaProduto';
 
 interface Props {
   open: boolean;
@@ -220,12 +222,16 @@ export default function PedidoDeCompraDialog({
     (async () => {
       const { data, error } = await supabase
         .from('precificacoes')
-        .select('id, formulas(itens)')
+        .select('id, formulas(itens, cliente)')
         .in('id', ids);
       if (cancelado || error || !data) return;
 
       const porPrecificacao = new Map<string, { insumo: string; dose: string }[]>();
+      // Orcamentos antigos nao gravaram a linha no item; da' para deduzir pelo
+      // cliente da formula, que e' o criterio de catalogo do sistema.
+      const linhaPorPrecificacao = new Map<string, LinhaProduto>();
       data.forEach((row: any) => {
+        linhaPorPrecificacao.set(row.id, linhaDoCliente(row.formulas?.cliente));
         const formulaItens = (row.formulas?.itens || []) as any[];
         porPrecificacao.set(
           row.id,
@@ -240,6 +246,9 @@ export default function PedidoDeCompraDialog({
 
       setDados((d) => ({
         ...d,
+        produtos: d.produtos.map((p, i) =>
+          p.linha ? p : { ...p, linha: linhaPorPrecificacao.get(itens[i]?.precificacao_id) },
+        ),
         especificacoes: d.especificacoes.map((esp, i) => {
           if (esp.composicao.some((a) => a.insumo.trim())) return esp;
           const daFormula = porPrecificacao.get(itens[i]?.precificacao_id);
@@ -427,7 +436,22 @@ export default function PedidoDeCompraDialog({
                 dados.produtos.map((p, i) => (
                   <div key={i} className="flex items-center justify-between gap-3 p-3 flex-wrap">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">{p.descricao}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{p.descricao}</p>
+                        {p.linha && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'h-5 px-1.5 text-[10px]',
+                              p.linha === 'white_label'
+                                ? 'border-amber-500 text-amber-700 dark:text-amber-400'
+                                : 'border-blue-500 text-blue-700 dark:text-blue-400',
+                            )}
+                          >
+                            {LINHA_PRODUTO_CURTO[p.linha]}
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{p.apresentacao}</p>
                     </div>
                     <div className="text-right">

@@ -35,6 +35,8 @@ export interface ProdutoPedidoCompra {
   apresentacao: string;
   preco_unitario: number;
   quantidade: number;
+  /** White Label (catalogo) ou Private Label (personalizada). */
+  linha?: 'white_label' | 'private_label';
 }
 
 export interface ParcelaPedidoCompra {
@@ -177,6 +179,28 @@ export function listarCamposFaltantes(
   exigir(!!dados.endereco_entrega?.trim(), 'endereco_entrega', 'Endereço de entrega');
   exigir(!!dados.contato_local?.trim(), 'contato_local', 'Contato no local (nome e telefone)');
   exigir((dados.parcelas?.length ?? 0) > 0, 'parcelas', 'Condições de pagamento');
+  // Parcela sem meio ou sem vencimento imprime lacuna no documento.
+  (dados.parcelas ?? []).forEach((parcela, i) => {
+    exigir(!!parcela.meio_pagamento?.trim(), 'parcelas', `Meio de pagamento da parcela ${i + 1}`);
+    exigir(!!parcela.vencimento?.trim(), 'parcelas', `Vencimento da parcela ${i + 1}`);
+    exigir((Number(parcela.valor) || 0) > 0, 'parcelas', `Valor da parcela ${i + 1}`);
+  });
+  // Campos livres que tambem viram lacuna impressa quando ficam em branco.
+  exigir(!!dados.faturamento_em?.trim(), 'faturamento_em', 'Faturamento em');
+  (dados.especificacoes ?? []).forEach((e, i) => {
+    const qual = (dados.especificacoes!.length > 1)
+      ? ` — ${e.produto_nome?.trim() || `produto ${i + 1}`}`
+      : '';
+    exigir(!!e.quantidade_por_frasco?.trim(), 'especificacoes', `Quantidade por frasco${qual}`);
+    exigir(!!e.embalagem?.pote_material?.trim(), 'especificacoes', `Material do pote${qual}`);
+    exigir(!!e.embalagem?.pote_capacidade?.trim(), 'especificacoes', `Capacidade do pote${qual}`);
+    exigir(!!e.embalagem?.rotulo_quantidade?.trim(), 'especificacoes', `Quantidade de rótulo${qual}`);
+    exigir(
+      (e.composicao || []).every((a) => !a.insumo?.trim() || a.dose?.trim()),
+      'especificacoes',
+      `Dose de cada insumo${qual}`,
+    );
+  });
   (dados.especificacoes ?? []).forEach((e, i) => {
     const qual = (dados.especificacoes!.length > 1)
       ? ` — ${e.produto_nome?.trim() || `produto ${i + 1}`}`

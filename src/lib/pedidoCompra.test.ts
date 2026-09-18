@@ -27,6 +27,7 @@ const snapshotExemplo = {
   itens_producao: [
     {
       tipo: 'precificacao' as const,
+      linha_produto: 'white_label' as const,
       nome_produto: 'Colágeno Verisol',
       segmento: 'Encapsulados',
       tipo_produto: 'Encapsulados',
@@ -158,10 +159,21 @@ describe('preenchimento automático', () => {
 const completarSelecoes = (dados: any) => ({
   ...dados,
   canal_formal: 'Grupo de WhatsApp',
+  parcelas: (dados.parcelas.length ? dados.parcelas : [{ valor: 100 }]).map((p: any) => ({
+    ...p,
+    meio_pagamento: p.meio_pagamento || 'PIX',
+    vencimento: p.vencimento || '2026-10-10',
+    valor: p.valor || 100,
+  })),
   especificacoes: dados.especificacoes.map((e: any) => ({
     ...e,
+    quantidade_por_frasco: e.quantidade_por_frasco || '60 cápsulas',
     embalagem: {
       ...e.embalagem,
+      pote_material: e.embalagem.pote_material || 'PET',
+      pote_capacidade: e.embalagem.pote_capacidade || '250 mL',
+      rotulo_quantidade: e.embalagem.rotulo_quantidade || '1000',
+      dosador: e.embalagem.dosador || 'Não',
       apresentacao: 'Encapsulado',
       capsula_tipo: 'Cápsula 0',
       capsula_cor: 'Laranja',
@@ -200,6 +212,56 @@ describe('cobrança do que falta', () => {
   it('não sobra nada quando o consultor completa', () => {
     const dados = montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null });
     expect(listarCamposFaltantes(completarSelecoes(dados), '260922')).toEqual([]);
+  });
+});
+
+/** Extrai o texto de todas as páginas do PDF gerado. */
+function textoDoPdf(doc: any): string {
+  const paginas: string[] = [];
+  const total = doc.getNumberOfPages();
+  for (let i = 1; i <= total; i++) {
+    const conteudo = doc.internal.pages[i] || [];
+    paginas.push(Array.isArray(conteudo) ? conteudo.join(' ') : String(conteudo));
+  }
+  return paginas.join(' ');
+}
+
+describe('PDF baixado não sai com lacuna', () => {
+  /** Preenchimento completo, como a tela exige para liberar o download. */
+  const completo = () => {
+    const base = completarSelecoes(
+      montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null }),
+    );
+    return {
+      ...base,
+      endereco_entrega: base.endereco_entrega || 'Rua X, 1 - Centro - Cuiabá/MT',
+      contato_local: base.contato_local || 'Maria - (65) 99999-8888',
+    };
+  };
+
+  it('a tela considera o preenchimento completo', () => {
+    expect(listarCamposFaltantes(completo(), '260922')).toEqual([]);
+  });
+
+  it('não resta marcador de campo vazio no documento', () => {
+    const doc = gerarPedidoCompraPDF({
+      numeroPedido: '400-01',
+      numeroContrato: '2609',
+      dados: completo() as any,
+    });
+    const texto = textoDoPdf(doc);
+    // "________" e "____" sao os marcadores que o gerador usa para lacuna.
+    expect(texto).not.toContain('________');
+    expect(texto).not.toContain('__/__/____');
+  });
+
+  it('o documento traz a linha de cada produto', () => {
+    const doc = gerarPedidoCompraPDF({
+      numeroPedido: '400-01',
+      numeroContrato: '2609',
+      dados: completo() as any,
+    });
+    expect(textoDoPdf(doc)).toMatch(/White Label|Private Label/);
   });
 });
 

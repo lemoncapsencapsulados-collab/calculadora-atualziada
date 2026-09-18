@@ -19,6 +19,11 @@ export interface DetalhesProducao {
 export interface ItemProducao {
   tipo: 'precificacao' | 'avulso';
   precificacao_id?: string;
+  /**
+   * White Label (catalogo) ou Private Label (personalizada). Gravado no item
+   * para que os PDFs saibam a linha sem precisar consultar a precificacao.
+   */
+  linha_produto?: 'white_label' | 'private_label';
   nome_produto: string;
   segmento: string;
   preco_unitario: number;

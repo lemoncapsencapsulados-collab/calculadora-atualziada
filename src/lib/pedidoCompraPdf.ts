@@ -10,6 +10,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from '@/lib/unitConversion';
+import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
 import {
   CONTRATADA,
   PADROES_PEDIDO_COMPRA,
@@ -24,6 +25,19 @@ const brl = (v: number) => formatCurrency(v || 0);
 const ou = (v: string | number | undefined | null, vazio = '________') => {
   const t = String(v ?? '').trim();
   return t || vazio;
+};
+
+const MESES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/** "18 de setembro de 2026" -- a data por extenso do bloco de assinatura. */
+const dataPorExtenso = (iso: string): string => {
+  const t = (iso || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date();
+  return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 };
 
 const dataBr = (iso: string): string => {
@@ -118,20 +132,22 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
     headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-    head: [['DESCRIÇÃO', 'APRESENTAÇÃO', 'PREÇO UNIT.', 'QTD.', 'TOTAL']],
+    head: [['DESCRIÇÃO', 'LINHA', 'APRESENTAÇÃO', 'PREÇO UNIT.', 'QTD.', 'TOTAL']],
     columnStyles: {
-      2: { halign: 'right' },
+      1: { cellWidth: 24 },
       3: { halign: 'right' },
       4: { halign: 'right' },
+      5: { halign: 'right' },
     },
     body: dados.produtos.map((p) => [
       ou(p.descricao),
+      p.linha ? LINHA_PRODUTO_CURTO[p.linha] : '—',
       ou(p.apresentacao),
       brl(p.preco_unitario),
       String(p.quantidade ?? ''),
       brl((p.preco_unitario || 0) * (p.quantidade || 0)),
     ]),
-    foot: [['VALOR TOTAL DO PEDIDO', '', '', '', brl(totalProdutos)]],
+    foot: [['VALOR TOTAL DO PEDIDO', '', '', '', '', brl(totalProdutos)]],
     footStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' },
   });
   y = (doc as any).lastAutoTable.finalY;
@@ -263,8 +279,10 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
   y += 8;
   doc.setFont('helvetica', 'normal').setFontSize(10);
+  // O modelo v3 deixava a data em branco para preencher a mao; com assinatura
+  // eletronica isso so' vira lacuna no documento que vai ao financeiro.
   doc.text(
-    `${PADROES_PEDIDO_COMPRA.local_assinatura}, ______ de _______________________ de ________.`,
+    `${PADROES_PEDIDO_COMPRA.local_assinatura}, ${dataPorExtenso(dados.data_pedido)}.`,
     doc.internal.pageSize.getWidth() / 2,
     y,
     { align: 'center' },

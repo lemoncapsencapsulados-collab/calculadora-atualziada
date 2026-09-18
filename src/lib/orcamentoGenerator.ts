@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { fetchFreteCotacaoByOrcamento, fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 import { linhaPdfFrete, blocoPdfFrete } from '@/lib/freteHelpers';
 import type { FreteCotacao } from '@/types/frete';
+import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
 
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
@@ -394,7 +395,11 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     doc.setTextColor(...COLORS.textMedium);
     doc.setFontSize(LAYOUT.fontSize.small);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Segmento: ${item.segmento}`, pageWidth - LAYOUT.margin - 3, yPos + 2, { align: 'right' });
+    // A linha do produto vai junto do segmento: o financeiro precisa saber se a
+    // formula e' do catalogo ou personalizada para tratar estabilidade e prazo.
+    const linha = item.linha_produto ? LINHA_PRODUTO_CURTO[item.linha_produto] : '';
+    const direita = linha ? `${linha}  ·  Segmento: ${item.segmento}` : `Segmento: ${item.segmento}`;
+    doc.text(direita, pageWidth - LAYOUT.margin - 3, yPos + 2, { align: 'right' });
     
     yPos += 12;
     

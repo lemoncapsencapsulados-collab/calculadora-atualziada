@@ -162,6 +162,7 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
     apresentacao: descreverApresentacao(item),
     preco_unitario: Number(item.preco_unitario) || 0,
     quantidade: Number(item.quantidade) || 0,
+    linha: item.linha_produto,
   }));
 
   const contratante =
