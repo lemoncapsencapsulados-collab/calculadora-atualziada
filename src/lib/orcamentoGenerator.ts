@@ -8,6 +8,7 @@ import { fetchFreteCotacaoByOrcamento, fetchFreteCotacoesByOrcamento } from '@/h
 import { linhaPdfFrete, blocoPdfFrete } from '@/lib/freteHelpers';
 import type { FreteCotacao } from '@/types/frete';
 import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
+import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
@@ -1318,9 +1319,7 @@ export async function generateOrcamentoPDFBlob(orcamento: Orcamento, options: Or
 export async function generateOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<void> {
   const doc = await createOrcamentoPDF(orcamento, options);
   
-  const nomeArquivo = orcamento.consultor_responsavel 
-    ? `${orcamento.consultor_responsavel.replace(/\s+/g, '-')}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`
-    : `${orcamento.numero_orcamento}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`;
-  
-  doc.save(`${nomeArquivo}.pdf`);
+  // [Cliente]_[Contrato]_[Data]_[Hora] -- a data e a hora sao as do download,
+  // para distinguir duas versoes baixadas no mesmo dia.
+  doc.save(nomeArquivoDocumento(orcamento.nome_cliente, 'Contrato'));
 }

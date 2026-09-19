@@ -11,6 +11,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from '@/lib/unitConversion';
 import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
+import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 import {
   CONTRATADA,
   PADROES_PEDIDO_COMPRA,
@@ -353,5 +354,6 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
 export function baixarPedidoCompraPDF(opcoes: Opcoes) {
   const doc = gerarPedidoCompraPDF(opcoes);
-  doc.save(`Pedido-de-Compra-${opcoes.numeroPedido || 'sem-numero'}.pdf`);
+  // [Cliente]_[Pedido-De-Compra]_[Data]_[Hora], com o carimbo do download.
+  doc.save(nomeArquivoDocumento(opcoes.dados.contratante, 'Pedido-De-Compra'));
 }
