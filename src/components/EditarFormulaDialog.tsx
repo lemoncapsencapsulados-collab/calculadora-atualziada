@@ -284,7 +284,7 @@ export default function EditarFormulaDialog({
 
               {/* Cabecalho uma vez so': repetir rotulo em cada linha inflava a
                   altura e empurrava os insumos do fim para fora da tela. */}
-              <div className="grid grid-cols-[1fr_90px_84px_84px_32px] items-center gap-2 px-1 text-[11px] text-muted-foreground">
+              <div className="hidden grid-cols-[1fr_90px_84px_84px_32px] items-center gap-2 px-1 text-[11px] text-muted-foreground sm:grid">
                 <span>Matéria-prima</span>
                 <span>Qtd. por dose</span>
                 <span>Unidade</span>
@@ -297,15 +297,17 @@ export default function EditarFormulaDialog({
                   <div key={linha.chave}>
                     <div
                       className={cn(
-                        'grid grid-cols-[1fr_90px_84px_84px_32px] items-center gap-2 rounded-md px-1 py-1',
+                        'grid grid-cols-2 items-center gap-2 rounded-md border p-2 sm:grid-cols-[1fr_90px_84px_84px_32px] sm:border-0 sm:p-1',
                         erro && 'bg-destructive/5',
                       )}
                     >
-                      <InsumoAutocomplete
-                        insumos={insumos}
-                        value={linha.nome}
-                        onSelect={(i) => atualizarLinha(linha.chave, { insumoId: i.id, nome: i.nome })}
-                      />
+                      <div className="col-span-2 sm:col-span-1">
+                        <InsumoAutocomplete
+                          insumos={insumos}
+                          value={linha.nome}
+                          onSelect={(i) => atualizarLinha(linha.chave, { insumoId: i.id, nome: i.nome })}
+                        />
+                      </div>
                       <Input
                         type="number"
                         step="any"
@@ -324,13 +326,14 @@ export default function EditarFormulaDialog({
                           ))}
                         </SelectContent>
                       </Select>
-                      <span className="text-right text-xs tabular-nums">
+                      <span className="text-xs tabular-nums sm:text-right">
+                        <span className="text-muted-foreground sm:hidden">Custo: </span>
                         {formatCurrencyPrecise(custo)}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-8 w-8 justify-self-end"
                         onClick={() => setLinhas((prev) => prev.filter((l) => l.chave !== linha.chave))}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -364,7 +367,7 @@ export default function EditarFormulaDialog({
                 <Plus className="mr-1 h-4 w-4" /> Adicionar matéria-prima
               </Button>
 
-              <div className="grid grid-cols-[1fr_84px_32px] items-center gap-2 px-1 pt-2 text-[11px] text-muted-foreground">
+              <div className="hidden grid-cols-[1fr_84px_32px] items-center gap-2 px-1 pt-2 text-[11px] text-muted-foreground sm:grid">
                 <span>Embalagem</span>
                 <span className="text-right">Custo</span>
                 <span />
@@ -376,7 +379,10 @@ export default function EditarFormulaDialog({
                   </p>
                 )}
                 {embalagensItens.map((emb, i) => (
-                  <div key={`${emb.embalagem_id}-${i}`} className="grid grid-cols-[1fr_84px_32px] items-center gap-2 px-1 py-1">
+                  <div
+                    key={`${emb.embalagem_id}-${i}`}
+                    className="grid grid-cols-2 items-center gap-2 rounded-md border p-2 sm:grid-cols-[1fr_84px_32px] sm:border-0 sm:p-1"
+                  >
                     <Select
                       value={emb.embalagem_id}
                       onValueChange={(v) => {
@@ -395,7 +401,7 @@ export default function EditarFormulaDialog({
                         );
                       }}
                     >
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger className="col-span-2 h-9 sm:col-span-1">
                         <SelectValue placeholder={emb.descricao_snapshot || 'Selecione...'} />
                       </SelectTrigger>
                       <SelectContent>
@@ -407,13 +413,14 @@ export default function EditarFormulaDialog({
                         ))}
                       </SelectContent>
                     </Select>
-                    <span className="text-right text-xs tabular-nums">
+                    <span className="text-xs tabular-nums sm:text-right">
+                      <span className="text-muted-foreground sm:hidden">Custo: </span>
                       {formatCurrency(Number(emb.custo_calculado) || 0)}
                     </span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-8 w-8 justify-self-end"
                       onClick={() => setEmbalagensItens((prev) => prev.filter((_, j) => j !== i))}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -442,7 +449,7 @@ export default function EditarFormulaDialog({
             consultor, entao fica sempre visivel -- mas sem roubar altura da
             lista de insumos, que e' o que ele esta' editando. */}
         <div className="shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3">
-          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-6">
             <div className="text-xs text-muted-foreground">
               <span>MP {formatCurrency(totalMp)}</span>
               {Math.abs(diferencaMp) > 0.004 && (
@@ -462,7 +469,7 @@ export default function EditarFormulaDialog({
               )}
             </div>
 
-            <div className="ml-auto flex items-end gap-3">
+            <div className="flex items-end gap-3 sm:ml-auto">
               <div className="space-y-1">
                 <Label className="text-[11px] text-muted-foreground">Preço de venda</Label>
                 <Input

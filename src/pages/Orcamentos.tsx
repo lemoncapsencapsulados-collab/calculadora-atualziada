@@ -447,12 +447,12 @@ export default function Orcamentos() {
           </div>
 
           {periodo === 'personalizado' && (
-            <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap items-end gap-3 [&>div]:min-w-0 [&>div]:flex-1 sm:[&>div]:flex-none">
               <div className="space-y-1">
                 <span className="text-xs text-muted-foreground">De</span>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="h-10 w-[160px] justify-start font-normal">
+                    <Button variant="outline" className="h-10 w-full justify-start font-normal sm:w-[160px]">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {periodoInicio ? format(periodoInicio, 'dd/MM/yyyy') : 'Início'}
                     </Button>
@@ -472,7 +472,7 @@ export default function Orcamentos() {
                 <span className="text-xs text-muted-foreground">Até</span>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="h-10 w-[160px] justify-start font-normal">
+                    <Button variant="outline" className="h-10 w-full justify-start font-normal sm:w-[160px]">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {periodoFim ? format(periodoFim, 'dd/MM/yyyy') : 'Fim'}
                     </Button>
