@@ -50,6 +50,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import { nomeArquivoOrcamentoCliente } from '@/lib/nomeArquivo';
+import { toast } from 'sonner';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -147,6 +150,24 @@ export default function Orcamentos() {
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [pedidoCompraOrcamento, setPedidoCompraOrcamento] = useState<Orcamento | null>(null);
+
+  /**
+   * Baixa o PDF que vai ao cliente, sem passar por preview.
+   * O nome leva a data do proprio orcamento, nao a do download: e' por ela que
+   * o cliente identifica a proposta.
+   */
+  const baixarOrcamentoCliente = async (orcamento: Orcamento) => {
+    try {
+      await generateOrcamentoPDF(orcamento, {
+        nomeArquivo: nomeArquivoOrcamentoCliente(
+          orcamento.nome_cliente,
+          orcamento.created_at,
+        ),
+      });
+    } catch (e: any) {
+      toast.error('Erro ao gerar o PDF: ' + (e?.message || 'tente novamente'));
+    }
+  };
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
   const [verFreteOrcamento, setVerFreteOrcamento] = useState<Orcamento | null>(null);
@@ -801,20 +822,14 @@ export default function Orcamentos() {
                                 </TooltipTrigger>
                                 <TooltipContent>Editar</TooltipContent>
                               </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="relative hidden h-8 w-8 opacity-60 transition-opacity after:absolute after:-inset-1 after:content-[''] group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex [@media(hover:none)]:opacity-100"
-                                    onClick={() => setPreviewOrcamento(orcamento)}
-                                    aria-label="Gerar PDF"
-                                  >
-                                    <FileText className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Gerar PDF</TooltipContent>
-                              </Tooltip>
+                              <Button
+                                variant="outline"
+                                className="hidden h-8 sm:inline-flex"
+                                onClick={() => baixarOrcamentoCliente(orcamento)}
+                              >
+                                <FileText className="mr-1.5 h-4 w-4" />
+                                Orçamento do Cliente (PDF)
+                              </Button>
 
                               {/* O resto continua a um clique, sem ocupar a tela. */}
                               <DropdownMenu>
@@ -835,9 +850,9 @@ export default function Orcamentos() {
                                     <Pencil className="mr-2 h-4 w-4 opacity-70" />
                                     Editar
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="sm:hidden" onClick={() => setPreviewOrcamento(orcamento)}>
+                                  <DropdownMenuItem className="sm:hidden" onClick={() => baixarOrcamentoCliente(orcamento)}>
                                     <FileText className="mr-2 h-4 w-4 opacity-70" />
-                                    Gerar PDF
+                                    Orçamento do Cliente (PDF)
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="sm:hidden" />
                                   <DropdownMenuItem onClick={() => abrirHistorico(orcamento)}>

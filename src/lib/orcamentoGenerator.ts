@@ -1253,6 +1253,8 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
 interface OrcamentoPDFOptions {
   /** Inclui a seção interna de Intermediador (Projeto para Contrato). Nunca no PDF do cliente. */
   incluirIntermediador?: boolean;
+  /** Nome do arquivo salvo. Sem isso, usa o padrão do Projeto para Contrato. */
+  nomeArquivo?: string;
 }
 
 async function createOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<jsPDF> {
@@ -1321,5 +1323,5 @@ export async function generateOrcamentoPDF(orcamento: Orcamento, options: Orcame
   
   // [Cliente]_[Contrato]_[Data]_[Hora] -- a data e a hora sao as do download,
   // para distinguir duas versoes baixadas no mesmo dia.
-  doc.save(nomeArquivoDocumento(orcamento.nome_cliente, 'Contrato'));
+  doc.save(options.nomeArquivo || nomeArquivoDocumento(orcamento.nome_cliente, 'Contrato'));
 }

@@ -39,3 +39,25 @@ export function nomeArquivoDocumento(
   const cliente = higienizar(nomeCliente) || 'Cliente';
   return `${cliente}_${higienizar(documento)}_${data}_${hora}.pdf`;
 }
+
+/**
+ * Nome do orcamento que vai ao cliente: [Cliente]_[Orcamento]_[Data do orcamento].
+ *
+ * Aqui a data e' a da geracao do orcamento, nao a do download: o cliente
+ * identifica a proposta pela data dela, e rebaixar o mesmo orcamento deve
+ * produzir o mesmo arquivo.
+ */
+export function nomeArquivoOrcamentoCliente(
+  nomeCliente: string,
+  dataOrcamento: string | Date | null | undefined,
+): string {
+  const d = dataOrcamento ? new Date(dataOrcamento) : new Date();
+  const valida = Number.isNaN(d.getTime()) ? new Date() : d;
+  const data = [
+    doisDigitos(valida.getDate()),
+    doisDigitos(valida.getMonth() + 1),
+    valida.getFullYear(),
+  ].join('-');
+  const cliente = higienizar(nomeCliente) || 'Cliente';
+  return `${cliente}_Orcamento_${data}.pdf`;
+}
