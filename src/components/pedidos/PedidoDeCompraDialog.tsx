@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Save, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -124,7 +124,16 @@ function Campo({
   );
 }
 
-/** Select de lista fechada, com o mesmo visual dos campos de texto. */
+/** Valor do item de menu; nunca e' gravado -- so' liga o modo digitado. */
+const PERSONALIZADO = '__personalizado__';
+
+/**
+ * Lista com escape para digitar.
+ *
+ * A lista padroniza o comum; o campo livre cobre o que a fabrica aceita e a
+ * lista nao previu, sem obrigar a cadastrar opcao nova a cada pedido. O que
+ * fica gravado e' sempre o texto -- quem le' depois nao sabe de onde veio.
+ */
 function CampoLista({
   label,
   valor,
@@ -138,13 +147,61 @@ function CampoLista({
   onChange: (v: string) => void;
   obrigatorio?: boolean;
 }) {
+  // Valor fora da lista so' pode ter vindo de um preenchimento personalizado.
+  const [digitando, setDigitando] = useState(() => !!valor && !opcoes.includes(valor));
+  useEffect(() => {
+    if (valor && !opcoes.includes(valor)) setDigitando(true);
+  }, [valor, opcoes]);
+
   const vazio = obrigatorio && !valor.trim();
+
+  if (digitando) {
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs">
+          {label} {obrigatorio && <span className="text-destructive">*</span>}
+        </Label>
+        <div className="flex items-center gap-1">
+          <Input
+            autoFocus
+            value={valor}
+            placeholder="Digite"
+            className={vazio ? 'border-amber-500' : undefined}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            title="Voltar para a lista"
+            onClick={() => {
+              setDigitando(false);
+              onChange('');
+            }}
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-1">
       <Label className="text-xs">
         {label} {obrigatorio && <span className="text-destructive">*</span>}
       </Label>
-      <Select value={valor} onValueChange={onChange}>
+      <Select
+        value={opcoes.includes(valor) ? valor : ''}
+        onValueChange={(v) => {
+          if (v === PERSONALIZADO) {
+            setDigitando(true);
+            onChange('');
+            return;
+          }
+          onChange(v);
+        }}
+      >
         <SelectTrigger className={vazio ? 'border-amber-500' : undefined}>
           <SelectValue placeholder="Selecione..." />
         </SelectTrigger>
@@ -152,6 +209,7 @@ function CampoLista({
           {opcoes.map((o) => (
             <SelectItem key={o} value={o}>{o}</SelectItem>
           ))}
+          <SelectItem value={PERSONALIZADO}>Personalizado…</SelectItem>
         </SelectContent>
       </Select>
     </div>
