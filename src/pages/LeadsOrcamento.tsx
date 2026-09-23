@@ -119,8 +119,7 @@ export default function LeadsOrcamento() {
               <SelectContent>
                 <SelectItem value="all">Todos os status</SelectItem>
                 <SelectItem value="rascunho">Criado</SelectItem>
-                <SelectItem value="enviado">Enviado</SelectItem>
-                <SelectItem value="pago">Pago</SelectItem>
+                                <SelectItem value="pago">Pago</SelectItem>
                 <SelectItem value="recusado">Recusado</SelectItem>
               </SelectContent>
             </Select>

@@ -221,16 +221,15 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
       const primeiroEnvio = envios[0]?.data || o.data_envio || undefined;
       const ultimoEvento = hist[hist.length - 1]?.data;
 
-      const referencia =
-        status === 'enviado'
-          ? ultimoEvento || o.data_envio || o.updated_at || o.created_at || undefined
-          : o.updated_at || o.created_at || undefined;
+      const emAbertoStatus = status === 'rascunho' || status === 'enviado';
+      const referencia = emAbertoStatus
+        ? ultimoEvento || o.data_envio || o.created_at || undefined
+        : o.updated_at || o.created_at || undefined;
 
       const dias = referencia ? Math.max(0, differenceInDays(hoje, parseISO(referencia))) : 0;
 
       let situacao = '';
-      if (status === 'rascunho') situacao = `Rascunho há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
-      else if (status === 'enviado') situacao = `Enviado — sem retorno há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+      if (emAbertoStatus) situacao = `Sem retorno há ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
       else if (status === 'pago') situacao = 'Pago';
       else if (status === 'recusado') situacao = 'Recusado';
       else situacao = statusBruto || 'Sem status';
@@ -506,7 +505,8 @@ export function useDashboardComercial(filtros: DashboardFiltros) {
 
     // Orçamentos enviados — relatório consolidado por orçamento (1º envio, 2º envio, último contato, feedback)
     const enviadosSemRetorno = orcamentosFiltrados.filter(o =>
-      o.status === 'enviado' && (o.data_envio || (o.historico_contatos && o.historico_contatos.length > 0) || o.updated_at)
+      (o.status === 'rascunho' || o.status === 'enviado')
+      && (o.data_envio || (o.historico_contatos && o.historico_contatos.length > 0) || o.updated_at)
     );
 
     const enviadosPorConsultor = new Map<string, number>();

@@ -191,8 +191,7 @@ export function InsightsPorCliente({ insights, orcamentos }: Props) {
             <SelectItem value="todos">Todos os status</SelectItem>
             <SelectItem value="aberto">Em aberto</SelectItem>
             <SelectItem value="rascunho">Criado</SelectItem>
-            <SelectItem value="enviado">Enviado</SelectItem>
-            <SelectItem value="pago">Pago</SelectItem>
+                        <SelectItem value="pago">Pago</SelectItem>
             <SelectItem value="recusado">Recusado</SelectItem>
             <SelectItem value="cobrados">Cobrados hoje</SelectItem>
           </SelectContent>

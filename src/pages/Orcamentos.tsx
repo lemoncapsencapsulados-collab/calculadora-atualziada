@@ -746,7 +746,6 @@ export default function Orcamentos() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="rascunho">Criado</SelectItem>
-                                  <SelectItem value="enviado">Enviado</SelectItem>
                                   <SelectItem value="pago">Pago</SelectItem>
                                   <SelectItem value="recusado">Recusado</SelectItem>
                                 </SelectContent>

@@ -124,7 +124,9 @@ export function agruparInsightsPorCliente(
   orcamentos.forEach(o => {
     const alvo = obterCliente(o.consultor || 'Sem consultor', o.cliente || 'Sem cliente');
     const alerta =
-      (o.status === 'enviado' && o.dias_parado > 14) || (o.status === 'rascunho' && o.dias_parado > 5);
+      // "Criado" absorveu o antigo "Enviado", entao vale o prazo mais longo:
+      // com 5 dias quase todo orcamento em aberto viraria alerta.
+      ((o.status === 'rascunho' || o.status === 'enviado') && o.dias_parado > 14);
     alvo.contagens![o.status] += 1;
     registrar(
       alvo,
