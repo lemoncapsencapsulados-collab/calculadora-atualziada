@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { Orcamento, DadosCliente, DetalhamentoFrete, DetalhamentoEnvio, CondicoesPagamento, PessoaFisicaResponsavel } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
@@ -157,7 +157,7 @@ function PessoaFisicaFields({ pessoa, onChange, label }: { pessoa: PessoaFisicaR
 }
 
 export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'editar' }: PropostaCompletaDialogProps) {
-  const { salvarPedidoCompra, updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos({ enabled: false });
+  const { salvarPedidoCompra, salvarRascunho, updateDadosCliente, updateDetalhamentoFrete, updateOrcamento } = useOrcamentos({ enabled: false });
   const [freteVinculadoCount, setFreteVinculadoCount] = useState<number>(0);
   const [freteDialogAberto, setFreteDialogAberto] = useState(false);
 
@@ -917,6 +917,56 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       condicoes_pagamento: condicoesPagamento,
     };
   };
+
+  const montarRef = useRef(montarOrcamentoAtualizado);
+  montarRef.current = montarOrcamentoAtualizado;
+  const prontoRascunho = useRef(false);
+  const [salvoEm, setSalvoEm] = useState<Date | null>(null);
+
+  /**
+   * Grava o que esta' na tela no proprio orcamento.
+   *
+   * Silencioso e sem bloquear: e' o mesmo conteudo que os dois documentos usam,
+   * entao guardar aqui e' o que permite fechar e voltar sem refazer.
+   */
+  const gravarProjeto = async () => {
+    const atual = montarRef.current();
+    try {
+      await salvarRascunho.mutateAsync({
+        id: orcamento.id,
+        dados: {
+          itens_producao: atual.itens_producao as any,
+          dados_cliente: atual.dados_cliente as any,
+          detalhamento_frete: atual.detalhamento_frete as any,
+          condicoes_pagamento: atual.condicoes_pagamento as any,
+        },
+      });
+      setSalvoEm(new Date());
+    } catch {
+      // Tenta de novo na proxima pausa; avisar a cada falha atrapalharia.
+    }
+  };
+
+  useEffect(() => {
+    if (!prontoRascunho.current) {
+      prontoRascunho.current = true;
+      return;
+    }
+    const t = setTimeout(gravarProjeto, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    dadosCliente, tipoPessoa, responsavelPJ, pessoasFisicas, formaVenda,
+    detalhesProducao, detalhamentoEnvio, freteLemonCaps, usaTabelaTradicional,
+    condicoesPagamento,
+  ]);
+
+  // Clicar fora fecha o popup sem passar por botao nenhum: grava no desmonte.
+  useEffect(
+    () => () => { if (prontoRascunho.current) void gravarProjeto(); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   /** Contrato Mae: o mesmo PDF do Projeto para Contrato, para o financeiro. */
   const handleGerarContratoMae = async () => {
@@ -1993,8 +2043,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         )}
         {/* Os dois documentos saem do mesmo formulario: Contrato Mae e Pedido
             de Compra. O consultor preenche uma vez e baixa os dois. */}
-        <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <DialogFooter className="gap-2 sm:items-center sm:gap-2">
+          {salvoEm && (
+            <span className="mr-auto text-xs text-muted-foreground">
+              Salvo automaticamente às{' '}
+              {salvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
           <Button
             variant="outline"
             onClick={handleGerarContratoMae}
