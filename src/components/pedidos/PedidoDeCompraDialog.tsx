@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,8 @@ import { numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
 import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
 import { baixarPedidoCompraPDF } from '@/lib/pedidoCompraPdf';
 import {
-  APRESENTACOES, CAPSULA_CORES, CAPSULA_TIPOS, CANAIS_FORMAIS, EMBALAGEM_SECUNDARIA,
+  APRESENTACOES, BULBOS, CAMPO_EMBALAGEM_LABEL, CANULAS, CAPSULA_CORES, CAPSULA_TIPOS,
+  CANAIS_FORMAIS, DOSADORES, EMBALAGEM_SECUNDARIA, SIM_NAO, camposDaApresentacao,
   PLANO_MARCA_LABEL, POTE_CORES, ROTULO_ACABAMENTOS, ROTULO_MATERIAIS, TAMPA_CORES, TAMPA_TIPOS,
   listarCamposFaltantes,
   type DadosPedidoCompra,
@@ -194,6 +195,46 @@ export default function PedidoDeCompraDialog({
     () => dadosSalvos ?? montarDadosPedidoCompra({ snapshot, cliente }),
   );
   const [salvando, setSalvando] = useState(false);
+
+  /**
+   * Salvamento automatico.
+   *
+   * `ultimo` guarda o que esta' na tela para poder gravar no desmonte: fechar o
+   * dialogo PAI remove este sem passar por `onOpenChange`, e sem isso tudo que
+   * foi digitado se perde. A espera evita gravar a cada tecla; `pronto` impede
+   * que a montagem inicial grave por cima do que ja' existia.
+   */
+  const pronto = useRef(false);
+  const ultimo = useRef({ dados, numeroContrato });
+  ultimo.current = { dados, numeroContrato };
+  const salvarRef = useRef(onAutoSalvar);
+  salvarRef.current = onAutoSalvar;
+  const jaGravou = useRef(false);
+
+  const gravar = () => {
+    if (!salvarRef.current) return;
+    jaGravou.current = true;
+    salvarRef.current(ultimo.current.dados, ultimo.current.numeroContrato);
+  };
+
+  useEffect(() => {
+    if (!pronto.current) {
+      pronto.current = true;
+      return;
+    }
+    if (!onAutoSalvar) return;
+    const t = setTimeout(gravar, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dados, numeroContrato]);
+
+  useEffect(
+    () => () => {
+      if (pronto.current) gravar();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   // Reabrir o diálogo para outro produtor tem que recomeçar do zero.
   useEffect(() => {
@@ -704,111 +745,107 @@ export default function PedidoDeCompraDialog({
                   onChange={(v) => setEmb(idx, { apresentacao: v })}
                   obrigatorio
                 />
-                <CampoLista
-                  label="Cápsula / comprimido — tipo"
-                  valor={esp.embalagem.capsula_tipo}
-                  opcoes={CAPSULA_TIPOS}
-                  onChange={(v) => setEmb(idx, { capsula_tipo: v })}
-                />
-                <CampoLista
-                  label="Cápsula — cor"
-                  valor={esp.embalagem.capsula_cor}
-                  opcoes={CAPSULA_CORES}
-                  onChange={(v) => setEmb(idx, { capsula_cor: v })}
-                />
-                <Campo
-                  label="Pote / frasco — material"
-                  valor={esp.embalagem.pote_material}
-                  onChange={(v) => setEmb(idx, { pote_material: v })}
-                  placeholder="Fechado no orçamento"
-                />
-                <Campo
-                  label="Pote — capacidade"
-                  valor={esp.embalagem.pote_capacidade}
-                  onChange={(v) => setEmb(idx, { pote_capacidade: v })}
-                />
-                <CampoLista
-                  label="Pote — cor"
-                  valor={esp.embalagem.pote_cor}
-                  opcoes={POTE_CORES}
-                  onChange={(v) => setEmb(idx, { pote_cor: v })}
-                />
-                <CampoLista
-                  label="Tampa — tipo"
-                  valor={esp.embalagem.tampa_tipo}
-                  opcoes={TAMPA_TIPOS}
-                  onChange={(v) => setEmb(idx, { tampa_tipo: v })}
-                />
-                <CampoLista
-                  label="Tampa — cor"
-                  valor={esp.embalagem.tampa_cor}
-                  opcoes={TAMPA_CORES}
-                  onChange={(v) => setEmb(idx, { tampa_cor: v })}
-                />
-                <Campo
-                  label="Dosador / acessório"
-                  valor={esp.embalagem.dosador}
-                  onChange={(v) => setEmb(idx, { dosador: v })}
-                  placeholder="Opcional"
-                />
-                <CampoLista
-                  label="Rótulo — material"
-                  valor={esp.embalagem.rotulo_material}
-                  opcoes={ROTULO_MATERIAIS}
-                  onChange={(v) => setEmb(idx, { rotulo_material: v })}
-                />
-                <CampoLista
-                  label="Rótulo — acabamento"
-                  valor={esp.embalagem.rotulo_acabamento}
-                  opcoes={ROTULO_ACABAMENTOS}
-                  onChange={(v) => setEmb(idx, { rotulo_acabamento: v })}
-                />
-                <div className="space-y-1">
-                  <Label className="text-xs">Rótulo — quantidade</Label>
-                  <Input
-                    value={esp.embalagem.rotulo_quantidade}
-                    onChange={(e) => setEmb(idx, { rotulo_quantidade: e.target.value })}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Sugestão: o dobro dos potes do pedido
-                    {sugestaoRotulo(idx) ? ` (${sugestaoRotulo(idx)})` : ''}.
-                  </p>
-                </div>
-                <CampoLista
-                  label="Embalagem secundária"
-                  valor={esp.embalagem.embalagem_secundaria}
-                  opcoes={EMBALAGEM_SECUNDARIA}
-                  onChange={(v) => setEmb(idx, { embalagem_secundaria: v })}
-                />
-                <div className="space-y-1">
-                  <Label className="text-xs">
-                    Fornecimento da embalagem <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={esp.embalagem.fornecimento_embalagem}
-                    onValueChange={(v) =>
-                      setEmb(idx, { fornecimento_embalagem: v as 'CONTRATADA' | 'CONTRATANTE' })
-                    }
-                  >
-                    <SelectTrigger
-                      className={!esp.embalagem.fornecimento_embalagem ? 'border-amber-500' : undefined}
-                    >
-                      <SelectValue placeholder="Por conta de..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CONTRATADA">CONTRATADA (Lemoncaps)</SelectItem>
-                      <SelectItem value="CONTRATANTE">CONTRATANTE (produtor)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <Checkbox
-                    id={`lacre-${idx}`}
-                    checked={esp.embalagem.lacre_inducao}
-                    onCheckedChange={(c) => setEmb(idx, { lacre_inducao: c === true })}
-                  />
-                  <Label htmlFor={`lacre-${idx}`} className="text-xs">Lacre de indução</Label>
-                </div>
+
+                {/* Cada apresentacao pede a sua embalagem: perguntar cor de
+                    capsula num liquido so' geraria campo em branco. */}
+                {camposDaApresentacao(esp.embalagem.apresentacao).map((campo) => {
+                  const rotulo = CAMPO_EMBALAGEM_LABEL[campo];
+                  const valor = String((esp.embalagem as any)[campo] ?? '');
+                  const lista: Record<string, readonly string[]> = {
+                    capsula_tipo: CAPSULA_TIPOS,
+                    capsula_cor: CAPSULA_CORES,
+                    bulbo: BULBOS,
+                    canula: CANULAS,
+                    pote_cor: POTE_CORES,
+                    tampa_tipo: TAMPA_TIPOS,
+                    tampa_cor: TAMPA_CORES,
+                    silica: SIM_NAO,
+                    dosador: DOSADORES,
+                    rotulo_material: ROTULO_MATERIAIS,
+                    rotulo_acabamento: ROTULO_ACABAMENTOS,
+                    embalagem_secundaria: EMBALAGEM_SECUNDARIA,
+                  };
+
+                  if (campo === 'lacre_inducao') {
+                    return (
+                      <div key={campo} className="flex items-center gap-2 pt-6">
+                        <Checkbox
+                          id={`lacre-${idx}`}
+                          checked={esp.embalagem.lacre_inducao}
+                          onCheckedChange={(c) => setEmb(idx, { lacre_inducao: c === true })}
+                        />
+                        <Label htmlFor={`lacre-${idx}`} className="text-xs">{rotulo}</Label>
+                      </div>
+                    );
+                  }
+
+                  if (campo === 'fornecimento_embalagem') {
+                    return (
+                      <div key={campo} className="space-y-1">
+                        <Label className="text-xs">
+                          {rotulo} <span className="text-destructive">*</span>
+                        </Label>
+                        <Select
+                          value={esp.embalagem.fornecimento_embalagem}
+                          onValueChange={(v) =>
+                            setEmb(idx, { fornecimento_embalagem: v as 'CONTRATADA' | 'CONTRATANTE' })
+                          }
+                        >
+                          <SelectTrigger className={!valor ? 'border-amber-500' : undefined}>
+                            <SelectValue placeholder="Por conta de..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CONTRATADA">CONTRATADA (Lemoncaps)</SelectItem>
+                            <SelectItem value="CONTRATANTE">CONTRATANTE (produtor)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  }
+
+                  if (campo === 'rotulo_quantidade') {
+                    return (
+                      <div key={campo} className="space-y-1">
+                        <Label className="text-xs">
+                          {rotulo} <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          value={valor}
+                          className={!valor ? 'border-amber-500' : undefined}
+                          onChange={(e) => setEmb(idx, { rotulo_quantidade: e.target.value })}
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Sugestão: o dobro dos potes do pedido
+                          {sugestaoRotulo(idx) ? ` (${sugestaoRotulo(idx)})` : ''}.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  const opcoes = lista[campo];
+                  if (opcoes) {
+                    return (
+                      <CampoLista
+                        key={campo}
+                        label={rotulo}
+                        valor={valor}
+                        opcoes={opcoes}
+                        onChange={(v) => setEmb(idx, { [campo]: v } as any)}
+                        obrigatorio
+                      />
+                    );
+                  }
+
+                  return (
+                    <Campo
+                      key={campo}
+                      label={rotulo}
+                      valor={valor}
+                      onChange={(v) => setEmb(idx, { [campo]: v } as any)}
+                      obrigatorio
+                    />
+                  );
+                })}
               </div>
             </Secao>
           ))}

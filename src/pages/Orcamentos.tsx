@@ -150,6 +150,16 @@ export default function Orcamentos() {
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [pedidoCompraOrcamento, setPedidoCompraOrcamento] = useState<Orcamento | null>(null);
+  /** Idem: o item da lista so' se atualiza na proxima busca. */
+  const [pedidoCompraLocal, setPedidoCompraLocal] = useState<{ dados: any; contrato: string } | null>(null);
+  /** Quando verdadeiro, o popup ignora o que estava salvo e recomeca. */
+  const [pedidoCompraDoZero, setPedidoCompraDoZero] = useState(false);
+
+  const abrirPedidoCompra = (orcamento: Orcamento, doZero: boolean) => {
+    setPedidoCompraLocal(null);
+    setPedidoCompraDoZero(doZero);
+    setPedidoCompraOrcamento(orcamento);
+  };
 
   /**
    * Baixa o PDF que vai ao cliente, sem passar por preview.
@@ -794,10 +804,10 @@ export default function Orcamentos() {
                                         ? 'border-green-500/60 text-green-700 dark:text-green-400'
                                         : 'border-amber-500/60 text-amber-700 dark:text-amber-500',
                                     )}
-                                    onClick={() => setPedidoCompraOrcamento(orcamento)}
+                                    onClick={() => abrirPedidoCompra(orcamento, false)}
                                   >
                                     <FileSignature className="mr-1.5 h-4 w-4" />
-                                    <span className="hidden sm:inline">Pedido de Compra</span>
+                                    <span className="hidden sm:inline">Editar Pedido de Compra</span>
                                     <span className="sm:hidden">Pedido</span>
                                     <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-[10px]">
                                       {pendentes === 0 ? 'completo' : `${pendentes} pend.`}
@@ -855,6 +865,10 @@ export default function Orcamentos() {
                                     Orçamento do Cliente (PDF)
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="sm:hidden" />
+                                  <DropdownMenuItem onClick={() => abrirPedidoCompra(orcamento, true)}>
+                                    <FileSignature className="mr-2 h-4 w-4 opacity-70" />
+                                    Solicitar novo Pedido de Compra
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => abrirHistorico(orcamento)}>
                                     <History className="mr-2 h-4 w-4 opacity-70" />
                                     Histórico
@@ -941,11 +955,20 @@ export default function Orcamentos() {
             telefone: pedidoCompraOrcamento.dados_cliente?.telefone,
           }}
           numeroPedido={pedidoCompraOrcamento.numero_orcamento || ''}
-          dadosSalvos={(pedidoCompraOrcamento as any).pedido_compra_dados || null}
-          contratoSalvo={(pedidoCompraOrcamento as any).numero_contrato || null}
-          onAutoSalvar={(dados, numeroContrato) =>
-            salvarPedidoCompra.mutate({ id: pedidoCompraOrcamento.id, dados, numeroContrato })
+          dadosSalvos={
+            pedidoCompraDoZero
+              ? null
+              : pedidoCompraLocal?.dados ?? (pedidoCompraOrcamento as any).pedido_compra_dados ?? null
           }
+          contratoSalvo={
+            pedidoCompraDoZero
+              ? null
+              : pedidoCompraLocal?.contrato ?? (pedidoCompraOrcamento as any).numero_contrato ?? null
+          }
+          onAutoSalvar={(dados, numeroContrato) => {
+            setPedidoCompraLocal({ dados, contrato: numeroContrato });
+            salvarPedidoCompra.mutate({ id: pedidoCompraOrcamento.id, dados, numeroContrato });
+          }}
           onGerar={() => setPedidoCompraOrcamento(null)}
         />
       )}

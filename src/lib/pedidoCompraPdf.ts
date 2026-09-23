@@ -13,6 +13,8 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
 import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 import {
+  camposDaApresentacao,
+  type CampoEmbalagem,
   CONTRATADA,
   PADROES_PEDIDO_COMPRA,
   PLANO_MARCA_LABEL,
@@ -241,25 +243,40 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
     const emb = esp.embalagem || ({} as typeof esp.embalagem);
     tituloSecao(`5.${i + 1} DESCRIÇÃO DA EMBALAGEM — ${rotulo.toUpperCase()}`);
-    tabelaCampos([
-      ['Apresentação', ou(emb.apresentacao)],
-      ['Cápsula / comprimido', `tipo ${ou(emb.capsula_tipo, '____')} | cor ${ou(emb.capsula_cor, '____')}`],
-      [
-        'Pote / frasco',
-        `material ${ou(emb.pote_material, '____')} | capacidade ${ou(emb.pote_capacidade, '____')} | cor ${ou(emb.pote_cor, '____')}`,
-      ],
-      [
-        'Tampa',
-        `tipo ${ou(emb.tampa_tipo, '____')} | cor ${ou(emb.tampa_cor, '____')} | lacre de indução: ${emb.lacre_inducao ? 'sim' : 'não'}`,
-      ],
-      ['Dosador / acessório', ou(emb.dosador, 'não')],
-      [
-        'Rótulo',
-        `material ${ou(emb.rotulo_material, '____')} | acabamento ${ou(emb.rotulo_acabamento, '____')} | quantidade ${ou(emb.rotulo_quantidade, '____')}`,
-      ],
-      ['Embalagem secundária', ou(emb.embalagem_secundaria, 'Não')],
-      ['Fornecimento da embalagem', `por conta de ${ou(emb.fornecimento_embalagem)}`],
+    // So' as linhas que aquela apresentacao usa: um liquido nao tem capsula, e
+    // imprimir a linha vazia so' confunde quem produz.
+    const usados = camposDaApresentacao(emb.apresentacao);
+    const usa = (c: CampoEmbalagem) => usados.includes(c);
+    const linhasEmbalagem: [string, string][] = [['Apresentação', ou(emb.apresentacao)]];
+    if (usa('capsula_tipo')) {
+      linhasEmbalagem.push([
+        'Cápsula / comprimido',
+        `tipo ${ou(emb.capsula_tipo, '____')} | cor ${ou(emb.capsula_cor, '____')}`,
+      ]);
+    }
+    if (usa('bulbo')) {
+      linhasEmbalagem.push(['Bulbo', ou(emb.bulbo, '____')]);
+      linhasEmbalagem.push(['Cânula', ou(emb.canula, '____')]);
+    }
+    linhasEmbalagem.push([
+      'Pote / frasco',
+      `material ${ou(emb.pote_material, '____')} | capacidade ${ou(emb.pote_capacidade, '____')} | cor ${ou(emb.pote_cor, '____')}`,
     ]);
+    linhasEmbalagem.push([
+      'Tampa',
+      `tipo ${ou(emb.tampa_tipo, '____')} | cor ${ou(emb.tampa_cor, '____')}${
+        usa('lacre_inducao') ? ` | lacre de indução: ${emb.lacre_inducao ? 'sim' : 'não'}` : ''
+      }`,
+    ]);
+    if (usa('silica')) linhasEmbalagem.push(['Sílica', ou(emb.silica, 'Não')]);
+    if (usa('dosador')) linhasEmbalagem.push(['Dosador / acessório', ou(emb.dosador, 'Não')]);
+    linhasEmbalagem.push([
+      'Rótulo',
+      `material ${ou(emb.rotulo_material, '____')} | acabamento ${ou(emb.rotulo_acabamento, '____')} | quantidade ${ou(emb.rotulo_quantidade, '____')}`,
+    ]);
+    linhasEmbalagem.push(['Embalagem secundária', ou(emb.embalagem_secundaria, 'Não')]);
+    linhasEmbalagem.push(['Fornecimento da embalagem', `por conta de ${ou(emb.fornecimento_embalagem)}`]);
+    tabelaCampos(linhasEmbalagem);
   });
 
   paragrafo(

@@ -173,6 +173,7 @@ const completarSelecoes = (dados: any) => ({
       pote_material: e.embalagem.pote_material || 'PET',
       pote_capacidade: e.embalagem.pote_capacidade || '250 mL',
       rotulo_quantidade: e.embalagem.rotulo_quantidade || '1000',
+      silica: 'Sim',
       dosador: e.embalagem.dosador || 'Não',
       apresentacao: 'Encapsulado',
       capsula_tipo: 'Cápsula 0',
