@@ -6,7 +6,8 @@
 # proprio, imagem propria, router Traefik proprio. Roteia por Host header,
 # entao nao disputa porta com ninguem.
 #
-# Uso: ./deploy.sh
+# Uso: ./deploy.sh              (com as travas de seguranca)
+#      ./deploy.sh --sem-travas  (pula a checagem do git; use so' se souber)
 set -euo pipefail
 
 VPS_HOST="root@177.7.39.163"
@@ -20,6 +21,53 @@ EXPECTED_REF="njfwoguvfozuaghufcgw"   # projeto Supabase que o bundle DEVE apont
 cd "$(dirname "$0")"
 TAG="$(date +%Y%m%d-%H%M%S)"
 ssh_vps() { ssh -i "$SSH_KEY" -o BatchMode=yes "$VPS_HOST" "$@"; }
+
+SEM_TRAVAS=0
+[ "${1:-}" = "--sem-travas" ] && SEM_TRAVAS=1
+
+# ---------------------------------------------------------------------------
+# Trava de seguranca: o deploy sobe a ARVORE DE TRABALHO, nao o que esta' no
+# git. Duas pessoas deployando de copias diferentes se sobrescrevem, e quem
+# sobe por ultimo vence -- mesmo com codigo velho. Ja' aconteceu duas vezes.
+# ---------------------------------------------------------------------------
+if [ "$SEM_TRAVAS" = "0" ] && git rev-parse --git-dir >/dev/null 2>&1; then
+  echo "==> 0/5  Conferindo o repositorio"
+  BRANCH="$(git branch --show-current)"
+
+  # Alteracao real nao commitada: o que subiria nao esta' em lugar nenhum.
+  # `--ignore-cr-at-eol` porque esta arvore troca de CRLF para LF sozinha
+  # (iCloud/Windows) e isso nao e' mudanca de conteudo.
+  if ! git diff --quiet --ignore-cr-at-eol HEAD 2>/dev/null; then
+    echo "ERRO: ha alteracoes nao commitadas."
+    git diff --stat --ignore-cr-at-eol HEAD | tail -8
+    echo
+    echo "Commite antes de subir, ou rode: ./deploy.sh --sem-travas"
+    exit 1
+  fi
+
+  # Atrasado em relacao ao remoto: alguem empurrou trabalho que voce nao tem,
+  # e subir daqui apagaria o dele da producao.
+  REMOTO="$(git config "branch.$BRANCH.remote" || echo '')"
+  # O ramo remoto nem sempre tem o nome do local -- quem manda e' branch.*.merge.
+  RAMO_REMOTO="$(git config "branch.$BRANCH.merge" 2>/dev/null | sed 's#^refs/heads/##')"
+  [ -z "$RAMO_REMOTO" ] && RAMO_REMOTO="$BRANCH"
+  ALVO="$REMOTO/$RAMO_REMOTO"
+  if [ -n "$REMOTO" ] && git fetch --quiet "$REMOTO" "$RAMO_REMOTO" 2>/dev/null; then
+    ATRAS="$(git rev-list --count "HEAD..$ALVO" 2>/dev/null || echo 0)"
+    if [ "${ATRAS:-0}" -gt 0 ]; then
+      echo "ERRO: sua copia esta $ATRAS commit(s) atras de $ALVO."
+      git log --oneline "HEAD..$ALVO" | head -5
+      echo
+      echo "Rode 'git pull' antes de subir, ou: ./deploy.sh --sem-travas"
+      exit 1
+    fi
+    FRENTE="$(git rev-list --count "$ALVO..HEAD" 2>/dev/null || echo 0)"
+    [ "${FRENTE:-0}" -gt 0 ] && echo "    aviso: $FRENTE commit(s) ainda nao enviados ao $REMOTO"
+    echo "    ok: $BRANCH em dia com $ALVO"
+  else
+    echo "    aviso: nao deu para conferir o remoto (sem rede ou sem upstream)"
+  fi
+fi
 
 echo "==> 1/5  Build local"
 npm run build

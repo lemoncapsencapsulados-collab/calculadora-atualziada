@@ -7,6 +7,8 @@ import { ptBR } from 'date-fns/locale';
 import { fetchFreteCotacaoByOrcamento, fetchFreteCotacoesByOrcamento } from '@/hooks/useFreteCotacoes';
 import { linhaPdfFrete, blocoPdfFrete } from '@/lib/freteHelpers';
 import type { FreteCotacao } from '@/types/frete';
+import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
+import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
 const LAYOUT = {
@@ -394,7 +396,11 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
     doc.setTextColor(...COLORS.textMedium);
     doc.setFontSize(LAYOUT.fontSize.small);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Segmento: ${item.segmento}`, pageWidth - LAYOUT.margin - 3, yPos + 2, { align: 'right' });
+    // A linha do produto vai junto do segmento: o financeiro precisa saber se a
+    // formula e' do catalogo ou personalizada para tratar estabilidade e prazo.
+    const linha = item.linha_produto ? LINHA_PRODUTO_CURTO[item.linha_produto] : '';
+    const direita = linha ? `${linha}  ·  Segmento: ${item.segmento}` : `Segmento: ${item.segmento}`;
+    doc.text(direita, pageWidth - LAYOUT.margin - 3, yPos + 2, { align: 'right' });
     
     yPos += 12;
     
@@ -1247,6 +1253,8 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
 interface OrcamentoPDFOptions {
   /** Inclui a seção interna de Intermediador (Projeto para Contrato). Nunca no PDF do cliente. */
   incluirIntermediador?: boolean;
+  /** Nome do arquivo salvo. Sem isso, usa o padrão do Projeto para Contrato. */
+  nomeArquivo?: string;
 }
 
 async function createOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<jsPDF> {
@@ -1313,9 +1321,7 @@ export async function generateOrcamentoPDFBlob(orcamento: Orcamento, options: Or
 export async function generateOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOptions = {}): Promise<void> {
   const doc = await createOrcamentoPDF(orcamento, options);
   
-  const nomeArquivo = orcamento.consultor_responsavel 
-    ? `${orcamento.consultor_responsavel.replace(/\s+/g, '-')}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`
-    : `${orcamento.numero_orcamento}-${orcamento.nome_cliente.replace(/\s+/g, '-')}`;
-  
-  doc.save(`${nomeArquivo}.pdf`);
+  // [Cliente]_[Contrato]_[Data]_[Hora] -- a data e a hora sao as do download,
+  // para distinguir duas versoes baixadas no mesmo dia.
+  doc.save(options.nomeArquivo || nomeArquivoDocumento(orcamento.nome_cliente, 'Contrato'));
 }

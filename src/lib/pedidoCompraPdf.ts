@@ -10,7 +10,11 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatCurrency } from '@/lib/unitConversion';
+import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
+import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 import {
+  camposDaApresentacao,
+  type CampoEmbalagem,
   CONTRATADA,
   PADROES_PEDIDO_COMPRA,
   PLANO_MARCA_LABEL,
@@ -24,6 +28,19 @@ const brl = (v: number) => formatCurrency(v || 0);
 const ou = (v: string | number | undefined | null, vazio = '________') => {
   const t = String(v ?? '').trim();
   return t || vazio;
+};
+
+const MESES = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/** "18 de setembro de 2026" -- a data por extenso do bloco de assinatura. */
+const dataPorExtenso = (iso: string): string => {
+  const t = (iso || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date();
+  return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 };
 
 const dataBr = (iso: string): string => {
@@ -118,20 +135,22 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
     headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-    head: [['DESCRIÇÃO', 'APRESENTAÇÃO', 'PREÇO UNIT.', 'QTD.', 'TOTAL']],
+    head: [['DESCRIÇÃO', 'LINHA', 'APRESENTAÇÃO', 'PREÇO UNIT.', 'QTD.', 'TOTAL']],
     columnStyles: {
-      2: { halign: 'right' },
+      1: { cellWidth: 24 },
       3: { halign: 'right' },
       4: { halign: 'right' },
+      5: { halign: 'right' },
     },
     body: dados.produtos.map((p) => [
       ou(p.descricao),
+      p.linha ? LINHA_PRODUTO_CURTO[p.linha] : '—',
       ou(p.apresentacao),
       brl(p.preco_unitario),
       String(p.quantidade ?? ''),
       brl((p.preco_unitario || 0) * (p.quantidade || 0)),
     ]),
-    foot: [['VALOR TOTAL DO PEDIDO', '', '', '', brl(totalProdutos)]],
+    foot: [['VALOR TOTAL DO PEDIDO', '', '', '', '', brl(totalProdutos)]],
     footStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' },
   });
   y = (doc as any).lastAutoTable.finalY;
@@ -224,25 +243,40 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
     const emb = esp.embalagem || ({} as typeof esp.embalagem);
     tituloSecao(`5.${i + 1} DESCRIÇÃO DA EMBALAGEM — ${rotulo.toUpperCase()}`);
-    tabelaCampos([
-      ['Apresentação', ou(emb.apresentacao)],
-      ['Cápsula / comprimido', `tipo ${ou(emb.capsula_tipo, '____')} | cor ${ou(emb.capsula_cor, '____')}`],
-      [
-        'Pote / frasco',
-        `material ${ou(emb.pote_material, '____')} | capacidade ${ou(emb.pote_capacidade, '____')} | cor ${ou(emb.pote_cor, '____')}`,
-      ],
-      [
-        'Tampa',
-        `tipo ${ou(emb.tampa_tipo, '____')} | cor ${ou(emb.tampa_cor, '____')} | lacre de indução: ${emb.lacre_inducao ? 'sim' : 'não'}`,
-      ],
-      ['Dosador / acessório', ou(emb.dosador, 'não')],
-      [
-        'Rótulo',
-        `material ${ou(emb.rotulo_material, '____')} | acabamento ${ou(emb.rotulo_acabamento, '____')} | quantidade ${ou(emb.rotulo_quantidade, '____')}`,
-      ],
-      ['Embalagem secundária', ou(emb.embalagem_secundaria, 'Não')],
-      ['Fornecimento da embalagem', `por conta de ${ou(emb.fornecimento_embalagem)}`],
+    // So' as linhas que aquela apresentacao usa: um liquido nao tem capsula, e
+    // imprimir a linha vazia so' confunde quem produz.
+    const usados = camposDaApresentacao(emb.apresentacao);
+    const usa = (c: CampoEmbalagem) => usados.includes(c);
+    const linhasEmbalagem: [string, string][] = [['Apresentação', ou(emb.apresentacao)]];
+    if (usa('capsula_tipo')) {
+      linhasEmbalagem.push([
+        'Cápsula / comprimido',
+        `tipo ${ou(emb.capsula_tipo, '____')} | cor ${ou(emb.capsula_cor, '____')}`,
+      ]);
+    }
+    if (usa('bulbo')) {
+      linhasEmbalagem.push(['Bulbo', ou(emb.bulbo, '____')]);
+      linhasEmbalagem.push(['Cânula', ou(emb.canula, '____')]);
+    }
+    linhasEmbalagem.push([
+      'Pote / frasco',
+      `material ${ou(emb.pote_material, '____')} | capacidade ${ou(emb.pote_capacidade, '____')} | cor ${ou(emb.pote_cor, '____')}`,
     ]);
+    linhasEmbalagem.push([
+      'Tampa',
+      `tipo ${ou(emb.tampa_tipo, '____')} | cor ${ou(emb.tampa_cor, '____')}${
+        usa('lacre_inducao') ? ` | lacre de indução: ${emb.lacre_inducao ? 'sim' : 'não'}` : ''
+      }`,
+    ]);
+    if (usa('silica')) linhasEmbalagem.push(['Sílica', ou(emb.silica, 'Não')]);
+    if (usa('dosador')) linhasEmbalagem.push(['Dosador / acessório', ou(emb.dosador, 'Não')]);
+    linhasEmbalagem.push([
+      'Rótulo',
+      `material ${ou(emb.rotulo_material, '____')} | acabamento ${ou(emb.rotulo_acabamento, '____')} | quantidade ${ou(emb.rotulo_quantidade, '____')}`,
+    ]);
+    linhasEmbalagem.push(['Embalagem secundária', ou(emb.embalagem_secundaria, 'Não')]);
+    linhasEmbalagem.push(['Fornecimento da embalagem', `por conta de ${ou(emb.fornecimento_embalagem)}`]);
+    tabelaCampos(linhasEmbalagem);
   });
 
   paragrafo(
@@ -263,55 +297,60 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
   y += 8;
   doc.setFont('helvetica', 'normal').setFontSize(10);
+  // O modelo v3 deixava a data em branco para preencher a mao; com assinatura
+  // eletronica isso so' vira lacuna no documento que vai ao financeiro.
   doc.text(
-    `${PADROES_PEDIDO_COMPRA.local_assinatura}, ______ de _______________________ de ________.`,
+    `${PADROES_PEDIDO_COMPRA.local_assinatura}, ${dataPorExtenso(dados.data_pedido)}.`,
     doc.internal.pageSize.getWidth() / 2,
     y,
     { align: 'center' },
   );
 
-  // Assinaturas
-  y += 22;
+  // Assinaturas empilhadas, uma abaixo da outra.
+  //
+  // Lado a lado sobrava meia largura para cada uma, e assinatura eletronica --
+  // GOV.br, ZapSign -- carimba um bloco largo que nao cabe nessa metade. Em
+  // pilha cada parte tem a largura inteira e uma faixa livre acima da linha.
+  const ESPACO_ASSINATURA = 26; // mm livres para o carimbo ou a assinatura
+  const larguraLinha = Math.min(larguraUtil, 120);
   const meio = doc.internal.pageSize.getWidth() / 2;
-  const colEsq = MARGEM + larguraUtil * 0.22;
-  const colDir = meio + larguraUtil * 0.25;
-  doc.setDrawColor(60);
-  doc.line(MARGEM + 5, y, meio - 5, y);
-  doc.line(meio + 5, y, MARGEM + larguraUtil - 5, y);
-  y += 5;
 
-  const bloco = (linhas: string[], x: number) => {
-    let yy = y;
-    doc.setFontSize(8);
+  const blocoAssinatura = (linhas: string[]) => {
+    // Cada bloco precisa de espaco livre + linha + identificacao.
+    if (y + ESPACO_ASSINATURA + 24 > doc.internal.pageSize.getHeight() - 20) {
+      doc.addPage();
+      y = MARGEM;
+    }
+    y += ESPACO_ASSINATURA;
+    doc.setDrawColor(60);
+    doc.line(meio - larguraLinha / 2, y, meio + larguraLinha / 2, y);
+    y += 5;
+    doc.setFontSize(9);
     linhas.forEach((linha, i) => {
       doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
-      doc.splitTextToSize(linha, larguraUtil / 2 - 10).forEach((l: string) => {
-        doc.text(l, x, yy, { align: 'center' });
-        yy += 3.6;
+      doc.splitTextToSize(linha, larguraUtil - 20).forEach((l: string) => {
+        doc.text(l, meio, y, { align: 'center' });
+        y += 4.2;
       });
     });
+    y += 4;
   };
 
-  bloco(
-    [
-      dados.contratante || '[RAZÃO SOCIAL / NOME DA CONTRATANTE]',
-      `CNPJ/CPF nº ${ou(dados.cnpj_cpf)}`,
-      ou(dados.representante_nome, '[NOME DO REPRESENTANTE LEGAL]'),
-      `CPF nº ${ou(dados.representante_cpf)}`,
-      'CONTRATANTE',
-    ],
-    colEsq,
-  );
-  bloco(
-    [
-      CONTRATADA.razao_social,
-      `CNPJ nº ${CONTRATADA.cnpj}`,
-      CONTRATADA.representante,
-      `CPF nº ${CONTRATADA.representante_cpf}`,
-      'CONTRATADA',
-    ],
-    colDir,
-  );
+  y += 6;
+  blocoAssinatura([
+    dados.contratante || '[RAZÃO SOCIAL / NOME DA CONTRATANTE]',
+    `CNPJ/CPF nº ${ou(dados.cnpj_cpf)}`,
+    ou(dados.representante_nome, '[NOME DO REPRESENTANTE LEGAL]'),
+    `CPF nº ${ou(dados.representante_cpf)}`,
+    'CONTRATANTE',
+  ]);
+  blocoAssinatura([
+    CONTRATADA.razao_social,
+    `CNPJ nº ${CONTRATADA.cnpj}`,
+    CONTRATADA.representante,
+    `CPF nº ${CONTRATADA.representante_cpf}`,
+    'CONTRATADA',
+  ]);
 
   // Rodape em todas as paginas
   const total = doc.getNumberOfPages();
@@ -332,5 +371,6 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
 export function baixarPedidoCompraPDF(opcoes: Opcoes) {
   const doc = gerarPedidoCompraPDF(opcoes);
-  doc.save(`Pedido-de-Compra-${opcoes.numeroPedido || 'sem-numero'}.pdf`);
+  // [Cliente]_[Pedido-De-Compra]_[Data]_[Hora], com o carimbo do download.
+  doc.save(nomeArquivoDocumento(opcoes.dados.contratante, 'Pedido-De-Compra'));
 }

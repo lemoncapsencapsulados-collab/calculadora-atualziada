@@ -883,6 +883,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   };
 
   const [pedidoCompraAberto, setPedidoCompraAberto] = useState(false);
+  /** Ultimo Pedido de Compra salvo nesta sessao; o `orcamento` da lista nao
+   *  se atualiza sozinho e reabrir mostraria o formulario vazio. */
+  const [pedidoCompraLocal, setPedidoCompraLocal] = useState<{ dados: any; contrato: string } | null>(null);
 
   /**
    * Monta o orcamento com tudo que foi preenchido nesta tela. Serve tanto para o
@@ -2024,12 +2027,13 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             telefone: dadosCliente.telefone,
           }}
           numeroPedido={orcamento.numero_orcamento || ''}
-          dadosSalvos={(orcamento as any).pedido_compra_dados || null}
-          contratoSalvo={(orcamento as any).numero_contrato || null}
+          dadosSalvos={pedidoCompraLocal?.dados ?? (orcamento as any).pedido_compra_dados ?? null}
+          contratoSalvo={pedidoCompraLocal?.contrato ?? (orcamento as any).numero_contrato ?? null}
           // Fechar o popup salva: era aqui que o preenchimento se perdia.
-          onAutoSalvar={(dados, numeroContrato) =>
-            salvarPedidoCompra.mutate({ id: orcamento.id, dados, numeroContrato })
-          }
+          onAutoSalvar={(dados, numeroContrato) => {
+            setPedidoCompraLocal({ dados, contrato: numeroContrato });
+            salvarPedidoCompra.mutate({ id: orcamento.id, dados, numeroContrato });
+          }}
           // Aqui o documento e' so' gerado para o financeiro: quem transforma em
           // pedido e' a aprovacao do orcamento, na tela de Pedidos.
           onGerar={() => setPedidoCompraAberto(false)}

@@ -7,18 +7,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertTriangle, Plus, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useInsumos } from '@/hooks/useInsumos';
+import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import { cn } from '@/lib/utils';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
-import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
+import { calcularPrecificacaoPorPreco, precoParaMargem, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { ConfiguracaoCustos } from '@/types/precificacao';
-import type { FormulaItem, Insumo, UnitType } from '@/types/formula';
+import type { EmbalagemItem, FormulaItem, Insumo, UnitType } from '@/types/formula';
 
 const UNIDADES: UnitType[] = ['mcg', 'mg', 'g', 'kg', 'mL', 'L', 'UI', 'unidade'];
 
@@ -38,8 +38,8 @@ interface Props {
   formulaId: string;
   nomeFormula: string;
   tipoProduto: string;
-  /** Embalagem não é editada aqui; entra fixa na conta da margem. */
-  custoEmbalagem: number;
+  /** Margem que a precificação tinha ao abrir; base da sugestão de preço. */
+  margemOriginal?: number;
   precoVendaAtual: number;
   configuracaoAtiva: ConfiguracaoCustos | null;
   onSalvo?: () => void;
@@ -52,15 +52,18 @@ export default function EditarFormulaDialog({
   formulaId,
   nomeFormula,
   tipoProduto,
-  custoEmbalagem,
+  margemOriginal,
   precoVendaAtual,
   configuracaoAtiva,
   onSalvo,
 }: Props) {
   const { insumos } = useInsumos();
+  const { embalagens } = useEmbalagens();
   const { atualizarPrecificacao } = usePrecificacao();
 
+  const [nome, setNome] = useState(nomeFormula);
   const [linhas, setLinhas] = useState<Linha[]>([]);
+  const [embalagensItens, setEmbalagensItens] = useState<EmbalagemItem[]>([]);
   const [precoVenda, setPrecoVenda] = useState(String(precoVendaAtual ?? 0));
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -74,7 +77,7 @@ export default function EditarFormulaDialog({
     (async () => {
       const { data, error } = await supabase
         .from('formulas')
-        .select('itens, total_mp')
+        .select('itens, embalagens, total_mp')
         .eq('id', formulaId)
         .single();
       if (cancelado) return;
@@ -93,8 +96,10 @@ export default function EditarFormulaDialog({
           unidade: (i.unidade_informada || 'mg') as UnitType,
         })),
       );
+      setEmbalagensItens(((data?.embalagens || []) as unknown as EmbalagemItem[]) || []);
       setMpOriginal(Number(data?.total_mp) || 0);
       setPrecoVenda(String(precoVendaAtual ?? 0));
+      setNome(nomeFormula);
       setCarregando(false);
     })();
     return () => {
@@ -138,6 +143,12 @@ export default function EditarFormulaDialog({
     () => calculadas.reduce((s, c) => s + (c.custo || 0), 0),
     [calculadas],
   );
+
+  /** Embalagem tambem muda o custo, entao a margem tem que segui-la. */
+  const totalEmbalagem = useMemo(
+    () => embalagensItens.reduce((s, e) => s + (Number(e.custo_calculado) || 0), 0),
+    [embalagensItens],
+  );
   const temErro = calculadas.some((c) => c.erro);
   const diferencaMp = totalMp - mpOriginal;
 
@@ -146,7 +157,7 @@ export default function EditarFormulaDialog({
     if (!configuracaoAtiva || !Number.isFinite(preco) || preco <= 0) return null;
     try {
       return calcularPrecificacaoPorPreco(
-        { custoMateriaPrima: totalMp, custoEmbalagem: Number(custoEmbalagem) || 0 },
+        { custoMateriaPrima: totalMp, custoEmbalagem: totalEmbalagem },
         { maoObraDireta: 0, energia: 0, depreciacao: 0, administrativo: 0 },
         preco,
         configuracaoAtiva,
@@ -154,11 +165,28 @@ export default function EditarFormulaDialog({
     } catch {
       return null;
     }
-  }, [precoVenda, totalMp, custoEmbalagem, configuracaoAtiva]);
+  }, [precoVenda, totalMp, totalEmbalagem, configuracaoAtiva]);
 
   const validacao = resultado
     ? validarMargemPorTipo(resultado.margemLucroPercentual, tipoProduto)
     : null;
+
+  /**
+   * Preco que devolveria a margem que a precificacao tinha ao abrir.
+   * So' aparece quando o custo mudou e o preco atual ja' nao entrega essa
+   * margem -- sugerir o que ja' esta' na tela seria ruido.
+   */
+  const sugestao = useMemo(() => {
+    if (!margemOriginal || !resultado) return null;
+    const alvo = precoParaMargem(resultado.totalCustosProducao, margemOriginal);
+    if (alvo === null) return null;
+    const precoAtual = parseFloat(precoVenda);
+    if (Number.isFinite(precoAtual) && Math.abs(alvo - precoAtual) < 0.01) return null;
+    return alvo;
+  }, [margemOriginal, resultado, precoVenda]);
+
+  const precoAnterior = Number(precoVendaAtual) || 0;
+  const mudouPreco = Math.abs((parseFloat(precoVenda) || 0) - precoAnterior) >= 0.01;
 
   const atualizarLinha = (chave: string, patch: Partial<Linha>) =>
     setLinhas((prev) => prev.map((l) => (l.chave === chave ? { ...l, ...patch } : l)));
@@ -193,9 +221,12 @@ export default function EditarFormulaDialog({
       const { error: erroFormula } = await supabase
         .from('formulas')
         .update({
+          ...(nome.trim() ? { nome_formula: nome.trim() } : {}),
           itens: itens as any,
           total_mp: totalMp,
-          custo_total: totalMp + (Number(custoEmbalagem) || 0),
+          embalagens: embalagensItens as any,
+          total_embalagem: totalEmbalagem,
+          custo_total: totalMp + totalEmbalagem,
         })
         .eq('id', formulaId);
       if (erroFormula) throw erroFormula;
@@ -227,77 +258,89 @@ export default function EditarFormulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle>Editar fórmula</DialogTitle>
+          <DialogTitle>Editar produto</DialogTitle>
           <DialogDescription>
-            {nomeFormula} — ajuste as matérias-primas e veja a margem se refazer na hora.
+            {nomeFormula} — ajuste matérias-primas e embalagens, e veja a margem se refazer na hora.
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        {/* div com overflow-y em vez de ScrollArea, de proposito. O ScrollArea
+            do Radix usa height:100% no viewport, e porcentagem so resolve
+            contra altura DEFINIDA -- este dialogo tem so max-h, que e teto,
+            nao altura. Resultado: o miolo crescia ate o tamanho da lista e
+            era cortado sem rolar. Um div com overflow-y rola pelo proprio
+            tamanho que o flex lhe da, sem depender de porcentagem. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {carregando ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando fórmula...</p>
           ) : (
             <div className="space-y-4">
-              <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Nome da fórmula</Label>
+                <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+              </div>
+
+              {/* Cabecalho uma vez so': repetir rotulo em cada linha inflava a
+                  altura e empurrava os insumos do fim para fora da tela. */}
+              <div className="hidden grid-cols-[1fr_90px_84px_84px_32px] items-center gap-2 px-1 text-[11px] text-muted-foreground sm:grid">
+                <span>Matéria-prima</span>
+                <span>Qtd. por dose</span>
+                <span>Unidade</span>
+                <span className="text-right">Custo</span>
+                <span />
+              </div>
+
+              <div className="space-y-1">
                 {calculadas.map(({ linha, custo, erro }) => (
-                  <div
-                    key={linha.chave}
-                    className={cn(
-                      'grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_110px_110px_auto]',
-                      erro && 'border-destructive/50',
-                    )}
-                  >
-                    <div className="space-y-1">
-                      <Label className="text-xs">Matéria-prima</Label>
-                      <InsumoAutocomplete
-                        insumos={insumos}
-                        value={linha.nome}
-                        onSelect={(i) =>
-                          atualizarLinha(linha.chave, { insumoId: i.id, nome: i.nome })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Qtd. por dose</Label>
+                  <div key={linha.chave}>
+                    <div
+                      className={cn(
+                        'grid grid-cols-2 items-center gap-2 rounded-md border p-2 sm:grid-cols-[1fr_90px_84px_84px_32px] sm:border-0 sm:p-1',
+                        erro && 'bg-destructive/5',
+                      )}
+                    >
+                      <div className="col-span-2 sm:col-span-1">
+                        <InsumoAutocomplete
+                          insumos={insumos}
+                          value={linha.nome}
+                          onSelect={(i) => atualizarLinha(linha.chave, { insumoId: i.id, nome: i.nome })}
+                        />
+                      </div>
                       <Input
                         type="number"
                         step="any"
+                        className="h-9"
                         value={linha.quantidade}
                         onChange={(e) => atualizarLinha(linha.chave, { quantidade: e.target.value })}
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Unidade</Label>
                       <Select
                         value={linha.unidade}
                         onValueChange={(v) => atualizarLinha(linha.chave, { unidade: v as UnitType })}
                       >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {UNIDADES.map((u) => (
                             <SelectItem key={u} value={u}>{u}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="flex items-end justify-between gap-2 sm:flex-col sm:items-end">
-                      <span className="text-sm font-medium tabular-nums">
+                      <span className="text-xs tabular-nums sm:text-right">
+                        <span className="text-muted-foreground sm:hidden">Custo: </span>
                         {formatCurrencyPrecise(custo)}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() =>
-                          setLinhas((prev) => prev.filter((l) => l.chave !== linha.chave))
-                        }
+                        className="h-8 w-8 justify-self-end"
+                        onClick={() => setLinhas((prev) => prev.filter((l) => l.chave !== linha.chave))}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                     {erro && (
-                      <p className="flex items-center gap-1 text-xs text-destructive sm:col-span-4">
+                      <p className="flex items-center gap-1 px-1 pb-1 text-[11px] text-destructive">
                         <AlertTriangle className="h-3 w-3" /> {erro}
                       </p>
                     )}
@@ -324,66 +367,157 @@ export default function EditarFormulaDialog({
                 <Plus className="mr-1 h-4 w-4" /> Adicionar matéria-prima
               </Button>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1 rounded-lg border p-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Matéria-prima</span>
-                    <span className="font-medium">{formatCurrency(totalMp)}</span>
-                  </div>
-                  {Math.abs(diferencaMp) > 0.004 && (
-                    <p
-                      className={cn(
-                        'text-xs',
-                        diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400',
-                      )}
-                    >
-                      {diferencaMp > 0 ? '+' : '−'}
-                      {formatCurrency(Math.abs(diferencaMp))} em relação ao salvo
-                    </p>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Embalagem</span>
-                    <span>{formatCurrency(Number(custoEmbalagem) || 0)}</span>
-                  </div>
-                  {resultado && (
-                    <div className="flex justify-between border-t pt-1 text-sm font-semibold">
-                      <span>Custo de produção</span>
-                      <span>{formatCurrency(resultado.totalCustosProducao)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Preço de venda (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.00001"
-                      value={precoVenda}
-                      onChange={(e) => setPrecoVenda(e.target.value)}
-                    />
-                  </div>
-                  {resultado && (
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold">Margem de lucro</span>
-                        <Badge variant="outline" className={cn(validacao?.color, validacao?.borderColor)}>
-                          {resultado.margemLucroPercentual.toFixed(1)}%
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Lucro de {formatCurrency(resultado.margemLucroValor)} por unidade
-                      </p>
-                      {validacao?.mensagem && (
-                        <p className={cn('mt-1 text-xs', validacao.color)}>{validacao.mensagem}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
+              <div className="hidden grid-cols-[1fr_84px_32px] items-center gap-2 px-1 pt-2 text-[11px] text-muted-foreground sm:grid">
+                <span>Embalagem</span>
+                <span className="text-right">Custo</span>
+                <span />
               </div>
+              <div className="space-y-1">
+                {embalagensItens.length === 0 && (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    Nenhuma embalagem neste produto.
+                  </p>
+                )}
+                {embalagensItens.map((emb, i) => (
+                  <div
+                    key={`${emb.embalagem_id}-${i}`}
+                    className="grid grid-cols-2 items-center gap-2 rounded-md border p-2 sm:grid-cols-[1fr_84px_32px] sm:border-0 sm:p-1"
+                  >
+                    <Select
+                      value={emb.embalagem_id}
+                      onValueChange={(v) => {
+                        const escolhida = embalagens.find((e) => e.id === v);
+                        if (!escolhida) return;
+                        setEmbalagensItens((prev) =>
+                          prev.map((x, j) =>
+                            j === i
+                              ? {
+                                  embalagem_id: escolhida.id,
+                                  descricao_snapshot: `${escolhida.nome}${escolhida.descricao ? ` - ${escolhida.descricao}` : ''}`,
+                                  custo_calculado: Number(escolhida.preco_unitario) || 0,
+                                }
+                              : x,
+                          ),
+                        );
+                      }}
+                    >
+                      <SelectTrigger className="col-span-2 h-9 sm:col-span-1">
+                        <SelectValue placeholder={emb.descricao_snapshot || 'Selecione...'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {embalagens.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>
+                            {e.nome}
+                            {e.descricao ? ` - ${e.descricao}` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs tabular-nums sm:text-right">
+                      <span className="text-muted-foreground sm:hidden">Custo: </span>
+                      {formatCurrency(Number(emb.custo_calculado) || 0)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 justify-self-end"
+                      onClick={() => setEmbalagensItens((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setEmbalagensItens((prev) => [
+                    ...prev,
+                    { embalagem_id: '', descricao_snapshot: '', custo_calculado: 0 },
+                  ])
+                }
+              >
+                <Plus className="mr-1 h-4 w-4" /> Adicionar embalagem
+              </Button>
+
             </div>
           )}
-        </ScrollArea>
+        </div>
+
+        {/* Rodape enxuto: custo, preco e margem numa linha. E' a decisao do
+            consultor, entao fica sempre visivel -- mas sem roubar altura da
+            lista de insumos, que e' o que ele esta' editando. */}
+        <div className="shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-6">
+            <div className="text-xs text-muted-foreground">
+              <span>MP {formatCurrency(totalMp)}</span>
+              {Math.abs(diferencaMp) > 0.004 && (
+                <span className={cn('ml-1', diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400')}>
+                  ({diferencaMp > 0 ? '+' : '−'}{formatCurrency(Math.abs(diferencaMp))})
+                </span>
+              )}
+              <span className="mx-2 opacity-40">·</span>
+              <span>Emb {formatCurrency(totalEmbalagem)}</span>
+              {resultado && (
+                <>
+                  <span className="mx-2 opacity-40">·</span>
+                  <span className="font-medium text-foreground">
+                    Custo {formatCurrency(resultado.totalCustosProducao)}
+                  </span>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-end gap-3 sm:ml-auto">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Preço de venda</Label>
+                <Input
+                  type="number"
+                  step="0.00001"
+                  className="h-9 w-32"
+                  value={precoVenda}
+                  onChange={(e) => setPrecoVenda(e.target.value)}
+                />
+              </div>
+              {resultado && (
+                <div className="pb-1 text-right">
+                  <Badge variant="outline" className={cn('text-sm', validacao?.color, validacao?.borderColor)}>
+                    {resultado.margemLucroPercentual.toFixed(1)}%
+                  </Badge>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {formatCurrency(resultado.margemLucroValor)} / un.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {sugestao !== null && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">
+                Manter {margemOriginal!.toFixed(1)}% pede {formatCurrency(sugestao)}
+              </span>
+              <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setPrecoVenda(sugestao.toFixed(2))}>
+                Usar
+              </Button>
+              {mudouPreco && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setPrecoVenda(precoAnterior.toFixed(2))}
+                >
+                  Voltar a {formatCurrency(precoAnterior)}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {validacao?.mensagem && (
+            <p className={cn('text-[11px]', validacao.color)}>{validacao.mensagem}</p>
+          )}
+        </div>
 
         <DialogFooter className="border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>
@@ -391,7 +525,7 @@ export default function EditarFormulaDialog({
           </Button>
           <Button onClick={salvar} disabled={salvando || carregando || temErro || !resultado}>
             <Save className="mr-1 h-4 w-4" />
-            {salvando ? 'Salvando...' : 'Salvar fórmula e margem'}
+            {salvando ? 'Salvando...' : 'Salvar produto e margem'}
           </Button>
         </DialogFooter>
       </DialogContent>

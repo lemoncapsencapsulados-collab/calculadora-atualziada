@@ -26,6 +26,7 @@ import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
 import { cadastrarClienteVhSys, type CadastrarVhSysResult } from '@/lib/vhsysCliente';
 import { toast as sonnerToast } from 'sonner';
+import CorComPersonalizado from '@/components/CorComPersonalizado';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -925,31 +926,25 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                         <p className="text-xs text-muted-foreground">Dose diária: {item.dose_diaria_sugerida}</p>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {/* Cor da Tampa e Cor do Pote — todos os tipos conhecidos */}
                       {isKnown && (() => {
                         const opcoesTampa = getOpcoesTampa(seg);
                         const opcoesPote = getOpcoesPote(seg);
                         return (
                           <>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Cor da Tampa</Label>
-                              <Select value={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
-                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                <SelectContent>
-                                  {opcoesTampa.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Cor do Pote</Label>
-                              <Select value={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
-                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                <SelectContent>
-                                  {opcoesPote.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                            <CorComPersonalizado
+                              label="Cor da Tampa"
+                              valor={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')}
+                              opcoes={opcoesTampa}
+                              onChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}
+                            />
+                            <CorComPersonalizado
+                              label="Cor do Pote"
+                              valor={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')}
+                              opcoes={opcoesPote}
+                              onChange={(v) => updateDetalhe(idx, 'cor_pote', v)}
+                            />
                           </>
                         );
                       })()}

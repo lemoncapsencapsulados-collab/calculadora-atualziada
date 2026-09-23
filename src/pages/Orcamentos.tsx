@@ -50,6 +50,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import { nomeArquivoOrcamentoCliente } from '@/lib/nomeArquivo';
+import { toast } from 'sonner';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Rascunho', variant: 'secondary' },
@@ -147,6 +150,34 @@ export default function Orcamentos() {
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [previewOrcamento, setPreviewOrcamento] = useState<Orcamento | null>(null);
   const [pedidoCompraOrcamento, setPedidoCompraOrcamento] = useState<Orcamento | null>(null);
+  /** Idem: o item da lista so' se atualiza na proxima busca. */
+  const [pedidoCompraLocal, setPedidoCompraLocal] = useState<{ dados: any; contrato: string } | null>(null);
+  /** Quando verdadeiro, o popup ignora o que estava salvo e recomeca. */
+  const [pedidoCompraDoZero, setPedidoCompraDoZero] = useState(false);
+
+  const abrirPedidoCompra = (orcamento: Orcamento, doZero: boolean) => {
+    setPedidoCompraLocal(null);
+    setPedidoCompraDoZero(doZero);
+    setPedidoCompraOrcamento(orcamento);
+  };
+
+  /**
+   * Baixa o PDF que vai ao cliente, sem passar por preview.
+   * O nome leva a data do proprio orcamento, nao a do download: e' por ela que
+   * o cliente identifica a proposta.
+   */
+  const baixarOrcamentoCliente = async (orcamento: Orcamento) => {
+    try {
+      await generateOrcamentoPDF(orcamento, {
+        nomeArquivo: nomeArquivoOrcamentoCliente(
+          orcamento.nome_cliente,
+          orcamento.created_at,
+        ),
+      });
+    } catch (e: any) {
+      toast.error('Erro ao gerar o PDF: ' + (e?.message || 'tente novamente'));
+    }
+  };
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
   const [verFreteOrcamento, setVerFreteOrcamento] = useState<Orcamento | null>(null);
@@ -447,12 +478,12 @@ export default function Orcamentos() {
           </div>
 
           {periodo === 'personalizado' && (
-            <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap items-end gap-3 [&>div]:min-w-0 [&>div]:flex-1 sm:[&>div]:flex-none">
               <div className="space-y-1">
                 <span className="text-xs text-muted-foreground">De</span>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="h-10 w-[160px] justify-start font-normal">
+                    <Button variant="outline" className="h-10 w-full justify-start font-normal sm:w-[160px]">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {periodoInicio ? format(periodoInicio, 'dd/MM/yyyy') : 'Início'}
                     </Button>
@@ -472,7 +503,7 @@ export default function Orcamentos() {
                 <span className="text-xs text-muted-foreground">Até</span>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="h-10 w-[160px] justify-start font-normal">
+                    <Button variant="outline" className="h-10 w-full justify-start font-normal sm:w-[160px]">
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {periodoFim ? format(periodoFim, 'dd/MM/yyyy') : 'Fim'}
                     </Button>
@@ -773,10 +804,10 @@ export default function Orcamentos() {
                                         ? 'border-green-500/60 text-green-700 dark:text-green-400'
                                         : 'border-amber-500/60 text-amber-700 dark:text-amber-500',
                                     )}
-                                    onClick={() => setPedidoCompraOrcamento(orcamento)}
+                                    onClick={() => abrirPedidoCompra(orcamento, false)}
                                   >
                                     <FileSignature className="mr-1.5 h-4 w-4" />
-                                    <span className="hidden sm:inline">Pedido de Compra</span>
+                                    <span className="hidden sm:inline">Editar Pedido de Compra</span>
                                     <span className="sm:hidden">Pedido</span>
                                     <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-[10px]">
                                       {pendentes === 0 ? 'completo' : `${pendentes} pend.`}
@@ -801,20 +832,14 @@ export default function Orcamentos() {
                                 </TooltipTrigger>
                                 <TooltipContent>Editar</TooltipContent>
                               </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="relative hidden h-8 w-8 opacity-60 transition-opacity after:absolute after:-inset-1 after:content-[''] group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex [@media(hover:none)]:opacity-100"
-                                    onClick={() => setPreviewOrcamento(orcamento)}
-                                    aria-label="Gerar PDF"
-                                  >
-                                    <FileText className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Gerar PDF</TooltipContent>
-                              </Tooltip>
+                              <Button
+                                variant="outline"
+                                className="hidden h-8 sm:inline-flex"
+                                onClick={() => baixarOrcamentoCliente(orcamento)}
+                              >
+                                <FileText className="mr-1.5 h-4 w-4" />
+                                Orçamento do Cliente (PDF)
+                              </Button>
 
                               {/* O resto continua a um clique, sem ocupar a tela. */}
                               <DropdownMenu>
@@ -835,11 +860,15 @@ export default function Orcamentos() {
                                     <Pencil className="mr-2 h-4 w-4 opacity-70" />
                                     Editar
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="sm:hidden" onClick={() => setPreviewOrcamento(orcamento)}>
+                                  <DropdownMenuItem className="sm:hidden" onClick={() => baixarOrcamentoCliente(orcamento)}>
                                     <FileText className="mr-2 h-4 w-4 opacity-70" />
-                                    Gerar PDF
+                                    Orçamento do Cliente (PDF)
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="sm:hidden" />
+                                  <DropdownMenuItem onClick={() => abrirPedidoCompra(orcamento, true)}>
+                                    <FileSignature className="mr-2 h-4 w-4 opacity-70" />
+                                    Solicitar novo Pedido de Compra
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => abrirHistorico(orcamento)}>
                                     <History className="mr-2 h-4 w-4 opacity-70" />
                                     Histórico
@@ -926,11 +955,20 @@ export default function Orcamentos() {
             telefone: pedidoCompraOrcamento.dados_cliente?.telefone,
           }}
           numeroPedido={pedidoCompraOrcamento.numero_orcamento || ''}
-          dadosSalvos={(pedidoCompraOrcamento as any).pedido_compra_dados || null}
-          contratoSalvo={(pedidoCompraOrcamento as any).numero_contrato || null}
-          onAutoSalvar={(dados, numeroContrato) =>
-            salvarPedidoCompra.mutate({ id: pedidoCompraOrcamento.id, dados, numeroContrato })
+          dadosSalvos={
+            pedidoCompraDoZero
+              ? null
+              : pedidoCompraLocal?.dados ?? (pedidoCompraOrcamento as any).pedido_compra_dados ?? null
           }
+          contratoSalvo={
+            pedidoCompraDoZero
+              ? null
+              : pedidoCompraLocal?.contrato ?? (pedidoCompraOrcamento as any).numero_contrato ?? null
+          }
+          onAutoSalvar={(dados, numeroContrato) => {
+            setPedidoCompraLocal({ dados, contrato: numeroContrato });
+            salvarPedidoCompra.mutate({ id: pedidoCompraOrcamento.id, dados, numeroContrato });
+          }}
           onGerar={() => setPedidoCompraOrcamento(null)}
         />
       )}

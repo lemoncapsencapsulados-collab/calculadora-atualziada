@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import EditarFormulaDialog from './EditarFormulaDialog';
+import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 
 import { Formula } from '@/types/formula';
@@ -155,11 +156,18 @@ export default function PrecificacoesSalvas({
     });
   };
 
-  const handleDuplicar = async () => {
-    if (!duplicarPrecificacao || !duplicarCliente.trim() || !duplicarFormula.trim()) {
-      toast.error('Preencha o nome do cliente e da fórmula');
-      return;
-    }
+  /**
+   * Duplica formula e precificacao. Extraido do fluxo com dialogo para servir
+   * tambem ao botao de um clique, que so' acrescenta "Duplicata" ao nome.
+   */
+  const duplicarProduto = async (
+    origem: PrecificacaoComFormula,
+    cliente: string,
+    nomeFormula: string,
+  ) => {
+    const duplicarPrecificacao = origem;
+    const duplicarCliente = cliente;
+    const duplicarFormula = nomeFormula;
     try {
       // Buscar fórmula original
       const { data: formulaOriginal, error: fetchErr } = await supabase
@@ -198,13 +206,27 @@ export default function PrecificacoesSalvas({
           formula_id: novaFormula.id,
         } as any);
 
-      toast.success('Produto precificado duplicado com sucesso!');
+      toast.success('Produto duplicado com sucesso!');
       setDuplicarPrecificacao(null);
       queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
       queryClient.invalidateQueries({ queryKey: ['formulas'] });
     } catch (err: any) {
       toast.error('Erro ao duplicar: ' + err.message);
     }
+  };
+
+  const handleDuplicar = async () => {
+    if (!duplicarPrecificacao || !duplicarCliente.trim() || !duplicarFormula.trim()) {
+      toast.error('Preencha o nome do cliente e da fórmula');
+      return;
+    }
+    await duplicarProduto(duplicarPrecificacao, duplicarCliente.trim(), duplicarFormula.trim());
+  };
+
+  /** Um clique: mesmo cliente, nome com "Duplicata" no fim. */
+  const handleDuplicarRapido = (p: PrecificacaoComFormula) => {
+    const nome = (p.formulas?.nome_formula || 'Produto').trim();
+    void duplicarProduto(p, (p.formulas?.cliente || '').trim(), `${nome} Duplicata`);
   };
 
   if (isLoading) {
@@ -286,15 +308,21 @@ export default function PrecificacoesSalvas({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs">Custo Produção</p>
-                        <p className="font-medium">R$ {Number(precificacao.total_custos_producao).toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrencyPrecise(Number(precificacao.total_custos_producao))}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">Impostos</p>
-                        <p className="font-medium">R$ {Number(precificacao.total_impostos).toFixed(2)}</p>
+                        <p className="font-medium">{formatCurrencyPrecise(Number(precificacao.total_impostos))}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">Preço de Venda</p>
-                        <p className="font-bold text-primary text-lg">R$ {Number(precificacao.preco_venda).toFixed(2)}</p>
+                        <PrecoVendaInline
+                          precificacao={precificacao}
+                          configuracaoAtiva={configuracaoAtiva}
+                          onSalvo={() =>
+                            queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] })
+                          }
+                        />
                       </div>
                       {(() => {
                         const styles = getMargemStyles(
@@ -341,7 +369,17 @@ export default function PrecificacoesSalvas({
                         onClick={() => setEditandoFormula(precificacao)}
                       >
                         <FlaskConical className="w-4 h-4 mr-2" />
-                        Editar Fórmula
+                        Editar Produto
+                      </Button>
+                    )}
+                    {precificacao.formula_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDuplicarRapido(precificacao)}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Duplicar Produto
                       </Button>
                     )}
                     {!ehCatalogo(precificacao) && (
@@ -429,8 +467,8 @@ export default function PrecificacoesSalvas({
           formulaId={editandoFormula.formula_id}
           nomeFormula={editandoFormula.formulas?.nome_formula || 'Fórmula'}
           tipoProduto={editandoFormula.formulas?.tipo_produto || ''}
-          custoEmbalagem={Number(editandoFormula.custo_embalagem) || 0}
           precoVendaAtual={Number(editandoFormula.preco_venda) || 0}
+          margemOriginal={Number(editandoFormula.margem_lucro_percentual) || undefined}
           configuracaoAtiva={configuracaoAtiva}
           onSalvo={() => {
             queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });

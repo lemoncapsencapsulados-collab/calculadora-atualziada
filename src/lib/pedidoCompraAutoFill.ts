@@ -122,10 +122,23 @@ function montarParcelas(snap: Partial<OrcamentoSnapshot>): ParcelaPedidoCompra[]
   ];
 }
 
+/**
+ * Traduz o tipo do produto para a apresentacao do documento, que e' o que
+ * decide quais campos de embalagem serao pedidos.
+ */
+function apresentacaoDoTipo(tipo: string): string {
+  const t = tipo.toLowerCase();
+  if (t.includes('encapsul') || t.includes('capsul')) return 'Encapsulado';
+  if (t.includes('gummy') || t.includes('goma')) return 'Goma';
+  if (t.includes('solúv') || t.includes('soluv')) return 'Solúvel';
+  if (t.includes('líquid') || t.includes('liquid') || t.includes('gota')) return 'Líquido';
+  return '';
+}
+
 function montarEmbalagem(item: ItemProducao | undefined): EmbalagemPedidoCompra {
   const det = item?.detalhes_producao || {};
   return {
-    apresentacao: txt(item?.tipo_produto) || txt(item?.segmento),
+    apresentacao: apresentacaoDoTipo(txt(item?.tipo_produto) || txt(item?.segmento)),
     capsula_tipo: '',
     capsula_cor: '',
     // O material do pote vem do que foi fechado no orcamento, quando houver.
@@ -136,6 +149,9 @@ function montarEmbalagem(item: ItemProducao | undefined): EmbalagemPedidoCompra 
     tampa_cor: txt(det.cor_tampa),
     lacre_inducao: false,
     dosador: '',
+    silica: '',
+    bulbo: '',
+    canula: '',
     rotulo_material: '',
     rotulo_acabamento: '',
     // Regra da fabrica: sempre o dobro de potes, para cobrir perda de aplicacao.
@@ -162,6 +178,7 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
     apresentacao: descreverApresentacao(item),
     preco_unitario: Number(item.preco_unitario) || 0,
     quantidade: Number(item.quantidade) || 0,
+    linha: item.linha_produto,
   }));
 
   const contratante =

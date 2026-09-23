@@ -972,11 +972,11 @@ const Pedidos = () => {
           </div>
 
           {/* Filtros de Consultor e Data de Pagamento */}
-          <div className="flex gap-3 flex-wrap items-end">
+          <div className="flex flex-wrap items-end gap-3 [&>div]:min-w-0 [&>div]:flex-1 sm:[&>div]:flex-none">
             <div className="space-y-1">
               <Label className="text-xs">Consultor</Label>
               <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
-                <SelectTrigger className="w-[200px] h-9">
+                <SelectTrigger className="h-9 w-full sm:w-[200px]">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -992,7 +992,7 @@ const Pedidos = () => {
               <Label className="text-xs">Pgto. De</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !dataInicioFiltro && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn("h-9 w-full justify-start text-left font-normal sm:w-[150px]", !dataInicioFiltro && "text-muted-foreground")}>
                     <Calendar className="h-3 w-3 mr-1" />
                     {dataInicioFiltro ? format(dataInicioFiltro, 'dd/MM/yyyy') : 'Início'}
                   </Button>
@@ -1007,7 +1007,7 @@ const Pedidos = () => {
               <Label className="text-xs">Pgto. Até</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !dataFimFiltro && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn("h-9 w-full justify-start text-left font-normal sm:w-[150px]", !dataFimFiltro && "text-muted-foreground")}>
                     <Calendar className="h-3 w-3 mr-1" />
                     {dataFimFiltro ? format(dataFimFiltro, 'dd/MM/yyyy') : 'Fim'}
                   </Button>
@@ -1022,7 +1022,7 @@ const Pedidos = () => {
               <Label className="text-xs">Entrega De</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !entregaInicioFiltro && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn("h-9 w-full justify-start text-left font-normal sm:w-[150px]", !entregaInicioFiltro && "text-muted-foreground")}>
                     <Calendar className="h-3 w-3 mr-1" />
                     {entregaInicioFiltro ? format(entregaInicioFiltro, 'dd/MM/yyyy') : 'Início'}
                   </Button>
@@ -1037,7 +1037,7 @@ const Pedidos = () => {
               <Label className="text-xs">Entrega Até</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("w-[150px] justify-start text-left font-normal h-9", !entregaFimFiltro && "text-muted-foreground")}>
+                  <Button variant="outline" size="sm" className={cn("h-9 w-full justify-start text-left font-normal sm:w-[150px]", !entregaFimFiltro && "text-muted-foreground")}>
                     <Calendar className="h-3 w-3 mr-1" />
                     {entregaFimFiltro ? format(entregaFimFiltro, 'dd/MM/yyyy') : 'Fim'}
                   </Button>

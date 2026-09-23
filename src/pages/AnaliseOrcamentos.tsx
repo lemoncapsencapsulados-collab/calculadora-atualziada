@@ -337,7 +337,7 @@ export default function AnaliseOrcamentos() {
       )}
 
       <Card>
-        <CardContent className="flex flex-wrap items-end gap-3 p-4">
+        <CardContent className="flex flex-wrap items-end gap-3 p-4 [&>div]:min-w-0 [&>div]:flex-1 sm:[&>div]:flex-none">
           <div className="min-w-[200px] flex-1 space-y-1">
             <Label className="text-xs">Buscar</Label>
             <Input
@@ -349,7 +349,7 @@ export default function AnaliseOrcamentos() {
           <div className="space-y-1">
             <Label className="text-xs">Consultor</Label>
             <Select value={consultorFiltro} onValueChange={setConsultorFiltro}>
-              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
                 {consultoresUnicos.map((c) => (
@@ -361,7 +361,7 @@ export default function AnaliseOrcamentos() {
           <div className="space-y-1">
             <Label className="text-xs">Status</Label>
             <Select value={statusFiltro} onValueChange={setStatusFiltro}>
-              <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
                 {(Object.keys(STATUS_LABEL) as StatusOrcamentoDetalhado[]).map((s) => (
@@ -373,7 +373,7 @@ export default function AnaliseOrcamentos() {
           <div className="space-y-1">
             <Label className="text-xs">Checkup</Label>
             <Select value={checkupFiltro} onValueChange={(v) => setCheckupFiltro(v as FiltroCheckup)}>
-              <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[170px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(Object.keys(FILTRO_CHECKUP_LABEL) as FiltroCheckup[]).map((f) => (
                   <SelectItem key={f} value={f}>{FILTRO_CHECKUP_LABEL[f]}</SelectItem>
@@ -388,7 +388,7 @@ export default function AnaliseOrcamentos() {
               value={valorMinimo}
               onChange={(e) => setValorMinimo(e.target.value)}
               placeholder="R$"
-              className="w-[130px]"
+              className="w-full sm:w-[130px]"
             />
           </div>
         </CardContent>

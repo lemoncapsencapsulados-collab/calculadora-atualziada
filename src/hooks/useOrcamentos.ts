@@ -368,6 +368,45 @@ export function useOrcamentos(options?: { enabled?: boolean }) {
     },
   });
 
+  /**
+   * Salva o orcamento em andamento, sem aviso na tela.
+   *
+   * O consultor preenche sete passos; se fechar no meio, tudo se perdia. Aqui o
+   * rascunho vira linha no banco desde o primeiro campo util, e as gravacoes
+   * seguintes atualizam a mesma linha -- por isso devolve o id.
+   *
+   * Silencioso de proposito: um aviso a cada pausa de digitacao viraria ruido.
+   */
+  const salvarRascunho = useMutation({
+    mutationFn: async ({ id, dados }: { id?: string | null; dados: Record<string, unknown> }) => {
+      if (id) {
+        const { data, error } = await supabase
+          .from('orcamentos')
+          .update(dados as any)
+          .eq('id', id)
+          .select('id')
+          .single();
+        if (error) throw error;
+        return data.id as string;
+      }
+      const numero_orcamento = await getNextNumeroOrcamento();
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .insert([{ ...(dados as any), numero_orcamento, status: 'rascunho' }])
+        .select('id')
+        .single();
+      if (error) throw error;
+      return data.id as string;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-paginados'] });
+      queryClient.invalidateQueries({ queryKey: ['orcamentos-kanban'] });
+    },
+    // Sem toast de erro: o rascunho tenta de novo na proxima pausa, e um aviso
+    // a cada falha de rede atrapalharia quem esta' preenchendo.
+    onError: (error: any) => console.error('Erro ao salvar rascunho:', error),
+  });
+
   // Adicionar item ao histórico de contatos
   const addContato = useMutation({
     mutationFn: async ({ id, contato }: { id: string; contato: Omit<ContatoOrcamento, 'id'> }) => {
@@ -508,6 +547,7 @@ export function useOrcamentos(options?: { enabled?: boolean }) {
     addContato,
     definirNumeroAoPagar,
     salvarPedidoCompra,
+    salvarRascunho,
     removeContato,
     getNextNumeroOrcamento,
   };

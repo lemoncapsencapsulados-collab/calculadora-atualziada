@@ -11,6 +11,8 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useRecebimentoNotificacoes } from './hooks/useRecebimentoNotificacoes';
+import { useAtualizacaoAutomatica } from './hooks/useAtualizacaoAutomatica';
+import { toast as sonnerToast } from 'sonner';
 import { usePedidos } from './hooks/usePedidos';
 
 /* Rotas fora do primeiro carregamento vão sob demanda (React.lazy): reduz o
@@ -51,6 +53,16 @@ const AppContent = () => {
   const [migrated, setMigrated] = useState(false);
   const { pedidos } = usePedidos();
   useRecebimentoNotificacoes(isAuthenticated && migrated ? pedidos : undefined);
+
+  // Quando sai um deploy, a aba aberta continuaria no codigo antigo ate' alguem
+  // recarregar. Avisa e recarrega sozinho, dando alguns segundos para quem
+  // estiver no meio de um formulario -- os rascunhos ja' foram salvos ate' la'.
+  useAtualizacaoAutomatica({
+    aoDetectar: (recarregar) => {
+      sonnerToast.info('Nova versão disponível — atualizando...', { duration: 5000 });
+      window.setTimeout(recarregar, 5000);
+    },
+  });
 
   useEffect(() => {
     const runMigration = async () => {

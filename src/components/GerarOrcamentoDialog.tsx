@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
@@ -7,6 +7,7 @@ import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { validarMargemPorTipo, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import { arredondarReais } from '@/lib/utils';
+import { linhaDoCliente } from '@/lib/linhaProduto';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -106,12 +107,15 @@ export default function GerarOrcamentoDialog({
   onClose,
   onSuccess 
 }: GerarOrcamentoDialogProps) {
-  const { createOrcamento, updateOrcamento, getNextNumeroOrcamento } = useOrcamentos({ enabled: false });
+  const { createOrcamento, updateOrcamento, getNextNumeroOrcamento, salvarRascunho } = useOrcamentos({ enabled: false });
   const { precificacoes } = usePrecificacao();
   const { buscarPorId } = useClientes();
   
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Id do rascunho criado automaticamente; o salvar final atualiza ele. */
+  const [rascunhoId, setRascunhoId] = useState<string | null>(null);
+  const [rascunhoSalvoEm, setRascunhoSalvoEm] = useState<Date | null>(null);
   
   // Step 1: Informações básicas
   const [tipoOrcamento, setTipoOrcamento] = useState<TipoOrcamento>('novo_produtor');
@@ -735,6 +739,7 @@ export default function GerarOrcamentoDialog({
         return {
           tipo: 'precificacao' as const,
           precificacao_id: precId,
+          linha_produto: linhaDoCliente(prec?.formulas?.cliente),
           nome_produto: prec?.formulas?.nome_formula || 'Produto',
           segmento: prec?.formulas?.tipo_produto || '',
           preco_unitario: Number(prec?.preco_venda) || 0,
@@ -810,6 +815,95 @@ export default function GerarOrcamentoDialog({
     );
   };
 
+  /**
+   * Campos do orcamento a partir do que esta' na tela.
+   * Usado pelo rascunho automatico e pelo salvamento final -- se cada um
+   * montasse o seu, o rascunho gravaria menos do que o consultor ve'.
+   */
+  const montarCampos = () => {
+    const hasDadosCliente = Object.values(dadosClienteTemp).some(v => v && v.toString().trim() !== '');
+    const hasCondicoesPagamento = Object.values(condicoesPagamento).some(v => v !== undefined && v !== null && v !== '');
+    const dadosClienteFinal: DadosCliente = (() => {
+      const dc = { ...dadosClienteTemp };
+      if ((dc.tipo_pessoa || 'pj') === 'pf') {
+        const pf0 = { ...(dc.pessoas_fisicas?.[0] || {}) };
+        pf0.nome = pf0.nome || dc.nome_completo;
+        pf0.cpf = pf0.cpf || dc.cpf;
+        pf0.email = pf0.email || dc.email;
+        pf0.telefone = pf0.telefone || dc.telefone;
+        pf0.cep = pf0.cep || dc.cep_cnpj;
+        pf0.endereco = pf0.endereco || dc.endereco_cnpj;
+        pf0.numero = pf0.numero || dc.numero_cnpj;
+        pf0.bairro = pf0.bairro || dc.bairro_cnpj;
+        pf0.cidade = pf0.cidade || dc.cidade;
+        pf0.estado = pf0.estado || dc.estado;
+        dc.pessoas_fisicas = [pf0, ...((dc.pessoas_fisicas || []).slice(1))];
+      }
+      return dc;
+    })();
+
+    return {
+      nome_cliente: nomeCliente,
+      ...({ modelo_aquisicao: modeloAquisicao || null } as any),
+      ...(clienteSelecionado?.id && { cliente_id: clienteSelecionado.id }),
+      consultor_responsavel: consultorResponsavel,
+      tipo_orcamento: tipoOrcamento,
+      validade_dias: validadeDias,
+      observacoes,
+      itens_producao: itensProducao,
+      servicos_marca: buildServicosMarca(),
+      subtotal_producao: subtotalProducao,
+      subtotal_servicos: subtotalServicos,
+      valor_total: valorTotal,
+      ...(hasDadosCliente && { dados_cliente: dadosClienteFinal }),
+      ...(detalhamentoFreteTemp && { detalhamento_frete: detalhamentoFreteTemp }),
+      ...(hasCondicoesPagamento && { condicoes_pagamento: condicoesPagamento }),
+      intermediador: intermediadorFinal,
+    };
+  };
+
+  const camposRef = useRef(montarCampos);
+  camposRef.current = montarCampos;
+  const rascunhoIdRef = useRef<string | null>(null);
+  rascunhoIdRef.current = rascunhoId;
+  const podeRascunhar = !orcamentoExistente && nomeCliente.trim().length > 0;
+  const podeRascunharRef = useRef(podeRascunhar);
+  podeRascunharRef.current = podeRascunhar;
+
+  const gravarRascunho = async () => {
+    if (!podeRascunharRef.current) return;
+    try {
+      const id = await salvarRascunho.mutateAsync({
+        id: rascunhoIdRef.current,
+        dados: camposRef.current(),
+      });
+      rascunhoIdRef.current = id;
+      setRascunhoId(id);
+      setRascunhoSalvoEm(new Date());
+    } catch {
+      // Silencioso: tenta de novo na proxima pausa.
+    }
+  };
+
+  // Espera a digitacao parar para nao gravar a cada tecla.
+  useEffect(() => {
+    if (!podeRascunhar) return;
+    const t = setTimeout(gravarRascunho, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    nomeCliente, consultorResponsavel, modeloAquisicao, validadeDias, observacoes,
+    itensProducao, subtotalProducao, subtotalServicos, valorTotal,
+    dadosClienteTemp, condicoesPagamento, detalhamentoFreteTemp, tipoOrcamento,
+  ]);
+
+  // Fechar a janela no meio do preenchimento nao pode custar o trabalho todo.
+  useEffect(
+    () => () => { void gravarRascunho(); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const handleSubmit = async () => {
     if (!nomeCliente.trim()) return;
     if (clientePendencias.length > 0) {
@@ -845,9 +939,10 @@ export default function GerarOrcamentoDialog({
       })();
 
       let criado: Orcamento | undefined;
-      if (orcamentoExistente) {
+      const idAlvo = orcamentoExistente?.id ?? rascunhoId;
+      if (idAlvo) {
         criado = await updateOrcamento.mutateAsync({
-          id: orcamentoExistente.id,
+          id: idAlvo,
           updates: {
             nome_cliente: nomeCliente,
             ...({ modelo_aquisicao: modeloAquisicao || null } as any),
@@ -1174,7 +1269,7 @@ export default function GerarOrcamentoDialog({
                     onClick={() => { setShowPrecificacaoSelector(true); setShowCatalogoSelector(false); }}
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    Precificação Salva
+                    Private Label (Fórmulas Personalizadas)
                   </Button>
                   <Button 
                     variant="outline" 
@@ -1183,7 +1278,7 @@ export default function GerarOrcamentoDialog({
                     className="border-amber-500 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
                   >
                     <Star className="w-4 h-4 mr-1" />
-                    Fórmulas do Catálogo
+                    White Label (Fórmulas do Catálogo)
                   </Button>
                 </div>
               </div>
@@ -1193,7 +1288,7 @@ export default function GerarOrcamentoDialog({
                 <Card className="border-primary">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label>Selecionar Precificações</Label>
+                      <Label>Private Label (Fórmulas Personalizadas)</Label>
                       <Button variant="ghost" size="sm" onClick={() => { setShowPrecificacaoSelector(false); setBuscaPrecificacao(''); }}>
                         <X className="w-4 h-4" />
                       </Button>
@@ -1271,7 +1366,7 @@ export default function GerarOrcamentoDialog({
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-amber-500" />
-                        Fórmulas do Catálogo
+                        White Label (Fórmulas do Catálogo)
                       </Label>
                       <Button variant="ghost" size="sm" onClick={() => { setShowCatalogoSelector(false); setBuscaPrecificacao(''); }}>
                         <X className="w-4 h-4" />
@@ -2456,6 +2551,12 @@ export default function GerarOrcamentoDialog({
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
+              <>
+              {rascunhoSalvoEm && !orcamentoExistente && (
+                <span className="mr-3 self-center text-xs text-muted-foreground">
+                  Rascunho salvo às {rascunhoSalvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
               <Button
                 onClick={handleSubmit}
                 disabled={isSubmitting || valorTotal === 0 || clientePendencias.length > 0}
@@ -2473,6 +2574,7 @@ export default function GerarOrcamentoDialog({
                   </>
                 )}
               </Button>
+              </>
             )}
           </div>
         </div>
