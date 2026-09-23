@@ -50,12 +50,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
-import { nomeArquivoOrcamentoCliente } from '@/lib/nomeArquivo';
 import { toast } from 'sonner';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  rascunho: { label: 'Rascunho', variant: 'secondary' },
+  rascunho: { label: 'Criado', variant: 'secondary' },
   enviado: { label: 'Enviado', variant: 'default' },
   pago: { label: 'Pago', variant: 'outline' },
   recusado: { label: 'Recusado', variant: 'destructive' },
@@ -161,23 +159,6 @@ export default function Orcamentos() {
     setPedidoCompraOrcamento(orcamento);
   };
 
-  /**
-   * Baixa o PDF que vai ao cliente, sem passar por preview.
-   * O nome leva a data do proprio orcamento, nao a do download: e' por ela que
-   * o cliente identifica a proposta.
-   */
-  const baixarOrcamentoCliente = async (orcamento: Orcamento) => {
-    try {
-      await generateOrcamentoPDF(orcamento, {
-        nomeArquivo: nomeArquivoOrcamentoCliente(
-          orcamento.nome_cliente,
-          orcamento.created_at,
-        ),
-      });
-    } catch (e: any) {
-      toast.error('Erro ao gerar o PDF: ' + (e?.message || 'tente novamente'));
-    }
-  };
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
   const [verFreteOrcamento, setVerFreteOrcamento] = useState<Orcamento | null>(null);
@@ -764,7 +745,7 @@ export default function Orcamentos() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="rascunho">Rascunho</SelectItem>
+                                  <SelectItem value="rascunho">Criado</SelectItem>
                                   <SelectItem value="enviado">Enviado</SelectItem>
                                   <SelectItem value="pago">Pago</SelectItem>
                                   <SelectItem value="recusado">Recusado</SelectItem>
@@ -818,24 +799,18 @@ export default function Orcamentos() {
 
                               {/* Frequentes: ícone + tooltip. Discretos em repouso, cheios
                                   no hover, sempre visíveis no teclado e no toque. */}
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="relative hidden h-8 w-8 opacity-60 transition-opacity after:absolute after:-inset-1 after:content-[''] group-hover:opacity-100 focus-visible:opacity-100 sm:inline-flex [@media(hover:none)]:opacity-100"
-                                    onClick={() => setEditandoOrcamento(orcamento)}
-                                    aria-label="Editar orçamento"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Editar</TooltipContent>
-                              </Tooltip>
                               <Button
                                 variant="outline"
                                 className="hidden h-8 sm:inline-flex"
-                                onClick={() => baixarOrcamentoCliente(orcamento)}
+                                onClick={() => setEditandoOrcamento(orcamento)}
+                              >
+                                <Pencil className="mr-1.5 h-4 w-4" />
+                                Editar Orçamento
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="hidden h-8 sm:inline-flex"
+                                onClick={() => setPreviewOrcamento(orcamento)}
                               >
                                 <FileText className="mr-1.5 h-4 w-4" />
                                 Orçamento do Cliente (PDF)
@@ -860,7 +835,7 @@ export default function Orcamentos() {
                                     <Pencil className="mr-2 h-4 w-4 opacity-70" />
                                     Editar
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem className="sm:hidden" onClick={() => baixarOrcamentoCliente(orcamento)}>
+                                  <DropdownMenuItem className="sm:hidden" onClick={() => setPreviewOrcamento(orcamento)}>
                                     <FileText className="mr-2 h-4 w-4 opacity-70" />
                                     Orçamento do Cliente (PDF)
                                   </DropdownMenuItem>

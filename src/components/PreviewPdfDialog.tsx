@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Orcamento } from '@/types/orcamento';
 import { generateOrcamentoPDFBlob, generateOrcamentoPDF } from '@/lib/orcamentoGenerator';
+import { nomeArquivoOrcamentoCliente } from '@/lib/nomeArquivo';
 import {
   Dialog,
   DialogContent,
@@ -81,7 +82,9 @@ export default function PreviewPdfDialog({
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      await generateOrcamentoPDF(orcamento);
+      await generateOrcamentoPDF(orcamento, {
+        nomeArquivo: nomeArquivoOrcamentoCliente(orcamento.nome_cliente, orcamento.created_at),
+      });
     } catch (err) {
       console.error('Erro ao baixar PDF:', err);
     } finally {

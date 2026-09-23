@@ -52,7 +52,7 @@ export const PRIORIDADE_LABEL: Record<PrioridadeCobranca, string> = {
 };
 
 export const STATUS_LABEL: Record<StatusOrcamentoDetalhado, string> = {
-  rascunho: 'Rascunho',
+  rascunho: 'Criado',
   enviado: 'Enviado',
   pago: 'Pago',
   recusado: 'Recusado',
