@@ -27,7 +27,7 @@ export function DashboardOrcamentos({ dados }: DashboardOrcamentosProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Consultor</TableHead>
-              <TableHead className="text-center">Rascunho</TableHead>
+              <TableHead className="text-center">Criado</TableHead>
               <TableHead className="text-center">Enviado</TableHead>
               <TableHead className="text-center">Pago</TableHead>
               <TableHead className="text-center">Recusado</TableHead>

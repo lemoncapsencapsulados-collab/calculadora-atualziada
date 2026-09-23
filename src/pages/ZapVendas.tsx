@@ -89,7 +89,7 @@ function encontrarClientePorJid(
 }
 
 const ROTULO_STATUS_ORCAMENTO: Record<Orcamento['status'], string> = {
-  rascunho: 'Rascunho',
+  rascunho: 'Criado',
   enviado: 'Enviado',
   pago: 'Pago',
   recusado: 'Recusado',

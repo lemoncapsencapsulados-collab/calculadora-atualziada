@@ -22,7 +22,7 @@ import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import { buildWhatsappUrl as sharedBuildWhatsappUrl, formatTelefone as sharedFormatTelefone, isTelefoneValido } from '@/lib/whatsapp';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  rascunho: { label: 'Rascunho', variant: 'secondary' },
+  rascunho: { label: 'Criado', variant: 'secondary' },
   enviado: { label: 'Enviado', variant: 'default' },
   pago: { label: 'Pago', variant: 'outline' },
   recusado: { label: 'Recusado', variant: 'destructive' },
@@ -118,7 +118,7 @@ export default function LeadsOrcamento() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="rascunho">Rascunho</SelectItem>
+                <SelectItem value="rascunho">Criado</SelectItem>
                 <SelectItem value="enviado">Enviado</SelectItem>
                 <SelectItem value="pago">Pago</SelectItem>
                 <SelectItem value="recusado">Recusado</SelectItem>

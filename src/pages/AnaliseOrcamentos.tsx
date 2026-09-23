@@ -28,7 +28,7 @@ import type { DashboardFiltros, OrcamentoDetalhado, StatusOrcamentoDetalhado } f
 import type { ContatoOrcamento, ResultadoCheckup } from '@/types/orcamento';
 
 const STATUS_LABEL: Record<StatusOrcamentoDetalhado, string> = {
-  rascunho: 'Rascunho',
+  rascunho: 'Criado',
   enviado: 'Enviado',
   pago: 'Pago',
   recusado: 'Recusado',
