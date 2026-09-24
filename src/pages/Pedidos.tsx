@@ -113,12 +113,10 @@ interface GrupoProdutor {
 const normalizeDoc = (doc: string | null | undefined): string => (doc || '').replace(/\D/g, '');
 
 /**
- * O Pedido de Compra pode partir de um pedido que ja' existe ou de um orcamento
- * de recompra recem-gerado, que ainda nao virou pedido.
+ * O Pedido de Compra sempre parte de um pedido existente -- ele e' consequencia
+ * da aprovacao do orcamento, nunca pre-requisito dela.
  */
-type AlvoPedidoCompra =
-  | { tipo: 'pedido'; pedido: any; grupo: GrupoProdutor }
-  | { tipo: 'orcamento'; orcamento: Orcamento; grupo: GrupoProdutor };
+type AlvoPedidoCompra = { pedido: any; grupo: GrupoProdutor };
 
 /**
  * O caminho inverso: reconstitui um Orcamento a partir do snapshot do pedido,
@@ -153,23 +151,6 @@ const snapshotComoOrcamento = (pedido: any): Orcamento => {
     updated_at: new Date().toISOString(),
   } as Orcamento;
 };
-
-/** O orcamento tem os mesmos campos que o snapshot guarda; so' reempacota. */
-const orcamentoComoSnapshot = (o: Orcamento): any => ({
-  numero_orcamento: o.numero_orcamento,
-  nome_cliente: o.nome_cliente,
-  consultor_responsavel: o.consultor_responsavel,
-  tipo_orcamento: o.tipo_orcamento,
-  itens_producao: o.itens_producao || [],
-  servicos_marca: o.servicos_marca || [],
-  dados_cliente: o.dados_cliente,
-  detalhamento_frete: o.detalhamento_frete,
-  condicoes_pagamento: o.condicoes_pagamento,
-  subtotal_producao: o.subtotal_producao,
-  subtotal_servicos: o.subtotal_servicos,
-  valor_total: o.valor_total,
-  observacoes: o.observacoes,
-});
 
 /** Data que posiciona o pedido na linha do tempo do produtor. */
 const getDataPedidoOrdenacao = (pedido: any): Date | null => {
@@ -244,7 +225,7 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra, createPedidoFromOrcamento } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra } = usePedidos();
   const { clientes, atualizarCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
@@ -264,9 +245,6 @@ const Pedidos = () => {
   >(null);
   const [pedidoCompraAlvo, setPedidoCompraAlvo] = useState<AlvoPedidoCompra | null>(null);
   const [orcamentoPdf, setOrcamentoPdf] = useState<Orcamento | null>(null);
-  const [editandoOrcamento, setEditandoOrcamento] = useState<
-    { orcamento: Orcamento; grupo: GrupoProdutor } | null
-  >(null);
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
   useEffect(() => {
@@ -639,7 +617,7 @@ const Pedidos = () => {
    * catalogo, monta um setup novo se for o caso, e envia para o cliente
    * confirmar antes de virar pedido.
    */
-  const abrirNovoPedidoCompra = (grupo: GrupoProdutor) => {
+  const abrirNovaRecompra = (grupo: GrupoProdutor) => {
     const ultimo = grupo.pedidos[grupo.pedidos.length - 1];
     const snap = ultimo?.orcamento_snapshot || {};
     const clienteId =
@@ -1139,9 +1117,13 @@ const Pedidos = () => {
                           <MessageCircle className="h-4 w-4 mr-1" /> Sem contato
                         </Button>
                       )}
-                      <Button size="sm" onClick={() => abrirNovoPedidoCompra(grupo)}>
+                      <Button
+                        size="sm"
+                        onClick={() => abrirNovaRecompra(grupo)}
+                        title="Gera o orçamento da recompra; o Pedido de Compra vem depois da aprovação"
+                      >
                         <ShoppingCart className="h-4 w-4 mr-1" />
-                        Novo pedido de compra
+                        Nova recompra
                       </Button>
                     </div>
                   </div>
@@ -1228,7 +1210,7 @@ const Pedidos = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setPedidoCompraAlvo({ tipo: 'pedido', pedido, grupo })}
+                                onClick={() => setPedidoCompraAlvo({ pedido, grupo })}
                                 title={
                                   completo
                                     ? 'Rever ou baixar o Pedido de Compra'
@@ -1342,30 +1324,13 @@ const Pedidos = () => {
         <PedidoDeCompraDialog
           open
           onOpenChange={(o) => !o && setPedidoCompraAlvo(null)}
-          snapshot={
-            pedidoCompraAlvo.tipo === 'pedido'
-              ? pedidoCompraAlvo.pedido.orcamento_snapshot || {}
-              : orcamentoComoSnapshot(pedidoCompraAlvo.orcamento)
-          }
-          cliente={
-            pedidoCompraAlvo.tipo === 'pedido'
-              ? getClienteVinculado(pedidoCompraAlvo.pedido)
-              : clientesById.get((pedidoCompraAlvo.orcamento as any).cliente_id) ?? null
-          }
+          snapshot={pedidoCompraAlvo.pedido.orcamento_snapshot || {}}
+          cliente={getClienteVinculado(pedidoCompraAlvo.pedido)}
           // O numero do Pedido de Compra e' o do orcamento que o originou.
-          numeroPedido={
-            pedidoCompraAlvo.tipo === 'pedido'
-              ? pedidoCompraAlvo.pedido.numero_pedido
-              : pedidoCompraAlvo.orcamento.numero_orcamento
-          }
+          numeroPedido={pedidoCompraAlvo.pedido.numero_pedido}
           onGerar={async ({ numeroContrato, numeroPedido, dados }) => {
             const cnpjContratante = (pedidoCompraAlvo.grupo.cnpj || '').replace(/\D/g, '');
-            // Vindo de um orcamento novo, o pedido ainda precisa ser criado.
-            const pedidoId =
-              pedidoCompraAlvo.tipo === 'pedido'
-                ? pedidoCompraAlvo.pedido.id
-                : (await createPedidoFromOrcamento(pedidoCompraAlvo.orcamento as any))?.id;
-            if (!pedidoId) return;
+            const pedidoId = pedidoCompraAlvo.pedido.id;
             await vincularPedidoCompra({
               id: pedidoId,
               numeroContrato,
@@ -1384,28 +1349,6 @@ const Pedidos = () => {
             }
           }}
           numeroContratoSugerido={contratoDoGrupo(pedidoCompraAlvo.grupo)}
-          onEditarOrcamento={
-            pedidoCompraAlvo.tipo === 'orcamento'
-              ? () => {
-                  const alvo = pedidoCompraAlvo;
-                  setPedidoCompraAlvo(null);
-                  setEditandoOrcamento({ orcamento: alvo.orcamento, grupo: alvo.grupo });
-                }
-              : undefined
-          }
-        />
-      )}
-
-      {editandoOrcamento && (
-        <GerarOrcamentoDialog
-          orcamentoExistente={editandoOrcamento.orcamento}
-          onClose={() => setEditandoOrcamento(null)}
-          onSuccess={(orcamentoSalvo) => {
-            const { orcamento, grupo } = editandoOrcamento;
-            setEditandoOrcamento(null);
-            // Reabre com a versao salva, senao o documento mostraria os produtos antigos.
-            setPedidoCompraAlvo({ tipo: 'orcamento', orcamento: orcamentoSalvo ?? orcamento, grupo });
-          }}
         />
       )}
 
@@ -1414,12 +1357,16 @@ const Pedidos = () => {
           rascunhoInicial={rascunhoRecompra.rascunho}
           onClose={() => setRascunhoRecompra(null)}
           onSuccess={(orcamentoCriado) => {
-            const grupo = rascunhoRecompra.grupo;
             setRascunhoRecompra(null);
             if (!orcamentoCriado) return;
-            toast.success('Orçamento de recompra criado. Agora monte o Pedido de Compra.');
-            // Emenda direto: o Pedido de Compra nasce do orcamento recem-gerado.
-            setPedidoCompraAlvo({ tipo: 'orcamento', orcamento: orcamentoCriado, grupo });
+            // Para aqui de proposito: o consultor envia o orcamento ao cliente e
+            // so' monta o Pedido de Compra depois da aprovacao. Exigir o
+            // documento antes obrigava a preencher embalagem e contrato de uma
+            // venda que talvez nem aconteca.
+            toast.success(
+              `Orçamento de recompra ${orcamentoCriado.numero_orcamento} criado. ` +
+                'Envie ao cliente; o Pedido de Compra vem depois da aprovação.',
+            );
           }}
         />
       )}
