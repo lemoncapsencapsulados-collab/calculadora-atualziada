@@ -1,156 +1,175 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Lê a fórmula de uma foto (rótulo, receita, print de planilha) e devolve os
+// insumos já separados em nome / quantidade / unidade.
+//
+// Antes isto passava pelo gateway da Lovable e devolvia TEXTO, que o front
+// quebrava de novo com expressão regular. Duas leituras do mesmo dado, e a
+// segunda errava em nome com número dentro ("Ômega 3", "Coenzima Q10"). Agora a
+// separação é feita uma vez só, por quem já está olhando a imagem, e chega
+// pronta — o front só confere.
+//
+// Nada aqui decide nada sozinho: a tela de conferência exige olho humano em
+// cada linha antes de importar.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.0';
+import { ErroIA, gerarJson } from '../_shared/anthropic.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const SYSTEM_PROMPT = `Você é um especialista em extrair ingredientes de fórmulas de suplementos e medicamentos.
+/** As mesmas unidades que a calculadora aceita; qualquer outra não teria onde entrar. */
+const UNIDADES = ['mcg', 'mg', 'g', 'kg', 'mL', 'L', 'UI', 'unidade'] as const;
 
-Analise a imagem fornecida e extraia TODOS os ingredientes/insumos com suas quantidades.
+const MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-Formato de saída (uma linha por ingrediente):
-NomeDoInsumo QuantidadeUnidade
+/** Teto da API da Anthropic por imagem, em bytes de base64. */
+const MAX_BASE64 = 5 * 1024 * 1024;
 
-Exemplo de saída:
-Vitamina C 500mg
-Zinco bisglicinato 15mg
-Colágeno hidrolisado 300mg
-D-Biotina 45mcg
+const SYSTEM = `Você lê fórmulas de suplementos em imagens (rótulos, tabelas nutricionais, receitas de manipulação, prints de planilha) e extrai a lista de matérias-primas.
 
-REGRAS IMPORTANTES:
-- Mantenha o nome completo do insumo como aparece na imagem
-- Inclua a quantidade e unidade (mg, mcg, g, UI, etc) SEM espaço entre número e unidade
-- Se houver informações entre parênteses no nome, mantenha-as
-- Retorne APENAS a lista de ingredientes, sem explicações, títulos ou comentários
-- Se não conseguir identificar ingredientes, retorne apenas: ERRO: Não foi possível identificar ingredientes na imagem
-- Cada ingrediente deve estar em uma linha separada`;
+Para cada ingrediente devolva:
+- nome: o nome da matéria-prima como está escrito na imagem, completo, incluindo forma química e o que estiver entre parênteses (ex.: "Zinco bisglicinato", "Vitamina D3 (colecalciferol)"). Não traduza, não abrevie, não corrija.
+- quantidade: só o número, por dose. Use ponto como separador decimal.
+- unidade: uma de ${UNIDADES.join(', ')}.
+
+REGRAS:
+- Extraia TODOS os ingredientes que tiverem quantidade, na ordem em que aparecem.
+- Se a imagem der a quantidade por porção de várias cápsulas, devolva o valor como está escrito e registre o aviso em "observacao".
+- Ignore excipientes sem quantidade, valores diários (%VD), texto de marketing e dados de contato.
+- Não invente ingrediente que não esteja na imagem, e não complete quantidade que você não conseguiu ler: nesse caso use 0 e diga em "observacao" quais linhas ficaram ilegíveis.
+- "unidade" fora da lista não existe: converta UI para UI, mcg/µg para mcg, ml para mL.
+- Se não houver nenhuma fórmula legível, devolva itens vazio e explique em "observacao".`;
+
+const SCHEMA = {
+  type: 'object',
+  properties: {
+    itens: {
+      type: 'array',
+      description: 'Matérias-primas encontradas, na ordem da imagem.',
+      items: {
+        type: 'object',
+        properties: {
+          nome: { type: 'string', description: 'Nome como está escrito na imagem.' },
+          quantidade: { type: 'number', description: 'Quantidade por dose; 0 se ilegível.' },
+          unidade: { type: 'string', enum: UNIDADES as unknown as string[] },
+        },
+      },
+    },
+    observacao: {
+      type: 'string',
+      description: 'O que ficou duvidoso na leitura. Vazio quando não há ressalva.',
+    },
+  },
+};
+
+interface Extracao {
+  itens: { nome: string; quantidade: number; unidade: string }[];
+  observacao: string;
+}
+
+const json = (corpo: unknown, status = 200) =>
+  new Response(JSON.stringify(corpo), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
+/** O front manda o mime; a assinatura do base64 é a conferência. */
+function mimeDaImagem(base64: string, informado?: string): string {
+  if (base64.startsWith('/9j/')) return 'image/jpeg';
+  if (base64.startsWith('iVBOR')) return 'image/png';
+  if (base64.startsWith('UklGR')) return 'image/webp';
+  if (base64.startsWith('R0lGOD')) return 'image/gif';
+  return informado && MIMES.includes(informado) ? informado : 'image/jpeg';
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    // Validate JWT
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ success: false, error: 'Não autorizado' }, 401);
     }
-    const anonClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(authHeader.replace('Bearer ', ''));
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const anon = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+    );
+    const { data: claims, error: erroClaims } = await anon.auth.getClaims(
+      authHeader.replace('Bearer ', ''),
+    );
+    // Só JWT de usuário logado. A chave publicável também é um JWT válido e
+    // está no bundle que qualquer um baixa: aceitar "token válido" deixaria
+    // esta função aberta para estranhos gastarem crédito de IA.
+    const papel = (claims?.claims as { role?: string; sub?: string } | undefined);
+    if (erroClaims || papel?.role !== 'authenticated' || !papel?.sub) {
+      return json({ success: false, error: 'Não autorizado' }, 401);
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
-      return new Response(
-        JSON.stringify({ success: false, error: "API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    const { image, mime } = await req.json();
+    if (typeof image !== 'string' || !image) {
+      return json({ success: false, error: 'Nenhuma imagem recebida' }, 400);
+    }
+    if (image.length > MAX_BASE64) {
+      return json(
+        { success: false, error: 'Imagem grande demais. Tire a foto mais de perto ou reduza o arquivo.' },
+        413,
       );
     }
 
-    const { image } = await req.json();
-    
-    if (!image) {
-      return new Response(
-        JSON.stringify({ success: false, error: "No image provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("Processing image, length:", image.length);
-
-    // Detect image type from base64 header or default to jpeg
-    let mimeType = "image/jpeg";
-    if (image.startsWith("/9j/")) {
-      mimeType = "image/jpeg";
-    } else if (image.startsWith("iVBOR")) {
-      mimeType = "image/png";
-    } else if (image.startsWith("UklGR")) {
-      mimeType = "image/webp";
-    }
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { 
-            role: "user", 
-            content: [
-              { type: "text", text: "Extraia os insumos e quantidades desta imagem de fórmula/suplemento:" },
-              { 
-                type: "image_url", 
-                image_url: { 
-                  url: `data:${mimeType};base64,${image}` 
-                } 
-              }
-            ]
-          }
-        ],
-        max_tokens: 2000,
-      }),
+    const { dados, uso } = await gerarJson<Extracao>({
+      system: SYSTEM,
+      partes: [
+        { imagem: { base64: image, midia: mimeDaImagem(image, mime) } },
+        { text: 'Extraia as matérias-primas e as quantidades por dose desta fórmula.' },
+      ],
+      schema: SCHEMA,
+      // Ler rótulo torto, escrito à mão ou fotografado de lado pede mais
+      // raciocínio do que classificar conversa — aqui errar custa fórmula errada.
+      esforco: 'high',
+      maxTokens: 4000,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Muitas requisições. Aguarde um momento e tente novamente." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Créditos insuficientes. Entre em contato com o suporte." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ success: false, error: "Erro ao processar imagem com IA" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Filtra o que não tem como virar linha da calculadora, mas mantém o que a
+    // IA marcou como ilegível (quantidade 0): quem confere precisa VER a linha
+    // faltando, não descobrir depois que ela sumiu.
+    const itens = (dados.itens || [])
+      .filter((i) => i && typeof i.nome === 'string' && i.nome.trim())
+      .map((i) => ({
+        nome: i.nome.trim(),
+        quantidade: Number.isFinite(i.quantidade) ? i.quantidade : 0,
+        unidade: UNIDADES.includes(i.unidade as typeof UNIDADES[number]) ? i.unidade : 'mg',
+      }));
 
-    const data = await response.json();
-    console.log("AI response received");
-    
-    const texto = data.choices?.[0]?.message?.content || "";
-    
-    if (texto.startsWith("ERRO:")) {
-      return new Response(
-        JSON.stringify({ success: false, error: texto.replace("ERRO:", "").trim() }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("Extracted text:", texto.substring(0, 200) + "...");
-
-    return new Response(
-      JSON.stringify({ success: true, texto }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    console.log(
+      `extracao: ${itens.length} itens, tokens ${uso.entrada}/${uso.saida}` +
+        (dados.observacao ? ` | ${dados.observacao}` : ''),
     );
 
-  } catch (error) {
-    console.error("Error processing request:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    return json({
+      success: true,
+      itens,
+      observacao: dados.observacao || '',
+      // Texto para o caso de alguém querer conferir a leitura crua.
+      texto: itens.map((i) => `${i.nome} ${i.quantidade}${i.unidade}`).join('\n'),
+    });
+  } catch (e) {
+    if (e instanceof ErroIA) {
+      console.error('erro da IA:', e.message);
+      const mensagem =
+        e.status === 429
+          ? 'Muitas leituras ao mesmo tempo. Espere alguns segundos e tente de novo.'
+          : e.status === 401
+            ? 'Chave da IA inválida ou sem crédito. Avise o administrador.'
+            : `Não foi possível ler a imagem: ${e.message}`;
+      return json({ success: false, error: mensagem }, e.status >= 400 ? e.status : 500);
+    }
+    console.error('erro inesperado:', e);
+    return json(
+      { success: false, error: e instanceof Error ? e.message : 'Erro desconhecido' },
+      500,
     );
   }
 });

@@ -1,5 +1,18 @@
-import { useState, useMemo, useRef } from 'react';
-import { ClipboardPaste, Check, AlertTriangle, Trash2, Image as ImageIcon, Loader2, X, ShieldAlert } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  ClipboardPaste,
+  Image as ImageIcon,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,518 +22,633 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import { Insumo, UnitType } from '@/types/formula';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-interface ParsedItem {
-  nomeOriginal: string;
-  nomeEncontrado?: string;
+/** O que sai daqui para a calculadora. */
+export interface DoseImportada {
+  insumoNome: string;
   quantidade: number;
-  unidade: string;
-  encontrado: boolean;
-  insumoMatch?: Insumo;
+  unidade: UnitType;
 }
 
-interface ImportarDoseDialogProps {
+const UNIDADES: UnitType[] = ['mcg', 'mg', 'g', 'kg', 'mL', 'L', 'UI', 'unidade'];
+
+const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp'];
+
+/**
+ * Lado maior da imagem enviada à IA. Acima disso não se ganha leitura: a
+ * própria API reduz, e o que sobra é upload lento de foto de celular.
+ */
+const LADO_MAXIMO = 1600;
+
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   insumos: Insumo[];
-  onImport: (items: ParsedItem[]) => void;
+  onImport: (itens: DoseImportada[]) => void;
 }
 
-// Normaliza texto removendo acentos e caracteres especiais
+/** Uma linha da conferência: o que a IA leu, e o que o consultor decidiu. */
+interface Linha {
+  id: string;
+  /** Texto original da leitura, guardado para comparar com a imagem. */
+  lido: string;
+  /** Matéria-prima do inventário. Vazio enquanto ninguém escolheu. */
+  insumoNome: string;
+  quantidade: string;
+  unidade: UnitType;
+}
+
+// ---------------------------------------------------------------------------
+// Casamento com o inventário
+// ---------------------------------------------------------------------------
+
 function normalizarTexto(texto: string): string {
   return texto
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[̀-ͯ]/g, '')
     .replace(/[()®™–—\-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Busca flexível de insumos no banco
+/**
+ * Acha a matéria-prima no inventário a partir do nome lido na imagem.
+ *
+ * A busca vai afrouxando: igual, contido, contém, palavra principal. Ela erra
+ * para o lado de sugerir — é a tela de conferência que decide, e sugerir algo
+ * errado que a pessoa vê e troca custa menos que não sugerir nada.
+ */
 function buscarInsumo(nome: string, insumos: Insumo[]): Insumo | undefined {
-  const nomeNormalizado = normalizarTexto(nome);
-  
-  // 1. Busca exata (normalizada)
-  let match = insumos.find(i => 
-    normalizarTexto(i.nome) === nomeNormalizado
-  );
+  const alvo = normalizarTexto(nome);
+  if (!alvo) return undefined;
+
+  let match = insumos.find((i) => normalizarTexto(i.nome) === alvo);
   if (match) return match;
-  
-  // 2. Nome do banco contém o nome buscado
-  match = insumos.find(i => 
-    normalizarTexto(i.nome).includes(nomeNormalizado)
-  );
+
+  match = insumos.find((i) => normalizarTexto(i.nome).includes(alvo));
   if (match) return match;
-  
-  // 3. Nome buscado contém o nome do banco
-  match = insumos.find(i => 
-    nomeNormalizado.includes(normalizarTexto(i.nome))
-  );
+
+  match = insumos.find((i) => alvo.includes(normalizarTexto(i.nome)));
   if (match) return match;
-  
-  // 4. Busca por palavras principais (>3 caracteres)
-  const palavras = nomeNormalizado.split(' ').filter(p => p.length > 3);
+
+  const palavras = alvo.split(' ').filter((p) => p.length > 3);
   for (const palavra of palavras) {
-    match = insumos.find(i => 
-      normalizarTexto(i.nome).includes(palavra)
+    match = insumos.find((i) => normalizarTexto(i.nome).includes(palavra));
+    if (match) return match;
+  }
+
+  // Vitamina é o caso em que o nome do rótulo e o do inventário mais divergem:
+  // "Vitamina D3 (colecalciferol)" contra "Vit D3".
+  const vitamina = nome.match(/vitamina\s*([a-zA-Z]\d*)/i);
+  if (vitamina) {
+    const tipo = vitamina[1].toLowerCase();
+    match = insumos.find(
+      (i) =>
+        normalizarTexto(i.nome).includes(`vitamina ${tipo}`) ||
+        normalizarTexto(i.nome).includes(`vit ${tipo}`),
     );
     if (match) return match;
   }
-  
-  // 5. Busca específica para vitaminas/minerais
-  const vitaminaMatch = nome.match(/vitamina\s*([a-zA-Z]\d*)/i);
-  if (vitaminaMatch) {
-    const vitaminaTipo = vitaminaMatch[1].toUpperCase();
-    match = insumos.find(i => 
-      normalizarTexto(i.nome).includes(`vitamina ${vitaminaTipo.toLowerCase()}`) ||
-      normalizarTexto(i.nome).includes(`vit ${vitaminaTipo.toLowerCase()}`)
-    );
-    if (match) return match;
-  }
-  
+
   return undefined;
 }
 
-// Função de parsing inteligente que lida com texto contínuo ou com quebras de linha
-function parseTextoInsumos(texto: string, insumos: Insumo[]): ParsedItem[] {
+// ---------------------------------------------------------------------------
+// Texto colado
+// ---------------------------------------------------------------------------
+
+/** Quebra "Vitamina C 500mg Zinco 15 mg" em itens. Só para o texto colado. */
+function parseTextoInsumos(texto: string): { nome: string; quantidade: number; unidade: UnitType }[] {
   if (!texto.trim()) return [];
-  
-  // Regex para encontrar quantidade + unidade
+
   const regex = /(\d+(?:[.,]\d+)?)\s*(mcg|mg|g|kg|mL|L|UI|unidade|un)\b/gi;
   const matches = [...texto.matchAll(regex)];
-  
-  if (matches.length === 0) return [];
-  
-  const resultados: ParsedItem[] = [];
+  const resultados: { nome: string; quantidade: number; unidade: UnitType }[] = [];
   let ultimaPosicao = 0;
-  
-  for (let i = 0; i < matches.length; i++) {
-    const match = matches[i];
-    const posicaoMatch = match.index!;
-    
-    // Texto entre a última posição e esta quantidade = nome do insumo
-    let nomeInsumo = texto.substring(ultimaPosicao, posicaoMatch).trim();
-    
-    // Limpar caracteres especiais do início e fim
-    nomeInsumo = nomeInsumo
+
+  for (const match of matches) {
+    const posicao = match.index!;
+    const nome = texto
+      .substring(ultimaPosicao, posicao)
       .replace(/^[-–—:,;\s]+/, '')
       .replace(/[-–—:,;\s]+$/, '')
       .trim();
-    
-    if (nomeInsumo) {
-      const quantidadeStr = match[1].replace(',', '.');
-      const quantidade = parseFloat(quantidadeStr);
-      const unidade = match[2].toLowerCase();
-      
-      // Normalizar unidade para o tipo esperado
-      let unidadeNormalizada: string = unidade;
-      if (unidade === 'un' || unidade === 'unidade') {
-        unidadeNormalizada = 'unidade';
-      }
-      
-      // Buscar no banco
-      const insumoMatch = buscarInsumo(nomeInsumo, insumos);
-      
+
+    if (nome) {
+      const bruta = match[2].toLowerCase();
+      const unidade = (bruta === 'un' || bruta === 'unidade'
+        ? 'unidade'
+        : UNIDADES.find((u) => u.toLowerCase() === bruta) || 'mg') as UnitType;
       resultados.push({
-        nomeOriginal: nomeInsumo,
-        nomeEncontrado: insumoMatch?.nome,
-        quantidade,
-        unidade: unidadeNormalizada,
-        encontrado: !!insumoMatch,
-        insumoMatch
+        nome,
+        quantidade: parseFloat(match[1].replace(',', '.')),
+        unidade,
       });
     }
-    
-    // Atualizar posição para após "quantidade unidade"
-    ultimaPosicao = posicaoMatch + match[0].length;
+    ultimaPosicao = posicao + match[0].length;
   }
-  
+
   return resultados;
 }
 
-// Converte arquivo para base64 (sem o prefixo data:...)
-async function fileToBase64(file: File): Promise<string> {
+// ---------------------------------------------------------------------------
+// Imagem
+// ---------------------------------------------------------------------------
+
+/**
+ * Reduz a foto antes de subir. Foto de celular chega com 4000px e 6 MB, passa
+ * do limite da API e demora no 4G do consultor — e nada disso melhora a leitura
+ * de um rótulo.
+ */
+function reduzirImagem(file: File): Promise<{ base64: string; mime: string; dataUrl: string }> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      // Remove o prefixo "data:image/...;base64,"
-      const base64 = result.split(',')[1];
-      resolve(base64);
+    const leitor = new FileReader();
+    leitor.onerror = () => reject(new Error('Não foi possível ler o arquivo'));
+    leitor.onload = () => {
+      const dataUrlOriginal = leitor.result as string;
+      const img = new Image();
+      img.onerror = () => reject(new Error('Arquivo não é uma imagem válida'));
+      img.onload = () => {
+        const maior = Math.max(img.width, img.height);
+        const escala = maior > LADO_MAXIMO ? LADO_MAXIMO / maior : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          // Sem canvas (navegador antigo, modo restrito) manda como veio.
+          resolve({
+            base64: dataUrlOriginal.split(',')[1],
+            mime: file.type,
+            dataUrl: dataUrlOriginal,
+          });
+          return;
+        }
+        // Fundo branco: PNG com transparência viraria preto no JPEG.
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        resolve({ base64: dataUrl.split(',')[1], mime: 'image/jpeg', dataUrl });
+      };
+      img.src = dataUrlOriginal;
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    leitor.readAsDataURL(file);
   });
 }
 
-export default function ImportarDoseDialog({
-  open,
-  onOpenChange,
-  insumos,
-  onImport
-}: ImportarDoseDialogProps) {
-  const [texto, setTexto] = useState('');
-  const [imagemPreview, setImagemPreview] = useState<string | null>(null);
-  const [processandoImagem, setProcessandoImagem] = useState(false);
-  const [erroImagem, setErroImagem] = useState<string | null>(null);
-  const [showConfirmacao, setShowConfirmacao] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Parse em tempo real
-  const parsedItems = useMemo(() => {
-    return parseTextoInsumos(texto, insumos);
-  }, [texto, insumos]);
-  
-  const itensEncontrados = parsedItems.filter(i => i.encontrado);
-  const itensNaoEncontrados = parsedItems.filter(i => !i.encontrado);
+// ---------------------------------------------------------------------------
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+let contador = 0;
+const novoId = () => `linha-${Date.now()}-${contador++}`;
+
+/** Monta as linhas da conferência já com o palpite do inventário. */
+function montarLinhas(
+  itens: { nome: string; quantidade: number; unidade: UnitType }[],
+  insumos: Insumo[],
+): Linha[] {
+  return itens.map((item) => {
+    const encontrado = buscarInsumo(item.nome, insumos);
+    return {
+      id: novoId(),
+      lido: item.nome,
+      insumoNome: encontrado?.nome || '',
+      quantidade: item.quantidade ? String(item.quantidade) : '',
+      unidade: item.unidade,
+    };
+  });
+}
+
+export default function ImportarDoseDialog({ open, onOpenChange, insumos, onImport }: Props) {
+  const [etapa, setEtapa] = useState<'entrada' | 'conferencia'>('entrada');
+  const [texto, setTexto] = useState('');
+  const [imagem, setImagem] = useState<string | null>(null);
+  const [imagemAmpliada, setImagemAmpliada] = useState(false);
+  const [lendo, setLendo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [observacaoIA, setObservacaoIA] = useState('');
+  const [linhas, setLinhas] = useState<Linha[]>([]);
+  const inputArquivo = useRef<HTMLInputElement>(null);
+
+  // Fechar e reabrir tem que começar do zero: conferência velha em imagem nova
+  // é o jeito mais fácil de importar a fórmula do cliente errado.
+  useEffect(() => {
+    if (!open) return;
+    setEtapa('entrada');
+    setTexto('');
+    setImagem(null);
+    setImagemAmpliada(false);
+    setErro(null);
+    setObservacaoIA('');
+    setLinhas([]);
+  }, [open]);
+
+  const prontas = useMemo(
+    () => linhas.filter((l) => l.insumoNome.trim() && Number(l.quantidade) > 0),
+    [linhas],
+  );
+  const pendentes = linhas.length - prontas.length;
+
+  const atualizar = (id: string, campo: keyof Linha, valor: string) =>
+    setLinhas((atual) => atual.map((l) => (l.id === id ? { ...l, [campo]: valor } : l)));
+
+  const remover = (id: string) => setLinhas((atual) => atual.filter((l) => l.id !== id));
+
+  const adicionarLinha = () =>
+    setLinhas((atual) => [
+      ...atual,
+      { id: novoId(), lido: '', insumoNome: '', quantidade: '', unidade: 'mg' },
+    ]);
+
+  const lerImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (inputArquivo.current) inputArquivo.current.value = '';
 
-    // Validar tamanho (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Imagem muito grande. Máximo: 10MB');
-      return;
-    }
-
-    // Validar tipo
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    if (!TIPOS_ACEITOS.includes(file.type)) {
       toast.error('Formato não suportado. Use JPEG, PNG ou WebP.');
       return;
     }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo: 20MB.');
+      return;
+    }
 
-    // Mostrar preview
-    const reader = new FileReader();
-    reader.onload = (e) => setImagemPreview(e.target?.result as string);
-    reader.readAsDataURL(file);
-
-    // Enviar para edge function
-    setProcessandoImagem(true);
-    setErroImagem(null);
-
+    setLendo(true);
+    setErro(null);
     try {
-      const base64 = await fileToBase64(file);
-      
-      console.log('Sending image to edge function, size:', base64.length);
-      
+      const { base64, mime, dataUrl } = await reduzirImagem(file);
+      setImagem(dataUrl);
+
       const { data, error } = await supabase.functions.invoke('extract-dose-from-image', {
-        body: { image: base64 }
+        body: { image: base64, mime },
       });
+      if (error) throw new Error(error.message || 'Falha ao chamar a leitura');
+      if (!data?.success) throw new Error(data?.error || 'Não foi possível ler a imagem');
 
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Erro ao processar imagem');
+      const itens: { nome: string; quantidade: number; unidade: UnitType }[] = data.itens || [];
+      if (itens.length === 0) {
+        setErro(
+          data.observacao ||
+            'Nenhuma matéria-prima foi encontrada na imagem. Tente uma foto mais nítida ou cole o texto.',
+        );
+        return;
       }
-      
-      if (!data?.success) {
-        throw new Error(data?.error || 'Erro ao extrair texto da imagem');
-      }
-      
-      // Usar o texto extraído no campo de texto existente
-      setTexto(data.texto);
-      toast.success('Imagem processada com sucesso!');
-      
-    } catch (error) {
-      console.error('Error processing image:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar imagem';
-      setErroImagem(errorMessage);
-      toast.error(errorMessage);
+
+      setObservacaoIA(data.observacao || '');
+      setTexto(data.texto || '');
+      setLinhas(montarLinhas(itens, insumos));
+      setEtapa('conferencia');
+    } catch (err) {
+      const mensagem = err instanceof Error ? err.message : 'Erro ao processar imagem';
+      setErro(mensagem);
+      toast.error(mensagem);
     } finally {
-      setProcessandoImagem(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setLendo(false);
     }
   };
 
-  const handleRemoveImage = () => {
-    setImagemPreview(null);
-    setTexto('');
-    setErroImagem(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const conferirTexto = () => {
+    const itens = parseTextoInsumos(texto);
+    if (itens.length === 0) {
+      setErro('Não reconheci nenhuma quantidade no texto. Confira o formato: "Vitamina C 500mg".');
+      return;
     }
-  };
-  
-  const handleImport = () => {
-    if (parsedItems.length > 0) {
-      setShowConfirmacao(true);
-    }
+    setErro(null);
+    setObservacaoIA('');
+    setLinhas(montarLinhas(itens, insumos));
+    setEtapa('conferencia');
   };
 
-  const handleConfirmarImport = () => {
-    onImport(parsedItems);
-    setShowConfirmacao(false);
-    handleClear();
+  const importar = () => {
+    onImport(
+      prontas.map((l) => ({
+        insumoNome: l.insumoNome,
+        quantidade: Number(l.quantidade),
+        unidade: l.unidade,
+      })),
+    );
     onOpenChange(false);
   };
-  
-  const handleClear = () => {
-    setTexto('');
-    setImagemPreview(null);
-    setErroImagem(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-  
-  const handleClose = () => {
-    handleClear();
-    onOpenChange(false);
-  };
-  
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardPaste className="h-5 w-5 text-primary" />
-            Importar Dose Copiada
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl h-[90vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            {etapa === 'entrada' ? (
+              <>
+                <ClipboardPaste className="h-5 w-5 text-primary" />
+                Importar dose
+              </>
+            ) : (
+              <>
+                <Check className="h-5 w-5 text-primary" />
+                Conferir a fórmula
+              </>
+            )}
           </DialogTitle>
-          <DialogDescription>
-            Cole o texto ou anexe uma imagem com as matérias-primas e quantidades.
+          <DialogDescription className="text-xs sm:text-sm">
+            {etapa === 'entrada'
+              ? 'Envie a foto da fórmula ou cole a lista. A leitura vai para uma tela de conferência antes de entrar na calculadora.'
+              : 'Compare linha por linha com a imagem. Nada entra na calculadora sem passar por aqui.'}
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4 flex-1 overflow-hidden">
-          {/* Botão de upload de imagem */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={processandoImagem}
-            >
-              <ImageIcon className="h-4 w-4 mr-2" />
-              Anexar Imagem
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-            <span className="text-xs text-muted-foreground self-center">
-              JPEG, PNG ou WebP (máx. 10MB)
-            </span>
-          </div>
 
-          {/* Preview da imagem */}
-          {imagemPreview && (
-            <div className="relative inline-block">
-              <img 
-                src={imagemPreview} 
-                alt="Preview da imagem" 
-                className="max-h-32 rounded-md border object-contain"
-              />
-              <Button
-                size="icon"
-                variant="destructive"
-                className="absolute -top-2 -right-2 h-6 w-6"
-                onClick={handleRemoveImage}
-                disabled={processandoImagem}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
-
-          {/* Indicador de processamento */}
-          {processandoImagem && (
-            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
-              <span className="text-sm text-blue-800 dark:text-blue-200">
-                Processando imagem com IA...
-              </span>
-            </div>
-          )}
-
-          {/* Erro de imagem */}
-          {erroImagem && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm text-red-800 dark:text-red-200">
-                {erroImagem}
-              </span>
-            </div>
-          )}
-
-          {/* Separador */}
-          {imagemPreview && (
-            <div className="flex items-center gap-3">
-              <div className="flex-1 border-t border-muted" />
-              <span className="text-xs text-muted-foreground">OU cole o texto abaixo</span>
-              <div className="flex-1 border-t border-muted" />
-            </div>
-          )}
-
-          {/* Instruções */}
-          {!imagemPreview && (
-            <div className="p-3 bg-muted rounded-lg text-sm">
-              <p className="font-medium mb-1">Formatos aceitos:</p>
-              <ul className="text-muted-foreground space-y-1 text-xs">
-                <li>• Vitamina C 500mg</li>
-                <li>• Zinco bisglicinato - 15 mg</li>
-                <li>• Colágeno hidrolisado (peptídeos) 300 mg Vitamina B6 5 mg...</li>
-              </ul>
-            </div>
-          )}
-          
-          {/* Área de texto */}
-          <Textarea
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            placeholder="Cole aqui a lista de matérias-primas e quantidades..."
-            className="min-h-[100px] font-mono text-sm"
-            disabled={processandoImagem}
-          />
-          
-          {/* Prévia dos itens reconhecidos */}
-          {parsedItems.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">
-                  Prévia: {parsedItems.length} matéria{parsedItems.length !== 1 ? 's' : ''}-prima{parsedItems.length !== 1 ? 's' : ''} reconhecida{parsedItems.length !== 1 ? 's' : ''}
-                </p>
-                <div className="flex gap-2">
-                  {itensEncontrados.length > 0 && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                      <Check className="h-3 w-3 mr-1" />
-                      {itensEncontrados.length} encontrado{itensEncontrados.length !== 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                  {itensNaoEncontrados.length > 0 && (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      {itensNaoEncontrados.length} não encontrado{itensNaoEncontrados.length !== 1 ? 's' : ''}
-                    </Badge>
-                  )}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {etapa === 'entrada' && (
+            <>
+              <div className="rounded-lg border border-dashed p-6 text-center space-y-3">
+                <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground" />
+                <div>
+                  <Button
+                    type="button"
+                    onClick={() => inputArquivo.current?.click()}
+                    disabled={lendo}
+                  >
+                    {lendo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Lendo a imagem…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Enviar foto da fórmula
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Rótulo, tabela nutricional, receita ou print. JPEG, PNG ou WebP.
+                  </p>
                 </div>
+                <input
+                  ref={inputArquivo}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  capture="environment"
+                  className="hidden"
+                  onChange={lerImagem}
+                />
               </div>
-              
-              <ScrollArea className="h-[180px] border rounded-md p-3">
+
+              {imagem && !lendo && (
+                <div className="relative inline-block">
+                  <img
+                    src={imagem}
+                    alt="Fórmula enviada"
+                    className="max-h-32 rounded-md border object-contain"
+                  />
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={() => setImagem(null)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+
+              {erro && (
+                <div className="flex items-start gap-2 p-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+                  <span className="text-sm text-red-800 dark:text-red-200">{erro}</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 border-t" />
+                <span className="text-xs text-muted-foreground">ou cole a lista</span>
+                <div className="flex-1 border-t" />
+              </div>
+
+              <div className="space-y-2">
+                <Textarea
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
+                  placeholder={'Vitamina C 500mg\nZinco bisglicinato 15 mg\nColágeno hidrolisado 300mg'}
+                  className="min-h-[110px] font-mono text-sm"
+                  disabled={lendo}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={conferirTexto}
+                  disabled={!texto.trim() || lendo}
+                >
+                  Conferir texto colado
+                </Button>
+              </div>
+            </>
+          )}
+
+          {etapa === 'conferencia' && (
+            <>
+              <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm text-amber-900 dark:text-amber-100">
+                  A leitura automática erra. <span className="font-bold">Confira uma a uma</span> —
+                  nome, quantidade e unidade — antes de importar.
+                </p>
+              </div>
+
+              {observacaoIA && (
+                <p className="text-xs text-muted-foreground border-l-2 border-muted pl-3">
+                  Ressalva da leitura: {observacaoIA}
+                </p>
+              )}
+
+              {imagem && (
                 <div className="space-y-2">
-                  {parsedItems.map((item, index) => (
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Imagem enviada</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setImagemAmpliada((v) => !v)}
+                    >
+                      {imagemAmpliada ? (
+                        <>
+                          <Minimize2 className="h-3 w-3 mr-1" /> Reduzir
+                        </>
+                      ) : (
+                        <>
+                          <Maximize2 className="h-3 w-3 mr-1" /> Ampliar
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <img
+                    src={imagem}
+                    alt="Fórmula enviada"
+                    className={`w-full rounded-md border object-contain bg-muted/30 ${
+                      imagemAmpliada ? 'max-h-[60vh]' : 'max-h-40'
+                    }`}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {linhas.map((linha, indice) => {
+                  const semInsumo = !linha.insumoNome.trim();
+                  const semQuantidade = !(Number(linha.quantidade) > 0);
+                  const diferente =
+                    linha.lido &&
+                    linha.insumoNome &&
+                    normalizarTexto(linha.lido) !== normalizarTexto(linha.insumoNome);
+
+                  return (
                     <div
-                      key={index}
-                      className={`flex items-center justify-between p-2 rounded-md text-sm ${
-                        item.encontrado 
-                          ? 'bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800' 
-                          : 'bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800'
+                      key={linha.id}
+                      className={`rounded-lg border p-3 space-y-2 ${
+                        semInsumo || semQuantidade
+                          ? 'border-amber-300 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20'
+                          : 'bg-card'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        {item.encontrado ? (
-                          <Check className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                        ) : (
-                          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <p className={`font-medium truncate ${item.encontrado ? 'text-green-900 dark:text-green-100' : 'text-yellow-900 dark:text-yellow-100'}`}>
-                            {item.encontrado ? item.nomeEncontrado : item.nomeOriginal}
-                          </p>
-                          {item.encontrado && item.nomeOriginal !== item.nomeEncontrado && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              Original: {item.nomeOriginal}
-                            </p>
-                          )}
-                          {!item.encontrado && (
-                            <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                              Não encontrado no inventário
-                            </p>
-                          )}
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground font-mono mt-2.5 w-5 shrink-0">
+                          {indice + 1}
+                        </span>
+
+                        <div className="flex-1 min-w-0 grid gap-2 sm:grid-cols-[1fr_7rem_7rem]">
+                          <div className="space-y-1 min-w-0">
+                            <Label className="text-xs sm:hidden">Matéria-prima</Label>
+                            <InsumoAutocomplete
+                              insumos={insumos}
+                              value={linha.insumoNome}
+                              onSelect={(insumo) => atualizar(linha.id, 'insumoNome', insumo.nome)}
+                              placeholder={semInsumo ? 'Escolher matéria-prima…' : undefined}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs sm:hidden">Quantidade</Label>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              step="any"
+                              min="0"
+                              value={linha.quantidade}
+                              placeholder="0"
+                              onChange={(e) => atualizar(linha.id, 'quantidade', e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs sm:hidden">Unidade</Label>
+                            <Select
+                              value={linha.unidade}
+                              onValueChange={(v) => atualizar(linha.id, 'unidade', v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {UNIDADES.map((u) => (
+                                  <SelectItem key={u} value={u}>
+                                    {u}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                          title="Remover esta linha"
+                          onClick={() => remover(linha.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Badge variant="outline" className="ml-2 flex-shrink-0">
-                        {item.quantidade} {item.unidade}
-                      </Badge>
+
+                      {linha.lido && (diferente || semInsumo) && (
+                        <p className="text-xs text-muted-foreground pl-7">
+                          Lido na imagem: <span className="font-medium">{linha.lido}</span>
+                          {semInsumo && (
+                            <span className="text-amber-700 dark:text-amber-400">
+                              {' '}
+                              — sem correspondente no inventário, escolha um ou remova a linha.
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {!semInsumo && semQuantidade && (
+                        <p className="text-xs text-amber-700 dark:text-amber-400 pl-7">
+                          Quantidade não foi lida. Preencha olhando a imagem.
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
+                  );
+                })}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-dashed"
+                  onClick={adicionarLinha}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar matéria-prima que faltou
+                </Button>
+              </div>
+            </>
           )}
         </div>
-        
-        <DialogFooter className="flex gap-2 sm:gap-2">
-          {(texto || imagemPreview) && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClear}
-              className="mr-auto"
-              disabled={processandoImagem}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Limpar
+
+        <DialogFooter className="p-4 sm:p-6 pt-3 sm:pt-4 border-t flex-col-reverse sm:flex-row gap-2 sm:justify-between">
+          {etapa === 'conferencia' ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEtapa('entrada')}
+                className="sm:mr-auto"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {pendentes > 0 && (
+                  <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {pendentes} por conferir
+                  </Badge>
+                )}
+                <Button type="button" onClick={importar} disabled={prontas.length === 0}>
+                  <Check className="h-4 w-4 mr-2" />
+                  Importar {prontas.length} {prontas.length === 1 ? 'item' : 'itens'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="sm:ml-auto">
+              Cancelar
             </Button>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleClose}
-            disabled={processandoImagem}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            onClick={handleImport}
-            disabled={parsedItems.length === 0 || processandoImagem}
-          >
-            <ClipboardPaste className="h-4 w-4 mr-2" />
-            IMPORTAR DOSE
-          </Button>
         </DialogFooter>
       </DialogContent>
-
-      {/* Popup de confirmação */}
-      <AlertDialog open={showConfirmacao} onOpenChange={setShowConfirmacao}>
-        <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader className="flex flex-col items-center text-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-orange-200 dark:shadow-orange-900/30">
-              <ShieldAlert className="h-8 w-8 text-white" />
-            </div>
-            <AlertDialogTitle className="text-2xl font-bold tracking-tight">
-              ATENÇÃO
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-base leading-relaxed">
-              Os preços, insumos e suas quantidades podem estar errados,{' '}
-              <span className="font-bold text-orange-600 dark:text-orange-400">
-                CONFIRA UM A UM ANTES SEMPRE.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-2 sm:justify-center">
-            <AlertDialogAction
-              onClick={handleConfirmarImport}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-8 py-3 text-base shadow-md"
-            >
-              VOU CONFERIR
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Dialog>
   );
 }
