@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { AlertTriangle, ChevronDown, Download, FileSignature, Pencil, Plus, Save, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Download, FileSignature, Plus, Save, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -51,8 +51,6 @@ interface Props {
     numeroPedido: string;
     dados: DadosPedidoCompra;
   }) => Promise<void> | void;
-  /** Abre o gerador de orçamento; sem isso o botão de editar não aparece. */
-  onEditarOrcamento?: () => void;
   /**
    * Preenchimento já salvo. Quando existe, manda sobre o autopreenchimento --
    * o que o consultor digitou vale mais que o que dá para deduzir.
@@ -240,7 +238,6 @@ export default function PedidoDeCompraDialog({
   cliente,
   numeroPedido,
   onGerar,
-  onEditarOrcamento,
   numeroContratoSugerido,
   dadosSalvos,
   contratoSalvo,
@@ -569,17 +566,10 @@ export default function PedidoDeCompraDialog({
                 <span className="text-sm font-semibold">{formatCurrency(totalProdutos)}</span>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <p className="text-[11px] text-muted-foreground">
-                Vem do orçamento vinculado. Para trocar produto, preço unitário, quantidade de potes
-                ou margem, edite o orçamento.
-              </p>
-              {onEditarOrcamento && (
-                <Button variant="outline" size="sm" onClick={onEditarOrcamento}>
-                  <Pencil className="h-4 w-4 mr-1" /> Editar no orçamento
-                </Button>
-              )}
-            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Vem do orçamento vinculado. Para trocar produto, preço unitário, quantidade de potes
+              ou margem, edite o orçamento.
+            </p>
           </Secao>
 
           <Secao titulo="3. Condições comerciais">
