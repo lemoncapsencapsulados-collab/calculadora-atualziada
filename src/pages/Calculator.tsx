@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Save, X, Package, Box, Scale, Pill, Wheat, AlertTriangle, Info } from 'lucide-react';
+import { Plus, Trash2, Save, X, Package, Box, Scale, Pill, Wheat, AlertTriangle, Info, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import EmbalagensHierarchy from '@/components/EmbalagensHierarchy';
+import ImportarDoseDialog, { type DoseImportada } from '@/components/ImportarDoseDialog';
 import { useInsumos } from '@/hooks/useInsumos';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { useFormulas } from '@/hooks/useFormulas';
@@ -51,6 +52,7 @@ export default function Calculator() {
   const [qtdCapsulas, setQtdCapsulas] = useState<string>('60');
   const [unidadesPorDose, setUnidadesPorDose] = useState<string>('2');
   const [unidadeSoluvel, setUnidadeSoluvel] = useState<'mg' | 'g'>('mg'); // Unidade de medida para produtos Solúveis
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const {
     insumos,
@@ -493,7 +495,24 @@ export default function Calculator() {
     } : item));
   };
 
-  // Interface para itens parseados do dialog de importação
+  /**
+   * Recebe o que saiu da conferencia da imagem. Chega pronto: cada item ja' foi
+   * casado com o inventario e conferido a olho, entao aqui e' so' acrescentar.
+   */
+  const importarDose = (importados: DoseImportada[]) => {
+    const novos: FormulaItemInput[] = importados.map((item, i) => ({
+      id: `${Date.now()}-${i}`,
+      insumoNome: item.insumoNome,
+      quantidade: String(item.quantidade),
+      unidade: item.unidade,
+    }));
+    // A linha em branco que a tela abre nao deve virar item vazio no meio.
+    setItems((atuais) => [...atuais.filter((i) => i.insumoNome.trim() !== ''), ...novos]);
+    toast.success(
+      `${novos.length} ${novos.length === 1 ? 'matéria-prima importada' : 'matérias-primas importadas'}.`,
+    );
+  };
+
   /** Valida o que da' para validar antes de abrir o dialogo de departamento. */
   const handleSave = () => {
     if (capacidadeExcedida) {
@@ -828,6 +847,16 @@ export default function Calculator() {
           <CardDescription>Adicione os insumos e quantidades POR DOSE!  </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportDialogOpen(true)}
+            className="w-full border-dashed"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Importar dose de uma imagem ou texto
+          </Button>
+
           {items.map((item, index) => {
             const calculated = calculatedItems[index];
             return <div key={item.id} className="space-y-2">
@@ -1471,6 +1500,11 @@ export default function Calculator() {
         onConfirmar={salvarComDepartamento}
       />
 
-      {/* Dialog para importar dose copiada */}
+      <ImportarDoseDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        insumos={insumos}
+        onImport={importarDose}
+      />
     </div>;
 }

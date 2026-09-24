@@ -5,11 +5,12 @@
 // `gerarJson` e recebem `{ dados, uso }`. É o retorno do desenho que separou
 // provedor de aplicação logo no começo.
 //
-// Só TEXTO. A API da Anthropic não aceita áudio como entrada — não existe bloco
-// de conteúdo de áudio, apenas texto, imagem e documento. A transcrição
+// Texto e IMAGEM. A API da Anthropic não aceita áudio como entrada — não existe
+// bloco de conteúdo de áudio, apenas texto, imagem e documento. A transcrição
 // continua em `openai.ts`, desligada até ser habilitada.
 
 import Anthropic from 'npm:@anthropic-ai/sdk';
+import { prepararSchema } from './jsonSchema.ts';
 
 /**
  * `claude-opus-5` é o padrão. Trocar por um modelo menor (Sonnet, Haiku) é
@@ -50,7 +51,35 @@ export class ErroIA extends Error {
   }
 }
 
-export type Parte = { text: string };
+/**
+ * Um pedaço da mensagem do usuário: texto ou imagem.
+ *
+ * `midia` é o mime type real do arquivo (`image/jpeg`, `image/png`,
+ * `image/webp`, `image/gif`). Mandar o mime errado faz a API recusar a imagem,
+ * então quem monta a parte lê o tipo do arquivo em vez de assumir JPEG.
+ */
+export type Parte =
+  | { text: string }
+  | { imagem: { base64: string; midia: string } };
+
+/**
+ * Sem imagem, o conteúdo continua sendo uma string única — é o que as funções
+ * do ZapVendas sempre mandaram, e trocar por blocos de texto mudaria a entrada
+ * delas sem necessidade.
+ */
+function conteudo(partes: Parte[]): unknown {
+  if (!partes.some((p) => 'imagem' in p)) {
+    return partes.map((p) => (p as { text: string }).text).join('\n\n');
+  }
+  return partes.map((p) =>
+    'text' in p
+      ? { type: 'text', text: p.text }
+      : {
+          type: 'image',
+          source: { type: 'base64', media_type: p.imagem.midia, data: p.imagem.base64 },
+        },
+  );
+}
 
 let clienteCache: Anthropic | null = null;
 
@@ -62,20 +91,6 @@ function cliente(): Anthropic {
   // tentativas dele, e o nosso tratamento abaixo cuida do que sobrar.
   clienteCache = new Anthropic({ apiKey, maxRetries: 2 });
   return clienteCache;
-}
-
-/**
- * O schema precisa ser fechado: sem `additionalProperties: false` e com todo
- * campo em `required`, a saída estruturada não é garantida. Centralizado aqui
- * para não depender de lembrar a regra em cada schema.
- */
-function prepararSchema(schema: Record<string, any>): Record<string, any> {
-  if (schema?.type !== 'object' || !schema.properties) return schema;
-  return {
-    ...schema,
-    additionalProperties: false,
-    required: Object.keys(schema.properties),
-  };
 }
 
 /**
@@ -109,7 +124,7 @@ export async function gerarJson<T>(opts: {
       model: MODELO,
       max_tokens: opts.maxTokens ?? MAX_TOKENS,
       system: opts.system,
-      messages: [{ role: 'user', content: opts.partes.map((p) => p.text).join('\n\n') }],
+      messages: [{ role: 'user', content: conteudo(opts.partes) }],
       output_config: {
         ...(usaEsforco ? { effort: esforco as 'low' | 'medium' | 'high' } : {}),
         format: {
