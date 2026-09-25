@@ -22,7 +22,11 @@ import EditarFormulaDialog from './EditarFormulaDialog';
 import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import SenhaAdminDialog from './SenhaAdminDialog';
+import { cn } from '@/lib/utils';
 import { ehCatalogo } from '@/lib/linhaProduto';
+import {
+  AbaCatalogo, NICHOS, NICHO_NOME, SEM_LOJA, nomeDeExibicao, produtoDaLoja,
+} from '@/lib/catalogoLoja';
 
 import { Formula } from '@/types/formula';
 import {
@@ -77,6 +81,8 @@ export default function PrecificacoesSalvas({
   const { deletarPrecificacao } = usePrecificacao();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  /** Subpagina do catalogo. Espelha as colecoes da loja. */
+  const [aba, setAba] = useState<AbaCatalogo>(NICHOS[0].id);
   const [editandoPrecificacao, setEditandoPrecificacao] = useState<PrecificacaoComFormula | null>(null);
   const [formulaParaVer, setFormulaParaVer] = useState<Formula | null>(null);
 
@@ -97,17 +103,19 @@ export default function PrecificacoesSalvas({
   const [deletandoId, setDeletandoId] = useState<string | null>(null);
   const [showGerarOrcamento, setShowGerarOrcamento] = useState(false);
 
-  const { precificacoes, totalCount, totalPages, isLoading } = usePrecificacoesPaginadas({
-    page: currentPage,
-    pageSize: PAGE_SIZE,
-    searchTerm,
-    catalogoOnly,
-  });
+  const { precificacoes, totalCount, totalPages, contagemPorAba, isLoading } =
+    usePrecificacoesPaginadas({
+      page: currentPage,
+      pageSize: PAGE_SIZE,
+      searchTerm,
+      catalogoOnly,
+      nicho: catalogoOnly ? aba : null,
+    });
 
   // Reset page on search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, aba]);
 
   const getMargemStyles = (margem: number, tipoProduto?: string) => {
     if (!tipoProduto) return { 
@@ -278,8 +286,46 @@ export default function PrecificacoesSalvas({
   const precificacaoEhCatalogo = (p: PrecificacaoComFormula) =>
     catalogoOnly || ehCatalogo(p.formulas?.cliente);
 
+  /** Abas do catalogo: os nichos da loja e, no fim, o que nao esta' nela. */
+  const abasCatalogo: AbaCatalogo[] = [...NICHOS.map((n) => n.id), SEM_LOJA];
+
   return (
     <div className="space-y-6">
+      {catalogoOnly && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {abasCatalogo.map((id) => {
+              const quantos = contagemPorAba[id] ?? 0;
+              const ativa = aba === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setAba(id)}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                    ativa
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-muted bg-background hover:border-muted-foreground/40',
+                    id === SEM_LOJA && !ativa && 'text-muted-foreground',
+                  )}
+                >
+                  {NICHO_NOME[id]}
+                  <span className={cn('ml-1.5', ativa ? 'opacity-80' : 'text-muted-foreground')}>
+                    {quantos}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {aba === SEM_LOJA
+              ? 'Fórmulas que ainda não existem em loja.lemoncaps.com.br — seguem com o nome do sistema.'
+              : `Mesma separação de ${'loja.lemoncaps.com.br'}. Um produto que está em duas coleções aparece nas duas.`}
+          </p>
+        </div>
+      )}
+
       {/* Header com Busca e Botão Gerar Orçamento */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -318,8 +364,17 @@ export default function PrecificacoesSalvas({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="font-semibold text-lg text-foreground">
-                          {precificacao.formulas?.nome_formula || 'Fórmula não encontrada'}
+                          {catalogoOnly
+                            ? nomeDeExibicao(precificacao.formulas?.nome_formula)
+                            : precificacao.formulas?.nome_formula || 'Fórmula não encontrada'}
                         </h3>
+                        {catalogoOnly && produtoDaLoja(precificacao.formulas?.nome_formula) && (
+                          // O consultor ainda precisa achar a formula pelo nome
+                          // que ela tem no sistema -- e' por ele que a fabrica fala.
+                          <p className="text-xs text-muted-foreground">
+                            No sistema: {precificacao.formulas?.nome_formula}
+                          </p>
+                        )}
                         <p className="text-sm text-muted-foreground">
                           {precificacao.formulas?.cliente}
                         </p>
