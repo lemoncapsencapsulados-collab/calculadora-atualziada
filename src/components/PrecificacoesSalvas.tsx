@@ -82,6 +82,7 @@ export default function PrecificacoesSalvas({
 
   // Duplicação
   const [editandoFormula, setEditandoFormula] = useState<PrecificacaoComFormula | null>(null);
+  const [edicaoPendente, setEdicaoPendente] = useState<PrecificacaoComFormula | null>(null);
   const [duplicarPrecificacao, setDuplicarPrecificacao] = useState<PrecificacaoComFormula | null>(null);
   const [duplicacaoPendente, setDuplicacaoPendente] = useState<
     { origem: PrecificacaoComFormula; cliente: string; nomeFormula: string } | null
@@ -221,22 +222,33 @@ export default function PrecificacoesSalvas({
   };
 
   /**
-   * Duplicar uma formula do catalogo cria OUTRA formula do catalogo -- e' a
-   * mesma porta de entrada do "Salvar calculo", entao pede a mesma senha. Sem
-   * isto a tranca do outro lado nao valeria nada: bastava duplicar.
+   * Duplicar pede a senha quando o catalogo esta' em qualquer uma das pontas:
+   * o destino ser catalogo cria uma formula nova la' dentro, e a ORIGEM ser
+   * catalogo e' tirar uma copia de uma formula da casa -- as duas coisas sao
+   * mexer no catalogo.
+   *
+   * `ehCatalogo` e' o mesmo criterio que o resto do sistema usa; comparar com o
+   * nome exato deixaria passar "Catalogo X" digitado no dialogo.
    */
   const pedirDuplicacao = (
     origem: PrecificacaoComFormula,
     cliente: string,
     nomeFormula: string,
   ) => {
-    // `ehCatalogo` e' o mesmo criterio que o resto do sistema usa; comparar com
-    // o nome exato deixaria passar "Catalogo X" digitado no dialogo.
-    if (ehCatalogo(cliente)) {
+    if (ehCatalogo(cliente) || ehCatalogo(origem.formulas?.cliente)) {
       setDuplicacaoPendente({ origem, cliente, nomeFormula });
       return;
     }
     void duplicarProduto(origem, cliente, nomeFormula);
+  };
+
+  /** Editar uma formula do catalogo muda o produto para TODO cliente que o usa. */
+  const pedirEdicao = (p: PrecificacaoComFormula) => {
+    if (ehCatalogo(p.formulas?.cliente)) {
+      setEdicaoPendente(p);
+      return;
+    }
+    setEditandoFormula(p);
   };
 
   const handleDuplicar = () => {
@@ -339,6 +351,7 @@ export default function PrecificacoesSalvas({
                         <p className="text-muted-foreground text-xs">Preço de Venda</p>
                         <PrecoVendaInline
                           precificacao={precificacao}
+                          ehDoCatalogo={precificacaoEhCatalogo(precificacao)}
                           configuracaoAtiva={configuracaoAtiva}
                           onSalvo={() =>
                             queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] })
@@ -387,7 +400,7 @@ export default function PrecificacoesSalvas({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setEditandoFormula(precificacao)}
+                        onClick={() => pedirEdicao(precificacao)}
                       >
                         <FlaskConical className="w-4 h-4 mr-2" />
                         Editar Produto
@@ -626,9 +639,20 @@ export default function PrecificacoesSalvas({
       </Dialog>
 
       <SenhaAdminDialog
+        open={!!edicaoPendente}
+        onOpenChange={(o) => { if (!o) setEdicaoPendente(null); }}
+        descricao={`"${edicaoPendente?.formulas?.nome_formula || 'Esta fórmula'}" é do Catálogo Lemon. Editar muda o produto para todos os clientes que o usam, então precisa de senha de administrador.`}
+        onConfirmar={() => {
+          const pendente = edicaoPendente;
+          setEdicaoPendente(null);
+          if (pendente) setEditandoFormula(pendente);
+        }}
+      />
+
+      <SenhaAdminDialog
         open={!!duplicacaoPendente}
         onOpenChange={(o) => { if (!o) setDuplicacaoPendente(null); }}
-        descricao={`Duplicar "${duplicacaoPendente?.origem.formulas?.nome_formula || 'esta fórmula'}" cria uma nova fórmula no Catálogo Lemon, que precisa de senha de administrador.`}
+        descricao={`Duplicar "${duplicacaoPendente?.origem.formulas?.nome_formula || 'esta fórmula'}" mexe no Catálogo Lemon, que precisa de senha de administrador.`}
         onConfirmar={() => {
           const pendente = duplicacaoPendente;
           setDuplicacaoPendente(null);
