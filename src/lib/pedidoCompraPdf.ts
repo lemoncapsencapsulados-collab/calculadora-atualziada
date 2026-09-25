@@ -48,6 +48,23 @@ export const FONTE = 'times';
 /** Altura do limao no cabecalho, em mm. */
 const LOGO_MM = 14;
 
+/**
+ * Faixa livre MINIMA acima de cada linha de assinatura, em mm.
+ *
+ * E' onde o carimbo da assinatura eletronica pousa. O selo do ZapSign nao
+ * encolhe: vem com tamanho fixo, e se a faixa for curta o carimbo cobre a linha
+ * e a identificacao de quem assinou -- ou escorrega para cima do texto do
+ * aceite. Sobrar branco aqui nao custa nada; faltar estraga o documento
+ * assinado, que e' o unico que vale.
+ */
+export const ESPACO_ASSINATURA_MIN = 55;
+
+/** Teto da faixa: acima disto a assinatura parece solta no meio do vazio. */
+export const ESPACO_ASSINATURA_MAX = 78;
+
+/** Linha + as cinco linhas de identificacao abaixo dela, em mm. */
+const ALTURA_IDENTIFICACAO = 30;
+
 const brl = (v: number) => formatCurrency(v || 0);
 const ou = (v: string | number | undefined | null, vazio = '________') => {
   const t = String(v ?? '').trim();
@@ -385,7 +402,15 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     '6.5 As partes assinam o presente Pedido de Compra por meio de assinatura eletrônica, reconhecendo sua validade e eficácia nos termos da MP nº 2.200-2/2001 e da Lei nº 14.063/2020. Este Pedido, em conjunto com o Contrato de Fabricação de Produtos, constitui título executivo extrajudicial, nos termos do artigo 784, inciso III e §4º, do Código de Processo Civil.',
   ].forEach((p) => paragrafo(p));
 
-  y += 10;
+  // Pagina propria para as assinaturas.
+  //
+  // Com a faixa que o carimbo eletronico pede, as duas nao cabem sob as
+  // declaracoes: a primeira ficava no pe' da pagina e a segunda ia sozinha para
+  // a seguinte. Numa pagina so' as duas ficam juntas, com folga igual, e o
+  // ZapSign carimba sempre no mesmo lugar -- o que tambem facilita conferir
+  // depois se o documento voltou assinado pelas duas partes.
+  novaPagina();
+
   doc.setFont(FONTE, 'normal').setFontSize(10.5);
   // O modelo v3 deixava a data em branco para preencher a mao; com assinatura
   // eletronica isso so' vira lacuna no documento que vai ao financeiro.
@@ -402,15 +427,25 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   // Lado a lado sobrava meia largura para cada uma, e assinatura eletronica --
   // GOV.br, ZapSign -- carimba um bloco largo que nao cabe nessa metade. Em
   // pilha cada parte tem a largura inteira e uma faixa livre acima da linha.
-  const ESPACO_ASSINATURA = 26; // mm livres para o carimbo ou a assinatura
   const larguraLinha = Math.min(larguraUtil, 110);
 
+  // A faixa cresce ate' o que a pagina permitir: como as duas assinaturas tem
+  // a pagina so' para elas, o espaco que sobraria no pe' vira folga para os
+  // carimbos, em vez de branco no fim.
+  const alturaLivre = doc.internal.pageSize.getHeight() - 20 - y;
+  const espacoAssinatura = Math.max(
+    ESPACO_ASSINATURA_MIN,
+    Math.min(ESPACO_ASSINATURA_MAX, alturaLivre / 2 - ALTURA_IDENTIFICACAO),
+  );
+
   const blocoAssinatura = (linhas: string[]) => {
-    // Cada bloco precisa de espaco livre + linha + identificacao.
-    if (y + ESPACO_ASSINATURA + 24 > doc.internal.pageSize.getHeight() - 20) {
+    // Cada bloco precisa de espaco livre + linha + identificacao. Se nao couber
+    // inteiro, vai para a pagina seguinte: carimbo cortado ao meio pela quebra
+    // de pagina e' pior que uma pagina a mais.
+    if (y + espacoAssinatura + ALTURA_IDENTIFICACAO > doc.internal.pageSize.getHeight() - 20) {
       novaPagina();
     }
-    y += ESPACO_ASSINATURA;
+    y += espacoAssinatura;
     doc.setDrawColor(40).setLineWidth(0.3);
     doc.line(MARGEM, y, MARGEM + larguraLinha, y);
     doc.setLineWidth(0.2);

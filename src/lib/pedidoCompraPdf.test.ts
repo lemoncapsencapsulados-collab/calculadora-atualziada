@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { FONTE, VERDE_CLARO, VERDE_ESCURO, VERDE_VIVO } from './pedidoCompraPdf';
+import {
+  ESPACO_ASSINATURA_MAX,
+  ESPACO_ASSINATURA_MIN,
+  FONTE,
+  VERDE_CLARO,
+  VERDE_ESCURO,
+  VERDE_VIVO,
+} from './pedidoCompraPdf';
 
 /**
  * A paleta foi tirada pixel a pixel do modelo impresso do Pedido de Compra
@@ -50,5 +57,27 @@ describe('paleta do Pedido de Compra', () => {
       0.2126 * canal(r) + 0.7152 * canal(g) + 0.0722 * canal(b);
     const contraste = 1.05 / (lum(VERDE_VIVO) + 0.05);
     expect(contraste).toBeCloseTo(2.48, 1);
+  });
+});
+
+/**
+ * O documento é assinado pelo ZapSign, cujo carimbo tem tamanho fixo e não
+ * encolhe. Faixa curta faz o carimbo cobrir a linha e o nome de quem assinou --
+ * e só se descobre depois de assinado, quando não dá mais para refazer.
+ */
+describe('espaço para a assinatura eletrônica', () => {
+  it('reserva pelo menos 55 mm acima de cada linha', () => {
+    expect(ESPACO_ASSINATURA_MIN).toBeGreaterThanOrEqual(55);
+  });
+
+  it('o teto não é menor que o mínimo', () => {
+    expect(ESPACO_ASSINATURA_MAX).toBeGreaterThanOrEqual(ESPACO_ASSINATURA_MIN);
+  });
+
+  it('as duas assinaturas cabem numa página A4 com o espaço máximo', () => {
+    // 297 mm de altura, menos o topo abaixo do limão e o rodapé; cada bloco
+    // leva a faixa livre mais a linha e as cinco linhas de identificação.
+    const alturaUtil = 297 - 27 - 20 - 12; // topo, rodapé, linha da data
+    expect(2 * (ESPACO_ASSINATURA_MAX + 30)).toBeLessThanOrEqual(alturaUtil);
   });
 });
