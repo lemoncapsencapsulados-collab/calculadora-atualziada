@@ -137,3 +137,29 @@ describe('aba "Todas as Fórmulas White Label"', () => {
     expect(abasDaFormula('TIRZ', TODAS)).toEqual([SEM_LOJA]);
   });
 });
+
+describe('tema do cartão', () => {
+  it('todo nicho tem cor de cartão e de faixa', () => {
+    for (const aba of [...NICHOS.map((n) => n.id), SEM_LOJA, TODAS]) {
+      expect(NICHO_TEMA[aba].cartao, `${aba} sem cor de cartão`).toBeTruthy();
+      expect(NICHO_TEMA[aba].barra, `${aba} sem faixa`).toBeTruthy();
+    }
+  });
+
+  it('faixas são distintas entre os nichos', () => {
+    const barras = NICHOS.map((n) => NICHO_TEMA[n.id].barra);
+    expect(new Set(barras).size).toBe(barras.length);
+  });
+
+  it('as classes são literais, não montadas', () => {
+    // O Tailwind varre o código atrás do nome inteiro da classe: `bg-${cor}-50`
+    // compila e some do CSS. Este teste falha se alguém voltar a interpolar.
+    for (const aba of [...NICHOS.map((n) => n.id), SEM_LOJA, TODAS]) {
+      const tema = NICHO_TEMA[aba];
+      for (const valor of [tema.fundo, tema.cartao, tema.barra, tema.chipAtivo, tema.chipInativo]) {
+        expect(valor).not.toContain('${');
+        expect(valor.trim()).not.toBe('');
+      }
+    }
+  });
+});

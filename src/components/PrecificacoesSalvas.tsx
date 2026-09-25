@@ -375,9 +375,19 @@ export default function PrecificacoesSalvas({
         </Card>
       ) : (
         <div className="space-y-4">
-          {typedPrecificacoes.map((precificacao) => (
-            <Card key={precificacao.id} className="overflow-hidden">
+          {typedPrecificacoes.map((precificacao) => {
+            const nichoDoCartao = abasDaFormula(
+              precificacao.formulas?.nome_formula,
+              (precificacao.formulas as any)?.nicho,
+            )[0];
+            const temaCartao = NICHO_TEMA[nichoDoCartao];
+            return (
+            <Card
+              key={precificacao.id}
+              className={cn('overflow-hidden', catalogoOnly && temaCartao.cartao)}
+            >
               <CardContent className="p-0">
+                {catalogoOnly && <div className={cn('h-1.5 w-full', temaCartao.barra)} />}
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 p-4">
                   {/* Informações da Fórmula */}
                   <div className="space-y-3">
@@ -450,7 +460,10 @@ export default function PrecificacoesSalvas({
                           );
                         })()}
                       </div>
-                      <Badge variant="secondary" className="shrink-0">
+                      <Badge
+                        variant="secondary"
+                        className={cn('shrink-0', catalogoOnly && temaCartao.chipInativo)}
+                      >
                         {precificacao.formulas?.tipo_produto}
                       </Badge>
                     </div>
@@ -583,7 +596,8 @@ export default function PrecificacoesSalvas({
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
 
           {/* Paginação */}
           {totalPages > 1 && (
