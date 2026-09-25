@@ -524,16 +524,6 @@ export default function Calculator() {
       toast.error('Informe o nome do cliente');
       return;
     }
-    // O sistema inteiro reconhece o catalogo pelo nome do cliente conter
-    // "catalogo". Sem esta recusa, digitar isso no nome entraria no catalogo
-    // sem passar pela senha -- a porta dos fundos da tranca do White Label.
-    if (ehCatalogo(clienteSelecionado?.nome || cliente)) {
-      toast.error(
-        'Nome de cliente não pode conter "catálogo". Para mandar a fórmula ao Catálogo Lemon, ' +
-          'escolha White Label ao salvar — ele pede a senha de administrador.',
-      );
-      return;
-    }
     if (calculatedItems.filter(item => item && !item.error && item.custo > 0).length === 0) {
       toast.error('Adicione pelo menos um item válido à fórmula');
       return;
@@ -607,12 +597,23 @@ export default function Calculator() {
     });
     
     // White Label pertence ao catalogo, nao ao cliente que estava na tela.
-    const ehCatalogo = departamento === 'white_label';
-    const clienteFormula = ehCatalogo ? CLIENTE_CATALOGO : (clienteSelecionado?.nome || cliente);
+    const vaiParaCatalogo = departamento === 'white_label';
+    const clienteFormula = vaiParaCatalogo ? CLIENTE_CATALOGO : (clienteSelecionado?.nome || cliente);
+
+    // O sistema inteiro reconhece o catalogo pelo nome do cliente CONTER
+    // "catalogo". Entao Private Label com esse nome tambem cairia no catalogo,
+    // sem passar pela senha -- a porta dos fundos da tranca do White Label.
+    if (!vaiParaCatalogo && ehCatalogo(clienteFormula)) {
+      toast.error(
+        'Para mandar a fórmula ao Catálogo Lemon, escolha White Label — ele pede a senha de ' +
+          'administrador. Em Private Label o nome do cliente não pode conter "catálogo".',
+      );
+      return;
+    }
 
     const formulaData = {
       cliente: clienteFormula,
-      cliente_id: ehCatalogo ? null : (clienteSelecionado?.id || null),
+      cliente_id: vaiParaCatalogo ? null : (clienteSelecionado?.id || null),
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
@@ -688,7 +689,7 @@ export default function Calculator() {
           margem_lucro_valor: resultado.margemLucroValor,
         } as any);
         toast.success(
-          ehCatalogo
+          vaiParaCatalogo
             ? 'Salvo em White Label (Fórmulas do Catálogo).'
             : 'Salvo em Private Label (Fórmulas Personalizadas).',
         );

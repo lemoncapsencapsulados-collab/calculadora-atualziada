@@ -8,6 +8,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { formatCurrency } from '@/lib/unitConversion';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { ConfiguracaoCustos } from '@/types/precificacao';
+import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 
 interface Props {
   precificacao: {
@@ -20,6 +21,8 @@ interface Props {
   };
   configuracaoAtiva: ConfiguracaoCustos | null;
   onSalvo?: () => void;
+  /** Formula do catalogo: mexer no preco muda o padrao de todo mundo. */
+  ehDoCatalogo?: boolean;
 }
 
 /**
@@ -28,9 +31,15 @@ interface Props {
  * Existe para o ajuste rapido -- mudar so' o preco e ver no que da'. Quem precisa
  * mexer em insumo ou embalagem continua indo pelo "Editar Produto".
  */
-export default function PrecoVendaInline({ precificacao, configuracaoAtiva, onSalvo }: Props) {
+export default function PrecoVendaInline({
+  precificacao,
+  configuracaoAtiva,
+  onSalvo,
+  ehDoCatalogo,
+}: Props) {
   const { atualizarPrecificacao } = usePrecificacao();
   const [editando, setEditando] = useState(false);
+  const [pedindoSenha, setPedindoSenha] = useState(false);
   const [valor, setValor] = useState(String(Number(precificacao.preco_venda) || 0));
   const [salvando, setSalvando] = useState(false);
 
@@ -86,17 +95,25 @@ export default function PrecoVendaInline({ precificacao, configuracaoAtiva, onSa
 
   if (!editando) {
     return (
+      <>
       <button
         type="button"
-        onClick={() => setEditando(true)}
+        onClick={() => (ehDoCatalogo ? setPedindoSenha(true) : setEditando(true))}
         className="group flex items-baseline gap-1 text-left"
-        title="Editar preço de venda"
+        title={ehDoCatalogo ? 'Editar preço padrão do catálogo (pede senha)' : 'Editar preço de venda'}
       >
         <span className="text-lg font-bold text-primary">
           {formatCurrency(Number(precificacao.preco_venda) || 0)}
         </span>
         <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </button>
+      <SenhaAdminDialog
+        open={pedindoSenha}
+        onOpenChange={setPedindoSenha}
+        descricao="Este é o preço padrão de uma fórmula do Catálogo Lemon. Mudar aqui muda para todos os clientes, então precisa de senha de administrador."
+        onConfirmar={() => setEditando(true)}
+      />
+      </>
     );
   }
 
