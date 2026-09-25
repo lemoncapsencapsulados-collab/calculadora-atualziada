@@ -8,6 +8,7 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { validarMargemPorTipo, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import { arredondarReais } from '@/lib/utils';
 import { linhaDoCliente } from '@/lib/linhaProduto';
+import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -134,6 +135,7 @@ export default function GerarOrcamentoDialog({
   const [showImportarCatalogo, setShowImportarCatalogo] = useState(false);
   const [selectedParaCatalogo, setSelectedParaCatalogo] = useState<string[]>([]);
   const [buscaImportarCatalogo, setBuscaImportarCatalogo] = useState('');
+  const [pedindoSenhaCatalogo, setPedindoSenhaCatalogo] = useState(false);
   const [importandoCatalogo, setImportandoCatalogo] = useState(false);
   const qc = useQueryClient();
   const [selectedPrecificacoes, setSelectedPrecificacoes] = useState<string[]>([]);
@@ -1077,6 +1079,12 @@ export default function GerarOrcamentoDialog({
     return true;
   }) || [];
 
+  /** Mandar formula para o catalogo passa pela senha, como no "Salvar calculo". */
+  const pedirImportacaoParaCatalogo = () => {
+    if (selectedParaCatalogo.length === 0) return;
+    setPedindoSenhaCatalogo(true);
+  };
+
   const handleImportarParaCatalogo = async () => {
     if (selectedParaCatalogo.length === 0) return;
     setImportandoCatalogo(true);
@@ -1422,7 +1430,7 @@ export default function GerarOrcamentoDialog({
                         )}
                         {selectedParaCatalogo.length > 0 && (
                           <Button
-                            onClick={handleImportarParaCatalogo}
+                            onClick={pedirImportacaoParaCatalogo}
                             disabled={importandoCatalogo}
                             className="w-full"
                             size="sm"
@@ -2730,6 +2738,13 @@ export default function GerarOrcamentoDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <SenhaAdminDialog
+      open={pedindoSenhaCatalogo}
+      onOpenChange={setPedindoSenhaCatalogo}
+      descricao={`Mandar ${selectedParaCatalogo.length} fórmula(s) para o Catálogo Lemon (White Label) precisa de senha de administrador.`}
+      onConfirmar={() => { void handleImportarParaCatalogo(); }}
+    />
     </>
   );
 }

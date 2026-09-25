@@ -21,6 +21,8 @@ import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import EditarFormulaDialog from './EditarFormulaDialog';
 import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
+import SenhaAdminDialog from './SenhaAdminDialog';
+import { ehCatalogo } from '@/lib/linhaProduto';
 
 import { Formula } from '@/types/formula';
 import {
@@ -81,6 +83,9 @@ export default function PrecificacoesSalvas({
   // Duplicação
   const [editandoFormula, setEditandoFormula] = useState<PrecificacaoComFormula | null>(null);
   const [duplicarPrecificacao, setDuplicarPrecificacao] = useState<PrecificacaoComFormula | null>(null);
+  const [duplicacaoPendente, setDuplicacaoPendente] = useState<
+    { origem: PrecificacaoComFormula; cliente: string; nomeFormula: string } | null
+  >(null);
   const [duplicarCliente, setDuplicarCliente] = useState('');
   const [duplicarFormula, setDuplicarFormula] = useState('');
 
@@ -215,18 +220,37 @@ export default function PrecificacoesSalvas({
     }
   };
 
-  const handleDuplicar = async () => {
+  /**
+   * Duplicar uma formula do catalogo cria OUTRA formula do catalogo -- e' a
+   * mesma porta de entrada do "Salvar calculo", entao pede a mesma senha. Sem
+   * isto a tranca do outro lado nao valeria nada: bastava duplicar.
+   */
+  const pedirDuplicacao = (
+    origem: PrecificacaoComFormula,
+    cliente: string,
+    nomeFormula: string,
+  ) => {
+    // `ehCatalogo` e' o mesmo criterio que o resto do sistema usa; comparar com
+    // o nome exato deixaria passar "Catalogo X" digitado no dialogo.
+    if (ehCatalogo(cliente)) {
+      setDuplicacaoPendente({ origem, cliente, nomeFormula });
+      return;
+    }
+    void duplicarProduto(origem, cliente, nomeFormula);
+  };
+
+  const handleDuplicar = () => {
     if (!duplicarPrecificacao || !duplicarCliente.trim() || !duplicarFormula.trim()) {
       toast.error('Preencha o nome do cliente e da fórmula');
       return;
     }
-    await duplicarProduto(duplicarPrecificacao, duplicarCliente.trim(), duplicarFormula.trim());
+    pedirDuplicacao(duplicarPrecificacao, duplicarCliente.trim(), duplicarFormula.trim());
   };
 
   /** Um clique: mesmo cliente, nome com "Duplicata" no fim. */
   const handleDuplicarRapido = (p: PrecificacaoComFormula) => {
     const nome = (p.formulas?.nome_formula || 'Produto').trim();
-    void duplicarProduto(p, (p.formulas?.cliente || '').trim(), `${nome} Duplicata`);
+    pedirDuplicacao(p, (p.formulas?.cliente || '').trim(), `${nome} Duplicata`);
   };
 
   if (isLoading) {
@@ -239,11 +263,8 @@ export default function PrecificacoesSalvas({
 
   const typedPrecificacoes = precificacoes as PrecificacaoComFormula[];
 
-  const ehCatalogo = (p: PrecificacaoComFormula) => {
-    if (catalogoOnly) return true;
-    const cliente = (p.formulas?.cliente || '').toLowerCase();
-    return cliente.includes('catálogo') || cliente.includes('catalogo');
-  };
+  const precificacaoEhCatalogo = (p: PrecificacaoComFormula) =>
+    catalogoOnly || ehCatalogo(p.formulas?.cliente);
 
   return (
     <div className="space-y-6">
@@ -382,7 +403,7 @@ export default function PrecificacoesSalvas({
                         Duplicar Produto
                       </Button>
                     )}
-                    {!ehCatalogo(precificacao) && (
+                    {!precificacaoEhCatalogo(precificacao) && (
                       <>
                         <Button 
                           variant="outline" 
@@ -406,7 +427,7 @@ export default function PrecificacoesSalvas({
                         </Button>
                       </>
                     )}
-                    {ehCatalogo(precificacao) && (
+                    {precificacaoEhCatalogo(precificacao) && (
                       <Badge variant="outline" className="text-[10px] justify-center whitespace-normal text-center leading-tight">
                         Preço padrão — ajuste no orçamento
                       </Badge>
@@ -603,6 +624,17 @@ export default function PrecificacoesSalvas({
           </div>
         </DialogContent>
       </Dialog>
+
+      <SenhaAdminDialog
+        open={!!duplicacaoPendente}
+        onOpenChange={(o) => { if (!o) setDuplicacaoPendente(null); }}
+        descricao={`Duplicar "${duplicacaoPendente?.origem.formulas?.nome_formula || 'esta fórmula'}" cria uma nova fórmula no Catálogo Lemon, que precisa de senha de administrador.`}
+        onConfirmar={() => {
+          const pendente = duplicacaoPendente;
+          setDuplicacaoPendente(null);
+          if (pendente) void duplicarProduto(pendente.origem, pendente.cliente, pendente.nomeFormula);
+        }}
+      />
     </div>
   );
 }
