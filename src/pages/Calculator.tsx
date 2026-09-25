@@ -21,6 +21,7 @@ import SalvarCalculoDialog, {
 } from '@/components/SalvarCalculoDialog';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
+import { ehCatalogo } from '@/lib/linhaProduto';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatCurrencyPrecise, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -521,6 +522,16 @@ export default function Calculator() {
     }
     if (!cliente.trim()) {
       toast.error('Informe o nome do cliente');
+      return;
+    }
+    // O sistema inteiro reconhece o catalogo pelo nome do cliente conter
+    // "catalogo". Sem esta recusa, digitar isso no nome entraria no catalogo
+    // sem passar pela senha -- a porta dos fundos da tranca do White Label.
+    if (ehCatalogo(clienteSelecionado?.nome || cliente)) {
+      toast.error(
+        'Nome de cliente não pode conter "catálogo". Para mandar a fórmula ao Catálogo Lemon, ' +
+          'escolha White Label ao salvar — ele pede a senha de administrador.',
+      );
       return;
     }
     if (calculatedItems.filter(item => item && !item.error && item.custo > 0).length === 0) {

@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
+import { ehCatalogo } from '@/lib/linhaProduto';
+import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { arredondarReais } from '@/lib/utils';
 import { useFormulas } from '@/hooks/useFormulas';
@@ -52,6 +54,23 @@ export default function Precificacao() {
   const [abaAtiva, setAbaAtiva] = useState('produtos');
 
   // Estado para liberação de margem mínima com senha
+  const [pedindoSenhaCatalogo, setPedindoSenhaCatalogo] = useState<null | 'salvar' | 'duplicar'>(null);
+  /**
+   * Liberacao de UMA acao. Zera assim que e' consumida: a senha do catalogo e'
+   * pedida toda vez, nao uma vez por sessao.
+   */
+  const catalogoLiberado = useRef(false);
+
+  /** Esta acao vai criar uma formula de catalogo e ainda nao foi autorizada? */
+  const precisaSenhaCatalogo = (cliente: string) => {
+    if (!ehCatalogo(cliente)) return false;
+    if (catalogoLiberado.current) {
+      catalogoLiberado.current = false;
+      return false;
+    }
+    return true;
+  };
+
   const [senhaMargemDialog, setSenhaMargemDialog] = useState(false);
   const [senhaMargemInput, setSenhaMargemInput] = useState('');
   const [margemLiberada, setMargemLiberada] = useState(false);
@@ -139,6 +158,16 @@ export default function Precificacao() {
     // Bloquear se margem está abaixo do mínimo (permitir bypass com senha)
     if (validacaoMargem?.status === 'baixa' && !margemLiberada) {
       setSenhaMargemDialog(true);
+      return;
+    }
+
+    // Renomear o cliente para algo com "catalogo" grava uma formula NOVA no
+    // Catalogo Lemon -- mesma porta do "Salvar calculo", mesma senha.
+    if (
+      nomeClienteEdit.trim() !== formulaSelecionada.cliente.trim() &&
+      precisaSenhaCatalogo(nomeClienteEdit)
+    ) {
+      setPedindoSenhaCatalogo('salvar');
       return;
     }
 
@@ -249,6 +278,10 @@ export default function Precificacao() {
   const handleDuplicar = async () => {
     if (!duplicarDialog || !duplicarCliente.trim() || !duplicarFormula.trim()) {
       toast.error('Preencha o nome do cliente e da fórmula');
+      return;
+    }
+    if (precisaSenhaCatalogo(duplicarCliente)) {
+      setPedindoSenhaCatalogo('duplicar');
       return;
     }
     try {
@@ -897,6 +930,19 @@ export default function Precificacao() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <SenhaAdminDialog
+        open={!!pedindoSenhaCatalogo}
+        onOpenChange={(o) => { if (!o) setPedindoSenhaCatalogo(null); }}
+        descricao="Esta ação cria uma fórmula no Catálogo Lemon (White Label), que precisa de senha de administrador."
+        onConfirmar={() => {
+          const qual = pedindoSenhaCatalogo;
+          setPedindoSenhaCatalogo(null);
+          catalogoLiberado.current = true;
+          if (qual === 'salvar') void handleSalvar();
+          else if (qual === 'duplicar') void handleDuplicar();
+        }}
+      />
     </div>
   );
 }

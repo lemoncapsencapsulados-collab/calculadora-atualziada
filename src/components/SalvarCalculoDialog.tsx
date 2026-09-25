@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { FileText, Save, Star } from 'lucide-react';
+import { FileText, Lock, Save, Star } from 'lucide-react';
 import { arredondarReais } from '@/lib/utils';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { PrecificacaoCalculada } from '@/types/precificacao';
+import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 
 /**
  * Departamento da formula.
@@ -55,13 +56,27 @@ export default function SalvarCalculoDialog({
 }: Props) {
   const [departamento, setDepartamento] = useState<Departamento>('private_label');
   const [precoInput, setPrecoInput] = useState('30');
+  const [pedindoSenha, setPedindoSenha] = useState(false);
 
   useEffect(() => {
     if (open) {
       setDepartamento('private_label');
       setPrecoInput('30');
+      setPedindoSenha(false);
     }
   }, [open]);
+
+  /**
+   * White Label so' e' selecionado depois da senha. Como o dialogo sempre abre
+   * em Private Label, toda formula que vai para o catalogo passa por aqui.
+   */
+  const escolherDepartamento = (valor: Departamento) => {
+    if (valor === 'white_label') {
+      setPedindoSenha(true);
+      return;
+    }
+    setDepartamento(valor);
+  };
 
   const overhead = useMemo(() => {
     const v = Number(configuracaoAtiva?.overhead_unitario);
@@ -102,7 +117,7 @@ export default function SalvarCalculoDialog({
     {
       valor: 'white_label',
       titulo: 'White Label',
-      descricao: 'Entra no Catálogo Lemon, disponível para qualquer cliente.',
+      descricao: 'Entra no Catálogo Lemon, disponível para qualquer cliente. Pede senha.',
       icone: Star,
     },
   ];
@@ -128,7 +143,7 @@ export default function SalvarCalculoDialog({
                 <button
                   key={valor}
                   type="button"
-                  onClick={() => setDepartamento(valor)}
+                  onClick={() => escolherDepartamento(valor)}
                   className={cn(
                     'rounded-lg border-2 p-3 text-left transition-all',
                     departamento === valor
@@ -139,6 +154,9 @@ export default function SalvarCalculoDialog({
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <Icone className="h-4 w-4" />
                     {titulo}
+                    {valor === 'white_label' && departamento !== 'white_label' && (
+                      <Lock className="h-3 w-3 text-muted-foreground" />
+                    )}
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">{descricao}</span>
                 </button>
@@ -225,6 +243,13 @@ export default function SalvarCalculoDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <SenhaAdminDialog
+        open={pedindoSenha}
+        onOpenChange={setPedindoSenha}
+        descricao="Mandar esta fórmula para o Catálogo Lemon (White Label) precisa de senha de administrador."
+        onConfirmar={() => setDepartamento('white_label')}
+      />
     </Dialog>
   );
 }
