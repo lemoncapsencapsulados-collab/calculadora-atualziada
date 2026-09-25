@@ -12,6 +12,7 @@ import { arredondarReais } from '@/lib/utils';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { PrecificacaoCalculada } from '@/types/precificacao';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
+import { NICHOS, NICHO_TEMA, NichoLoja } from '@/lib/catalogoLoja';
 
 /**
  * Departamento da formula.
@@ -27,6 +28,8 @@ export interface SalvarCalculoResultado {
   departamento: Departamento;
   precoVenda: number;
   resultado: PrecificacaoCalculada;
+  /** Nicho do catalogo. So' existe em White Label. */
+  nicho?: NichoLoja | null;
 }
 
 interface Props {
@@ -57,12 +60,14 @@ export default function SalvarCalculoDialog({
   const [departamento, setDepartamento] = useState<Departamento>('private_label');
   const [precoInput, setPrecoInput] = useState('30');
   const [pedindoSenha, setPedindoSenha] = useState(false);
+  const [nicho, setNicho] = useState<NichoLoja | null>(null);
 
   useEffect(() => {
     if (open) {
       setDepartamento('private_label');
       setPrecoInput('30');
       setPedindoSenha(false);
+      setNicho(null);
     }
   }, [open]);
 
@@ -105,7 +110,9 @@ export default function SalvarCalculoDialog({
     ? validarMargemPorTipo(resultado.margemLucroPercentual, tipoProduto)
     : null;
 
-  const podeSalvar = !!resultado && !salvando;
+  // Sem nicho a formula cairia em "Fora da loja" sem ninguem ter decidido isso.
+  const faltaNicho = departamento === 'white_label' && !nicho;
+  const podeSalvar = !!resultado && !salvando && !faltaNicho;
 
   const opcoes: { valor: Departamento; titulo: string; descricao: string; icone: typeof FileText }[] = [
     {
@@ -169,6 +176,33 @@ export default function SalvarCalculoDialog({
               </p>
             )}
           </div>
+
+          {departamento === 'white_label' && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                Nicho do catálogo <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {NICHOS.map(({ id, nome }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setNicho(id)}
+                    className={cn(
+                      'rounded-lg border-2 px-3 py-2 text-left text-sm font-medium transition-all',
+                      nicho === id ? NICHO_TEMA[id].chipAtivo : NICHO_TEMA[id].chipInativo,
+                    )}
+                  >
+                    {nome}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                É a subpágina onde a fórmula vai aparecer, com os mesmos nichos de
+                loja.lemoncaps.com.br.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-lg border p-3 space-y-1">
             <div className="flex justify-between text-sm">
@@ -235,11 +269,19 @@ export default function SalvarCalculoDialog({
             Cancelar
           </Button>
           <Button
-            onClick={() => resultado && onConfirmar({ departamento, precoVenda: resultado.precoVenda, resultado })}
+            onClick={() =>
+              resultado &&
+              onConfirmar({
+                departamento,
+                precoVenda: resultado.precoVenda,
+                resultado,
+                nicho: departamento === 'white_label' ? nicho : null,
+              })
+            }
             disabled={!podeSalvar}
           >
             <Save className="h-4 w-4 mr-1" />
-            {salvando ? 'Salvando...' : 'Salvar cálculo'}
+            {salvando ? 'Salvando...' : faltaNicho ? 'Escolha o nicho' : 'Salvar cálculo'}
           </Button>
         </DialogFooter>
       </DialogContent>

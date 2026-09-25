@@ -52,7 +52,7 @@ export function usePrecificacoesPaginadas({
       if (catalogoOnly === true) {
         const { data: rows, error } = await supabase
           .from('precificacoes')
-          .select('*, formulas!inner(nome_formula, cliente, tipo_produto)')
+          .select('*, formulas!inner(nome_formula, cliente, tipo_produto, nicho)')
           .order('created_at', { ascending: false });
         if (error) throw error;
 
@@ -62,13 +62,13 @@ export function usePrecificacoesPaginadas({
 
         const contagem: ContagemPorAba = {};
         for (const linha of doCatalogo) {
-          for (const aba of abasDaFormula(linha.formulas?.nome_formula)) {
+          for (const aba of abasDaFormula(linha.formulas?.nome_formula, linha.formulas?.nicho)) {
             contagem[aba] = (contagem[aba] ?? 0) + 1;
           }
         }
 
         const filtradas = doCatalogo
-          .filter((r: Linha) => !nicho || abasDaFormula(r.formulas?.nome_formula).includes(nicho))
+          .filter((r: Linha) => !nicho || abasDaFormula(r.formulas?.nome_formula, r.formulas?.nicho).includes(nicho))
           .filter((r: Linha) => combina(r, trimmed));
 
         return {
@@ -103,7 +103,7 @@ export function usePrecificacoesPaginadas({
 
       let dataQuery = supabase
         .from('precificacoes')
-        .select('*, formulas!inner(nome_formula, cliente, tipo_produto)')
+        .select('*, formulas!inner(nome_formula, cliente, tipo_produto, nicho)')
         .order('created_at', { ascending: false })
         .range(from, from + pageSize - 1);
       if (trimmed) {

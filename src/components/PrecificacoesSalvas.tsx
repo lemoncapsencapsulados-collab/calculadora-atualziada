@@ -25,8 +25,10 @@ import SenhaAdminDialog from './SenhaAdminDialog';
 import { cn } from '@/lib/utils';
 import { ehCatalogo } from '@/lib/linhaProduto';
 import {
-  AbaCatalogo, NICHOS, NICHO_NOME, SEM_LOJA, nomeDeExibicao, produtoDaLoja,
+  AbaCatalogo, NICHOS, NICHO_NOME, NICHO_TEMA, NichoLoja, SEM_LOJA,
+  nomeDeExibicao, produtoDaLoja,
 } from '@/lib/catalogoLoja';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { Formula } from '@/types/formula';
 import {
@@ -89,6 +91,9 @@ export default function PrecificacoesSalvas({
   // Duplicação
   const [editandoFormula, setEditandoFormula] = useState<PrecificacaoComFormula | null>(null);
   const [edicaoPendente, setEdicaoPendente] = useState<PrecificacaoComFormula | null>(null);
+  const [nichoPendente, setNichoPendente] = useState<
+    { formulaId: string; nome: string; nicho: NichoLoja | null } | null
+  >(null);
   const [duplicarPrecificacao, setDuplicarPrecificacao] = useState<PrecificacaoComFormula | null>(null);
   const [duplicacaoPendente, setDuplicacaoPendente] = useState<
     { origem: PrecificacaoComFormula; cliente: string; nomeFormula: string } | null
@@ -250,6 +255,21 @@ export default function PrecificacoesSalvas({
     void duplicarProduto(origem, cliente, nomeFormula);
   };
 
+  /**
+   * Arquiva a formula num nicho. Nulo volta a deduzir pelo espelho da loja, que
+   * e' como as formulas ja' existentes funcionavam antes desta coluna existir.
+   */
+  const gravarNicho = async (formulaId: string, nicho: NichoLoja | null) => {
+    const { error } = await supabase.from('formulas').update({ nicho }).eq('id', formulaId);
+    if (error) {
+      toast.error('Erro ao mudar o nicho: ' + error.message);
+      return;
+    }
+    toast.success(nicho ? `Movida para ${NICHO_NOME[nicho]}.` : 'Nicho passa a seguir a loja.');
+    queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+    queryClient.invalidateQueries({ queryKey: ['formulas'] });
+  };
+
   /** Editar uma formula do catalogo muda o produto para TODO cliente que o usa. */
   const pedirEdicao = (p: PrecificacaoComFormula) => {
     if (ehCatalogo(p.formulas?.cliente)) {
@@ -288,11 +308,14 @@ export default function PrecificacoesSalvas({
 
   /** Abas do catalogo: os nichos da loja e, no fim, o que nao esta' nela. */
   const abasCatalogo: AbaCatalogo[] = [...NICHOS.map((n) => n.id), SEM_LOJA];
+  const tema = NICHO_TEMA[aba];
 
   return (
     <div className="space-y-6">
       {catalogoOnly && (
-        <div className="space-y-2">
+        // A cor do nicho tinge a secao inteira: e' o sinal mais rapido de em
+        // qual subpagina se esta', sem precisar reler o chip selecionado.
+        <div className={cn('rounded-xl border p-3 sm:p-4 space-y-3 transition-colors', tema.fundo)}>
           <div className="flex flex-wrap gap-2">
             {abasCatalogo.map((id) => {
               const quantos = contagemPorAba[id] ?? 0;
@@ -304,24 +327,19 @@ export default function PrecificacoesSalvas({
                   onClick={() => setAba(id)}
                   className={cn(
                     'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                    ativa
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-muted bg-background hover:border-muted-foreground/40',
-                    id === SEM_LOJA && !ativa && 'text-muted-foreground',
+                    ativa ? NICHO_TEMA[id].chipAtivo : NICHO_TEMA[id].chipInativo,
                   )}
                 >
                   {NICHO_NOME[id]}
-                  <span className={cn('ml-1.5', ativa ? 'opacity-80' : 'text-muted-foreground')}>
-                    {quantos}
-                  </span>
+                  <span className="ml-1.5 opacity-70">{quantos}</span>
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className={cn('text-xs', tema.destaque)}>
             {aba === SEM_LOJA
               ? 'Fórmulas que ainda não existem em loja.lemoncaps.com.br — seguem com o nome do sistema.'
-              : `Mesma separação de ${'loja.lemoncaps.com.br'}. Um produto que está em duas coleções aparece nas duas.`}
+              : 'Mesma separação de loja.lemoncaps.com.br. Um produto que está em duas coleções aparece nas duas.'}
           </p>
         </div>
       )}
@@ -499,6 +517,32 @@ export default function PrecificacoesSalvas({
                       <Badge variant="outline" className="text-[10px] justify-center whitespace-normal text-center leading-tight">
                         Preço padrão — ajuste no orçamento
                       </Badge>
+                    )}
+                    {catalogoOnly && precificacao.formula_id && (
+                      <Select
+                        value={(precificacao.formulas as any)?.nicho || '__loja__'}
+                        onValueChange={(v) =>
+                          setNichoPendente({
+                            formulaId: precificacao.formula_id as string,
+                            nome: nomeDeExibicao(precificacao.formulas?.nome_formula),
+                            nicho: v === '__loja__' ? null : (v as NichoLoja),
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Nicho" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {NICHOS.map((n) => (
+                            <SelectItem key={n.id} value={n.id} className="text-xs">
+                              {n.nome}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__loja__" className="text-xs">
+                            Seguir a loja
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     )}
                     <Button 
                       variant="destructive" 
@@ -692,6 +736,17 @@ export default function PrecificacoesSalvas({
           </div>
         </DialogContent>
       </Dialog>
+
+      <SenhaAdminDialog
+        open={!!nichoPendente}
+        onOpenChange={(o) => { if (!o) setNichoPendente(null); }}
+        descricao={`Mudar "${nichoPendente?.nome || 'esta fórmula'}" de nicho reorganiza o Catálogo Lemon, que precisa de senha de administrador.`}
+        onConfirmar={() => {
+          const pendente = nichoPendente;
+          setNichoPendente(null);
+          if (pendente) void gravarNicho(pendente.formulaId, pendente.nicho);
+        }}
+      />
 
       <SenhaAdminDialog
         open={!!edicaoPendente}

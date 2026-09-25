@@ -27,6 +27,65 @@ export const NICHOS: { id: NichoLoja; nome: string; colecao: string }[] = [
   { id: 'beleza', nome: 'Beleza & Bem-Estar', colecao: 'beleza-bem-estar' },
 ];
 
+/**
+ * Cor de cada nicho. A loja nao tem tema por colecao, entao a paleta e' daqui e
+ * segue o SIGNIFICADO do nicho: verde para vitalidade, ambar para energia, azul
+ * para treino, indigo para noite, rosa para beleza, cinza para o que ainda nao
+ * esta' na loja.
+ *
+ * Sao classes inteiras, escritas por extenso, porque o Tailwind varre o codigo
+ * procurando nome de classe -- montar `bg-${cor}-50` faria a cor sumir do build.
+ */
+export interface TemaNicho {
+  /** Fundo da secao inteira. */
+  fundo: string;
+  /** Chip da aba quando selecionada. */
+  chipAtivo: string;
+  /** Chip quando nao selecionada. */
+  chipInativo: string;
+  /** Borda e texto de apoio. */
+  destaque: string;
+}
+
+export const NICHO_TEMA: Record<AbaCatalogo, TemaNicho> = {
+  vitalidade: {
+    fundo: 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/25 dark:border-emerald-900',
+    chipAtivo: 'border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-600',
+    chipInativo: 'border-emerald-200 bg-white text-emerald-900 hover:border-emerald-400 dark:border-emerald-900 dark:bg-transparent dark:text-emerald-200',
+    destaque: 'text-emerald-800 dark:text-emerald-300',
+  },
+  energia: {
+    fundo: 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/25 dark:border-amber-900',
+    chipAtivo: 'border-amber-600 bg-amber-600 text-white dark:border-amber-500 dark:bg-amber-600',
+    chipInativo: 'border-amber-200 bg-white text-amber-900 hover:border-amber-400 dark:border-amber-900 dark:bg-transparent dark:text-amber-200',
+    destaque: 'text-amber-800 dark:text-amber-300',
+  },
+  performance: {
+    fundo: 'bg-sky-50/70 border-sky-200 dark:bg-sky-950/25 dark:border-sky-900',
+    chipAtivo: 'border-sky-600 bg-sky-600 text-white dark:border-sky-500 dark:bg-sky-600',
+    chipInativo: 'border-sky-200 bg-white text-sky-900 hover:border-sky-400 dark:border-sky-900 dark:bg-transparent dark:text-sky-200',
+    destaque: 'text-sky-800 dark:text-sky-300',
+  },
+  sono: {
+    fundo: 'bg-indigo-50/70 border-indigo-200 dark:bg-indigo-950/25 dark:border-indigo-900',
+    chipAtivo: 'border-indigo-600 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-600',
+    chipInativo: 'border-indigo-200 bg-white text-indigo-900 hover:border-indigo-400 dark:border-indigo-900 dark:bg-transparent dark:text-indigo-200',
+    destaque: 'text-indigo-800 dark:text-indigo-300',
+  },
+  beleza: {
+    fundo: 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/25 dark:border-rose-900',
+    chipAtivo: 'border-rose-600 bg-rose-600 text-white dark:border-rose-500 dark:bg-rose-600',
+    chipInativo: 'border-rose-200 bg-white text-rose-900 hover:border-rose-400 dark:border-rose-900 dark:bg-transparent dark:text-rose-200',
+    destaque: 'text-rose-800 dark:text-rose-300',
+  },
+  [SEM_LOJA]: {
+    fundo: 'bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-800',
+    chipAtivo: 'border-slate-600 bg-slate-600 text-white dark:border-slate-500 dark:bg-slate-600',
+    chipInativo: 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 dark:border-slate-800 dark:bg-transparent dark:text-slate-300',
+    destaque: 'text-slate-600 dark:text-slate-400',
+  },
+};
+
 export const NICHO_NOME: Record<AbaCatalogo, string> = {
   vitalidade: 'Vitalidade & Equilíbrio',
   energia: 'Energia & Foco',
@@ -166,8 +225,22 @@ export function nomeDeExibicao(nomeFormula: string | null | undefined): string {
   return produtoDaLoja(nomeFormula)?.nome || nomeFormula || 'Fórmula sem nome';
 }
 
-/** Em que abas esta formula aparece. Sem correspondente, cai em "Fora da loja". */
-export function abasDaFormula(nomeFormula: string | null | undefined): AbaCatalogo[] {
+/** O texto gravado e' um nicho valido? */
+export function nichoValido(valor: string | null | undefined): valor is NichoLoja {
+  return !!valor && NICHOS.some((n) => n.id === valor);
+}
+
+/**
+ * Em que abas esta formula aparece.
+ *
+ * O nicho escolhido a' mao manda: quem cadastrou disse onde queria. Sem escolha,
+ * vale a correspondencia com a loja. Sem as duas, cai em "Fora da loja".
+ */
+export function abasDaFormula(
+  nomeFormula: string | null | undefined,
+  nichoEscolhido?: string | null,
+): AbaCatalogo[] {
+  if (nichoValido(nichoEscolhido)) return [nichoEscolhido];
   const produto = produtoDaLoja(nomeFormula);
   return produto ? produto.nichos : [SEM_LOJA];
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   NICHOS,
+  NICHO_TEMA,
   PRODUTOS_LOJA,
   SEM_LOJA,
   abasDaFormula,
@@ -79,5 +80,37 @@ describe('correspondência formula → produto', () => {
   it('fórmula vazia não quebra', () => {
     expect(produtoDaLoja(null)).toBeNull();
     expect(nomeDeExibicao(null)).toBe('Fórmula sem nome');
+  });
+});
+
+describe('nicho escolhido à mão', () => {
+  it('manda sobre a correspondência com a loja', () => {
+    // O produto está em Beleza pela loja; quem cadastrou disse Energia.
+    expect(abasDaFormula('ArtFlex', 'energia')).toEqual(['energia']);
+  });
+
+  it('tira a fórmula de "Fora da loja"', () => {
+    expect(abasDaFormula('TIRZ')).toEqual([SEM_LOJA]);
+    expect(abasDaFormula('TIRZ', 'sono')).toEqual(['sono']);
+  });
+
+  it('nicho inválido é ignorado, não quebra a tela', () => {
+    // Valor estranho no banco não pode sumir com a fórmula da listagem.
+    expect(abasDaFormula('ArtFlex', 'inventado')).toEqual(['beleza']);
+    expect(abasDaFormula('TIRZ', '')).toEqual([SEM_LOJA]);
+  });
+
+  it('tem tema de cor para todo nicho e para "Fora da loja"', () => {
+    for (const aba of [...NICHOS.map((n) => n.id), SEM_LOJA]) {
+      expect(NICHO_TEMA[aba]?.fundo, `${aba} sem tema`).toBeTruthy();
+      expect(NICHO_TEMA[aba].chipAtivo).toBeTruthy();
+      expect(NICHO_TEMA[aba].chipInativo).toBeTruthy();
+    }
+  });
+
+  it('cores são distintas entre os nichos', () => {
+    // Duas abas com o mesmo fundo tiram o sentido de colorir.
+    const fundos = NICHOS.map((n) => NICHO_TEMA[n.id].fundo);
+    expect(new Set(fundos).size).toBe(fundos.length);
   });
 });
