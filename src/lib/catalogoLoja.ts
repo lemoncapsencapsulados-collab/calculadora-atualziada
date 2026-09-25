@@ -54,6 +54,10 @@ export interface TemaNicho {
   chipInativo: string;
   /** Borda e texto de apoio. */
   destaque: string;
+  /** Cartao da formula: fundo e borda, mais fracos que os da secao. */
+  cartao: string;
+  /** Faixa lateral do cartao, em cor cheia. */
+  barra: string;
 }
 
 export const NICHO_TEMA: Record<AbaCatalogo, TemaNicho> = {
@@ -62,36 +66,48 @@ export const NICHO_TEMA: Record<AbaCatalogo, TemaNicho> = {
     chipAtivo: 'border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-600',
     chipInativo: 'border-emerald-200 bg-white text-emerald-900 hover:border-emerald-400 dark:border-emerald-900 dark:bg-transparent dark:text-emerald-200',
     destaque: 'text-emerald-800 dark:text-emerald-300',
+    cartao: 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20',
+    barra: 'bg-emerald-500 dark:bg-emerald-600',
   },
   energia: {
     fundo: 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/25 dark:border-amber-900',
     chipAtivo: 'border-amber-600 bg-amber-600 text-white dark:border-amber-500 dark:bg-amber-600',
     chipInativo: 'border-amber-200 bg-white text-amber-900 hover:border-amber-400 dark:border-amber-900 dark:bg-transparent dark:text-amber-200',
     destaque: 'text-amber-800 dark:text-amber-300',
+    cartao: 'border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20',
+    barra: 'bg-amber-500 dark:bg-amber-600',
   },
   performance: {
     fundo: 'bg-sky-50/70 border-sky-200 dark:bg-sky-950/25 dark:border-sky-900',
     chipAtivo: 'border-sky-600 bg-sky-600 text-white dark:border-sky-500 dark:bg-sky-600',
     chipInativo: 'border-sky-200 bg-white text-sky-900 hover:border-sky-400 dark:border-sky-900 dark:bg-transparent dark:text-sky-200',
     destaque: 'text-sky-800 dark:text-sky-300',
+    cartao: 'border-sky-200 bg-sky-50/40 dark:border-sky-900 dark:bg-sky-950/20',
+    barra: 'bg-sky-500 dark:bg-sky-600',
   },
   sono: {
     fundo: 'bg-indigo-50/70 border-indigo-200 dark:bg-indigo-950/25 dark:border-indigo-900',
     chipAtivo: 'border-indigo-600 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-600',
     chipInativo: 'border-indigo-200 bg-white text-indigo-900 hover:border-indigo-400 dark:border-indigo-900 dark:bg-transparent dark:text-indigo-200',
     destaque: 'text-indigo-800 dark:text-indigo-300',
+    cartao: 'border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20',
+    barra: 'bg-indigo-500 dark:bg-indigo-600',
   },
   beleza: {
     fundo: 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/25 dark:border-rose-900',
     chipAtivo: 'border-rose-600 bg-rose-600 text-white dark:border-rose-500 dark:bg-rose-600',
     chipInativo: 'border-rose-200 bg-white text-rose-900 hover:border-rose-400 dark:border-rose-900 dark:bg-transparent dark:text-rose-200',
     destaque: 'text-rose-800 dark:text-rose-300',
+    cartao: 'border-rose-200 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20',
+    barra: 'bg-rose-500 dark:bg-rose-600',
   },
   [SEM_LOJA]: {
     fundo: 'bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-800',
     chipAtivo: 'border-slate-600 bg-slate-600 text-white dark:border-slate-500 dark:bg-slate-600',
     chipInativo: 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 dark:border-slate-800 dark:bg-transparent dark:text-slate-300',
     destaque: 'text-slate-600 dark:text-slate-400',
+    cartao: 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/25',
+    barra: 'bg-slate-400 dark:bg-slate-600',
   },
   // Ver tudo nao tem nicho, entao usa a cor da marca em vez de uma das cinco.
   [TODAS]: {
@@ -99,6 +115,9 @@ export const NICHO_TEMA: Record<AbaCatalogo, TemaNicho> = {
     chipAtivo: 'border-primary bg-primary text-primary-foreground',
     chipInativo: 'border-border bg-background text-foreground hover:border-muted-foreground/40',
     destaque: 'text-muted-foreground',
+    // "Todas" nunca chega a um cartao: cada um usa a cor do proprio nicho.
+    cartao: 'border-border',
+    barra: 'bg-muted-foreground/40',
   },
 };
 
