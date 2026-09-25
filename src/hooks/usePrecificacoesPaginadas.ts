@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ehCatalogo } from '@/lib/linhaProduto';
-import { AbaCatalogo, SEM_LOJA, abasDaFormula, nomeDeExibicao } from '@/lib/catalogoLoja';
+import { AbaCatalogo, SEM_LOJA, TODAS, abasDaFormula, nomeDeExibicao } from '@/lib/catalogoLoja';
 
 interface UsePrecificacoesPaginadasParams {
   page: number;
@@ -66,9 +66,17 @@ export function usePrecificacoesPaginadas({
             contagem[aba] = (contagem[aba] ?? 0) + 1;
           }
         }
+        // "Todas" conta fórmula, não aparição: quem está em dois nichos soma uma
+        // vez só, senão o total seria maior que o catálogo.
+        contagem[TODAS] = doCatalogo.length;
 
         const filtradas = doCatalogo
-          .filter((r: Linha) => !nicho || abasDaFormula(r.formulas?.nome_formula, r.formulas?.nicho).includes(nicho))
+          .filter(
+            (r: Linha) =>
+              !nicho ||
+              nicho === TODAS ||
+              abasDaFormula(r.formulas?.nome_formula, r.formulas?.nicho).includes(nicho),
+          )
           .filter((r: Linha) => combina(r, trimmed));
 
         return {

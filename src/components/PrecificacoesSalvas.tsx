@@ -25,8 +25,8 @@ import SenhaAdminDialog from './SenhaAdminDialog';
 import { cn } from '@/lib/utils';
 import { ehCatalogo } from '@/lib/linhaProduto';
 import {
-  AbaCatalogo, NICHOS, NICHO_NOME, NICHO_TEMA, NichoLoja, SEM_LOJA,
-  nomeDeExibicao, produtoDaLoja,
+  AbaCatalogo, NICHOS, NICHO_NOME, NICHO_TEMA, NichoLoja, SEM_LOJA, TODAS,
+  abasDaFormula, nomeDeExibicao, produtoDaLoja,
 } from '@/lib/catalogoLoja';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -307,7 +307,7 @@ export default function PrecificacoesSalvas({
     catalogoOnly || ehCatalogo(p.formulas?.cliente);
 
   /** Abas do catalogo: os nichos da loja e, no fim, o que nao esta' nela. */
-  const abasCatalogo: AbaCatalogo[] = [...NICHOS.map((n) => n.id), SEM_LOJA];
+  const abasCatalogo: AbaCatalogo[] = [...NICHOS.map((n) => n.id), SEM_LOJA, TODAS];
   const tema = NICHO_TEMA[aba];
 
   return (
@@ -337,9 +337,11 @@ export default function PrecificacoesSalvas({
             })}
           </div>
           <p className={cn('text-xs', tema.destaque)}>
-            {aba === SEM_LOJA
-              ? 'Fórmulas que ainda não existem em loja.lemoncaps.com.br — seguem com o nome do sistema.'
-              : 'Mesma separação de loja.lemoncaps.com.br. Um produto que está em duas coleções aparece nas duas.'}
+            {aba === TODAS
+              ? 'Todo o Catálogo Lemon, sem separar por nicho. Cada fórmula aparece uma vez só.'
+              : aba === SEM_LOJA
+                ? 'Fórmulas que ainda não existem em loja.lemoncaps.com.br — seguem com o nome do sistema.'
+                : 'Mesma separação de loja.lemoncaps.com.br. Um produto que está em duas coleções aparece nas duas.'}
           </p>
         </div>
       )}
@@ -396,6 +398,57 @@ export default function PrecificacoesSalvas({
                         <p className="text-sm text-muted-foreground">
                           {precificacao.formulas?.cliente}
                         </p>
+
+                        {catalogoOnly && precificacao.formula_id && (() => {
+                          const escolhido = (precificacao.formulas as any)?.nicho as string | null;
+                          const atual = abasDaFormula(
+                            precificacao.formulas?.nome_formula,
+                            escolhido,
+                          )[0];
+                          return (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="text-xs text-muted-foreground">Nicho:</span>
+                              <Select
+                                value={escolhido || '__loja__'}
+                                onValueChange={(v) =>
+                                  setNichoPendente({
+                                    formulaId: precificacao.formula_id as string,
+                                    nome: nomeDeExibicao(precificacao.formulas?.nome_formula),
+                                    nicho: v === '__loja__' ? null : (v as NichoLoja),
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    'h-7 w-auto min-w-[11rem] gap-1 border px-2 text-xs font-medium',
+                                    NICHO_TEMA[atual].chipInativo,
+                                  )}
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {NICHOS.map((n) => (
+                                    <SelectItem key={n.id} value={n.id} className="text-xs">
+                                      {n.nome}
+                                    </SelectItem>
+                                  ))}
+                                  {/* Nulo = deduzir pela loja, que e' como tudo
+                                      funcionava antes de existir a coluna. */}
+                                  <SelectItem value="__loja__" className="text-xs">
+                                    Seguir a loja ({NICHO_NOME[
+                                      abasDaFormula(precificacao.formulas?.nome_formula)[0]
+                                    ]})
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {!escolhido && (
+                                <span className="text-[11px] text-muted-foreground">
+                                  definido pela loja
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <Badge variant="secondary" className="shrink-0">
                         {precificacao.formulas?.tipo_produto}
@@ -517,32 +570,6 @@ export default function PrecificacoesSalvas({
                       <Badge variant="outline" className="text-[10px] justify-center whitespace-normal text-center leading-tight">
                         Preço padrão — ajuste no orçamento
                       </Badge>
-                    )}
-                    {catalogoOnly && precificacao.formula_id && (
-                      <Select
-                        value={(precificacao.formulas as any)?.nicho || '__loja__'}
-                        onValueChange={(v) =>
-                          setNichoPendente({
-                            formulaId: precificacao.formula_id as string,
-                            nome: nomeDeExibicao(precificacao.formulas?.nome_formula),
-                            nicho: v === '__loja__' ? null : (v as NichoLoja),
-                          })
-                        }
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Nicho" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {NICHOS.map((n) => (
-                            <SelectItem key={n.id} value={n.id} className="text-xs">
-                              {n.nome}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="__loja__" className="text-xs">
-                            Seguir a loja
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
                     )}
                     <Button 
                       variant="destructive" 
