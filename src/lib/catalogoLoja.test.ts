@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   NICHOS,
+  NICHO_NOME,
   NICHO_TEMA,
   PRODUTOS_LOJA,
   SEM_LOJA,
+  TODAS,
   abasDaFormula,
+  nichoValido,
   nomeDeExibicao,
   produtoDaLoja,
 } from './catalogoLoja';
@@ -112,5 +115,25 @@ describe('nicho escolhido à mão', () => {
     // Duas abas com o mesmo fundo tiram o sentido de colorir.
     const fundos = NICHOS.map((n) => NICHO_TEMA[n.id].fundo);
     expect(new Set(fundos).size).toBe(fundos.length);
+  });
+});
+
+describe('aba "Todas as Fórmulas White Label"', () => {
+  it('tem nome e tema próprios', () => {
+    expect(NICHO_NOME[TODAS]).toBe('Todas as Fórmulas White Label');
+    expect(NICHO_TEMA[TODAS].fundo).toBeTruthy();
+  });
+
+  it('não é um nicho: nenhuma fórmula é classificada nela', () => {
+    // Quem filtra trata "todas" como "não filtre"; se ela saísse daqui, a
+    // fórmula apareceria duplicada na contagem.
+    expect(abasDaFormula('ArtFlex')).not.toContain(TODAS);
+    expect(abasDaFormula('TIRZ')).not.toContain(TODAS);
+    expect(abasDaFormula('TIRZ', 'sono')).not.toContain(TODAS);
+  });
+
+  it('não é aceita como escolha manual de nicho', () => {
+    expect(nichoValido(TODAS)).toBe(false);
+    expect(abasDaFormula('TIRZ', TODAS)).toEqual([SEM_LOJA]);
   });
 });

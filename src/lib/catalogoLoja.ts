@@ -17,7 +17,16 @@ export type NichoLoja = 'vitalidade' | 'energia' | 'performance' | 'sono' | 'bel
 
 /** Sem correspondente na loja: continua como esta' no sistema. */
 export const SEM_LOJA = 'sem_loja' as const;
-export type AbaCatalogo = NichoLoja | typeof SEM_LOJA;
+
+/**
+ * Aba que nao filtra nada: o catalogo inteiro.
+ *
+ * Nao e' um nicho, e' a ausencia de recorte -- por isso `abasDaFormula` nunca a
+ * devolve. Quem filtra e' que trata `todas` como "nao filtre".
+ */
+export const TODAS = 'todas' as const;
+
+export type AbaCatalogo = NichoLoja | typeof SEM_LOJA | typeof TODAS;
 
 export const NICHOS: { id: NichoLoja; nome: string; colecao: string }[] = [
   { id: 'vitalidade', nome: 'Vitalidade & Equilíbrio', colecao: 'vitalidade-equilibrio' },
@@ -84,6 +93,13 @@ export const NICHO_TEMA: Record<AbaCatalogo, TemaNicho> = {
     chipInativo: 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 dark:border-slate-800 dark:bg-transparent dark:text-slate-300',
     destaque: 'text-slate-600 dark:text-slate-400',
   },
+  // Ver tudo nao tem nicho, entao usa a cor da marca em vez de uma das cinco.
+  [TODAS]: {
+    fundo: 'bg-muted/40 border-border',
+    chipAtivo: 'border-primary bg-primary text-primary-foreground',
+    chipInativo: 'border-border bg-background text-foreground hover:border-muted-foreground/40',
+    destaque: 'text-muted-foreground',
+  },
 };
 
 export const NICHO_NOME: Record<AbaCatalogo, string> = {
@@ -93,6 +109,7 @@ export const NICHO_NOME: Record<AbaCatalogo, string> = {
   sono: 'Sono & Recuperação',
   beleza: 'Beleza & Bem-Estar',
   [SEM_LOJA]: 'Fora da loja',
+  [TODAS]: 'Todas as Fórmulas White Label',
 };
 
 export interface ProdutoLoja {
