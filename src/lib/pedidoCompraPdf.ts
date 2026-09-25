@@ -12,6 +12,7 @@ import autoTable from 'jspdf-autotable';
 import { formatCurrency } from '@/lib/unitConversion';
 import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
 import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
+import { LIMAO_DATA_URL } from '@/assets/limaoPdf';
 import {
   camposDaApresentacao,
   type CampoEmbalagem,
@@ -22,7 +23,30 @@ import {
 } from '@/types/pedidoCompra';
 
 const MARGEM = 15;
-const VERDE: [number, number, number] = [222, 232, 210];
+
+/**
+ * Paleta tirada do modelo impresso do Pedido de Compra, pixel a pixel -- nao
+ * escolhida de novo. Mudar um destes valores desalinha o documento do modelo
+ * que o cliente ja' recebeu.
+ */
+/** Barra de cabecalho de tabela e regua do titulo. */
+export const VERDE_VIVO: [number, number, number] = [124, 181, 24]; // #7CB518
+/** Titulo do documento e titulos de secao. */
+export const VERDE_ESCURO: [number, number, number] = [78, 122, 14]; // #4E7A0E
+/** Zebra das linhas e coluna de rotulo. */
+export const VERDE_CLARO: [number, number, number] = [241, 247, 226]; // #F1F7E2
+const CINZA_RODAPE: [number, number, number] = [128, 128, 128];
+const PRETO: [number, number, number] = [0, 0, 0];
+const BRANCO: [number, number, number] = [255, 255, 255];
+
+/**
+ * Serifada, como o modelo. jsPDF traz Times embutida, entao nao ha' fonte para
+ * carregar nem risco de o documento sair com outra letra em outra maquina.
+ */
+export const FONTE = 'times';
+
+/** Altura do limao no cabecalho, em mm. */
+const LOGO_MM = 14;
 
 const brl = (v: number) => formatCurrency(v || 0);
 const ou = (v: string | number | undefined | null, vazio = '________') => {
@@ -61,25 +85,55 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   const larguraUtil = doc.internal.pageSize.getWidth() - MARGEM * 2;
   let y = MARGEM;
 
+  /** Topo do texto nas paginas seguintes: abaixo do limao do cabecalho. */
+  const TOPO_PAGINA = MARGEM + LOGO_MM - 2;
+  const novaPagina = () => {
+    doc.addPage();
+    y = TOPO_PAGINA;
+  };
+
   const tituloSecao = (texto: string) => {
-    y += 6;
-    doc.setFont('helvetica', 'bold').setFontSize(11);
+    y += 7;
+    doc.setFont(FONTE, 'bold').setFontSize(12).setTextColor(...VERDE_ESCURO);
     doc.text(texto, MARGEM, y);
+    doc.setTextColor(...PRETO);
     y += 2;
   };
 
-  /** Tabela de duas colunas: rotulo em negrito à esquerda, valor à direita. */
+  /** Subtitulo dentro de uma secao, como "1. Creatina Monohidratada". */
+  const subtitulo = (texto: string) => {
+    y += 6;
+    doc.setFont(FONTE, 'bold').setFontSize(10).setTextColor(...VERDE_ESCURO);
+    doc.text(texto, MARGEM, y);
+    doc.setTextColor(...PRETO);
+    y += 1;
+  };
+
+  /**
+   * Tabela de duas colunas: rotulo a' esquerda, valor a' direita.
+   *
+   * No modelo a coluna do rotulo e' tingida em TODAS as linhas -- e' o que
+   * separa pergunta de resposta sem precisar de regua grossa no meio.
+   */
   const tabelaCampos = (linhas: [string, string][], cabecalho?: string) => {
     autoTable(doc, {
       startY: y + 2,
-      margin: { left: MARGEM, right: MARGEM },
+      margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
-      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } },
+      styles: { font: FONTE, fontSize: 9.5, cellPadding: 2.2, lineColor: [170, 170, 170], lineWidth: 0.1 },
+      columnStyles: {
+        0: { cellWidth: 55, fontStyle: 'bold', fillColor: VERDE_CLARO },
+      },
       ...(cabecalho
         ? {
             head: [[{ content: cabecalho, colSpan: 2, styles: { halign: 'center' as const } }]],
-            headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold' as const },
+            headStyles: {
+              font: FONTE,
+              fillColor: VERDE_VIVO,
+              textColor: BRANCO,
+              fontStyle: 'bold' as const,
+              fontSize: 10.5,
+            },
           }
         : {}),
       body: linhas,
@@ -87,33 +141,61 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     y = (doc as any).lastAutoTable.finalY;
   };
 
-  const paragrafo = (texto: string, tamanho = 9) => {
-    doc.setFont('helvetica', 'normal').setFontSize(tamanho);
-    const linhas = doc.splitTextToSize(texto, larguraUtil);
-    doc.text(linhas, MARGEM, y + 5);
-    y += 5 + linhas.length * (tamanho * 0.42);
+  /** Estilos comuns das tabelas de dados, com zebra como no modelo. */
+  const estiloTabela = {
+    styles: { font: FONTE, fontSize: 9.5, cellPadding: 2.2, lineColor: [170, 170, 170] as [number, number, number], lineWidth: 0.1 },
+    headStyles: {
+      font: FONTE,
+      fillColor: VERDE_VIVO,
+      textColor: BRANCO,
+      fontStyle: 'bold' as const,
+      halign: 'center' as const,
+      fontSize: 10,
+    },
+    alternateRowStyles: { fillColor: VERDE_CLARO },
+    footStyles: {
+      font: FONTE,
+      fillColor: BRANCO,
+      textColor: PRETO,
+      fontStyle: 'bold' as const,
+      lineColor: [170, 170, 170] as [number, number, number],
+      lineWidth: 0.1,
+    },
   };
 
-  // Cabecalho
-  doc.setFont('helvetica', 'bold').setFontSize(13);
-  doc.text(`PEDIDO DE COMPRA Nº ${ou(numeroPedido)}`, doc.internal.pageSize.getWidth() / 2, y, {
-    align: 'center',
-  });
+  const paragrafo = (texto: string, tamanho = 9.5) => {
+    doc.setFont(FONTE, 'normal').setFontSize(tamanho).setTextColor(...PRETO);
+    const linhas = doc.splitTextToSize(texto, larguraUtil);
+    // Justificado, como o modelo; o jsPDF so' justifica com largura declarada.
+    doc.text(linhas, MARGEM, y + 5, { maxWidth: larguraUtil, align: 'justify' });
+    y += 5 + linhas.length * (tamanho * 0.46);
+  };
+
+  // Cabecalho: limao a' esquerda, titulo centrado, regua verde embaixo.
+  const meioPagina = doc.internal.pageSize.getWidth() / 2;
+  doc.addImage(LIMAO_DATA_URL, 'PNG', MARGEM, y - 3, LOGO_MM, LOGO_MM);
+
+  y += 7;
+  doc.setFont(FONTE, 'bold').setFontSize(15).setTextColor(...VERDE_ESCURO);
+  doc.text(`PEDIDO DE COMPRA Nº ${ou(numeroPedido)}`, meioPagina, y, { align: 'center' });
   y += 6;
-  doc.setFontSize(10);
+  doc.setFontSize(11).setTextColor(...PRETO);
   doc.text(
     `Vinculado ao Contrato de Fabricação de Produtos nº ${ou(numeroContrato)}`,
-    doc.internal.pageSize.getWidth() / 2,
+    meioPagina,
     y,
     { align: 'center' },
   );
-  y += 4;
-  doc.setDrawColor(180).line(MARGEM, y, MARGEM + larguraUtil, y);
-  y += 2;
+  y += 6;
+  doc.setDrawColor(...VERDE_VIVO).setLineWidth(0.7);
+  doc.line(MARGEM, y, MARGEM + larguraUtil, y);
+  doc.setLineWidth(0.2);
+  y += 3;
 
   // 1. Identificacao
   tabelaCampos(
     [
+      ['CONTRATADA', `${CONTRATADA.razao_social} — CNPJ ${CONTRATADA.cnpj}`],
       ['CONTRATANTE', ou(dados.contratante)],
       ['CNPJ / CPF', ou(dados.cnpj_cpf)],
       ['Faturamento em', ou(dados.faturamento_em)],
@@ -131,10 +213,9 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   );
   autoTable(doc, {
     startY: y + 2,
-    margin: { left: MARGEM, right: MARGEM },
+    margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
     theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
-    headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+    ...estiloTabela,
     head: [['DESCRIÇÃO', 'LINHA', 'APRESENTAÇÃO', 'PREÇO UNIT.', 'QTD.', 'TOTAL']],
     columnStyles: {
       1: { cellWidth: 24 },
@@ -150,8 +231,10 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       String(p.quantidade ?? ''),
       brl((p.preco_unitario || 0) * (p.quantidade || 0)),
     ]),
-    foot: [['VALOR TOTAL DO PEDIDO', '', '', '', '', brl(totalProdutos)]],
-    footStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' },
+    foot: [[
+      { content: 'VALOR TOTAL DO PEDIDO', colSpan: 5, styles: { halign: 'left' as const } },
+      brl(totalProdutos),
+    ]],
   });
   y = (doc as any).lastAutoTable.finalY;
 
@@ -182,27 +265,32 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
   // 4. Condicoes de pagamento
   if (y > 220) {
-    doc.addPage();
-    y = MARGEM;
+    novaPagina();
   }
   tituloSecao('3. CONDIÇÕES DE PAGAMENTO');
   const totalParcelas = dados.parcelas.reduce((s, p) => s + (p.valor || 0), 0);
   autoTable(doc, {
     startY: y + 2,
-    margin: { left: MARGEM, right: MARGEM },
+    margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
     theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
-    headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+    ...estiloTabela,
     head: [['PARCELA', 'MEIO DE PAGAMENTO', 'VENCIMENTO', 'VALOR']],
-    columnStyles: { 0: { halign: 'center', cellWidth: 20 }, 3: { halign: 'right' } },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
+      1: { halign: 'center' },
+      2: { halign: 'center' },
+      3: { halign: 'right' },
+    },
     body: dados.parcelas.map((p, i) => [
       String(i + 1),
       ou(p.meio_pagamento),
       dataBr(p.vencimento),
       brl(p.valor),
     ]),
-    foot: [['TOTAL', '', '', brl(totalParcelas)]],
-    footStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' },
+    foot: [[
+      { content: 'TOTAL', colSpan: 3, styles: { halign: 'left' as const } },
+      brl(totalParcelas),
+    ]],
   });
   y = (doc as any).lastAutoTable.finalY;
   paragrafo(
@@ -213,26 +301,20 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   // 5 e 6. Especificacao tecnica e embalagem, produto a produto. Cada um ganha
   // seu bloco: na fabrica, composicao solta sem dizer de qual produto e' erro.
   const especificacoes = dados.especificacoes || [];
-  especificacoes.forEach((esp, i) => {
-    if (y > 190) {
-      doc.addPage();
-      y = MARGEM;
-    }
-    const rotulo = especificacoes.length > 1
-      ? `${i + 1}. ${ou(esp.produto_nome, 'Produto')}`
-      : ou(esp.produto_nome, 'Produto');
 
-    tituloSecao(`4.${i + 1} ESPECIFICAÇÃO TÉCNICA — ${rotulo.toUpperCase()}`);
-    paragrafo(
-      `Produto: ${ou(esp.produto_nome)}  |  Quantidade por frasco: ${ou(esp.quantidade_por_frasco, '____')}`,
-    );
+  tituloSecao('4. ESPECIFICAÇÃO TÉCNICA DAS FORMULAÇÕES');
+  especificacoes.forEach((esp, i) => {
+    if (y > 200) {
+      novaPagina();
+    }
+    subtitulo(`${i + 1}. ${ou(esp.produto_nome, 'Produto')}`);
+    paragrafo(`Quantidade por frasco: ${ou(esp.quantidade_por_frasco, '____')}`);
 
     autoTable(doc, {
       startY: y + 2,
-      margin: { left: MARGEM, right: MARGEM },
+      margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [120, 120, 120] },
-      headStyles: { fillColor: VERDE, textColor: [0, 0, 0], fontStyle: 'bold' },
+      ...estiloTabela,
       head: [['INSUMO', 'DOSE DIÁRIA']],
       columnStyles: { 1: { cellWidth: 55 } },
       body: (esp.composicao || []).length
@@ -240,9 +322,18 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
         : [['________', '________']],
     });
     y = (doc as any).lastAutoTable.finalY;
+  });
 
+  if (y > 200) {
+    novaPagina();
+  }
+  tituloSecao('5. DESCRIÇÃO DAS EMBALAGENS');
+  especificacoes.forEach((esp, i) => {
+    if (y > 205) {
+      novaPagina();
+    }
     const emb = esp.embalagem || ({} as typeof esp.embalagem);
-    tituloSecao(`5.${i + 1} DESCRIÇÃO DA EMBALAGEM — ${rotulo.toUpperCase()}`);
+    subtitulo(`${i + 1}. ${ou(esp.produto_nome, 'Produto')}`);
     // So' as linhas que aquela apresentacao usa: um liquido nao tem capsula, e
     // imprimir a linha vazia so' confunde quem produz.
     const usados = camposDaApresentacao(emb.apresentacao);
@@ -284,8 +375,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   );
 
   // 7. Declaracoes e aceite -- texto fixo do modelo v3
-  doc.addPage();
-  y = MARGEM;
+  novaPagina();
   tituloSecao('6. DECLARAÇÕES E ACEITE');
   [
     '6.1 Este Pedido de Compra integra e adere ao Contrato de Fabricação de Produtos celebrado entre as partes, sujeitando-se integralmente às suas cláusulas, que a CONTRATANTE declara conhecer e ratificar.',
@@ -295,15 +385,16 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     '6.5 As partes assinam o presente Pedido de Compra por meio de assinatura eletrônica, reconhecendo sua validade e eficácia nos termos da MP nº 2.200-2/2001 e da Lei nº 14.063/2020. Este Pedido, em conjunto com o Contrato de Fabricação de Produtos, constitui título executivo extrajudicial, nos termos do artigo 784, inciso III e §4º, do Código de Processo Civil.',
   ].forEach((p) => paragrafo(p));
 
-  y += 8;
-  doc.setFont('helvetica', 'normal').setFontSize(10);
+  y += 10;
+  doc.setFont(FONTE, 'normal').setFontSize(10.5);
   // O modelo v3 deixava a data em branco para preencher a mao; com assinatura
   // eletronica isso so' vira lacuna no documento que vai ao financeiro.
+  // A' direita, como no modelo.
   doc.text(
-    `${PADROES_PEDIDO_COMPRA.local_assinatura}, ${dataPorExtenso(dados.data_pedido)}.`,
-    doc.internal.pageSize.getWidth() / 2,
+    `${PADROES_PEDIDO_COMPRA.local_assinatura}, ${dataPorExtenso(dados.data_pedido)}`,
+    MARGEM + larguraUtil,
     y,
-    { align: 'center' },
+    { align: 'right' },
   );
 
   // Assinaturas empilhadas, uma abaixo da outra.
@@ -312,25 +403,24 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   // GOV.br, ZapSign -- carimba um bloco largo que nao cabe nessa metade. Em
   // pilha cada parte tem a largura inteira e uma faixa livre acima da linha.
   const ESPACO_ASSINATURA = 26; // mm livres para o carimbo ou a assinatura
-  const larguraLinha = Math.min(larguraUtil, 120);
-  const meio = doc.internal.pageSize.getWidth() / 2;
+  const larguraLinha = Math.min(larguraUtil, 110);
 
   const blocoAssinatura = (linhas: string[]) => {
     // Cada bloco precisa de espaco livre + linha + identificacao.
     if (y + ESPACO_ASSINATURA + 24 > doc.internal.pageSize.getHeight() - 20) {
-      doc.addPage();
-      y = MARGEM;
+      novaPagina();
     }
     y += ESPACO_ASSINATURA;
-    doc.setDrawColor(60);
-    doc.line(meio - larguraLinha / 2, y, meio + larguraLinha / 2, y);
+    doc.setDrawColor(40).setLineWidth(0.3);
+    doc.line(MARGEM, y, MARGEM + larguraLinha, y);
+    doc.setLineWidth(0.2);
     y += 5;
-    doc.setFontSize(9);
+    doc.setFontSize(9.5).setTextColor(...PRETO);
     linhas.forEach((linha, i) => {
-      doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
-      doc.splitTextToSize(linha, larguraUtil - 20).forEach((l: string) => {
-        doc.text(l, meio, y, { align: 'center' });
-        y += 4.2;
+      doc.setFont(FONTE, i === 0 ? 'bold' : 'normal');
+      doc.splitTextToSize(linha, larguraUtil).forEach((l: string) => {
+        doc.text(l, MARGEM, y);
+        y += 4.4;
       });
     });
     y += 4;
@@ -352,18 +442,21 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     'CONTRATADA',
   ]);
 
-  // Rodape em todas as paginas
+  // Limao e rodape em todas as paginas, como no modelo impresso.
   const total = doc.getNumberOfPages();
+  const cliente = (dados.contratante || '').trim();
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);
-    doc.setFont('helvetica', 'normal').setFontSize(7).setTextColor(120);
+    // A primeira ja' recebeu o limao junto do titulo.
+    if (i > 1) doc.addImage(LIMAO_DATA_URL, 'PNG', MARGEM, MARGEM - 5, LOGO_MM, LOGO_MM);
+    doc.setFont(FONTE, 'normal').setFontSize(8).setTextColor(...CINZA_RODAPE);
     doc.text(
-      `Pedido de Compra Lemoncaps v3 — página ${i} de ${total}`,
+      `Pedido de Compra${cliente ? ` — ${cliente}` : ''} — Lemon Caps — página ${i} de ${total}`,
       doc.internal.pageSize.getWidth() / 2,
-      doc.internal.pageSize.getHeight() - 8,
+      doc.internal.pageSize.getHeight() - 10,
       { align: 'center' },
     );
-    doc.setTextColor(0);
+    doc.setTextColor(...PRETO);
   }
 
   return doc;
