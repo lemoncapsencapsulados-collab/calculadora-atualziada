@@ -10,32 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -472,6 +447,7 @@ export type Database = {
           inscricao_municipal: string | null
           marca: string | null
           nome: string
+          numero_contrato: string | null
           pessoas_fisicas: Json | null
           razao_social: string | null
           responsavel_pj: Json | null
@@ -503,6 +479,7 @@ export type Database = {
           inscricao_municipal?: string | null
           marca?: string | null
           nome: string
+          numero_contrato?: string | null
           pessoas_fisicas?: Json | null
           razao_social?: string | null
           responsavel_pj?: Json | null
@@ -534,6 +511,7 @@ export type Database = {
           inscricao_municipal?: string | null
           marca?: string | null
           nome?: string
+          numero_contrato?: string | null
           pessoas_fisicas?: Json | null
           razao_social?: string | null
           responsavel_pj?: Json | null
@@ -737,6 +715,36 @@ export type Database = {
           updated_at?: string
           variaveis_detectadas?: Json
           versao?: number
+        }
+        Relationships: []
+      }
+      contrato_publicidade_eventos: {
+        Row: {
+          contrato_id: string | null
+          created_at: string
+          id: string
+          mensagem: string | null
+          pedido_id: string
+          status: string
+          usuario_email: string | null
+        }
+        Insert: {
+          contrato_id?: string | null
+          created_at?: string
+          id?: string
+          mensagem?: string | null
+          pedido_id: string
+          status: string
+          usuario_email?: string | null
+        }
+        Update: {
+          contrato_id?: string | null
+          created_at?: string
+          id?: string
+          mensagem?: string | null
+          pedido_id?: string
+          status?: string
+          usuario_email?: string | null
         }
         Relationships: []
       }
@@ -1008,6 +1016,7 @@ export type Database = {
           embalagens: Json
           id: string
           itens: Json
+          nicho: string | null
           nome_formula: string
           prazo_preco_id: string | null
           quantidade_por_pote: number
@@ -1026,6 +1035,7 @@ export type Database = {
           embalagens: Json
           id?: string
           itens: Json
+          nicho?: string | null
           nome_formula: string
           prazo_preco_id?: string | null
           quantidade_por_pote: number
@@ -1044,6 +1054,7 @@ export type Database = {
           embalagens?: Json
           id?: string
           itens?: Json
+          nicho?: string | null
           nome_formula?: string
           prazo_preco_id?: string | null
           quantidade_por_pote?: number
@@ -1478,6 +1489,7 @@ export type Database = {
           access_token: string | null
           ad_account_id: string
           ativo: boolean
+          coletar_nivel_ad: boolean
           created_at: string
           id: string
           last_sync_at: string | null
@@ -1491,6 +1503,7 @@ export type Database = {
           access_token?: string | null
           ad_account_id: string
           ativo?: boolean
+          coletar_nivel_ad?: boolean
           created_at?: string
           id?: string
           last_sync_at?: string | null
@@ -1504,6 +1517,7 @@ export type Database = {
           access_token?: string | null
           ad_account_id?: string
           ativo?: boolean
+          coletar_nivel_ad?: boolean
           created_at?: string
           id?: string
           last_sync_at?: string | null
@@ -1512,6 +1526,63 @@ export type Database = {
           nome?: string | null
           token_expires_at?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      meta_criativos: {
+        Row: {
+          ad_account_id: string
+          ad_id: string
+          ad_name: string | null
+          corpo: string | null
+          created_at: string
+          cta: string | null
+          descricao: string | null
+          hash_conteudo: string
+          id: string
+          image_url: string | null
+          object_story_spec: Json | null
+          titulo: string | null
+          url_destino: string | null
+          video_id: string | null
+          vigente_ate: string | null
+          vigente_desde: string
+        }
+        Insert: {
+          ad_account_id: string
+          ad_id: string
+          ad_name?: string | null
+          corpo?: string | null
+          created_at?: string
+          cta?: string | null
+          descricao?: string | null
+          hash_conteudo: string
+          id?: string
+          image_url?: string | null
+          object_story_spec?: Json | null
+          titulo?: string | null
+          url_destino?: string | null
+          video_id?: string | null
+          vigente_ate?: string | null
+          vigente_desde: string
+        }
+        Update: {
+          ad_account_id?: string
+          ad_id?: string
+          ad_name?: string | null
+          corpo?: string | null
+          created_at?: string
+          cta?: string | null
+          descricao?: string | null
+          hash_conteudo?: string
+          id?: string
+          image_url?: string | null
+          object_story_spec?: Json | null
+          titulo?: string | null
+          url_destino?: string | null
+          video_id?: string | null
+          vigente_ate?: string | null
+          vigente_desde?: string
         }
         Relationships: []
       }
@@ -1557,6 +1628,180 @@ export type Database = {
           leads?: number
           spend?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      meta_insights_ad: {
+        Row: {
+          action_values: Json | null
+          actions: Json | null
+          ad_account_id: string
+          ad_id: string
+          ad_name: string | null
+          adset_id: string | null
+          adset_name: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          clicks: number
+          conversas_iniciadas: number
+          cost_per_action_type: Json | null
+          created_at: string
+          data: string
+          engajamento: number
+          frequency: number
+          id: string
+          impressions: number
+          landing_page_views: number
+          leads: number
+          leads_formulario: number
+          link_clicks: number
+          reach: number
+          spend: number
+          updated_at: string
+          video_views: number
+        }
+        Insert: {
+          action_values?: Json | null
+          actions?: Json | null
+          ad_account_id: string
+          ad_id: string
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number
+          conversas_iniciadas?: number
+          cost_per_action_type?: Json | null
+          created_at?: string
+          data: string
+          engajamento?: number
+          frequency?: number
+          id?: string
+          impressions?: number
+          landing_page_views?: number
+          leads?: number
+          leads_formulario?: number
+          link_clicks?: number
+          reach?: number
+          spend?: number
+          updated_at?: string
+          video_views?: number
+        }
+        Update: {
+          action_values?: Json | null
+          actions?: Json | null
+          ad_account_id?: string
+          ad_id?: string
+          ad_name?: string | null
+          adset_id?: string | null
+          adset_name?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          clicks?: number
+          conversas_iniciadas?: number
+          cost_per_action_type?: Json | null
+          created_at?: string
+          data?: string
+          engajamento?: number
+          frequency?: number
+          id?: string
+          impressions?: number
+          landing_page_views?: number
+          leads?: number
+          leads_formulario?: number
+          link_clicks?: number
+          reach?: number
+          spend?: number
+          updated_at?: string
+          video_views?: number
+        }
+        Relationships: []
+      }
+      meta_insights_ad_recorte: {
+        Row: {
+          actions: Json | null
+          ad_account_id: string
+          ad_id: string
+          chave_1: string
+          chave_2: string
+          clicks: number
+          created_at: string
+          data: string
+          id: string
+          impressions: number
+          recorte: string
+          spend: number
+        }
+        Insert: {
+          actions?: Json | null
+          ad_account_id: string
+          ad_id: string
+          chave_1?: string
+          chave_2?: string
+          clicks?: number
+          created_at?: string
+          data: string
+          id?: string
+          impressions?: number
+          recorte: string
+          spend?: number
+        }
+        Update: {
+          actions?: Json | null
+          ad_account_id?: string
+          ad_id?: string
+          chave_1?: string
+          chave_2?: string
+          clicks?: number
+          created_at?: string
+          data?: string
+          id?: string
+          impressions?: number
+          recorte?: string
+          spend?: number
+        }
+        Relationships: []
+      }
+      meta_sync_jobs: {
+        Row: {
+          ad_account_id: string
+          atualizado_em: string
+          cursor_paginacao: string | null
+          id: string
+          janela_fim: string
+          janela_inicio: string
+          linhas_gravadas: number
+          passe: string
+          status: string
+          tentativas: number
+          ultimo_erro: string | null
+        }
+        Insert: {
+          ad_account_id: string
+          atualizado_em?: string
+          cursor_paginacao?: string | null
+          id?: string
+          janela_fim: string
+          janela_inicio: string
+          linhas_gravadas?: number
+          passe: string
+          status?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+        }
+        Update: {
+          ad_account_id?: string
+          atualizado_em?: string
+          cursor_paginacao?: string | null
+          id?: string
+          janela_fim?: string
+          janela_inicio?: string
+          linhas_gravadas?: number
+          passe?: string
+          status?: string
+          tentativas?: number
+          ultimo_erro?: string | null
         }
         Relationships: []
       }
@@ -1637,10 +1882,12 @@ export type Database = {
           itens_producao: Json
           modelo_aquisicao: string | null
           nome_cliente: string
+          numero_contrato: string | null
           numero_orcamento: string
           observacoes: string | null
           observacoes_internas: string | null
           pagamentos_recebidos: Json
+          pedido_compra_dados: Json | null
           pedido_id_gerado: string | null
           prazo_preco_id: string | null
           preco_anterior_recalculo: number | null
@@ -1679,10 +1926,12 @@ export type Database = {
           itens_producao?: Json
           modelo_aquisicao?: string | null
           nome_cliente: string
+          numero_contrato?: string | null
           numero_orcamento: string
           observacoes?: string | null
           observacoes_internas?: string | null
           pagamentos_recebidos?: Json
+          pedido_compra_dados?: Json | null
           pedido_id_gerado?: string | null
           prazo_preco_id?: string | null
           preco_anterior_recalculo?: number | null
@@ -1721,10 +1970,12 @@ export type Database = {
           itens_producao?: Json
           modelo_aquisicao?: string | null
           nome_cliente?: string
+          numero_contrato?: string | null
           numero_orcamento?: string
           observacoes?: string | null
           observacoes_internas?: string | null
           pagamentos_recebidos?: Json
+          pedido_compra_dados?: Json | null
           pedido_id_gerado?: string | null
           prazo_preco_id?: string | null
           preco_anterior_recalculo?: number | null
@@ -1784,6 +2035,7 @@ export type Database = {
       pedidos: {
         Row: {
           acompanhamento_processos: Json | null
+          cnpj_contratante: string | null
           created_at: string | null
           data_entrega: string
           data_pedido: string
@@ -1791,18 +2043,22 @@ export type Database = {
           formula_snapshot: Json | null
           historico_vhsys: Json
           id: string
+          numero_contrato: string | null
           numero_pedido: string
           observacoes: string | null
           orcamento_id: string | null
           orcamento_snapshot: Json | null
           pagamento_alteracoes: Json
+          pedido_compra_dados: Json | null
           quantidade_produto: number
           status: string
+          status_aprovacao: string | null
           unidade_produto: string
           updated_at: string | null
         }
         Insert: {
           acompanhamento_processos?: Json | null
+          cnpj_contratante?: string | null
           created_at?: string | null
           data_entrega: string
           data_pedido: string
@@ -1810,18 +2066,22 @@ export type Database = {
           formula_snapshot?: Json | null
           historico_vhsys?: Json
           id?: string
+          numero_contrato?: string | null
           numero_pedido: string
           observacoes?: string | null
           orcamento_id?: string | null
           orcamento_snapshot?: Json | null
           pagamento_alteracoes?: Json
+          pedido_compra_dados?: Json | null
           quantidade_produto: number
           status?: string
+          status_aprovacao?: string | null
           unidade_produto: string
           updated_at?: string | null
         }
         Update: {
           acompanhamento_processos?: Json | null
+          cnpj_contratante?: string | null
           created_at?: string | null
           data_entrega?: string
           data_pedido?: string
@@ -1829,13 +2089,16 @@ export type Database = {
           formula_snapshot?: Json | null
           historico_vhsys?: Json
           id?: string
+          numero_contrato?: string | null
           numero_pedido?: string
           observacoes?: string | null
           orcamento_id?: string | null
           orcamento_snapshot?: Json | null
           pagamento_alteracoes?: Json
+          pedido_compra_dados?: Json | null
           quantidade_produto?: number
           status?: string
+          status_aprovacao?: string | null
           unidade_produto?: string
           updated_at?: string | null
         }
@@ -2361,6 +2624,316 @@ export type Database = {
           },
         ]
       }
+      zap_apresentacoes: {
+        Row: {
+          base_conversas: number
+          cobertura_analise_pct: number | null
+          cobertura_transcricao_pct: number | null
+          consultor_nome: string
+          custo_analise_usd: number | null
+          gerado_em: string
+          gerado_por: string | null
+          id: string
+          payload_json: Json
+          periodo_fim: string
+          periodo_inicio: string
+          score_geral: number | null
+          status: string
+          usuario_id: string
+          validacao_orfaos: string[]
+          versao: number
+          versao_prompt: number
+        }
+        Insert: {
+          base_conversas?: number
+          cobertura_analise_pct?: number | null
+          cobertura_transcricao_pct?: number | null
+          consultor_nome: string
+          custo_analise_usd?: number | null
+          gerado_em?: string
+          gerado_por?: string | null
+          id?: string
+          payload_json: Json
+          periodo_fim: string
+          periodo_inicio: string
+          score_geral?: number | null
+          status?: string
+          usuario_id: string
+          validacao_orfaos?: string[]
+          versao: number
+          versao_prompt?: number
+        }
+        Update: {
+          base_conversas?: number
+          cobertura_analise_pct?: number | null
+          cobertura_transcricao_pct?: number | null
+          consultor_nome?: string
+          custo_analise_usd?: number | null
+          gerado_em?: string
+          gerado_por?: string | null
+          id?: string
+          payload_json?: Json
+          periodo_fim?: string
+          periodo_inicio?: string
+          score_geral?: number | null
+          status?: string
+          usuario_id?: string
+          validacao_orfaos?: string[]
+          versao?: number
+          versao_prompt?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_apresentacoes_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_backfill_jobs: {
+        Row: {
+          atualizado_em: string
+          id: string
+          instance_name: string
+          mensagens_importadas: number
+          remote_jid: string
+          status: string
+          tentativas: number
+          ultima_pagina: number
+          ultimo_erro: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          id?: string
+          instance_name: string
+          mensagens_importadas?: number
+          remote_jid: string
+          status?: string
+          tentativas?: number
+          ultima_pagina?: number
+          ultimo_erro?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          id?: string
+          instance_name?: string
+          mensagens_importadas?: number
+          remote_jid?: string
+          status?: string
+          tentativas?: number
+          ultima_pagina?: number
+          ultimo_erro?: string | null
+        }
+        Relationships: []
+      }
+      zap_consultor_parecer: {
+        Row: {
+          comparativo_time: string | null
+          created_at: string
+          eficiencia: string | null
+          id: string
+          metricas: Json | null
+          periodo_fim: string
+          periodo_inicio: string
+          plano_acao: string | null
+          plano_acao_itens: Json | null
+          pontos_impacto: Json | null
+          processo: string | null
+          relacionamento: string | null
+          usuario_id: string
+          versao_prompt: number
+        }
+        Insert: {
+          comparativo_time?: string | null
+          created_at?: string
+          eficiencia?: string | null
+          id?: string
+          metricas?: Json | null
+          periodo_fim: string
+          periodo_inicio: string
+          plano_acao?: string | null
+          plano_acao_itens?: Json | null
+          pontos_impacto?: Json | null
+          processo?: string | null
+          relacionamento?: string | null
+          usuario_id: string
+          versao_prompt: number
+        }
+        Update: {
+          comparativo_time?: string | null
+          created_at?: string
+          eficiencia?: string | null
+          id?: string
+          metricas?: Json | null
+          periodo_fim?: string
+          periodo_inicio?: string
+          plano_acao?: string | null
+          plano_acao_itens?: Json | null
+          pontos_impacto?: Json | null
+          processo?: string | null
+          relacionamento?: string | null
+          usuario_id?: string
+          versao_prompt?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zap_consultor_parecer_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zap_contato_etiquetas: {
+        Row: {
+          atualizado_em: string
+          id: string
+          instance_name: string
+          label_id: string
+          nome: string | null
+          remote_jid: string
+        }
+        Insert: {
+          atualizado_em?: string
+          id?: string
+          instance_name: string
+          label_id: string
+          nome?: string | null
+          remote_jid: string
+        }
+        Update: {
+          atualizado_em?: string
+          id?: string
+          instance_name?: string
+          label_id?: string
+          nome?: string | null
+          remote_jid?: string
+        }
+        Relationships: []
+      }
+      zap_contatos: {
+        Row: {
+          classificacao: string
+          classificado_por: string | null
+          created_at: string
+          id: string
+          instance_name: string
+          nome: string | null
+          primeira_mensagem_at: string | null
+          remote_jid: string
+          telefone: string | null
+          total_mensagens: number
+          ultima_mensagem_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          classificacao?: string
+          classificado_por?: string | null
+          created_at?: string
+          id?: string
+          instance_name: string
+          nome?: string | null
+          primeira_mensagem_at?: string | null
+          remote_jid: string
+          telefone?: string | null
+          total_mensagens?: number
+          ultima_mensagem_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          classificacao?: string
+          classificado_por?: string | null
+          created_at?: string
+          id?: string
+          instance_name?: string
+          nome?: string | null
+          primeira_mensagem_at?: string | null
+          remote_jid?: string
+          telefone?: string | null
+          total_mensagens?: number
+          ultima_mensagem_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      zap_conversa_analise: {
+        Row: {
+          analisado_ate: string
+          created_at: string
+          etapa_funil: string | null
+          id: string
+          instance_name: string
+          objecoes: string[]
+          objecoes_superadas: string[]
+          remote_jid: string
+          resumo: string | null
+          sentimento: string | null
+          tokens_entrada: number | null
+          tokens_saida: number | null
+          versao_prompt: number
+        }
+        Insert: {
+          analisado_ate: string
+          created_at?: string
+          etapa_funil?: string | null
+          id?: string
+          instance_name: string
+          objecoes?: string[]
+          objecoes_superadas?: string[]
+          remote_jid: string
+          resumo?: string | null
+          sentimento?: string | null
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+          versao_prompt: number
+        }
+        Update: {
+          analisado_ate?: string
+          created_at?: string
+          etapa_funil?: string | null
+          id?: string
+          instance_name?: string
+          objecoes?: string[]
+          objecoes_superadas?: string[]
+          remote_jid?: string
+          resumo?: string | null
+          sentimento?: string | null
+          tokens_entrada?: number | null
+          tokens_saida?: number | null
+          versao_prompt?: number
+        }
+        Relationships: []
+      }
+      zap_etiquetas: {
+        Row: {
+          atualizado_em: string
+          cor: string | null
+          id: string
+          instance_name: string
+          label_id: string
+          nome: string
+        }
+        Insert: {
+          atualizado_em?: string
+          cor?: string | null
+          id?: string
+          instance_name: string
+          label_id: string
+          nome: string
+        }
+        Update: {
+          atualizado_em?: string
+          cor?: string | null
+          id?: string
+          instance_name?: string
+          label_id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       zap_instancias: {
         Row: {
           ativo: boolean
@@ -2399,9 +2972,109 @@ export type Database = {
           },
         ]
       }
+      zap_mensagens: {
+        Row: {
+          created_at: string
+          dominios_links: string[]
+          duracao_segundos: number | null
+          from_me: boolean
+          id: string
+          instance_name: string
+          momento: string
+          remote_jid: string
+          texto: string | null
+          tipo: string
+          transcricao_status: string | null
+          transcrito_em: string | null
+        }
+        Insert: {
+          created_at?: string
+          dominios_links?: string[]
+          duracao_segundos?: number | null
+          from_me: boolean
+          id: string
+          instance_name: string
+          momento: string
+          remote_jid: string
+          texto?: string | null
+          tipo: string
+          transcricao_status?: string | null
+          transcrito_em?: string | null
+        }
+        Update: {
+          created_at?: string
+          dominios_links?: string[]
+          duracao_segundos?: number | null
+          from_me?: boolean
+          id?: string
+          instance_name?: string
+          momento?: string
+          remote_jid?: string
+          texto?: string | null
+          tipo?: string
+          transcricao_status?: string | null
+          transcrito_em?: string | null
+        }
+        Relationships: []
+      }
+      zap_turnos_cache: {
+        Row: {
+          fim: string
+          from_me: boolean
+          inicio: string
+          instance_name: string
+          mensagens: number
+          remote_jid: string
+          turno: number
+        }
+        Insert: {
+          fim: string
+          from_me: boolean
+          inicio: string
+          instance_name: string
+          mensagens: number
+          remote_jid: string
+          turno: number
+        }
+        Update: {
+          fim?: string
+          from_me?: boolean
+          inicio?: string
+          instance_name?: string
+          mensagens?: number
+          remote_jid?: string
+          turno?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      zap_respostas: {
+        Row: {
+          e_primeira_resposta: boolean | null
+          hora_chegada: number | null
+          instance_name: string | null
+          remote_jid: string | null
+          respondeu_consultor: boolean | null
+          respondido_em: string | null
+          segundos: number | null
+          segundos_desde_inicio: number | null
+          turno: number | null
+        }
+        Relationships: []
+      }
+      zap_turnos: {
+        Row: {
+          fim: string | null
+          from_me: boolean | null
+          inicio: string | null
+          instance_name: string | null
+          mensagens: number | null
+          remote_jid: string | null
+          turno: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       delete_email: {
@@ -2436,10 +3109,427 @@ export type Database = {
           read_ct: number
         }[]
       }
+      trafego_agendar: { Args: { p_chave: string }; Returns: string }
+      trafego_criativos: {
+        Args: { p_conta?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          ad_id: string
+          ad_name: string
+          campaign_name: string
+          cliques: number
+          corpo: string
+          cpl: number
+          cta: string
+          ctr: number
+          dias_no_periodo: number
+          image_url: string
+          impressoes: number
+          investimento: number
+          leads: number
+          no_ar: boolean
+          titulo: string
+          url_destino: string
+          vigente_ate: string
+          vigente_desde: string
+        }[]
+      }
+      trafego_eventos: {
+        Args: { p_conta?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          anuncios: number
+          custo_por_evento: number
+          evento: string
+          total: number
+        }[]
+      }
+      trafego_expurgar: { Args: never; Returns: string }
+      trafego_hierarquia: {
+        Args: {
+          p_conta?: string
+          p_fim: string
+          p_inicio: string
+          p_nivel?: string
+          p_pai?: string
+        }
+        Returns: {
+          cliques: number
+          cliques_link: number
+          conversas: number
+          cpc: number
+          cpl: number
+          cpm: number
+          ctr: number
+          ctr_link: number
+          custo_por_conversa: number
+          frequencia_media: number
+          id: string
+          impressoes: number
+          investimento: number
+          leads: number
+          leads_formulario: number
+          nome: string
+          pai_id: string
+          visitas_landing: number
+        }[]
+      }
+      trafego_recorte: {
+        Args: {
+          p_conta?: string
+          p_fim: string
+          p_inicio: string
+          p_recorte: string
+        }
+        Returns: {
+          chave_1: string
+          chave_2: string
+          cliques: number
+          ctr: number
+          impressoes: number
+          investimento: number
+          participacao: number
+        }[]
+      }
+      trafego_serie_diaria: {
+        Args: { p_conta?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          cliques_link: number
+          conversas: number
+          cpl: number
+          ctr_link: number
+          data: string
+          impressoes: number
+          investimento: number
+          leads: number
+          leads_formulario: number
+        }[]
+      }
+      trafego_status: {
+        Args: { p_conta?: string }
+        Returns: {
+          ad_account_id: string
+          dia_mais_recente: string
+          jobs_em_erro: number
+          jobs_pendentes: number
+          ultima_coleta: string
+        }[]
+      }
+      trafego_visao_geral: {
+        Args: { p_conta?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          anuncios: number
+          campanhas: number
+          cliques: number
+          cliques_link: number
+          conversas: number
+          cpc: number
+          cpl: number
+          cpm: number
+          ctr: number
+          ctr_link: number
+          custo_por_conversa: number
+          custo_por_visita: number
+          engajamento: number
+          fim: string
+          impressoes: number
+          inicio: string
+          investimento: number
+          leads: number
+          leads_formulario: number
+          periodo: string
+          taxa_chegada_landing: number
+          video_views: number
+          visitas_landing: number
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
+      zap_agendar: { Args: { p_chave: string }; Returns: string }
+      zap_analise_consultor: {
+        Args: { p_fim: string; p_inicio: string; p_versao?: number }
+        Returns: {
+          conversas: number
+          etapa_funil: string
+          sentimento: string
+          usuario_id: string
+        }[]
+      }
+      zap_base_por_etiqueta: {
+        Args: { p_instance?: string }
+        Returns: {
+          analisados: number
+          atendidos: number
+          com_conversa: number
+          com_telefone: number
+          contatos: number
+          cor: string
+          etapa_ia_mais_comum: string
+          etiqueta: string
+          label_id: string
+          sem_atendimento: number
+          sem_conversa: number
+          ultima_atividade: string
+        }[]
+      }
+      zap_categoria_objecao: { Args: { p_texto: string }; Returns: string }
+      zap_classificar_automatico: {
+        Args: never
+        Returns: {
+          ja_manuais: number
+          marcados: number
+        }[]
+      }
+      zap_contatos_por_etiqueta: {
+        Args: { p_instance?: string; p_label_id: string }
+        Returns: {
+          atendido: boolean
+          etapa_ia: string
+          instance_name: string
+          nome: string
+          remote_jid: string
+          sentimento: string
+          telefone: string
+          tem_conversa: boolean
+          total_mensagens: number
+          ultima_mensagem_at: string
+        }[]
+      }
+      zap_conversas_exemplares: {
+        Args: {
+          p_fim: string
+          p_inicio: string
+          p_por_categoria?: number
+          p_usuario_id: string
+        }
+        Returns: {
+          categoria: string
+          dias_parado: number
+          etapa_funil: string
+          etiquetas: string[]
+          identificacao: string
+          instance_name: string
+          metrica_rotulo: string
+          metrica_valor: string
+          nome: string
+          objecoes: string[]
+          objecoes_superadas: string[]
+          remote_jid: string
+          resumo: string
+          sentimento: string
+          tem_nome_real: boolean
+          ultima_mensagem_at: string
+        }[]
+      }
+      zap_conversas_para_analisar: {
+        Args: {
+          p_fim: string
+          p_inicio: string
+          p_limite?: number
+          p_usuario_id?: string
+          p_versao?: number
+        }
+        Returns: {
+          instance_name: string
+          mensagens: number
+          remote_jid: string
+          ultima_mensagem: string
+        }[]
+      }
+      zap_conversas_pendentes: {
+        Args: {
+          p_fim: string
+          p_inicio: string
+          p_usuario_id?: string
+          p_versao?: number
+        }
+        Returns: number
+      }
+      zap_cron_status: {
+        Args: never
+        Returns: {
+          ativo: boolean
+          jobname: string
+          schedule: string
+          ultima_execucao: string
+          ultimo_status: string
+        }[]
+      }
+      zap_custo_estimado:
+        | {
+            Args: { p_fim: string; p_inicio: string }
+            Returns: {
+              audios_expirados: number
+              audios_pendentes: number
+              conversas_para_analisar: number
+              custo_analise_usd: number
+              custo_transcricao_usd: number
+              minutos_pendentes: number
+            }[]
+          }
+        | {
+            Args: { p_fim: string; p_inicio: string; p_usuario_id?: string }
+            Returns: {
+              audios_expirados: number
+              audios_pendentes: number
+              conversas_para_analisar: number
+              custo_analise_usd: number
+              custo_transcricao_usd: number
+              minutos_pendentes: number
+            }[]
+          }
+      zap_distribuicao_resposta: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id?: string }
+        Returns: {
+          faixa: string
+          ordem: number
+          pct: number
+          respostas: number
+        }[]
+      }
+      zap_etiquetas_por_consultor: {
+        Args: { p_usuario_id: string }
+        Returns: {
+          com_conversa: number
+          contatos: number
+          cor: string
+          etapa_ia_mais_comum: string
+          etiqueta: string
+          label_id: string
+          parados_30d: number
+          sem_atendimento: number
+          sem_conversa: number
+        }[]
+      }
+      zap_fechamento_etiquetado: {
+        Args: { p_fim?: string; p_inicio?: string; p_usuario_id: string }
+        Returns: {
+          contatos_com_alguma_etiqueta: number
+          contatos_totais: number
+          marcados_pago: number
+          marcados_pago_com_conversa: number
+          marcados_pedido_enviado: number
+        }[]
+      }
+      zap_fila_atendimento: {
+        Args: { p_fim?: string; p_inicio?: string; p_instance?: string }
+        Returns: {
+          etiquetas: string[]
+          horas_esperando: number
+          instance_name: string
+          nome: string
+          primeira_mensagem_at: string
+          remote_jid: string
+          telefone: string
+          total_mensagens: number
+          ultima_mensagem_at: string
+        }[]
+      }
+      zap_fila_por_consultor: {
+        Args: { p_fim?: string; p_inicio?: string; p_usuario_id: string }
+        Returns: {
+          etiquetas: string[]
+          horas_esperando: number
+          identificacao: string
+          instance_name: string
+          primeira_mensagem_at: string
+          remote_jid: string
+          telefone: string
+          total_mensagens: number
+        }[]
+      }
+      zap_heatmap: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id?: string }
+        Returns: {
+          dia_semana: number
+          hora: number
+          mensagens: number
+        }[]
+      }
+      zap_identificacao_contato: {
+        Args: { p_nome: string; p_remote_jid: string; p_telefone: string }
+        Returns: string
+      }
+      zap_mes_mais_movimentado: { Args: never; Returns: string }
+      zap_metricas_consultor: {
+        Args: { p_fim: string; p_incluir_internos?: boolean; p_inicio: string }
+        Returns: {
+          audios_enviados: number
+          consultor: string
+          contatos: number
+          contatos_cliente_iniciou: number
+          contatos_com_link: number
+          contatos_com_msg_consultor: number
+          contatos_com_resposta_cliente: number
+          contatos_com_reuniao: number
+          contatos_consultor_iniciou: number
+          contatos_internos_excluidos: number
+          conversas_analisadas: number
+          documentos_enviados: number
+          imagens_enviadas: number
+          resposta_cliente_mediana_seg: number
+          resposta_cliente_p90_seg: number
+          resposta_continua_mediana_seg: number
+          resposta_continua_p90_seg: number
+          resposta_continua_p99_seg: number
+          sentimento_negativo: number
+          sentimento_neutro: number
+          sentimento_positivo: number
+          tmr1_media_seg: number
+          tmr1_mediana_seg: number
+          tmr1_p90_seg: number
+          tmr1_p99_seg: number
+          usuario_id: string
+          vacuo_inicial_pct: number
+          videos_enviados: number
+        }[]
+      }
+      zap_objecoes_ranking: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id?: string }
+        Returns: {
+          categoria: string
+          conversas: number
+          superadas: number
+          total: number
+        }[]
+      }
+      zap_perfil_contato: {
+        Args: { p_etapa: string; p_resumo: string }
+        Returns: string
+      }
+      zap_proxima_versao: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id: string }
+        Returns: number
+      }
+      zap_recalcular_turnos: {
+        Args: { p_instance: string; p_jid: string }
+        Returns: number
+      }
+      zap_recalcular_turnos_todos: { Args: never; Returns: number }
+      zap_relatorio: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id: string }
+        Returns: Json
+      }
+      zap_score: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id: string }
+        Returns: Json
+      }
+      zap_serie_diaria: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id?: string }
+        Returns: {
+          contatos: number
+          contatos_novos: number
+          contatos_recorrentes: number
+          dia: string
+          mensagens: number
+          tmr1_novos_seg: number
+          tmr1_recorrentes_seg: number
+        }[]
+      }
+      zap_taxas: {
+        Args: { p_fim: string; p_inicio: string; p_usuario_id: string }
+        Returns: Json
+      }
     }
     Enums: {
-      app_role: "admin" | "zapvendas"
+      app_role: "admin" | "zapvendas" | "trafego"
       setup_plano_perfil: "novo_produtor" | "produtor_experiente"
     }
     CompositeTypes: {
@@ -2456,12 +3546,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2485,11 +3575,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2510,11 +3600,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2535,11 +3625,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2552,11 +3642,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2566,12 +3656,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
-      app_role: ["admin", "zapvendas"],
+      app_role: ["admin", "zapvendas", "trafego"],
       setup_plano_perfil: ["novo_produtor", "produtor_experiente"],
     },
   },

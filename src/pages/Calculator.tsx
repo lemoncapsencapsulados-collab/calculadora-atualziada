@@ -540,7 +540,7 @@ export default function Calculator() {
    * grava no cliente do catalogo -- e' assim que o resto do sistema reconhece
    * uma formula de catalogo.
    */
-  const salvarComDepartamento = async ({ departamento, resultado }: SalvarCalculoResultado) => {
+  const salvarComDepartamento = async ({ departamento, resultado, nicho }: SalvarCalculoResultado) => {
     if (capacidadeExcedida) {
       toast.error('Capacidade de matéria-prima por dose excedida. Ajuste as quantidades antes de salvar.');
       return;
@@ -614,6 +614,8 @@ export default function Calculator() {
     const formulaData = {
       cliente: clienteFormula,
       cliente_id: vaiParaCatalogo ? null : (clienteSelecionado?.id || null),
+      // So' o catalogo tem nicho; em Private Label o campo fica nulo.
+      nicho: vaiParaCatalogo ? nicho ?? null : null,
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
