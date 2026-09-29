@@ -159,6 +159,10 @@ describe('preenchimento automático', () => {
 const completarSelecoes = (dados: any) => ({
   ...dados,
   canal_formal: 'Grupo de WhatsApp',
+  // Identificação completa, como o modelo impresso pede.
+  marca: dados.marca || 'TRULY',
+  email: dados.email || 'financeiro@exemplo.com.br',
+  consultor_responsavel: dados.consultor_responsavel || 'Guilherme Magano',
   parcelas: (dados.parcelas.length ? dados.parcelas : [{ valor: 100 }]).map((p: any) => ({
     ...p,
     meio_pagamento: p.meio_pagamento || 'PIX',

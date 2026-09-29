@@ -164,7 +164,16 @@ function montarEmbalagem(item: ItemProducao | undefined): EmbalagemPedidoCompra 
 export interface AutoFillEntrada {
   snapshot: Partial<OrcamentoSnapshot>;
   /** Cadastro do cliente; tem prioridade sobre o snapshot, que pode estar velho. */
-  cliente?: { razao_social?: string | null; nome?: string | null; cnpj?: string | null; cpf?: string | null; telefone?: string | null } | null;
+  cliente?: {
+    razao_social?: string | null;
+    nome?: string | null;
+    cnpj?: string | null;
+    cpf?: string | null;
+    telefone?: string | null;
+    email?: string | null;
+    email_cnpj?: string | null;
+    marca?: string | null;
+  } | null;
 }
 
 export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada): DadosPedidoCompra {
@@ -190,15 +199,26 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
 
   const documento = txt(cliente?.cnpj) || txt(dc.cnpj) || txt(cliente?.cpf) || txt(dc.cpf);
   const telefone = txt(dc.telefone) || txt(cliente?.telefone);
+  // O financeiro cobra e manda nota por e-mail: vale o da empresa antes do
+  // pessoal, e o do representante so' quando nao ha' outro.
+  const email =
+    txt(cliente?.email_cnpj) ||
+    txt(dc.email) ||
+    txt(cliente?.email) ||
+    txt(dc.responsavel_pj?.email) ||
+    txt(dc.pessoas_fisicas?.[0]?.email);
 
   return {
     contratante,
     cnpj_cpf: documento,
+    marca: txt(cliente?.marca),
+    email,
     // O padrao e' faturar na mesma pessoa do contrato; muda so' quando pedirem.
     faturamento_em: 'Mesma pessoa do contrato',
     data_pedido: new Date().toISOString().slice(0, 10),
     // Canal formal nao esta' em lugar nenhum do cadastro: o consultor informa.
     canal_formal: '',
+    consultor_responsavel: txt(snapshot.consultor_responsavel),
     produtos,
     plano_marca: deduzirPlanoMarca(servicos),
     entregaveis: listarEntregaveis(servicos),
@@ -222,6 +242,11 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
           item.quantidade_por_pote != null
             ? `${item.quantidade_por_pote} ${txt(item.unidade_por_pote) || ''}`.trim()
             : '',
+        dose_diaria:
+          txt(item.dose_diaria_sugerida) ||
+          (item.quantidade_por_dose != null
+            ? `${item.quantidade_por_dose} ${txt(item.unidade_por_dose) || ''}/dia`.trim()
+            : ''),
         composicao: descreverComposicao(item),
         embalagem: montarEmbalagem(item),
       }),

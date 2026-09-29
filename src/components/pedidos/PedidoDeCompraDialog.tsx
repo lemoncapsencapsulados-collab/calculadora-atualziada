@@ -497,9 +497,21 @@ export default function PedidoDeCompraDialog({
                 obrigatorio
               />
               <Campo
+                label="Marca"
+                valor={dados.marca}
+                onChange={(v) => set('marca', v)}
+                obrigatorio
+              />
+              <Campo
                 label="Faturamento em"
                 valor={dados.faturamento_em}
                 onChange={(v) => set('faturamento_em', v)}
+              />
+              <Campo
+                label="E-mail do financeiro"
+                valor={dados.email}
+                onChange={(v) => set('email', v)}
+                obrigatorio
               />
               <div className="space-y-1">
                 <Label className="text-xs">Data do pedido</Label>
@@ -514,6 +526,12 @@ export default function PedidoDeCompraDialog({
                 valor={dados.canal_formal}
                 opcoes={CANAIS_FORMAIS}
                 onChange={(v) => set('canal_formal', v)}
+                obrigatorio
+              />
+              <Campo
+                label="Consultor responsável"
+                valor={dados.consultor_responsavel}
+                onChange={(v) => set('consultor_responsavel', v)}
                 obrigatorio
               />
             </div>
