@@ -22,14 +22,19 @@ import SalvarCalculoDialog, {
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
 import { ehCatalogo } from '@/lib/linhaProduto';
+import {
+  CAPACIDADE_CAPSULA_GRAMAS,
+  custoMpPorPote,
+  emGramas,
+  excipienteDaDoseEmGramas,
+  numeroDeDoses,
+} from '@/lib/doseFormula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatCurrencyPrecise, formatUnit } from '@/lib/unitConversion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente } from '@/hooks/useClientes';
 
-// Capacidade padrão de uma cápsula em gramas (0.5g = 500mg)
-const CAPACIDADE_CAPSULA_GRAMAS = 0.5;
 interface FormulaItemInput {
   id: string;
   insumoNome: string;
@@ -324,39 +329,17 @@ export default function Calculator() {
     }
     const unidadesDose = parseFloat(unidadesPorDose) || 1;
 
-    // Somar todos os insumos da dose (converter tudo para gramas)
     const totalInsumosDose = calculatedItems.reduce((sum, item) => {
       if (!item || !item.quantidade || !item.insumo || item.error) return sum;
-      const qtd = parseFloat(item.quantidade);
-      const unidade = item.unidade;
-
-      // Converter para gramas
-      let qtdEmGramas = 0;
-      switch (unidade) {
-        case 'kg':
-          qtdEmGramas = qtd * 1000;
-          break;
-        case 'g':
-          qtdEmGramas = qtd;
-          break;
-        case 'mg':
-          qtdEmGramas = qtd / 1000;
-          break;
-        case 'mcg':
-          qtdEmGramas = qtd / 1_000_000;
-          break;
-        default:
-          qtdEmGramas = 0;
-        // Volume/UI não conta para peso
-      }
-      return sum + qtdEmGramas;
+      return sum + emGramas(parseFloat(item.quantidade), item.unidade);
     }, 0);
 
-    // Capacidade total da dose (cápsulas por dose × 1g cada)
     const capacidadeTotalDose = unidadesDose * CAPACIDADE_CAPSULA_GRAMAS;
-
-    // Diferença é quanto de excipiente precisamos
-    const diferencaGramas = Math.max(0, capacidadeTotalDose - totalInsumosDose);
+    const diferencaGramas = excipienteDaDoseEmGramas(
+      tipoProduto,
+      unidadesDose,
+      totalInsumosDose,
+    );
 
     // Buscar o excipiente no banco
     const amidoMilho = insumos.find(i => i.nome.toLowerCase().includes('excipiente'));
@@ -409,17 +392,19 @@ export default function Calculator() {
     const custoExcipiente = calcularExcipiente.custo;
     return custoInsumos + custoExcipiente;
   }, [calculatedItems, calcularExcipiente]);
-  const totalMP = useMemo(() => {
+  const numeroDosesPote = useMemo(() => {
     const qtdTotal = tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 1;
-    // Para Líquido, se unidadesPorDose vier vazia, assumir 1 mL por dose para que numDoses reflita o volume completo do pote
-    const unidadesDose = tipoProduto === 'Solúvel'
-      ? unidadesPorDoseEmMG
-      : (parseFloat(unidadesPorDose) || (tipoProduto === 'Líquido' ? 1 : 1));
+    const unidadesDose =
+      tipoProduto === 'Solúvel' ? unidadesPorDoseEmMG : parseFloat(unidadesPorDose) || 1;
+    return numeroDeDoses(qtdTotal, unidadesDose);
+  }, [qtdCapsulas, unidadesPorDose, tipoProduto, qtdCapsulasEmMG, unidadesPorDoseEmMG]);
 
-    // Calcula número de doses e multiplica pelo custo unitário por dose
-    const numDoses = qtdTotal / unidadesDose;
-    return custoUnitarioMP * numDoses;
-  }, [custoUnitarioMP, qtdCapsulas, unidadesPorDose, tipoProduto, qtdCapsulasEmMG, unidadesPorDoseEmMG]);
+  // A mesma conta que o "Editar produto" faz, do mesmo modulo: foi por ela
+  // existir em dois lugares que um dos dois esqueceu de multiplicar.
+  const totalMP = useMemo(
+    () => custoMpPorPote(custoUnitarioMP, numeroDosesPote),
+    [custoUnitarioMP, numeroDosesPote],
+  );
   const custoCapsulas = useMemo(() => {
     // Se for Solúvel, Gummy ou Líquido, não há custo de cápsulas
     if (tipoProduto === 'Solúvel' || tipoProduto === 'Gummy' || tipoProduto === 'Líquido') return 0;
