@@ -84,6 +84,39 @@ const dataPorExtenso = (iso: string): string => {
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 };
 
+/**
+ * Numero por extenso, para o documento repetir o valor como contrato faz:
+ * "60 (sessenta) dias". So' cobre inteiros ate' 999 -- e' o que aparece aqui
+ * (prazos em dias e percentuais); fora disso devolve o proprio numero.
+ */
+const UNIDADES_EXT = [
+  '', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez',
+  'onze', 'doze', 'treze', 'catorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove',
+];
+const DEZENAS_EXT = [
+  '', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa',
+];
+const CENTENAS_EXT = [
+  '', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos',
+  'seiscentos', 'setecentos', 'oitocentos', 'novecentos',
+];
+
+export function porExtenso(valor: number): string {
+  const n = Math.round(Number(valor));
+  if (!Number.isFinite(n) || n < 0 || n > 999) return String(valor);
+  if (n === 0) return 'zero';
+  if (n === 100) return 'cem';
+  if (n < 20) return UNIDADES_EXT[n];
+  if (n < 100) {
+    const d = Math.floor(n / 10);
+    const u = n % 10;
+    return u ? `${DEZENAS_EXT[d]} e ${UNIDADES_EXT[u]}` : DEZENAS_EXT[d];
+  }
+  const c = Math.floor(n / 100);
+  const resto = n % 100;
+  return resto ? `${CENTENAS_EXT[c]} e ${porExtenso(resto)}` : CENTENAS_EXT[c];
+}
+
 const dataBr = (iso: string): string => {
   const t = (iso || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return ou(t, '__/__/____');
@@ -137,6 +170,10 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       startY: y + 2,
       margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
       theme: 'grid',
+      // Linha inteira passa para a pagina seguinte em vez de partir no meio.
+      // Uma condicao comercial cortada em "ja' acrescidas ao valor das" /
+      // "parcelas" e' o tipo de coisa que vira discussao depois de assinado.
+      rowPageBreak: 'avoid',
       styles: { font: FONTE, fontSize: 9.5, cellPadding: 2.2, lineColor: [170, 170, 170], lineWidth: 0.1 },
       columnStyles: {
         0: { cellWidth: 55, fontStyle: 'bold', fillColor: VERDE_CLARO },
@@ -160,6 +197,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
   /** Estilos comuns das tabelas de dados, com zebra como no modelo. */
   const estiloTabela = {
+    rowPageBreak: 'avoid' as const,
     styles: { font: FONTE, fontSize: 9.5, cellPadding: 2.2, lineColor: [170, 170, 170] as [number, number, number], lineWidth: 0.1 },
     headStyles: {
       font: FONTE,
@@ -210,14 +248,27 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   y += 3;
 
   // 1. Identificacao
+  // O modelo identifica as duas partes por representante E razao social, e o
+  // documento fiscal traz CPF e CNPJ na mesma linha: quem assina e quem fatura
+  // podem ser pessoas diferentes, e o financeiro precisa dos dois.
+  const contratanteCompleto = [ou(dados.representante_nome, ''), ou(dados.contratante, '')]
+    .filter(Boolean)
+    .join(' / ') || '________';
+  const documentos = [ou(dados.representante_cpf, ''), ou(dados.cnpj_cpf, '')]
+    .filter(Boolean)
+    .join(' / ') || '________';
+
   tabelaCampos(
     [
       ['CONTRATADA', `${CONTRATADA.razao_social} — CNPJ ${CONTRATADA.cnpj}`],
-      ['CONTRATANTE', ou(dados.contratante)],
-      ['CNPJ / CPF', ou(dados.cnpj_cpf)],
+      ['CONTRATANTE', contratanteCompleto],
+      ['CPF / CNPJ', documentos],
+      ['Marca', ou(dados.marca)],
       ['Faturamento em', ou(dados.faturamento_em)],
-      ['Data do pedido', dataBr(dados.data_pedido)],
+      ['E-mail', ou(dados.email)],
+      ['Data do pedido', dataPorExtenso(dados.data_pedido)],
       ['Canal formal', ou(dados.canal_formal)],
+      ['Consultor responsável', ou(dados.consultor_responsavel)],
     ],
     'IDENTIFICAÇÃO',
   );
@@ -269,16 +320,29 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       'Prazo de produção',
       `${dados.prazo_producao_dias} dias corridos após aprovação da arte, até a disponibilização para expedição`,
     ],
+    ['Frete', 'opção escolhida pela CONTRATANTE entre as cotações apresentadas'],
     [
       'Prazo de entrega',
-      `acrescido ao prazo de produção — até ${dados.prazo_entrega_dias} dias úteis após o pagamento do frete`,
+      `conforme a transportadora escolhida — acrescido ao prazo de produção, até ${dados.prazo_entrega_dias} dias úteis após o pagamento do frete`,
     ],
     ['Quantidade', 'entrega integral, conforme tabela do item 1'],
     ['Entrada mínima', `${dados.entrada_minima_percentual}% do valor total — condição para início da produção`],
+    [
+      'Taxa do meio de pagamento',
+      'taxas do meio de pagamento escolhido pela CONTRATANTE, já acrescidas ao valor das parcelas',
+    ],
     ['Armazenagem', '90 dias corridos sem custo; após, 10% ao mês sobre o valor da nota'],
     ['Endereço de entrega', ou(dados.endereco_entrega)],
     ['Contato no local', ou(dados.contato_local)],
   ]);
+
+  paragrafo(
+    `Condições específicas deste Pedido. O prazo de produção de ${dados.prazo_producao_dias} ` +
+      `(${porExtenso(dados.prazo_producao_dias)}) dias corridos e a entrada mínima de ` +
+      `${dados.entrada_minima_percentual}% (${porExtenso(dados.entrada_minima_percentual)} por cento) ` +
+      'prevalecem, para este Pedido, sobre os prazos e percentuais gerais do Contrato de Fabricação ' +
+      'de Produtos, na forma de sua Cláusula 2.4.',
+  );
 
   // 4. Condicoes de pagamento
   if (y > 220) {
@@ -298,12 +362,18 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       2: { halign: 'center' },
       3: { halign: 'right' },
     },
-    body: dados.parcelas.map((p, i) => [
-      String(i + 1),
-      ou(p.meio_pagamento),
-      dataBr(p.vencimento),
-      brl(p.valor),
-    ]),
+    body: dados.parcelas.map((p, i) => {
+      const percentual =
+        i === 0 && totalParcelas > 0 ? ((p.valor || 0) / totalParcelas) * 100 : null;
+      return [
+        percentual != null
+          ? `1 — Entrada (${percentual.toFixed(2).replace('.', ',')}%)`
+          : String(i + 1),
+        ou(p.meio_pagamento),
+        dataBr(p.vencimento),
+        brl(p.valor),
+      ];
+    }),
     foot: [[
       { content: 'TOTAL', colSpan: 3, styles: { halign: 'left' as const } },
       brl(totalParcelas),
@@ -311,8 +381,8 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   });
   y = (doc as any).lastAutoTable.finalY;
   paragrafo(
-    'O frete não está incluído no valor acima e será cobrado à parte, conforme valor praticado pela transportadora.',
-    8,
+    'O frete e a taxa de manuseio não estão incluídos no valor acima e serão cobrados à parte, ' +
+      'conforme a opção de transporte escolhida pela CONTRATANTE.',
   );
 
   // 5 e 6. Especificacao tecnica e embalagem, produto a produto. Cada um ganha
@@ -325,7 +395,14 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       novaPagina();
     }
     subtitulo(`${i + 1}. ${ou(esp.produto_nome, 'Produto')}`);
-    paragrafo(`Quantidade por frasco: ${ou(esp.quantidade_por_frasco, '____')}`);
+    paragrafo(
+      [
+        `Pote / frasco: ${ou(esp.quantidade_por_frasco, '____')}`,
+        esp.dose_diaria ? `Dose: ${esp.dose_diaria}` : '',
+      ]
+        .filter(Boolean)
+        .join('  |  '),
+    );
 
     autoTable(doc, {
       startY: y + 2,

@@ -173,6 +173,8 @@ export interface EmbalagemPedidoCompra {
 export interface EspecificacaoProduto {
   produto_nome: string;
   quantidade_por_frasco: string;
+  /** "5 g/dia", "2 capsulas/dia". Vazio quando o orcamento nao trouxe. */
+  dose_diaria?: string;
   /** Ativos e suas doses diarias, em linhas. */
   composicao: AtivoFormula[];
   embalagem: EmbalagemPedidoCompra;
@@ -182,9 +184,15 @@ export interface DadosPedidoCompra {
   // 1. Identificacao
   contratante: string;
   cnpj_cpf: string;
+  /** Nome da marca do cliente. E' por ele que a fabrica identifica o lote. */
+  marca: string;
+  /** E-mail para onde o financeiro manda nota e cobranca. */
+  email: string;
   faturamento_em: string;
   data_pedido: string;
   canal_formal: string;
+  /** Quem vendeu. O cliente cobra dessa pessoa o que foi combinado. */
+  consultor_responsavel: string;
   // 2. Produtos
   produtos: ProdutoPedidoCompra[];
   // 3. Condicoes comerciais
@@ -251,7 +259,14 @@ export function listarCamposFaltantes(
   exigir(!!numeroContrato.trim(), 'numero_contrato', 'Número do contrato');
   exigir(!!dados.contratante?.trim(), 'contratante', 'Razão social / nome do contratante');
   exigir(!!dados.cnpj_cpf?.trim(), 'cnpj_cpf', 'CNPJ / CPF');
+  exigir(!!dados.marca?.trim(), 'marca', 'Marca');
+  exigir(!!dados.email?.trim(), 'email', 'E-mail do financeiro');
   exigir(!!dados.canal_formal?.trim(), 'canal_formal', 'Canal formal (WhatsApp ou e-mail)');
+  exigir(
+    !!dados.consultor_responsavel?.trim(),
+    'consultor_responsavel',
+    'Consultor responsável',
+  );
   exigir((dados.produtos?.length ?? 0) > 0, 'produtos', 'Ao menos um produto');
   exigir(
     (dados.produtos ?? []).every((p) => p.descricao.trim() && p.quantidade > 0),
