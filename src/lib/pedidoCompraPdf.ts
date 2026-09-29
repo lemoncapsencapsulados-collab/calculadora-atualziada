@@ -22,7 +22,32 @@ import {
   type DadosPedidoCompra,
 } from '@/types/pedidoCompra';
 
-const MARGEM = 15;
+/**
+ * Margem de 2 cm em todos os lados, como o juridico pede para revisar no Word.
+ */
+const MARGEM = 20;
+
+/**
+ * Faixa no pe' da pagina que fica VAZIA de proposito.
+ *
+ * O ZapSign carimba o codigo de seguranca (hash) ai' quando a assinatura e'
+ * concluida. Se houver texto nosso embaixo, o hash cai por cima dele e o
+ * documento assinado sai com as duas coisas ilegiveis.
+ */
+const RODAPE_LIVRE = 20;
+
+/** Entrelinha de 1,15, o minimo que o juridico pede para revisar. */
+const ENTRELINHA = 1.15;
+
+/** Corpo de texto em 11 pt. */
+const CORPO = 11;
+
+/**
+ * Tabela em 10 pt. Uma tabela de seis colunas em 11 pt nao cabe nos 17 cm que
+ * sobram entre as margens de 2 cm -- as colunas de preco quebram no meio do
+ * numero. O texto corrido, que e' o que o juridico le', fica em 11.
+ */
+const TABELA = 10;
 
 /**
  * Paleta tirada do modelo impresso do Pedido de Compra, pixel a pixel -- nao
@@ -51,16 +76,18 @@ const LOGO_MM = 14;
 /**
  * Faixa livre MINIMA acima de cada linha de assinatura, em mm.
  *
- * E' onde o carimbo da assinatura eletronica pousa. O selo do ZapSign nao
- * encolhe: vem com tamanho fixo, e se a faixa for curta o carimbo cobre a linha
- * e a identificacao de quem assinou -- ou escorrega para cima do texto do
- * aceite. Sobrar branco aqui nao custa nada; faltar estraga o documento
- * assinado, que e' o unico que vale.
+ * E' onde o carimbo do ZapSign pousa. O selo nao encolhe, entao faixa curta faz
+ * o carimbo cobrir a linha e o nome de quem assinou.
+ *
+ * O minimo e' modesto de proposito: o ZapSign posiciona o bloco por clique na
+ * tela dele ou por texto ancora, nao pelo espaco em branco do arquivo. Faixa
+ * generosa demais custava uma pagina inteira so' de assinatura, depois de outra
+ * com metade vazia. A faixa cresce ate' o teto quando a pagina permite.
  */
-export const ESPACO_ASSINATURA_MIN = 55;
+export const ESPACO_ASSINATURA_MIN = 26;
 
 /** Teto da faixa: acima disto a assinatura parece solta no meio do vazio. */
-export const ESPACO_ASSINATURA_MAX = 78;
+export const ESPACO_ASSINATURA_MAX = 45;
 
 /** Linha + as cinco linhas de identificacao abaixo dela, em mm. */
 const ALTURA_IDENTIFICACAO = 30;
@@ -132,7 +159,11 @@ interface Opcoes {
 
 export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Opcoes): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  doc.setLineHeightFactor(ENTRELINHA);
   const larguraUtil = doc.internal.pageSize.getWidth() - MARGEM * 2;
+  const alturaPagina = doc.internal.pageSize.getHeight();
+  /** Onde o conteudo tem que parar para nao invadir a faixa do hash. */
+  const limiteConteudo = alturaPagina - RODAPE_LIVRE - 6;
   let y = MARGEM;
 
   /** Topo do texto nas paginas seguintes: abaixo do limao do cabecalho. */
@@ -168,13 +199,13 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   const tabelaCampos = (linhas: [string, string][], cabecalho?: string) => {
     autoTable(doc, {
       startY: y + 2,
-      margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
+      margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA, bottom: RODAPE_LIVRE + 6 },
       theme: 'grid',
       // Linha inteira passa para a pagina seguinte em vez de partir no meio.
       // Uma condicao comercial cortada em "ja' acrescidas ao valor das" /
       // "parcelas" e' o tipo de coisa que vira discussao depois de assinado.
       rowPageBreak: 'avoid',
-      styles: { font: FONTE, fontSize: 9.5, cellPadding: 2.2, lineColor: [170, 170, 170], lineWidth: 0.1 },
+      styles: { font: FONTE, fontSize: TABELA, cellPadding: 2.2, lineColor: [170, 170, 170], lineWidth: 0.1 },
       columnStyles: {
         0: { cellWidth: 55, fontStyle: 'bold', fillColor: VERDE_CLARO },
       },
@@ -198,7 +229,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   /** Estilos comuns das tabelas de dados, com zebra como no modelo. */
   const estiloTabela = {
     rowPageBreak: 'avoid' as const,
-    styles: { font: FONTE, fontSize: 9.5, cellPadding: 2.2, lineColor: [170, 170, 170] as [number, number, number], lineWidth: 0.1 },
+    styles: { font: FONTE, fontSize: TABELA, cellPadding: 2.2, lineColor: [170, 170, 170] as [number, number, number], lineWidth: 0.1 },
     headStyles: {
       font: FONTE,
       fillColor: VERDE_VIVO,
@@ -218,12 +249,13 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     },
   };
 
-  const paragrafo = (texto: string, tamanho = 9.5) => {
+  const paragrafo = (texto: string, tamanho = CORPO) => {
     doc.setFont(FONTE, 'normal').setFontSize(tamanho).setTextColor(...PRETO);
     const linhas = doc.splitTextToSize(texto, larguraUtil);
     // Justificado, como o modelo; o jsPDF so' justifica com largura declarada.
     doc.text(linhas, MARGEM, y + 5, { maxWidth: larguraUtil, align: 'justify' });
-    y += 5 + linhas.length * (tamanho * 0.46);
+    // Altura de linha real do jsPDF (pt -> mm) com a entrelinha configurada.
+    y += 5 + linhas.length * ((tamanho * ENTRELINHA) / 72) * 25.4;
   };
 
   // Cabecalho: limao a' esquerda, titulo centrado, regua verde embaixo.
@@ -281,7 +313,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   );
   autoTable(doc, {
     startY: y + 2,
-    margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
+    margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA, bottom: RODAPE_LIVRE + 6 },
     theme: 'grid',
     ...estiloTabela,
     head: [['DESCRIÇÃO', 'LINHA', 'APRESENTAÇÃO', 'PREÇO UNIT.', 'QTD.', 'TOTAL']],
@@ -352,7 +384,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   const totalParcelas = dados.parcelas.reduce((s, p) => s + (p.valor || 0), 0);
   autoTable(doc, {
     startY: y + 2,
-    margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
+    margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA, bottom: RODAPE_LIVRE + 6 },
     theme: 'grid',
     ...estiloTabela,
     head: [['PARCELA', 'MEIO DE PAGAMENTO', 'VENCIMENTO', 'VALOR']],
@@ -406,7 +438,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
     autoTable(doc, {
       startY: y + 2,
-      margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA },
+      margin: { left: MARGEM, right: MARGEM, top: TOPO_PAGINA, bottom: RODAPE_LIVRE + 6 },
       theme: 'grid',
       ...estiloTabela,
       head: [['INSUMO', 'DOSE DIÁRIA']],
@@ -468,8 +500,15 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     'A CONTRATANTE declara ter conferido e aprovado a composição, a dosagem e as especificações de embalagem acima, que constituem a base da produção contratada.',
   );
 
-  // 7. Declaracoes e aceite -- texto fixo do modelo v3
-  novaPagina();
+  // 7. Declaracoes e aceite -- texto fixo do modelo v3.
+  //
+  // Sem quebra forcada: o texto do aceite mais as duas assinaturas ocupam pouco
+  // mais de meia pagina, e forcar pagina nova deixava a anterior pela metade e
+  // ainda empurrava as assinaturas para uma terceira. So' quebra se nao couber.
+  const ALTURA_ACEITE = 88; // o texto fixo das 5 clausulas, medido
+  if (y + ALTURA_ACEITE + 2 * (ESPACO_ASSINATURA_MIN + ALTURA_IDENTIFICACAO) > limiteConteudo) {
+    novaPagina();
+  }
   tituloSecao('6. DECLARAÇÕES E ACEITE');
   [
     '6.1 Este Pedido de Compra integra e adere ao Contrato de Fabricação de Produtos celebrado entre as partes, sujeitando-se integralmente às suas cláusulas, que a CONTRATANTE declara conhecer e ratificar.',
@@ -479,16 +518,16 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     '6.5 As partes assinam o presente Pedido de Compra por meio de assinatura eletrônica, reconhecendo sua validade e eficácia nos termos da MP nº 2.200-2/2001 e da Lei nº 14.063/2020. Este Pedido, em conjunto com o Contrato de Fabricação de Produtos, constitui título executivo extrajudicial, nos termos do artigo 784, inciso III e §4º, do Código de Processo Civil.',
   ].forEach((p) => paragrafo(p));
 
-  // Pagina propria para as assinaturas.
+  // As assinaturas ficam na mesma pagina das declaracoes quando cabem.
   //
-  // Com a faixa que o carimbo eletronico pede, as duas nao cabem sob as
-  // declaracoes: a primeira ficava no pe' da pagina e a segunda ia sozinha para
-  // a seguinte. Numa pagina so' as duas ficam juntas, com folga igual, e o
-  // ZapSign carimba sempre no mesmo lugar -- o que tambem facilita conferir
-  // depois se o documento voltou assinado pelas duas partes.
-  novaPagina();
-
-  doc.setFont(FONTE, 'normal').setFontSize(10.5);
+  // Antes havia quebra forcada aqui: o documento terminava numa pagina quase
+  // vazia depois de outra com metade do espaco sobrando. O ZapSign posiciona o
+  // carimbo por clique ou por texto ancora, entao a faixa livre nao precisa ser
+  // enorme -- precisa existir. Se as duas nao couberem, a quebra acontece
+  // dentro de `blocoAssinatura`, e ai' as duas vao juntas para a pagina
+  // seguinte.
+  y += 8;
+  doc.setFont(FONTE, 'normal').setFontSize(CORPO);
   // O modelo v3 deixava a data em branco para preencher a mao; com assinatura
   // eletronica isso so' vira lacuna no documento que vai ao financeiro.
   // A' direita, como no modelo.
@@ -506,28 +545,28 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   // pilha cada parte tem a largura inteira e uma faixa livre acima da linha.
   const larguraLinha = Math.min(larguraUtil, 110);
 
-  // A faixa cresce ate' o que a pagina permitir: como as duas assinaturas tem
-  // a pagina so' para elas, o espaco que sobraria no pe' vira folga para os
-  // carimbos, em vez de branco no fim.
-  const alturaLivre = doc.internal.pageSize.getHeight() - 20 - y;
+  y += 6;
+
+  // Separar as duas assinaturas em paginas diferentes confunde quem confere se
+  // o documento voltou assinado pelas duas partes: ou cabem as duas aqui, ou
+  // as duas vao juntas para a pagina seguinte. O minimo e' o que decide.
+  const minimoDoPar = 2 * (ESPACO_ASSINATURA_MIN + ALTURA_IDENTIFICACAO);
+  if (y + minimoDoPar > limiteConteudo) novaPagina();
+
+  // So' depois de saber em que pagina elas ficam da' para medir a folga: o
+  // espaco que sobraria no pe' vira faixa para o carimbo, em vez de branco.
   const espacoAssinatura = Math.max(
     ESPACO_ASSINATURA_MIN,
-    Math.min(ESPACO_ASSINATURA_MAX, alturaLivre / 2 - ALTURA_IDENTIFICACAO),
+    Math.min(ESPACO_ASSINATURA_MAX, (limiteConteudo - y) / 2 - ALTURA_IDENTIFICACAO),
   );
 
   const blocoAssinatura = (linhas: string[]) => {
-    // Cada bloco precisa de espaco livre + linha + identificacao. Se nao couber
-    // inteiro, vai para a pagina seguinte: carimbo cortado ao meio pela quebra
-    // de pagina e' pior que uma pagina a mais.
-    if (y + espacoAssinatura + ALTURA_IDENTIFICACAO > doc.internal.pageSize.getHeight() - 20) {
-      novaPagina();
-    }
     y += espacoAssinatura;
     doc.setDrawColor(40).setLineWidth(0.3);
     doc.line(MARGEM, y, MARGEM + larguraLinha, y);
     doc.setLineWidth(0.2);
     y += 5;
-    doc.setFontSize(9.5).setTextColor(...PRETO);
+    doc.setFontSize(CORPO).setTextColor(...PRETO);
     linhas.forEach((linha, i) => {
       doc.setFont(FONTE, i === 0 ? 'bold' : 'normal');
       doc.splitTextToSize(linha, larguraUtil).forEach((l: string) => {
@@ -538,7 +577,6 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     y += 4;
   };
 
-  y += 6;
   blocoAssinatura([
     dados.contratante || '[RAZÃO SOCIAL / NOME DA CONTRATANTE]',
     `CNPJ/CPF nº ${ou(dados.cnpj_cpf)}`,
@@ -565,7 +603,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     doc.text(
       `Pedido de Compra${cliente ? ` — ${cliente}` : ''} — Lemon Caps — página ${i} de ${total}`,
       doc.internal.pageSize.getWidth() / 2,
-      doc.internal.pageSize.getHeight() - 10,
+      alturaPagina - RODAPE_LIVRE - 4,
       { align: 'center' },
     );
     doc.setTextColor(...PRETO);
