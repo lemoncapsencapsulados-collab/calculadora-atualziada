@@ -16,6 +16,12 @@ import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import { cn } from '@/lib/utils';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
+import {
+  custoMpPorPote,
+  excipienteDaDoseEmGramas,
+  gramasDaDose,
+  numeroDeDoses,
+} from '@/lib/doseFormula';
 import { calcularPrecificacaoPorPreco, precoParaMargem, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { ConfiguracaoCustos } from '@/types/precificacao';
 import type { EmbalagemItem, FormulaItem, Insumo, UnitType } from '@/types/formula';
@@ -68,6 +74,12 @@ export default function EditarFormulaDialog({
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [mpOriginal, setMpOriginal] = useState(0);
+  /**
+   * Configuracao do pote, do jeito que a calculadora gravou. Sem ela o custo
+   * sai por DOSE -- que era o erro: um pote de 30 doses aparecia custando a
+   * trigesima parte, e a margem, tres digitos acima da real.
+   */
+  const [pote, setPote] = useState({ quantidadePorPote: 0, unidadesPorDose: 0, tipo: '' });
 
   // Carrega a fórmula ao abrir: a lista não traz os itens, só o resumo.
   useEffect(() => {
@@ -77,7 +89,9 @@ export default function EditarFormulaDialog({
     (async () => {
       const { data, error } = await supabase
         .from('formulas')
-        .select('itens, embalagens, total_mp')
+        .select(
+          'itens, embalagens, total_mp, quantidade_por_pote, unidades_por_dose, tipo_produto',
+        )
         .eq('id', formulaId)
         .single();
       if (cancelado) return;
@@ -97,6 +111,11 @@ export default function EditarFormulaDialog({
         })),
       );
       setEmbalagensItens(((data?.embalagens || []) as unknown as EmbalagemItem[]) || []);
+      setPote({
+        quantidadePorPote: Number(data?.quantidade_por_pote) || 0,
+        unidadesPorDose: Number(data?.unidades_por_dose) || 0,
+        tipo: String(data?.tipo_produto || ''),
+      });
       setMpOriginal(Number(data?.total_mp) || 0);
       setPrecoVenda(String(precoVendaAtual ?? 0));
       setNome(nomeFormula);
@@ -139,10 +158,51 @@ export default function EditarFormulaDialog({
     [linhas, insumosPorId],
   );
 
-  const totalMp = useMemo(
-    () => calculadas.reduce((s, c) => s + (c.custo || 0), 0),
-    [calculadas],
+  const doses = useMemo(
+    () => numeroDeDoses(pote.quantidadePorPote, pote.unidadesPorDose),
+    [pote],
   );
+
+  /**
+   * Excipiente: o que falta para encher a capsula da dose. Nao esta' em `itens`
+   * -- a calculadora calcula na hora --, entao aqui tambem tem que ser
+   * calculado, senao o custo daria menos que o da calculadora para a mesma
+   * formula.
+   */
+  const excipiente = useMemo(() => {
+    const insumo = insumos.find((i) => i.nome.toLowerCase().includes('excipiente'));
+    if (!insumo) return { gramas: 0, custo: 0, insumo: null as Insumo | null };
+    const gramas = excipienteDaDoseEmGramas(
+      pote.tipo,
+      pote.unidadesPorDose,
+      gramasDaDose(
+        calculadas
+          .filter((c) => c.insumo && !c.erro)
+          .map((c) => ({ quantidade: parseFloat(c.linha.quantidade) || 0, unidade: c.linha.unidade })),
+      ),
+    );
+    if (gramas <= 0) return { gramas: 0, custo: 0, insumo };
+    const custo = calcularCustoInsumo(
+      {
+        insumo_id: insumo.id,
+        nome_insumo_snapshot: insumo.nome,
+        qtd_informada: gramas,
+        unidade_informada: 'g',
+        custo_calculado: 0,
+      },
+      insumo,
+    );
+    return { gramas, custo, insumo };
+  }, [calculadas, insumos, pote]);
+
+  /** Custo de UMA dose -- e' o que as linhas acima somam. */
+  const custoPorDose = useMemo(
+    () => calculadas.reduce((s, c) => s + (c.custo || 0), 0) + excipiente.custo,
+    [calculadas, excipiente],
+  );
+
+  /** Custo do POTE, que e' o que precifica. */
+  const totalMp = useMemo(() => custoMpPorPote(custoPorDose, doses), [custoPorDose, doses]);
 
   /** Embalagem tambem muda o custo, entao a margem tem que segui-la. */
   const totalEmbalagem = useMemo(
@@ -288,7 +348,7 @@ export default function EditarFormulaDialog({
                 <span>Matéria-prima</span>
                 <span>Qtd. por dose</span>
                 <span>Unidade</span>
-                <span className="text-right">Custo</span>
+                <span className="text-right">Custo / dose</span>
                 <span />
               </div>
 
@@ -451,7 +511,9 @@ export default function EditarFormulaDialog({
         <div className="shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-6">
             <div className="text-xs text-muted-foreground">
-              <span>MP {formatCurrency(totalMp)}</span>
+              <span>
+                MP {formatCurrency(totalMp)} <span className="opacity-60">/ pote</span>
+              </span>
               {Math.abs(diferencaMp) > 0.004 && (
                 <span className={cn('ml-1', diferencaMp > 0 ? 'text-destructive' : 'text-green-700 dark:text-green-400')}>
                   ({diferencaMp > 0 ? '+' : '−'}{formatCurrency(Math.abs(diferencaMp))})
