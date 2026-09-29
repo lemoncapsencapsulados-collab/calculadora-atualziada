@@ -57,6 +57,7 @@ import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import type { Orcamento } from '@/types/orcamento';
 import { MSG_PEDIDO_INCOMPLETO, compararPorSequencial, parseNumeroPedido } from '@/lib/numeroPedido';
 import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
+import PreviewPedidoCompraDialog from '@/components/pedidos/PreviewPedidoCompraDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import {
   STATUS_APROVACAO_CLASSE, STATUS_APROVACAO_LABEL, type StatusAprovacao,
@@ -244,6 +245,8 @@ const Pedidos = () => {
     { rascunho: Partial<Orcamento>; grupo: GrupoProdutor } | null
   >(null);
   const [pedidoCompraAlvo, setPedidoCompraAlvo] = useState<AlvoPedidoCompra | null>(null);
+  /** Previa do documento; so' existe depois de o Pedido de Compra ter sido preenchido. */
+  const [verPedidoCompra, setVerPedidoCompra] = useState<AlvoPedidoCompra | null>(null);
   const [orcamentoPdf, setOrcamentoPdf] = useState<Orcamento | null>(null);
 
   // Abre detalhe automaticamente quando a URL contém ?pedido=<id>
@@ -1148,7 +1151,6 @@ const Pedidos = () => {
                       // antigos, do formato {contrato}-{sequencial}.
                       const doParse = parseNumeroPedido(pedido.numero_pedido);
                       const numeroContrato = pedido.numero_contrato || doParse.numeroContrato;
-                      const completo = !!numeroContrato;
                       // Sequencial do Pedido de Compra dentro do produtor: a lista
                       // ja' vem ordenada por data de pagamento, entao e' a posicao.
                       const numeroCompra = String(indice + 1).padStart(2, '0');
@@ -1178,7 +1180,7 @@ const Pedidos = () => {
                                   {formatCurrency(getValorFaturado(pedido))}
                                 </span>
                               </p>
-                              {completo ? (
+                              {numeroContrato ? (
                                 <p className="text-xs text-muted-foreground">
                                   Contrato nº {numeroContrato}
                                 </p>
@@ -1206,19 +1208,29 @@ const Pedidos = () => {
                               >
                                 <FileText className="h-4 w-4 mr-1" /> Orçamento
                               </Button>
-                              {/* Sempre disponivel: e' por aqui que se baixa o PDF de novo. */}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPedidoCompraAlvo({ pedido, grupo })}
-                                title={
-                                  completo
-                                    ? 'Rever ou baixar o Pedido de Compra'
-                                    : 'Preencher o Pedido de Compra'
-                                }
-                              >
-                                <FileSignature className="h-4 w-4 mr-1" /> Pedido de Compra
-                              </Button>
+                              {/* Ja' preenchido: abre a previa, de onde se
+                                  edita e se baixa. Ainda em branco: nao ha' o
+                                  que pre-visualizar, entao vai direto ao
+                                  formulario. */}
+                              {pedido.pedido_compra_dados ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setVerPedidoCompra({ pedido, grupo })}
+                                  title="Ver o Pedido de Compra; dá para editar e baixar por lá"
+                                >
+                                  <FileSignature className="h-4 w-4 mr-1" /> Ver Pedido
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setPedidoCompraAlvo({ pedido, grupo })}
+                                  title="Preencher o Pedido de Compra"
+                                >
+                                  <FileSignature className="h-4 w-4 mr-1" /> Pedido de Compra
+                                </Button>
+                              )}
                               {renderAcoesMenu(pedido)}
                               <CollapsibleTrigger asChild>
                                 <Button variant="outline" size="sm">
@@ -1318,6 +1330,25 @@ const Pedidos = () => {
 
       {orcamentoPdf && (
         <PreviewPdfDialog orcamento={orcamentoPdf} onClose={() => setOrcamentoPdf(null)} />
+      )}
+
+      {verPedidoCompra && (
+        <PreviewPedidoCompraDialog
+          open
+          onOpenChange={(o) => !o && setVerPedidoCompra(null)}
+          dados={verPedidoCompra.pedido.pedido_compra_dados}
+          numeroPedido={verPedidoCompra.pedido.numero_pedido || ''}
+          numeroContrato={
+            verPedidoCompra.pedido.numero_contrato ||
+            parseNumeroPedido(verPedidoCompra.pedido.numero_pedido).numeroContrato ||
+            ''
+          }
+          onEditar={() => {
+            const alvo = verPedidoCompra;
+            setVerPedidoCompra(null);
+            setPedidoCompraAlvo(alvo);
+          }}
+        />
       )}
 
       {pedidoCompraAlvo && (
