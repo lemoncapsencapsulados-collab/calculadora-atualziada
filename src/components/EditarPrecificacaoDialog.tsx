@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Save, Loader2, Sparkles, Star, Lock } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 const SENHA_LIBERACAO_MARGEM = '0B%s8QP2Z+Do';
 

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Send, RotateCcw, Plus, Trash2, Users, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
 import { useContratoModelos } from '@/hooks/useContratoModelos';
 import { useResumoContrato } from '@/hooks/useResumoContrato';

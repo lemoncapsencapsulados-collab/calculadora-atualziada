@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Search, CheckCircle2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

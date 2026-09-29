@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, Lock, Wallet } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';

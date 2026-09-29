@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useContratoModelosDocx, useCriarModeloDocx, useExcluirModeloDocx, useAtualizarModeloDocx, ContratoModeloDocx } from '@/hooks/useContratoModelosDocx';
 import { PreencherContratoDialog } from '@/components/contratos-docx/PreencherContratoDialog';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 export default function EditorContratos() {
   const { data: modelos = [], isLoading } = useContratoModelosDocx();

@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { BannerProduto, DadosBanner } from '@/types/demandaMarca';
 import type { ProdutoPedido } from '@/types/demandaMarca';
 import { ResumoProdutoLinha } from './ProdutosPedidoResumo';

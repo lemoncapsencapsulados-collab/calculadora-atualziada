@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ShieldCheck, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 const ADMIN_PASSWORD = '0212';
 

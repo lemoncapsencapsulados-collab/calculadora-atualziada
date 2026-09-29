@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { carregarAnaliseVendedor, carregarAnaliseTimeVendas, formatBRL, gerarCSVAnalise, TIME_VENDAS_ID, TIME_VENDAS_LABEL, type AnaliseVendedor } from '@/lib/analiseVendedor';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { startOfMonth, endOfMonth } from 'date-fns';

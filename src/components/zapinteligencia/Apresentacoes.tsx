@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Download, FileText, Loader2, Presentation, Sparkles, AlertTriangle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
 import { mensagemErroEdgeFunction } from '@/lib/erroEdgeFunction';
 import { exportarPdf, exportarPptx } from '@/lib/zapApresentacaoExport';

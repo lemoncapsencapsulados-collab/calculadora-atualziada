@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import { Insumo, UnitType } from '@/types/formula';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 /** O que sai daqui para a calculadora. */
 export interface DoseImportada {

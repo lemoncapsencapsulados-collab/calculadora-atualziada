@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useContratoModelos, useSalvarContratoModelo, useExcluirContratoModelo, ContratoModelo } from '@/hooks/useContratoModelos';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { ClickUpRotuloConfigCard } from '@/components/admin/ClickUpRotuloConfigCard';
 import { ClickUpDemandasConfigCard } from '@/components/admin/ClickUpDemandasConfigCard';
 

@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, Send, FileDown } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { baixarDocWebhooks } from '@/lib/integracoesDocs';
 
 const EVENTOS = [

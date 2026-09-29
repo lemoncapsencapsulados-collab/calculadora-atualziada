@@ -17,7 +17,7 @@ import {
   FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw,
   MoreVertical, ShoppingCart, AlertTriangle, FileSignature,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';

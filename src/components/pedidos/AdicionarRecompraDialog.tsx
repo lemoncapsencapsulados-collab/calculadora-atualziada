@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useRecompras } from '@/hooks/useRecompras';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import CondicoesPagamentoForm from '@/components/CondicoesPagamentoForm';
 import type { CondicoesPagamento } from '@/types/orcamento';
 import { formatCurrency } from '@/lib/unitConversion';

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, RefreshCw, Save, Sparkles, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { DEMANDA_TIPO_LABELS, DEMANDA_TIPO_SETOR, DemandaTipo } from '@/types/demandaMarca';
 
 interface Membro { id: number; username: string; email?: string; profilePicture?: string | null }

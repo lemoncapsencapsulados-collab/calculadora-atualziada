@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Badge } from '@/components/ui/badge';
 import { Search, Plus, X, User, Phone, AlertTriangle } from 'lucide-react';
 import { useClientes, Cliente, ClienteInsert } from '@/hooks/useClientes';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 interface ClienteSelectorProps {
   modo: 'basico' | 'completo';

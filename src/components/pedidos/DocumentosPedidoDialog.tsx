@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale';
 import { PedidoAnexo, downloadAnexo, ANEXO_LIMITES } from '@/hooks/usePedidoAnexos';
 import { Pedido } from '@/types/formula';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,

@@ -3,7 +3,7 @@ import { Sparkles, Loader2, Download, ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { mensagemErroEdgeFunction } from '@/lib/erroEdgeFunction';
 import type { KpisAnuncios, LinhaConsultorAnuncio } from '@/hooks/useAnunciosDados';
 

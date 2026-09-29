@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, Copy, Check, Edit, Download, Save, X, ClipboardList, Plus, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import html2canvas from 'html2canvas';
 import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';

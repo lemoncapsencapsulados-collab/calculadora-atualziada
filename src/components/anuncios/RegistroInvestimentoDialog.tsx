@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { CANAIS_VENDAS, OBJETIVOS_CAMPANHA, calcularCPL, diasEntre, formatBRL } from '@/lib/anuncios';
 import { AdInvestment, AdInvestmentConsultor, AdInvestmentInput, useAdInvestments } from '@/hooks/useAdInvestments';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { Trash2, Plus } from 'lucide-react';
 
 interface Props {
