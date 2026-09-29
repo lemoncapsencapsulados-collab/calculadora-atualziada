@@ -62,32 +62,36 @@ describe('paleta do Pedido de Compra', () => {
 });
 
 /**
- * O documento é assinado pelo ZapSign, cujo carimbo tem tamanho fixo e não
- * encolhe. Faixa curta faz o carimbo cobrir a linha e o nome de quem assinou --
- * e só se descobre depois de assinado, quando não dá mais para refazer.
+ * O documento é assinado pelo ZapSign, que posiciona o bloco de assinatura por
+ * clique na tela dele ou por texto âncora -- não pelo espaço em branco do
+ * arquivo. A faixa existe para o carimbo não cobrir a linha e o nome de quem
+ * assinou, não para reservar a posição.
+ *
+ * Já foi 55 mm mínimo, o que empurrava as assinaturas para uma página só delas,
+ * depois de outra com metade vazia. Quem for mexer nestes números de novo:
+ * aumentar o mínimo custa páginas, e não melhora o posicionamento.
  */
 describe('espaço para a assinatura eletrônica', () => {
-  it('reserva pelo menos 55 mm acima de cada linha', () => {
-    expect(ESPACO_ASSINATURA_MIN).toBeGreaterThanOrEqual(55);
+  it('reserva faixa suficiente para o carimbo não cobrir a linha', () => {
+    expect(ESPACO_ASSINATURA_MIN).toBeGreaterThanOrEqual(24);
+  });
+
+  it('o mínimo cabe junto das declarações numa A4', () => {
+    // É o que evita a página extra só de assinatura: os dois blocos, no
+    // tamanho mínimo, têm que caber no que sobra depois do texto do aceite.
+    const alturaUtil = 297 - 20 - 20 - 26; // margens de 2 cm, faixa do hash, data
+    expect(2 * (ESPACO_ASSINATURA_MIN + 30)).toBeLessThanOrEqual(alturaUtil);
   });
 
   it('o teto não é menor que o mínimo', () => {
     expect(ESPACO_ASSINATURA_MAX).toBeGreaterThanOrEqual(ESPACO_ASSINATURA_MIN);
   });
 
-  it('as duas assinaturas cabem numa página A4 com o espaço máximo', () => {
-    // 297 mm de altura, menos o topo abaixo do limão e o rodapé; cada bloco
-    // leva a faixa livre mais a linha e as cinco linhas de identificação.
-    const alturaUtil = 297 - 27 - 20 - 12; // topo, rodapé, linha da data
-    expect(2 * (ESPACO_ASSINATURA_MAX + 30)).toBeLessThanOrEqual(alturaUtil);
+  it('a faixa cresce quando a página permite', () => {
+    expect(ESPACO_ASSINATURA_MAX).toBeGreaterThan(ESPACO_ASSINATURA_MIN);
   });
 });
 
-/**
- * O documento repete o número por extenso, como contrato faz: "60 (sessenta)
- * dias", "40% (quarenta por cento)". Errar aqui vira divergência entre o
- * algarismo e a palavra no mesmo parágrafo -- e aí não se sabe qual vale.
- */
 describe('número por extenso', () => {
   it('escreve os prazos que aparecem no documento', () => {
     expect(porExtenso(7)).toBe('sete');
