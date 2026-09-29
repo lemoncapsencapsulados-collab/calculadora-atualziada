@@ -255,3 +255,28 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
     representante_cpf: representante.cpf,
   };
 }
+
+/**
+ * Junta o que ja' foi preenchido com o que o sistema sabe deduzir.
+ *
+ * O que o consultor digitou manda sempre -- inclusive quando ele apagou de
+ * proposito, que fica como texto vazio e continua vazio. O autopreenchimento
+ * so' entra nos campos que a gravacao nem chegou a ter.
+ *
+ * Existe por causa dos campos que nasceram depois: um Pedido de Compra salvo
+ * antes de "Consultor responsavel" existir nao tem a chave, e sem esta juncao
+ * ele reabriria com o campo em branco -- justamente um campo obrigatorio, que
+ * o sistema sabe preencher sozinho a partir do orcamento.
+ */
+export function mesclarComAutoPreenchimento(
+  salvos: Partial<DadosPedidoCompra> | null | undefined,
+  autoPreenchido: DadosPedidoCompra,
+): DadosPedidoCompra {
+  if (!salvos) return autoPreenchido;
+  // Só as chaves realmente gravadas; `undefined` é "nunca foi perguntado" e
+  // deixa o autopreenchimento valer, enquanto '' é "foi apagado de propósito".
+  const gravados = Object.fromEntries(
+    Object.entries(salvos).filter(([, valor]) => valor !== undefined),
+  );
+  return { ...autoPreenchido, ...gravados };
+}

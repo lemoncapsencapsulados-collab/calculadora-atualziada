@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
 import { numeroContratoDoMes } from '@/lib/numeroOrcamentoCliente';
-import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
+import { mesclarComAutoPreenchimento, montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
 import { baixarPedidoCompraPDF } from '@/lib/pedidoCompraPdf';
 import {
   APRESENTACOES, BULBOS, CAMPO_EMBALAGEM_LABEL, CANULAS, CAPSULA_CORES, CAPSULA_TIPOS,
@@ -246,8 +246,10 @@ export default function PedidoDeCompraDialog({
   const [numeroContrato, setNumeroContrato] = useState(
     numeroContratoSugerido || numeroContratoDoMes(),
   );
-  const [dados, setDados] = useState<DadosPedidoCompra>(
-    () => dadosSalvos ?? montarDadosPedidoCompra({ snapshot, cliente }),
+  // Mescla, nao substitui: campo que nasceu depois da gravacao (consultor,
+  // marca, e-mail) vem do orcamento em vez de abrir em branco.
+  const [dados, setDados] = useState<DadosPedidoCompra>(() =>
+    mesclarComAutoPreenchimento(dadosSalvos, montarDadosPedidoCompra({ snapshot, cliente })),
   );
   const [salvando, setSalvando] = useState(false);
 
