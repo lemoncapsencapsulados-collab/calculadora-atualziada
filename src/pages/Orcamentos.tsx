@@ -35,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
+import PreviewPedidoCompraDialog from '@/components/pedidos/PreviewPedidoCompraDialog';
 import { listarCamposFaltantes } from '@/types/pedidoCompra';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 import AprovacaoOrcamentoDialog from '@/components/AprovacaoOrcamentoDialog';
@@ -158,6 +159,9 @@ export default function Orcamentos() {
     setPedidoCompraDoZero(doZero);
     setPedidoCompraOrcamento(orcamento);
   };
+
+  /** Previa do Pedido de Compra ja' preenchido, antes de baixar ou editar. */
+  const [verPedidoCompra, setVerPedidoCompra] = useState<Orcamento | null>(null);
 
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
@@ -784,11 +788,15 @@ export default function Orcamentos() {
                                         ? 'border-green-500/60 text-green-700 dark:text-green-400'
                                         : 'border-amber-500/60 text-amber-700 dark:text-amber-500',
                                     )}
-                                    onClick={() => abrirPedidoCompra(orcamento, false)}
+                                    // Abre a previa, nao o formulario: ver o
+                                    // documento montado e' o que pega o erro
+                                    // que a lista de pendencias nao pega.
+                                    onClick={() => setVerPedidoCompra(orcamento)}
+                                    title="Ver o Pedido de Compra; dá para editar e baixar por lá"
                                   >
                                     <FileSignature className="mr-1.5 h-4 w-4" />
-                                    <span className="hidden sm:inline">Editar Pedido de Compra</span>
-                                    <span className="sm:hidden">Pedido</span>
+                                    <span className="hidden sm:inline">Ver Pedido de Compra</span>
+                                    <span className="sm:hidden">Ver pedido</span>
                                     <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-[10px]">
                                       {pendentes === 0 ? 'completo' : `${pendentes} pend.`}
                                     </Badge>
@@ -913,6 +921,21 @@ export default function Orcamentos() {
           orcamentoExistente={editandoOrcamento}
           onClose={() => { setCriandoNovo(false); setEditandoOrcamento(null); }}
           onSuccess={invalidateAll}
+        />
+      )}
+
+      {verPedidoCompra && (
+        <PreviewPedidoCompraDialog
+          open
+          onOpenChange={(o) => !o && setVerPedidoCompra(null)}
+          dados={(verPedidoCompra as any).pedido_compra_dados}
+          numeroPedido={verPedidoCompra.numero_orcamento || ''}
+          numeroContrato={(verPedidoCompra as any).numero_contrato || ''}
+          onEditar={() => {
+            const alvo = verPedidoCompra;
+            setVerPedidoCompra(null);
+            abrirPedidoCompra(alvo, false);
+          }}
         />
       )}
 
