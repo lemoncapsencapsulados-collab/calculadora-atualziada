@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Separator } from '@/components/ui/separator';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import ConsultorCombobox from '@/components/ConsultorCombobox';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';

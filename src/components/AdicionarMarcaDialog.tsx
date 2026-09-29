@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useClientes } from '@/hooks/useClientes';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { Loader2, Tag } from 'lucide-react';
 
 interface AdicionarMarcaDialogProps {

@@ -20,7 +20,7 @@ import { useContratoModeloDocx, useAtualizarModeloDocx, baixarModeloArquivo, det
 import { docxParaHtml } from '@/lib/docxEditor';
 import { EditorToolbar } from '@/components/contratos-docx/EditorToolbar';
 import { PreencherContratoDialog } from '@/components/contratos-docx/PreencherContratoDialog';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 export default function EditorContratoModelo() {
   const { id } = useParams<{ id: string }>();

@@ -25,7 +25,7 @@ import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getO
 import { validarCPF, validarCNPJ, validarEmail } from '@/lib/validators';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
 import { cadastrarClienteVhSys, type CadastrarVhSysResult } from '@/lib/vhsysCliente';
-import { toast as sonnerToast } from 'sonner';
+import { aviso as sonnerToast } from '@/lib/avisos';
 import CorComPersonalizado from '@/components/CorComPersonalizado';
 
 interface AprovacaoOrcamentoDialogProps {

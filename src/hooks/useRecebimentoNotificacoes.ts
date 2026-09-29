@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { Pedido } from '@/types/formula';
 import { derivarRecebimentos, Recebimento } from '@/lib/recebimentos';
 

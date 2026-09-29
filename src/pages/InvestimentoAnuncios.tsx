@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
 import { useUsuarios } from '@/hooks/useUsuarios';
 import { AdInvestment } from '@/hooks/useAdInvestments';

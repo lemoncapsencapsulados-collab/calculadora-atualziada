@@ -36,7 +36,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
 import { format } from 'date-fns';

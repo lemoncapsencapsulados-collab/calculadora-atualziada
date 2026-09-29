@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Star, Save, Copy, MessageCircle, Plus, Trash2, Package, StickyNote, Sparkles, Truck, Calendar as CalendarIcon, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { Pedido, AcompanhamentoProcessos } from '@/types/formula';
 import {
   ETAPAS, EtapaId, calcularEtapaInfo, getEtapasContratadas,

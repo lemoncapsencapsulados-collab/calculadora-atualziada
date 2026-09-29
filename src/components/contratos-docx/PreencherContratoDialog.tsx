@@ -8,7 +8,7 @@ import { Loader2, Download, FileText } from 'lucide-react';
 import { ContratoModeloDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
 import { preencherDocxOriginal, preencherHtmlComVariaveis, htmlComoDocxBlob } from '@/lib/docxEditor';
 import { saveAs } from 'file-saver';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 interface Props {
   open: boolean;

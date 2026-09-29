@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, Pencil, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { cn } from '@/lib/utils';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { formatCurrency } from '@/lib/unitConversion';

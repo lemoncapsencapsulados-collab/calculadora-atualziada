@@ -5,7 +5,7 @@ import { Loader2, Download, Copy, ImageIcon } from 'lucide-react';
 import { FreteCotacao } from '@/types/frete';
 import { renderElementToPngBlob } from '@/lib/freteImageExport';
 import CotacaoExportCard from './CotacaoExportCard';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 interface Props {
   cotacao: FreteCotacao;

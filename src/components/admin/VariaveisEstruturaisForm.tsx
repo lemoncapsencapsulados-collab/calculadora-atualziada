@@ -18,7 +18,7 @@ import {
 } from '@/lib/adminCustos';
 import { formatCurrency } from '@/lib/unitConversion';
 import { arredondarReais } from '@/lib/utils';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 interface DespesaAdmin {
   id: string;

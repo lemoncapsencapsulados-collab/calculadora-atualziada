@@ -36,6 +36,8 @@ import GerarOrcamentoDialog from '@/components/GerarOrcamentoDialog';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
 import PreviewPedidoCompraDialog from '@/components/pedidos/PreviewPedidoCompraDialog';
+import RecalcularPrecoDialog from '@/components/RecalcularPrecoDialog';
+import { BORDA_PRAZO, CLASSES_PRAZO, avisoPrazo, situacaoPrazo, tomDoPrazo } from '@/lib/prazoRecalculo';
 import { listarCamposFaltantes } from '@/types/pedidoCompra';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 import AprovacaoOrcamentoDialog from '@/components/AprovacaoOrcamentoDialog';
@@ -44,14 +46,14 @@ import { useResumosContratoExistentes } from '@/hooks/useResumoContrato';
 import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input';
 import { useFreteCotacoes } from '@/hooks/useFreteCotacoes';
 import { labelFreteCotacao } from '@/lib/freteHelpers';
-import { Truck } from 'lucide-react';
+import { AlertTriangle, Calculator, Truck } from 'lucide-react';
 import FreteOrcamentoDialog from '@/components/frete/FreteOrcamentoDialog';
 import { MoreHorizontal } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   rascunho: { label: 'Criado', variant: 'secondary' },
@@ -162,6 +164,8 @@ export default function Orcamentos() {
 
   /** Previa do Pedido de Compra ja' preenchido, antes de baixar ou editar. */
   const [verPedidoCompra, setVerPedidoCompra] = useState<Orcamento | null>(null);
+  /** Orcamento cujo preco o consultor quer recalcular. */
+  const [recalculando, setRecalculando] = useState<Orcamento | null>(null);
 
   const [propostaCompletaOrcamento, setPropostaCompletaOrcamento] = useState<Orcamento | null>(null);
   const [verResumoContrato, setVerResumoContrato] = useState<Orcamento | null>(null);
@@ -584,6 +588,14 @@ export default function Orcamentos() {
                 <div className="space-y-2.5">
                   {orcamentos.map((orcamento) => {
                     const isPago = orcamento.status === 'pago';
+                    // Preco combinado vale 5 dias; depois disso o card avisa.
+                    const prazo = situacaoPrazo({
+                      status: orcamento.status,
+                      criadoEm: orcamento.created_at,
+                      recalculadoEm: (orcamento as any).preco_recalculado_em,
+                    });
+                    const tomPrazo = tomDoPrazo(prazo);
+                    const aviso = avisoPrazo(prazo, 'orcamento');
                     return (
                       <Card
                         key={orcamento.id}
@@ -597,8 +609,42 @@ export default function Orcamentos() {
                           'hover:border-border-strong hover:shadow-medium',
                           "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:content-['']",
                           STATUS_RAIL[orcamento.status] || 'before:bg-border-strong',
+                          // Preco vencido tinge o card: e' o unico estado em que
+                          // o consultor NAO pode mandar o valor para o cliente.
+                          BORDA_PRAZO[tomPrazo],
                         )}
                       >
+                        {aviso && (
+                          <div
+                            className={cn(
+                              'flex flex-wrap items-center gap-2 border-b px-3 py-1.5 pl-4 text-xs sm:px-4 sm:pl-5',
+                              tomPrazo === 'vencido'
+                                ? 'border-red-200 bg-red-50/70 dark:border-red-900 dark:bg-red-950/30'
+                                : tomPrazo === 'atencao'
+                                  ? 'border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/25'
+                                  : 'border-border bg-muted/30',
+                            )}
+                          >
+                            {tomPrazo === 'vencido' && <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
+                            <span className={cn('font-medium', CLASSES_PRAZO[tomPrazo])}>
+                              {aviso}
+                              {/* Quem ja' montou o Pedido de Compra precisa
+                                  refazer os dois: o documento sai do orcamento. */}
+                              {(orcamento as any).pedido_compra_dados && prazo.vencido
+                                ? ' e o Pedido de Compra'
+                                : ''}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant={tomPrazo === 'vencido' ? 'default' : 'outline'}
+                              className="ml-auto h-6 px-2 text-[11px]"
+                              onClick={() => setRecalculando(orcamento)}
+                            >
+                              <Calculator className="mr-1 h-3 w-3" />
+                              Recalcular
+                            </Button>
+                          </div>
+                        )}
                         <CardContent className="p-0">
                           <div className="grid grid-cols-1 items-start gap-x-6 gap-y-3 p-3 pl-4 sm:p-4 sm:pl-5 xl:grid-cols-[minmax(0,1fr)_auto_auto]">
 
@@ -921,6 +967,14 @@ export default function Orcamentos() {
           orcamentoExistente={editandoOrcamento}
           onClose={() => { setCriandoNovo(false); setEditandoOrcamento(null); }}
           onSuccess={invalidateAll}
+        />
+      )}
+
+      {recalculando && (
+        <RecalcularPrecoDialog
+          alvo={recalculando as any}
+          tipo="orcamento"
+          onClose={() => setRecalculando(null)}
         />
       )}
 

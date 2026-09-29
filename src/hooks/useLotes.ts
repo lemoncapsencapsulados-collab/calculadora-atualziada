@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Lote } from '@/types/formula';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { arredondarReais } from '@/lib/utils';
 
 export function useLotes() {

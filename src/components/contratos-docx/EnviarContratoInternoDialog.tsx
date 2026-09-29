@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Download, Send, FileText, AlertTriangle, Mail, Plus, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { useContratoModelosDocx, detectarVariaveis, baixarModeloArquivo } from '@/hooks/useContratoModelosDocx';
 import { docxParaHtml, preencherDocxOriginal, htmlComoDocxBlob } from '@/lib/docxEditor';
 import { preencherHtmlComVariaveis } from '@/lib/docxEditor';

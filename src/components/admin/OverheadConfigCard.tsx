@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useConfiguracaoCustos } from '@/hooks/useConfiguracaoCustos';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 export function OverheadConfigCard() {
   const { configuracaoAtiva, updateConfiguracao } = useConfiguracaoCustos();

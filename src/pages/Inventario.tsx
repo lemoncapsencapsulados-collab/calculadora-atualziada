@@ -14,7 +14,7 @@ import { useEmbalagens } from "@/hooks/useEmbalagens";
 import { useLotes } from "@/hooks/useLotes";
 import { UnitType } from "@/types/formula";
 import { formatCurrency, formatUnit } from "@/lib/unitConversion";
-import { toast } from "sonner";
+import { aviso as toast } from '@/lib/avisos';
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
 import LotesPanel from "@/components/LotesPanel";

@@ -9,7 +9,7 @@ import { ChevronDown, ChevronRight, RefreshCw, Info, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { isAdminUnlocked } from '@/lib/adminConfig';
 

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { FretePodPreco, FretePodPrecoHistorico } from '@/types/frete';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 const TABLE = 'frete_pod_precos' as any;
 const HIST = 'frete_pod_precos_historico' as any;

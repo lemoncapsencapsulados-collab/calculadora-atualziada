@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy, FlaskConical } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import EditarFormulaDialog from './EditarFormulaDialog';

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Formula } from '@/types/formula';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 export function useFormulas() {
   const queryClient = useQueryClient();

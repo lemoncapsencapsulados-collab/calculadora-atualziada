@@ -1,5 +1,7 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+// As notificacoes flutuantes sairam: erro que some sozinho em quatro segundos
+// nao e' visto por quem esta' digitando. Agora os avisos ficam no topo ate'
+// alguem fechar -- so' sucesso sai sozinho.
+import AvisosFixos from "@/components/AvisosFixos";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -12,7 +14,7 @@ import { migrateLocalDataToSupabase } from './lib/migrateToSupabase';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useRecebimentoNotificacoes } from './hooks/useRecebimentoNotificacoes';
 import { useAtualizacaoAutomatica } from './hooks/useAtualizacaoAutomatica';
-import { toast as sonnerToast } from 'sonner';
+import { aviso as sonnerToast } from '@/lib/avisos';
 import { usePedidos } from './hooks/usePedidos';
 
 /* Rotas fora do primeiro carregamento vão sob demanda (React.lazy): reduz o
@@ -146,8 +148,7 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
+        <AvisosFixos />
         <AuthProvider>
           <AppContent />
         </AuthProvider>

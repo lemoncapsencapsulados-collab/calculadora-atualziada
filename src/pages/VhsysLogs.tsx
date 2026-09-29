@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ChevronDown, ChevronRight, RefreshCw, PlayCircle, AlertCircle, Info, Plus, Trash2, Webhook } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { AdminPasswordGate } from '@/components/admin/AdminPasswordGate';
 import { isAdminUnlocked } from '@/lib/adminConfig';
 

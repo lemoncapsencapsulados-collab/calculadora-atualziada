@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ADMIN_PANEL_PASSWORD, unlockAdmin } from '@/lib/adminConfig';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 
 interface Props {
   onUnlock: () => void;

@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Upload, FileDown, Loader2, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import {
   ArquivoDemanda, DadosRotulo, ESTRUTURAS_ROTULO, POSICIONAMENTOS,
   LOCAIS_PRODUCAO, minimoRotulos, ProdutoPedido, ProdutoRotulo, SEGMENTOS, TIPOS_PAPEL, TIPOS_PRODUTO,

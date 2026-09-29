@@ -30,7 +30,7 @@ import {
   numeroDeDoses,
 } from '@/lib/doseFormula';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyDetailed, formatCurrencyPrecise, formatUnit } from '@/lib/unitConversion';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente } from '@/hooks/useClientes';

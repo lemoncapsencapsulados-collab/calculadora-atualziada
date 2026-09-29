@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { emitWebhookEvent } from '@/lib/webhookEmitter';
-import { toast } from 'sonner';
+import { aviso as toast } from '@/lib/avisos';
 import { Pedido, AcompanhamentoProcessos, HistoricoVhsysEntry } from '@/types/formula';
 import { Orcamento, OrcamentoSnapshot, CondicoesPagamento } from '@/types/orcamento';
 import { useEffect, useRef, useCallback } from 'react';
