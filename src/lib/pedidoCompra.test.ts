@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { montarDadosPedidoCompra } from './pedidoCompraAutoFill';
+import { mesclarComAutoPreenchimento, montarDadosPedidoCompra } from './pedidoCompraAutoFill';
 import { gerarPedidoCompraPDF } from './pedidoCompraPdf';
 import { compararPorSequencial, montarNumeroPedido, parseNumeroPedido } from './numeroPedido';
 import { listarCamposFaltantes } from '@/types/pedidoCompra';
@@ -288,5 +288,54 @@ describe('geração do PDF', () => {
     const dados = montarDadosPedidoCompra({ snapshot: {} as any, cliente: null });
     const doc = gerarPedidoCompraPDF({ numeroPedido: '', numeroContrato: '', dados });
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('reabrir um Pedido de Compra já gravado', () => {
+  const autoPreenchido = () =>
+    montarDadosPedidoCompra({
+      snapshot: { ...snapshotExemplo, consultor_responsavel: 'Guilherme Magano' } as any,
+      cliente: { marca: 'TRULY', email_cnpj: 'financeiro@truly.com.br' } as any,
+    });
+
+  it('o que o consultor digitou manda sobre o autopreenchimento', () => {
+    const salvos = { consultor_responsavel: 'Outro Consultor', marca: 'OUTRA' } as any;
+    const r = mesclarComAutoPreenchimento(salvos, autoPreenchido());
+    expect(r.consultor_responsavel).toBe('Outro Consultor');
+    expect(r.marca).toBe('OUTRA');
+  });
+
+  it('campo que nasceu depois da gravação vem do orçamento', () => {
+    // Os 10 Pedidos de Compra que já existiam foram salvos antes de o consultor
+    // ser campo do documento; sem isto reabririam com ele em branco.
+    const antigo = { contratante: 'TRULY NUTRITION LTDA ME', canal_formal: 'E-mail' } as any;
+    const r = mesclarComAutoPreenchimento(antigo, autoPreenchido());
+    expect(r.consultor_responsavel).toBe('Guilherme Magano');
+    expect(r.marca).toBe('TRULY');
+    expect(r.email).toBe('financeiro@truly.com.br');
+    // E não atropela o que já estava gravado.
+    expect(r.contratante).toBe('TRULY NUTRITION LTDA ME');
+    expect(r.canal_formal).toBe('E-mail');
+  });
+
+  it('campo apagado de propósito continua apagado', () => {
+    // '' é uma decisão; undefined é ausência. Refazer o preenchimento de um
+    // campo que a pessoa limpou seria desfazer o trabalho dela.
+    const r = mesclarComAutoPreenchimento({ consultor_responsavel: '' } as any, autoPreenchido());
+    expect(r.consultor_responsavel).toBe('');
+  });
+
+  it('sem nada gravado, vale o autopreenchimento inteiro', () => {
+    expect(mesclarComAutoPreenchimento(null, autoPreenchido()).consultor_responsavel)
+      .toBe('Guilherme Magano');
+    expect(mesclarComAutoPreenchimento(undefined, autoPreenchido()).marca).toBe('TRULY');
+  });
+
+  it('não perde os produtos e as especificações já gravados', () => {
+    const salvos = { produtos: [{ descricao: 'X', apresentacao: '', preco_unitario: 1, quantidade: 2 }] } as any;
+    const r = mesclarComAutoPreenchimento(salvos, autoPreenchido());
+    expect(r.produtos).toHaveLength(1);
+    expect(r.produtos[0].descricao).toBe('X');
+    expect(r.especificacoes).toEqual(autoPreenchido().especificacoes);
   });
 });
