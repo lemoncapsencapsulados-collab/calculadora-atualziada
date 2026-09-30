@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy, FlaskConical } from 'lucide-react';
+import { ArrowRightLeft, Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy, FlaskConical } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { aviso as toast } from '@/lib/avisos';
@@ -22,6 +22,7 @@ import EditarFormulaDialog from './EditarFormulaDialog';
 import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import SenhaAdminDialog from './SenhaAdminDialog';
+import MoverDepartamentoDialog from './MoverDepartamentoDialog';
 import { cn } from '@/lib/utils';
 import { type Departamento, ehCatalogo } from '@/lib/linhaProduto';
 import {
@@ -95,6 +96,8 @@ export default function PrecificacoesSalvas({
   // Duplicação
   const [editandoFormula, setEditandoFormula] = useState<PrecificacaoComFormula | null>(null);
   const [edicaoPendente, setEdicaoPendente] = useState<PrecificacaoComFormula | null>(null);
+  /** Formula que o usuario quer trocar de prateleira. */
+  const [movendo, setMovendo] = useState<PrecificacaoComFormula | null>(null);
   const [nichoPendente, setNichoPendente] = useState<
     { formulaId: string; nome: string; nicho: NichoLoja | null } | null
   >(null);
@@ -588,6 +591,17 @@ export default function PrecificacoesSalvas({
                         Preço padrão — ajuste no orçamento
                       </Badge>
                     )}
+                    {precificacao.formula_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMovendo(precificacao)}
+                        title="Mover esta fórmula para outra prateleira"
+                      >
+                        <ArrowRightLeft className="w-4 h-4 mr-2" />
+                        Mover de lista
+                      </Button>
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm"
@@ -792,6 +806,20 @@ export default function PrecificacoesSalvas({
           if (pendente) void gravarNicho(pendente.formulaId, pendente.nicho);
         }}
       />
+
+      {movendo?.formula_id && (
+        <MoverDepartamentoDialog
+          formulaId={movendo.formula_id}
+          nomeFormula={movendo.formulas?.nome_formula || 'Fórmula'}
+          clienteAtual={movendo.formulas?.cliente}
+          nichoAtual={(movendo.formulas as any)?.nicho}
+          onFechar={() => setMovendo(null)}
+          onMovido={() => {
+            queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+            queryClient.invalidateQueries({ queryKey: ['formulas'] });
+          }}
+        />
+      )}
 
       <SenhaAdminDialog
         open={!!edicaoPendente}
