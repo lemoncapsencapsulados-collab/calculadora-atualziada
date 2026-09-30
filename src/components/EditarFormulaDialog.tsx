@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertTriangle, Plus, Save, Trash2 } from 'lucide-react';
 import { aviso as toast } from '@/lib/avisos';
 import { supabase } from '@/integrations/supabase/client';
-import { useInsumos } from '@/hooks/useInsumos';
+import { useInsumosLeitura } from '@/hooks/useInsumosLeitura';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
@@ -63,7 +63,10 @@ export default function EditarFormulaDialog({
   configuracaoAtiva,
   onSalvo,
 }: Props) {
-  const { insumos } = useInsumos();
+  // Leitura com cache: o `useInsumos` abre inscricao de tempo real a cada
+  // montagem, e este dialogo monta toda vez que alguem clica em "Editar
+  // produto". Era o que fazia a abertura travar.
+  const { insumos } = useInsumosLeitura();
   const { embalagens } = useEmbalagens();
   const { atualizarPrecificacao } = usePrecificacao();
 
