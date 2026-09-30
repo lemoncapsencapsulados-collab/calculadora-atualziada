@@ -63,14 +63,20 @@ export default function SalvarCalculoDialog({
 }: Props) {
   const [departamento, setDepartamento] = useState<Departamento>('private_label');
   const [precoInput, setPrecoInput] = useState('30');
-  const [pedindoSenha, setPedindoSenha] = useState(false);
+  /**
+   * Prateleira que a senha vai liberar.
+   *
+   * Guardar QUAL delas e' o ponto: antes o dialogo gravava 'white_label' fixo,
+   * entao clicar em "Selecao LemonCaps" pedia a senha e selecionava o catalogo.
+   */
+  const [pedindoSenha, setPedindoSenha] = useState<Departamento | null>(null);
   const [nicho, setNicho] = useState<NichoLoja | null>(null);
 
   useEffect(() => {
     if (open) {
       setDepartamento('private_label');
       setPrecoInput('30');
-      setPedindoSenha(false);
+      setPedindoSenha(null);
       setNicho(null);
     }
   }, [open]);
@@ -83,7 +89,7 @@ export default function SalvarCalculoDialog({
     // Catalogo e Selecao sao as duas prateleiras da casa: as duas mudam o que
     // todo cliente ve', entao as duas pedem a senha.
     if (valor === 'white_label' || valor === 'selecao_lemoncaps') {
-      setPedindoSenha(true);
+      setPedindoSenha(valor);
       return;
     }
     setDepartamento(valor);
@@ -303,10 +309,17 @@ export default function SalvarCalculoDialog({
       </DialogContent>
 
       <SenhaAdminDialog
-        open={pedindoSenha}
-        onOpenChange={setPedindoSenha}
-        descricao="Mandar esta fórmula para o Catálogo Lemon (White Label) precisa de senha de administrador."
-        onConfirmar={() => setDepartamento('white_label')}
+        open={!!pedindoSenha}
+        onOpenChange={(aberto) => { if (!aberto) setPedindoSenha(null); }}
+        descricao={
+          pedindoSenha === 'selecao_lemoncaps'
+            ? 'Mandar esta fórmula para a Seleção LemonCaps precisa de senha de administrador.'
+            : 'Mandar esta fórmula para o Catálogo Lemon (White Label) precisa de senha de administrador.'
+        }
+        onConfirmar={() => {
+          if (pedindoSenha) setDepartamento(pedindoSenha);
+          setPedindoSenha(null);
+        }}
       />
     </Dialog>
   );
