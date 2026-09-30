@@ -23,7 +23,7 @@ import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import SenhaAdminDialog from './SenhaAdminDialog';
 import { cn } from '@/lib/utils';
-import { ehCatalogo } from '@/lib/linhaProduto';
+import { type Departamento, ehCatalogo } from '@/lib/linhaProduto';
 import {
   AbaCatalogo, NICHOS, NICHO_NOME, NICHO_TEMA, NichoLoja, SEM_LOJA, TODAS,
   abasDaFormula, nomeDeExibicao, produtoDaLoja,
@@ -45,7 +45,8 @@ import {
 interface PrecificacoesSalvasProps {
   configuracaoAtiva: ConfiguracaoCustos | null;
   margens: MargemLucro[] | null;
-  catalogoOnly?: boolean;
+  /** Prateleira desta aba; sem ela a lista traz tudo. */
+  departamento?: Departamento;
 }
 
 interface PrecificacaoComFormula {
@@ -76,8 +77,11 @@ const PAGE_SIZE = 15;
 export default function PrecificacoesSalvas({ 
   configuracaoAtiva, 
   margens,
-  catalogoOnly 
+  departamento,
 }: PrecificacoesSalvasProps) {
+  // O catalogo e a selecao compartilham a organizacao por nicho e o nome da
+  // loja; Private Label nao tem nicho nenhum.
+  const temNichos = departamento === 'white_label' || departamento === 'selecao_lemoncaps';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { deletarPrecificacao } = usePrecificacao();
@@ -113,8 +117,8 @@ export default function PrecificacoesSalvas({
       page: currentPage,
       pageSize: PAGE_SIZE,
       searchTerm,
-      catalogoOnly,
-      nicho: catalogoOnly ? aba : null,
+      departamento,
+      nicho: temNichos ? aba : null,
     });
 
   // Reset page on search change
@@ -304,7 +308,7 @@ export default function PrecificacoesSalvas({
   const typedPrecificacoes = precificacoes as PrecificacaoComFormula[];
 
   const precificacaoEhCatalogo = (p: PrecificacaoComFormula) =>
-    catalogoOnly || ehCatalogo(p.formulas?.cliente);
+    temNichos || ehCatalogo(p.formulas?.cliente);
 
   /** Abas do catalogo: os nichos da loja e, no fim, o que nao esta' nela. */
   const abasCatalogo: AbaCatalogo[] = [...NICHOS.map((n) => n.id), SEM_LOJA, TODAS];
@@ -312,7 +316,7 @@ export default function PrecificacoesSalvas({
 
   return (
     <div className="space-y-6">
-      {catalogoOnly && (
+      {temNichos && (
         // A cor do nicho tinge a secao inteira: e' o sinal mais rapido de em
         // qual subpagina se esta', sem precisar reler o chip selecionado.
         <div className={cn('rounded-xl border p-3 sm:p-4 space-y-3 transition-colors', tema.fundo)}>
@@ -384,21 +388,21 @@ export default function PrecificacoesSalvas({
             return (
             <Card
               key={precificacao.id}
-              className={cn('overflow-hidden', catalogoOnly && temaCartao.cartao)}
+              className={cn('overflow-hidden', temNichos && temaCartao.cartao)}
             >
               <CardContent className="p-0">
-                {catalogoOnly && <div className={cn('h-1.5 w-full', temaCartao.barra)} />}
+                {temNichos && <div className={cn('h-1.5 w-full', temaCartao.barra)} />}
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 p-4">
                   {/* Informações da Fórmula */}
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="font-semibold text-lg text-foreground">
-                          {catalogoOnly
+                          {temNichos
                             ? nomeDeExibicao(precificacao.formulas?.nome_formula)
                             : precificacao.formulas?.nome_formula || 'Fórmula não encontrada'}
                         </h3>
-                        {catalogoOnly && produtoDaLoja(precificacao.formulas?.nome_formula) && (
+                        {temNichos && produtoDaLoja(precificacao.formulas?.nome_formula) && (
                           // O consultor ainda precisa achar a formula pelo nome
                           // que ela tem no sistema -- e' por ele que a fabrica fala.
                           <p className="text-xs text-muted-foreground">
@@ -409,7 +413,7 @@ export default function PrecificacoesSalvas({
                           {precificacao.formulas?.cliente}
                         </p>
 
-                        {catalogoOnly && precificacao.formula_id && (() => {
+                        {temNichos && precificacao.formula_id && (() => {
                           const escolhido = (precificacao.formulas as any)?.nicho as string | null;
                           const atual = abasDaFormula(
                             precificacao.formulas?.nome_formula,
@@ -462,7 +466,7 @@ export default function PrecificacoesSalvas({
                       </div>
                       <Badge
                         variant="secondary"
-                        className={cn('shrink-0', catalogoOnly && temaCartao.chipInativo)}
+                        className={cn('shrink-0', temNichos && temaCartao.chipInativo)}
                       >
                         {precificacao.formulas?.tipo_produto}
                       </Badge>

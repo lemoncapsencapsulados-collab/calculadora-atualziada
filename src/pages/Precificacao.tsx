@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
+import { BookmarkCheck, Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
 import { aviso as toast } from '@/lib/avisos';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
@@ -380,7 +380,7 @@ export default function Precificacao() {
       </div>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-        <TabsList className="grid h-auto w-full max-w-3xl grid-cols-1 sm:grid-cols-3">
+        <TabsList className="grid h-auto w-full max-w-4xl grid-cols-1 sm:grid-cols-4">
           <TabsTrigger value="produtos" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
             Produtos Criados
@@ -392,6 +392,10 @@ export default function Precificacao() {
           <TabsTrigger value="catalogo" className="flex h-auto items-center gap-2 whitespace-normal py-2 text-center">
             <Star className="w-4 h-4" />
             White Label (Fórmulas do Catálogo)
+          </TabsTrigger>
+          <TabsTrigger value="selecao" className="flex h-auto items-center gap-2 whitespace-normal py-2 text-center">
+            <BookmarkCheck className="w-4 h-4" />
+            Seleção LemonCaps
           </TabsTrigger>
         </TabsList>
 
@@ -589,7 +593,7 @@ export default function Precificacao() {
           <PrecificacoesSalvas
             configuracaoAtiva={configuracaoAtiva}
             margens={margens}
-            catalogoOnly={false}
+            departamento="private_label"
           />
         </TabsContent>
 
@@ -598,7 +602,16 @@ export default function Precificacao() {
           <PrecificacoesSalvas
             configuracaoAtiva={configuracaoAtiva}
             margens={margens}
-            catalogoOnly={true}
+            departamento="white_label"
+          />
+        </TabsContent>
+
+        {/* ===== ABA 4: SELEÇÃO LEMONCAPS ===== */}
+        <TabsContent value="selecao" className="mt-6">
+          <PrecificacoesSalvas
+            configuracaoAtiva={configuracaoAtiva}
+            margens={margens}
+            departamento="selecao_lemoncaps"
           />
         </TabsContent>
       </Tabs>

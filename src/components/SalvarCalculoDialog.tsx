@@ -7,19 +7,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { FileText, Lock, Save, Star } from 'lucide-react';
+import { BookmarkCheck, FileText, Lock, Save, Star } from 'lucide-react';
 import { arredondarReais } from '@/lib/utils';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { PrecificacaoCalculada } from '@/types/precificacao';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import { NICHOS, NICHO_TEMA, NichoLoja } from '@/lib/catalogoLoja';
+import { CLIENTE_SELECAO, type Departamento as DepartamentoDaLinha } from '@/lib/linhaProduto';
 
 /**
- * Departamento da formula.
- * `white_label` e' o Catalogo Lemon: o resto do sistema reconhece uma formula de
- * catalogo pelo cliente dela, entao a escolha aqui define o nome do cliente.
+ * Departamento da formula -- a prateleira onde ela vai aparecer.
+ *
+ * O sistema reconhece a prateleira pelo nome do CLIENTE da formula, entao a
+ * escolha aqui define esse nome: Catalogo Lemon, Selecao LemonCaps, ou o nome
+ * real do cliente quando e' Private Label. A definicao vive em linhaProduto.ts,
+ * que e' a fonte unica; aqui so' se reexporta para quem ja' importava daqui.
  */
-export type Departamento = 'private_label' | 'white_label';
+export type Departamento = DepartamentoDaLinha;
 
 /** Nome de cliente que marca uma formula como pertencente ao catalogo. */
 export const CLIENTE_CATALOGO = 'Catálogo Lemon';
@@ -76,7 +80,9 @@ export default function SalvarCalculoDialog({
    * em Private Label, toda formula que vai para o catalogo passa por aqui.
    */
   const escolherDepartamento = (valor: Departamento) => {
-    if (valor === 'white_label') {
+    // Catalogo e Selecao sao as duas prateleiras da casa: as duas mudam o que
+    // todo cliente ve', entao as duas pedem a senha.
+    if (valor === 'white_label' || valor === 'selecao_lemoncaps') {
       setPedindoSenha(true);
       return;
     }
@@ -111,7 +117,8 @@ export default function SalvarCalculoDialog({
     : null;
 
   // Sem nicho a formula cairia em "Fora da loja" sem ninguem ter decidido isso.
-  const faltaNicho = departamento === 'white_label' && !nicho;
+  const precisaNicho = departamento === 'white_label' || departamento === 'selecao_lemoncaps';
+  const faltaNicho = precisaNicho && !nicho;
   const podeSalvar = !!resultado && !salvando && !faltaNicho;
 
   const opcoes: { valor: Departamento; titulo: string; descricao: string; icone: typeof FileText }[] = [
@@ -126,6 +133,12 @@ export default function SalvarCalculoDialog({
       titulo: 'White Label',
       descricao: 'Entra no Catálogo Lemon, disponível para qualquer cliente. Pede senha.',
       icone: Star,
+    },
+    {
+      valor: 'selecao_lemoncaps',
+      titulo: 'Seleção LemonCaps',
+      descricao: 'Prateleira escolhida a dedo, separada do catálogo. Pede senha.',
+      icone: BookmarkCheck,
     },
   ];
 
@@ -169,18 +182,21 @@ export default function SalvarCalculoDialog({
                 </button>
               ))}
             </div>
-            {departamento === 'white_label' && (
+            {precisaNicho && (
               <p className="text-xs text-muted-foreground">
-                A fórmula será salva como <strong>{CLIENTE_CATALOGO}</strong>, e não no nome do
-                cliente digitado na calculadora.
+                A fórmula será salva como{' '}
+                <strong>
+                  {departamento === 'white_label' ? CLIENTE_CATALOGO : CLIENTE_SELECAO}
+                </strong>
+                , e não no nome do cliente digitado na calculadora.
               </p>
             )}
           </div>
 
-          {departamento === 'white_label' && (
+          {precisaNicho && (
             <div className="space-y-2">
               <Label className="text-sm font-semibold">
-                Nicho do catálogo <span className="text-destructive">*</span>
+                Nicho <span className="text-destructive">*</span>
               </Label>
               <div className="grid gap-2 sm:grid-cols-2">
                 {NICHOS.map(({ id, nome }) => (
@@ -275,7 +291,7 @@ export default function SalvarCalculoDialog({
                 departamento,
                 precoVenda: resultado.precoVenda,
                 resultado,
-                nicho: departamento === 'white_label' ? nicho : null,
+                nicho: precisaNicho ? nicho : null,
               })
             }
             disabled={!podeSalvar}

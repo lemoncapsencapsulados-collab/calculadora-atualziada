@@ -21,7 +21,7 @@ import SalvarCalculoDialog, {
 } from '@/components/SalvarCalculoDialog';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
-import { ehCatalogo } from '@/lib/linhaProduto';
+import { CLIENTE_SELECAO, ehCatalogo, ehSelecao } from '@/lib/linhaProduto';
 import {
   CAPACIDADE_CAPSULA_GRAMAS,
   custoMpPorPote,
@@ -581,26 +581,34 @@ export default function Calculator() {
       }
     });
     
-    // White Label pertence ao catalogo, nao ao cliente que estava na tela.
+    // Prateleira da casa -- catalogo ou selecao -- pertence a' LemonCaps, nao ao
+    // cliente que estava na tela.
     const vaiParaCatalogo = departamento === 'white_label';
-    const clienteFormula = vaiParaCatalogo ? CLIENTE_CATALOGO : (clienteSelecionado?.nome || cliente);
+    const vaiParaSelecao = departamento === 'selecao_lemoncaps';
+    const daCasa = vaiParaCatalogo || vaiParaSelecao;
+    const clienteFormula = vaiParaCatalogo
+      ? CLIENTE_CATALOGO
+      : vaiParaSelecao
+        ? CLIENTE_SELECAO
+        : clienteSelecionado?.nome || cliente;
 
     // O sistema inteiro reconhece o catalogo pelo nome do cliente CONTER
     // "catalogo". Entao Private Label com esse nome tambem cairia no catalogo,
     // sem passar pela senha -- a porta dos fundos da tranca do White Label.
-    if (!vaiParaCatalogo && ehCatalogo(clienteFormula)) {
+    if (!daCasa && (ehCatalogo(clienteFormula) || ehSelecao(clienteFormula))) {
       toast.error(
-        'Para mandar a fórmula ao Catálogo Lemon, escolha White Label — ele pede a senha de ' +
-          'administrador. Em Private Label o nome do cliente não pode conter "catálogo".',
+        'Para mandar a fórmula a uma prateleira da casa, escolha White Label ou Seleção ' +
+          'LemonCaps ao salvar — as duas pedem senha de administrador. Em Private Label o nome ' +
+          'do cliente não pode conter "catálogo" nem "Seleção LemonCaps".',
       );
       return;
     }
 
     const formulaData = {
       cliente: clienteFormula,
-      cliente_id: vaiParaCatalogo ? null : (clienteSelecionado?.id || null),
-      // So' o catalogo tem nicho; em Private Label o campo fica nulo.
-      nicho: vaiParaCatalogo ? nicho ?? null : null,
+      cliente_id: daCasa ? null : (clienteSelecionado?.id || null),
+      // As prateleiras da casa tem nicho; Private Label nao.
+      nicho: daCasa ? nicho ?? null : null,
       nome_formula: nomeFormula || 'Fórmula sem nome',
       tipo_produto: tipoProduto,
       quantidade_por_pote: tipoProduto === 'Solúvel' ? qtdCapsulasEmMG : parseFloat(qtdCapsulas) || 60,
@@ -678,7 +686,9 @@ export default function Calculator() {
         toast.success(
           vaiParaCatalogo
             ? 'Salvo em White Label (Fórmulas do Catálogo).'
-            : 'Salvo em Private Label (Fórmulas Personalizadas).',
+            : vaiParaSelecao
+              ? 'Salvo em Seleção LemonCaps.'
+              : 'Salvo em Private Label (Fórmulas Personalizadas).',
         );
       }
     } catch (error: any) {

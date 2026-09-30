@@ -1,13 +1,18 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ehCatalogo } from '@/lib/linhaProduto';
+import { type Departamento, departamentoDoCliente } from '@/lib/linhaProduto';
 import { AbaCatalogo, SEM_LOJA, TODAS, abasDaFormula, nomeDeExibicao } from '@/lib/catalogoLoja';
 
 interface UsePrecificacoesPaginadasParams {
   page: number;
   pageSize: number;
   searchTerm: string;
-  catalogoOnly?: boolean;
+  /**
+   * Prateleira a listar. `undefined` traz tudo (aba "Produtos Criados").
+   * Substituiu o antigo `catalogoOnly`, que so' sabia dizer "catalogo ou nao" e
+   * nao tinha onde encaixar a terceira prateleira.
+   */
+  departamento?: Departamento;
   /** Só vale no catálogo: recorta a aba do nicho. */
   nicho?: AbaCatalogo | null;
 }
@@ -32,13 +37,13 @@ export function usePrecificacoesPaginadas({
   page,
   pageSize,
   searchTerm,
-  catalogoOnly,
+  departamento,
   nicho,
 }: UsePrecificacoesPaginadasParams) {
   const trimmed = searchTerm.trim();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['precificacoes-paginadas', page, pageSize, trimmed, catalogoOnly, nicho],
+    queryKey: ['precificacoes-paginadas', page, pageSize, trimmed, departamento, nicho],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const from = (page - 1) * pageSize;
@@ -49,7 +54,10 @@ export function usePrecificacoesPaginadas({
       // linhas, e é o que permite contar quantas há em cada aba sem uma
       // consulta por aba.
       // ---------------------------------------------------------------------
-      if (catalogoOnly === true) {
+      // Catalogo e Selecao sao conjuntos pequenos e o nicho vem de tabela em
+      // codigo: traz tudo e recorta aqui. Private Label continua paginando no
+      // banco, onde o volume e' outro.
+      if (departamento === 'white_label' || departamento === 'selecao_lemoncaps') {
         const { data: rows, error } = await supabase
           .from('precificacoes')
           .select('*, formulas!inner(nome_formula, cliente, tipo_produto, nicho)')
@@ -58,7 +66,9 @@ export function usePrecificacoesPaginadas({
 
         // `ehCatalogo` aceita "catálogo" e "catalogo"; a consulta antiga pedia
         // só a forma acentuada e perdia as fórmulas cadastradas sem acento.
-        const doCatalogo = (rows || []).filter((r: Linha) => ehCatalogo(r.formulas?.cliente));
+        const doCatalogo = (rows || []).filter(
+          (r: Linha) => departamentoDoCliente(r.formulas?.cliente) === departamento,
+        );
 
         const contagem: ContagemPorAba = {};
         for (const linha of doCatalogo) {
@@ -91,9 +101,13 @@ export function usePrecificacoesPaginadas({
       // ---------------------------------------------------------------------
       // Private Label: paginação no banco, que aqui pode ser muita linha.
       // ---------------------------------------------------------------------
-      const semCatalogo = <T extends { not: (a: string, b: string, c: string) => T }>(q: T) =>
-        // Duas grafias porque as duas existem no cadastro.
-        q.not('formulas.cliente', 'ilike', '%catálogo%').not('formulas.cliente', 'ilike', '%catalogo%');
+      // Private Label e' "nem catalogo nem selecao". Duas grafias de catalogo
+      // porque as duas existem no cadastro.
+      const soPrivateLabel = <T extends { not: (a: string, b: string, c: string) => T }>(q: T) =>
+        q
+          .not('formulas.cliente', 'ilike', '%catálogo%')
+          .not('formulas.cliente', 'ilike', '%catalogo%')
+          .not('formulas.cliente', 'ilike', '%sele%o lemon%');
 
       let countQuery = supabase
         .from('precificacoes')
@@ -104,7 +118,7 @@ export function usePrecificacoesPaginadas({
           { referencedTable: 'formulas' },
         );
       }
-      if (catalogoOnly === false) countQuery = semCatalogo(countQuery);
+      if (departamento === 'private_label') countQuery = soPrivateLabel(countQuery);
 
       const { count, error: countError } = await countQuery;
       if (countError) throw countError;
@@ -120,7 +134,7 @@ export function usePrecificacoesPaginadas({
           { referencedTable: 'formulas' },
         );
       }
-      if (catalogoOnly === false) dataQuery = semCatalogo(dataQuery);
+      if (departamento === 'private_label') dataQuery = soPrivateLabel(dataQuery);
 
       const { data: rows, error: dataError } = await dataQuery;
       if (dataError) throw dataError;
