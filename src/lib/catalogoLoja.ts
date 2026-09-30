@@ -42,6 +42,11 @@ export const NICHOS: { id: NichoLoja; nome: string; colecao: string }[] = [
  * para treino, indigo para noite, rosa para beleza, cinza para o que ainda nao
  * esta' na loja.
  *
+ * Tons pasteis de proposito. A primeira versao usava as faixas 500/600 cheias,
+ * e uma lista de quinze cartoes virava um mosaico que cansava de olhar -- a cor
+ * aqui serve para AGRUPAR, nao para chamar atencao. Vermelho forte fica
+ * reservado para o que e' urgente de verdade, como prazo de preco vencido.
+ *
  * Sao classes inteiras, escritas por extenso, porque o Tailwind varre o codigo
  * procurando nome de classe -- montar `bg-${cor}-50` faria a cor sumir do build.
  */
@@ -62,57 +67,57 @@ export interface TemaNicho {
 
 export const NICHO_TEMA: Record<AbaCatalogo, TemaNicho> = {
   vitalidade: {
-    fundo: 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/25 dark:border-emerald-900',
-    chipAtivo: 'border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-600',
+    fundo: 'bg-emerald-50/40 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/60',
+    chipAtivo: 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100',
     chipInativo: 'border-emerald-200 bg-white text-emerald-900 hover:border-emerald-400 dark:border-emerald-900 dark:bg-transparent dark:text-emerald-200',
-    destaque: 'text-emerald-800 dark:text-emerald-300',
-    cartao: 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20',
-    barra: 'bg-emerald-500 dark:bg-emerald-600',
+    destaque: 'text-emerald-700 dark:text-emerald-300',
+    cartao: 'border-emerald-100 bg-emerald-50/25 dark:border-emerald-900/60 dark:bg-emerald-950/15',
+    barra: 'bg-emerald-200 dark:bg-emerald-800',
   },
   energia: {
-    fundo: 'bg-amber-50/70 border-amber-200 dark:bg-amber-950/25 dark:border-amber-900',
-    chipAtivo: 'border-amber-600 bg-amber-600 text-white dark:border-amber-500 dark:bg-amber-600',
+    fundo: 'bg-amber-50/40 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/60',
+    chipAtivo: 'border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-900/50 dark:text-amber-100',
     chipInativo: 'border-amber-200 bg-white text-amber-900 hover:border-amber-400 dark:border-amber-900 dark:bg-transparent dark:text-amber-200',
-    destaque: 'text-amber-800 dark:text-amber-300',
-    cartao: 'border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20',
-    barra: 'bg-amber-500 dark:bg-amber-600',
+    destaque: 'text-amber-700 dark:text-amber-300',
+    cartao: 'border-amber-100 bg-amber-50/25 dark:border-amber-900/60 dark:bg-amber-950/15',
+    barra: 'bg-amber-200 dark:bg-amber-800',
   },
   performance: {
-    fundo: 'bg-sky-50/70 border-sky-200 dark:bg-sky-950/25 dark:border-sky-900',
-    chipAtivo: 'border-sky-600 bg-sky-600 text-white dark:border-sky-500 dark:bg-sky-600',
+    fundo: 'bg-sky-50/40 border-sky-100 dark:bg-sky-950/20 dark:border-sky-900/60',
+    chipAtivo: 'border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-800 dark:bg-sky-900/50 dark:text-sky-100',
     chipInativo: 'border-sky-200 bg-white text-sky-900 hover:border-sky-400 dark:border-sky-900 dark:bg-transparent dark:text-sky-200',
-    destaque: 'text-sky-800 dark:text-sky-300',
-    cartao: 'border-sky-200 bg-sky-50/40 dark:border-sky-900 dark:bg-sky-950/20',
-    barra: 'bg-sky-500 dark:bg-sky-600',
+    destaque: 'text-sky-700 dark:text-sky-300',
+    cartao: 'border-sky-100 bg-sky-50/25 dark:border-sky-900/60 dark:bg-sky-950/15',
+    barra: 'bg-sky-200 dark:bg-sky-800',
   },
   sono: {
-    fundo: 'bg-indigo-50/70 border-indigo-200 dark:bg-indigo-950/25 dark:border-indigo-900',
-    chipAtivo: 'border-indigo-600 bg-indigo-600 text-white dark:border-indigo-500 dark:bg-indigo-600',
+    fundo: 'bg-indigo-50/40 border-indigo-100 dark:bg-indigo-950/20 dark:border-indigo-900/60',
+    chipAtivo: 'border-indigo-300 bg-indigo-100 text-indigo-900 dark:border-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-100',
     chipInativo: 'border-indigo-200 bg-white text-indigo-900 hover:border-indigo-400 dark:border-indigo-900 dark:bg-transparent dark:text-indigo-200',
-    destaque: 'text-indigo-800 dark:text-indigo-300',
-    cartao: 'border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20',
-    barra: 'bg-indigo-500 dark:bg-indigo-600',
+    destaque: 'text-indigo-700 dark:text-indigo-300',
+    cartao: 'border-indigo-100 bg-indigo-50/25 dark:border-indigo-900/60 dark:bg-indigo-950/15',
+    barra: 'bg-indigo-200 dark:bg-indigo-800',
   },
   beleza: {
-    fundo: 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/25 dark:border-rose-900',
-    chipAtivo: 'border-rose-600 bg-rose-600 text-white dark:border-rose-500 dark:bg-rose-600',
+    fundo: 'bg-rose-50/40 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/60',
+    chipAtivo: 'border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-800 dark:bg-rose-900/50 dark:text-rose-100',
     chipInativo: 'border-rose-200 bg-white text-rose-900 hover:border-rose-400 dark:border-rose-900 dark:bg-transparent dark:text-rose-200',
-    destaque: 'text-rose-800 dark:text-rose-300',
-    cartao: 'border-rose-200 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20',
-    barra: 'bg-rose-500 dark:bg-rose-600',
+    destaque: 'text-rose-700 dark:text-rose-300',
+    cartao: 'border-rose-100 bg-rose-50/25 dark:border-rose-900/60 dark:bg-rose-950/15',
+    barra: 'bg-rose-200 dark:bg-rose-800',
   },
   [SEM_LOJA]: {
     fundo: 'bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-800',
-    chipAtivo: 'border-slate-600 bg-slate-600 text-white dark:border-slate-500 dark:bg-slate-600',
+    chipAtivo: 'border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
     chipInativo: 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 dark:border-slate-800 dark:bg-transparent dark:text-slate-300',
     destaque: 'text-slate-600 dark:text-slate-400',
     cartao: 'border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/25',
-    barra: 'bg-slate-400 dark:bg-slate-600',
+    barra: 'bg-slate-200 dark:bg-slate-700',
   },
   // Ver tudo nao tem nicho, entao usa a cor da marca em vez de uma das cinco.
   [TODAS]: {
     fundo: 'bg-muted/40 border-border',
-    chipAtivo: 'border-primary bg-primary text-primary-foreground',
+    chipAtivo: 'border-primary/40 bg-primary/10 text-foreground',
     chipInativo: 'border-border bg-background text-foreground hover:border-muted-foreground/40',
     destaque: 'text-muted-foreground',
     // "Todas" nunca chega a um cartao: cada um usa a cor do proprio nicho.
