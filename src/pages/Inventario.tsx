@@ -13,7 +13,7 @@ import { useInsumos } from "@/hooks/useInsumos";
 import { useEmbalagens } from "@/hooks/useEmbalagens";
 import { useLotes } from "@/hooks/useLotes";
 import { UnitType } from "@/types/formula";
-import { formatCurrency, formatUnit } from "@/lib/unitConversion";
+import { formatCurrency, formatUnit, formatarPrecoCompra } from "@/lib/unitConversion";
 import { aviso as toast } from '@/lib/avisos';
 import ImportInsumosDialog from "@/components/ImportInsumosDialog";
 import ImportInventoryDialog from "@/components/ImportInventoryDialog";
@@ -310,10 +310,10 @@ export default function Inventario() {
                               id="preco"
                               name="preco"
                               type="number"
-                              step="0.000001"
+                              step="any"
                               min="0"
                               defaultValue={editingInsumo?.preco_por_unidade_compra}
-                              placeholder="0.000000"
+                              placeholder="0,0000000000"
                               required
                             />
                           </div>
@@ -324,7 +324,7 @@ export default function Inventario() {
                               id="densidade"
                               name="densidade"
                               type="number"
-                              step="0.001"
+                              step="any"
                               min="0"
                               defaultValue={editingInsumo?.densidade}
                               placeholder="Opcional"
@@ -477,7 +477,7 @@ export default function Inventario() {
                                 <div>
                                   <p className="text-muted-foreground">Preço</p>
                                   <p className="font-medium text-primary">
-                                    {formatCurrency(getCustoMedioPonderado(insumo.id, 'materia_prima') ?? insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
+                                    {formatarPrecoCompra(getCustoMedioPonderado(insumo.id, 'materia_prima') ?? insumo.preco_por_unidade_compra)}/{formatUnit(insumo.unidade_compra)}
                                   </p>
                                   {getCustoMedioPonderado(insumo.id, 'materia_prima') !== null && (
                                     <p className="text-xs text-muted-foreground">Custo médio ponderado</p>
@@ -771,7 +771,7 @@ export default function Inventario() {
                                 <div>
                                   <p className="text-muted-foreground">Custo</p>
                                   <p className="text-lg font-bold text-primary">
-                                    {formatCurrency(getCustoMedioPonderado(embalagem.id, 'embalagem') ?? embalagem.preco_unitario)}
+                                    {formatarPrecoCompra(getCustoMedioPonderado(embalagem.id, 'embalagem') ?? embalagem.preco_unitario)}
                                   </p>
                                   {getCustoMedioPonderado(embalagem.id, 'embalagem') !== null && (
                                     <p className="text-xs text-muted-foreground">Custo médio ponderado</p>

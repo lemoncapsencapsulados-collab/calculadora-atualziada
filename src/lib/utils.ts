@@ -44,17 +44,18 @@ export function arredondarReais(valor: number): number {
 }
 
 /**
- * Arredonda um custo preservando fracoes de centavo.
+ * Arredondamento de CUSTO, com 10 casas decimais.
  *
- * Micronutriente em microgramas custa fracao de centavo por dose: vitamina D3 a
- * R$ 900/kg numa dose de 50 mcg da' R$ 0,000045. Arredondar isso para centavos
- * zera o custo e some do montante -- foi o que aconteceu com as formulas "d3" e
- * "DRENAGEM LINFATICA", gravadas com materia-prima 0.
+ * Dinheiro que o cliente paga tem duas casas; custo interno não. Uma vitamina a
+ * 45 mcg sobre um insumo de R$ 2.000/kg custa R$ 0,00009 por dose -- arredondar
+ * isso para centavo dá zero, e a fórmula inteira passa a parecer de graça. A
+ * margem da Lemon é apertada e não sobrevive a essa perda somada dose a dose.
  *
- * Seis casas e' o que a coluna `numeric(_, 6)` de `precificacoes` guarda; mais
- * do que isso o banco descartaria de qualquer jeito.
+ * As 10 casas são as mesmas das colunas `numeric(20,10)` do banco, de propósito:
+ * arredondar mais fino que a coluna é precisão que se perde na gravação;
+ * arredondar mais grosso é coluna que nunca se usa.
  */
 export function arredondarCusto(valor: number): number {
   if (!isFinite(valor)) return valor;
-  return Number(valor.toFixed(6));
+  return Number(valor.toFixed(10));
 }
