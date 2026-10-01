@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MateriaPrima } from '@/types/formula';
 import { useToast } from '@/hooks/use-toast';
+import { mapFromDB } from '@/lib/materiaPrima';
 
 export function useMateriasPrimas() {
   const [materiasPrimas, setMateriasPrimas] = useState<MateriaPrima[]>([]);
@@ -130,20 +131,6 @@ export function useMateriasPrimas() {
 }
 
 export const useInsumos = useMateriasPrimas;
-
-function mapFromDB(db: any): MateriaPrima {
-  return {
-    id: db.id,
-    nome: db.nome,
-    unidade_compra: db.unidade_compra,
-    preco_por_unidade_compra: Number(db.preco_compra),
-    densidade: db.densidade ? Number(db.densidade) : undefined,
-    fornecedor: db.fornecedor || undefined,
-    categoria: db.categoria || undefined,
-    observacoes: db.observacoes || undefined,
-    updated_at: db.updated_at || undefined,
-  };
-}
 
 function mapToDB(mp: any) {
   return {

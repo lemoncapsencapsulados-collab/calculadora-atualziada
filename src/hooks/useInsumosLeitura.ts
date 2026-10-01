@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { MateriaPrima, UnitType } from '@/types/formula';
+import { mapFromDB } from '@/lib/materiaPrima';
 
 /**
  * Lista de matérias-primas só para leitura, com cache.
@@ -16,18 +16,6 @@ import type { MateriaPrima, UnitType } from '@/types/formula';
  * continua usando `useInsumos`.
  */
 
-const mapear = (row: Record<string, any>): MateriaPrima => ({
-  id: row.id,
-  nome: row.nome,
-  unidade_compra: row.unidade_compra as UnitType,
-  preco_por_unidade_compra: Number(row.preco_por_unidade_compra) || 0,
-  densidade: row.densidade ?? undefined,
-  observacoes: row.observacoes ?? undefined,
-  fornecedor: row.fornecedor ?? undefined,
-  categoria: row.categoria ?? undefined,
-  updated_at: row.updated_at ?? undefined,
-});
-
 export function useInsumosLeitura() {
   const { data, isLoading } = useQuery({
     queryKey: ['materias-primas-leitura'],
@@ -40,7 +28,7 @@ export function useInsumosLeitura() {
         .select('*')
         .order('nome');
       if (error) throw error;
-      return (rows || []).map(mapear);
+      return (rows || []).map(mapFromDB);
     },
   });
 
