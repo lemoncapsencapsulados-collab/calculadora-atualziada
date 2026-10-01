@@ -187,3 +187,31 @@ export function formatUnit(unit: UnitType): string {
   };
   return unitMap[unit] || unit;
 }
+
+/**
+ * Preço de COMPRA de um insumo ou embalagem, sem esconder casa decimal.
+ *
+ * Diferente de `formatCurrency`, que mostra duas casas porque é o que se cobra
+ * do cliente. Aqui o número é o que a Lemon PAGA, e é dele que todo custo
+ * deriva: ver "R$ 64,16/kg" quando o cadastro diz 64,1638021 impede conferir a
+ * conta, e a margem é apertada demais para trabalhar no escuro.
+ *
+ * Mostra até 10 casas -- a precisão que o banco guarda -- e corta zero à
+ * direita, para R$ 5,20 não virar "R$ 5,2000000000".
+ */
+export function formatarPrecoCompra(valor: number): string {
+  const n = Number(valor);
+  if (!isFinite(n)) return formatCurrency(0);
+
+  const texto = n.toFixed(10).replace(/0+$/, '').replace(/\.$/, '');
+  const [inteiro, decimais = ''] = texto.split('.');
+  // Nunca menos de duas casas: preço de compra se lê como dinheiro.
+  const casas = Math.max(2, decimais.length);
+
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: casas,
+  }).format(n);
+}
