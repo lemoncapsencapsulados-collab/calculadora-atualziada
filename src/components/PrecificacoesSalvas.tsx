@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowRightLeft, Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, Eye, Copy, FlaskConical } from 'lucide-react';
+import { ArrowRightLeft, Search, Pencil, Trash2, Calendar, Package, Sparkles, FileText, ChevronLeft, ChevronRight, ClipboardCheck, ClipboardList, Eye, Copy, FlaskConical } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { aviso as toast } from '@/lib/avisos';
@@ -32,6 +32,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { Formula } from '@/types/formula';
+import { textoDoseDiaria, textoFichaCompleta } from '@/lib/fichaFormula';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -151,6 +152,17 @@ export default function PrecificacoesSalvas({
       await deletarPrecificacao.mutateAsync(deletandoId);
       setDeletandoId(null);
       queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
+    }
+  };
+
+  /** Ficha em texto, pronta para WhatsApp. Sem custo: vai para o cliente. */
+  const copiarFicha = async (f: Formula, completa: boolean) => {
+    const texto = completa ? textoFichaCompleta(f) : textoDoseDiaria(f);
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success(completa ? 'Ficha completa copiada.' : 'Dose diária copiada.');
+    } catch {
+      toast.error('O navegador não deixou copiar. Selecione o texto da tela e copie à mão.');
     }
   };
 
@@ -754,6 +766,28 @@ export default function PrecificacoesSalvas({
               <div className="flex justify-between font-bold text-lg pt-2 border-t">
                 <span>Custo Total:</span>
                 <span className="text-primary">{formatCurrency(formulaParaVer.custo_total)}</span>
+              </div>
+
+              {/* Texto pronto para mandar ao cliente. O conteudo e' montado por
+                  `fichaFormula`, que tem teste, e nao leva custo junto: isto e'
+                  colado em conversa com cliente. */}
+              <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => copiarFicha(formulaParaVer, false)}
+                >
+                  <ClipboardList className="mr-2 h-4 w-4" />
+                  Copiar Dose Diária
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => copiarFicha(formulaParaVer, true)}
+                >
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Copiar Ficha Completa
+                </Button>
               </div>
             </div>
           </DialogContent>
