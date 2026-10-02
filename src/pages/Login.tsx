@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { normalizarLogin } from '@/lib/loginUsuario';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,11 +21,13 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const success = await login(email.trim(), password);
+      // Aceita "Admlemon" alem do e-mail completo: o acesso foi combinado pelo
+      // nome, e o Supabase so' autentica por e-mail.
+      const success = await login(normalizarLogin(email), password);
       if (!success) {
         toast({
           title: 'Credenciais inválidas',
-          description: 'Email ou senha incorretos. Tente novamente.',
+          description: 'Usuário ou senha incorretos. Tente novamente.',
           variant: 'destructive',
         });
       }
@@ -60,18 +63,18 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="email">
-                Email
+                Usuário ou e-mail
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Digite seu email"
+                  placeholder="Usuário ou e-mail"
                   className="pl-10"
-                  autoComplete="email"
+                  autoComplete="username"
                   required
                 />
               </div>
