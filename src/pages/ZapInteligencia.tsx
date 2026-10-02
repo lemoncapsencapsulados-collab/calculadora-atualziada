@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ComparativoVendedores from '@/components/zapinteligencia/ComparativoVendedores';
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -242,6 +243,11 @@ export default function ZapInteligencia() {
             </p>
           </div>
         </div>
+
+        {/* Numeros comerciais: nao dependem da sincronizacao do WhatsApp e por
+            isso ficam acima do filtro -- a tela tem o que mostrar mesmo quando
+            nao ha' conversa no periodo escolhido. */}
+        <ComparativoVendedores />
 
         <FiltroPesquisa
           consultores={d.consultores}
