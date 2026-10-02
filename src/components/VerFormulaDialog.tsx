@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Eye, Copy, Check, Edit, Download, Save, X, ClipboardList, Plus, Trash2 } from 'lucide-react';
+import { Eye, Copy, Check, Edit, Download, Save, X, ClipboardCheck, ClipboardList, Plus, Trash2 } from 'lucide-react';
 import { aviso as toast } from '@/lib/avisos';
 import { Formula, FormulaItem, EmbalagemItem, UnitType } from '@/types/formula';
 import html2canvas from 'html2canvas';
 import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
+import { textoDoseDiaria, textoFichaCompleta } from '@/lib/fichaFormula';
 
 interface VerFormulaDialogProps {
   formula: Formula;
@@ -143,24 +144,22 @@ export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }:
     }
   };
 
-  const handleCopyFullFormula = async () => {
-    let text = `*${formula.nome_formula}*\nCliente: ${formula.cliente}\n\n`;
-    text += `*MATÉRIAS PRIMAS*\n`;
-    formula.itens.forEach(item => {
-      const converted = convertToMg(item.qtd_informada, item.unidade_informada);
-      text += `• ${item.nome_insumo_snapshot} - ${converted.display}\n`;
-    });
-    text += `\n*EMBALAGENS*\n`;
-    formula.embalagens.forEach(item => {
-      text += `• ${item.descricao_snapshot} - ${formatCurrency(item.custo_calculado)}\n`;
-    });
-    text += `\n*Custo Total: ${formatCurrency(formula.custo_total)}*`;
-
+  /**
+   * Copia a ficha em texto. O que o consultor manda ao cliente sai daqui, entao
+   * o conteudo e' montado por `fichaFormula`, que tem teste -- em vez de ser
+   * remontado na tela toda vez que alguem mexer no layout.
+   *
+   * Usa o que esta' na tela quando ha' edicao aberta: copiar o valor antigo
+   * enquanto a pessoa ve' o novo seria pior que nao ter o botao.
+   */
+  const copiarFicha = async (completa: boolean) => {
+    const atual = { ...formula, itens: displayItems, embalagens: displayEmbalagens };
+    const texto = completa ? textoFichaCompleta(atual) : textoDoseDiaria(atual);
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Fórmula copiada para WhatsApp!');
-    } catch (err) {
-      toast.error('Erro ao copiar');
+      await navigator.clipboard.writeText(texto);
+      toast.success(completa ? 'Ficha completa copiada.' : 'Dose diária copiada.');
+    } catch {
+      toast.error('O navegador não deixou copiar. Selecione o texto da tela e copie à mão.');
     }
   };
 
@@ -329,7 +328,7 @@ export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }:
         </div>
 
         {/* Ações */}
-        <div className="flex gap-2 pt-4 border-t">
+        <div className="flex flex-wrap gap-2 pt-4 border-t">
           {isEditing ? (
             <>
               <Button onClick={handleSaveEdits} className="flex-1">
@@ -343,9 +342,13 @@ export function VerFormulaDialog({ formula, onUpdateFormula, readOnly = false }:
             </>
           ) : (
             <>
-              <Button variant="secondary" onClick={handleCopyFullFormula} className="flex-1">
+              <Button variant="secondary" onClick={() => copiarFicha(false)} className="flex-1">
                 <ClipboardList className="h-4 w-4 mr-2" />
-                Copiar WhatsApp
+                Copiar Dose Diária
+              </Button>
+              <Button variant="secondary" onClick={() => copiarFicha(true)} className="flex-1">
+                <ClipboardCheck className="h-4 w-4 mr-2" />
+                Copiar Ficha Completa
               </Button>
               {!readOnly && onUpdateFormula && (
                 <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
