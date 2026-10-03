@@ -15,7 +15,7 @@ import {
   Search, FileText, Trash2, Download, Clock, Package, Truck, CheckCircle2,
   Calendar, Info, User, Wallet, ShoppingBag, Layers, Pencil, Printer, ClipboardList,
   FileSpreadsheet, ChevronDown, Copy, Upload, Eye, Receipt, MessageCircle, RefreshCw,
-  MoreVertical, ShoppingCart, AlertTriangle, FileSignature,
+  MoreVertical, ShoppingCart, AlertTriangle, FileSignature, UserRound,
 } from 'lucide-react';
 import { aviso as toast } from '@/lib/avisos';
 import { format, addDays, differenceInCalendarDays } from 'date-fns';
@@ -58,6 +58,12 @@ import type { Orcamento } from '@/types/orcamento';
 import { MSG_PEDIDO_INCOMPLETO, compararPorSequencial, parseNumeroPedido } from '@/lib/numeroPedido';
 import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
 import PreviewPedidoCompraDialog from '@/components/pedidos/PreviewPedidoCompraDialog';
+import ResumoPorConsultor from '@/components/pedidos/ResumoPorConsultor';
+import {
+  type PedidoParaResumo,
+  resumirPorConsultor,
+  totalGeral,
+} from '@/lib/resumoConsultor';
 import PreviewPdfDialog from '@/components/PreviewPdfDialog';
 import {
   STATUS_APROVACAO_CLASSE, STATUS_APROVACAO_LABEL, type StatusAprovacao,
@@ -107,6 +113,13 @@ interface GrupoProdutor {
   razaoSocial: string;
   nomeCliente: string;
   telefone: string;
+  /**
+   * Quem atende este produtor. Vem do pedido mais recente: quando a carteira
+   * muda de mao, o que vale e' quem atende hoje, nao quem abriu a conta.
+   * Mais de um nome aqui significa carteira dividida -- a tela mostra os dois
+   * em vez de escolher um e esconder o outro.
+   */
+  consultores: string[];
   /** Do primeiro pedido para o mais recente. */
   pedidos: any[];
 }
@@ -554,6 +567,7 @@ const Pedidos = () => {
           razaoSocial,
           nomeCliente,
           telefone: cliente?.telefone || dc.telefone || '',
+          consultores: [],
           pedidos: [],
         };
         mapa.set(chave, grupo);
@@ -562,6 +576,8 @@ const Pedidos = () => {
       if (!grupo.clienteId) grupo.clienteId = cliente?.id;
       if (!grupo.telefone) grupo.telefone = cliente?.telefone || dc.telefone || '';
       if (!grupo.nomeCliente) grupo.nomeCliente = nomeCliente;
+      const consultor = (pedido.orcamento_snapshot?.consultor_responsavel || '').trim();
+      if (consultor && !grupo.consultores.includes(consultor)) grupo.consultores.push(consultor);
       grupo.pedidos.push(pedido);
     });
 
@@ -599,6 +615,31 @@ const Pedidos = () => {
    * falta, em qualquer pedido dele que ja' carregue um -- assim o consultor nao
    * redigita o mesmo numero a cada recompra.
    */
+  /**
+   * Resumo por consultor do que esta' na tela.
+   *
+   * Sai dos mesmos grupos que a lista mostra, entao acompanha os filtros de
+   * periodo, busca e consultor. Um total que ignorasse o filtro ao lado dele
+   * nao seria resumo, seria um segundo numero para conferir.
+   */
+  const resumoConsultores = useMemo(() => {
+    const linhas: PedidoParaResumo[] = [];
+    for (const grupo of gruposProdutores) {
+      for (const pedido of grupo.pedidos) {
+        linhas.push({
+          consultor: pedido.orcamento_snapshot?.consultor_responsavel || '',
+          clienteNome: grupo.razaoSocial || grupo.nomeCliente || 'Sem nome',
+          clienteCnpj: grupo.cnpj || '',
+          valor: getValorFaturado(pedido),
+        });
+      }
+    }
+    return resumirPorConsultor(linhas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gruposProdutores]);
+
+  const totaisResumo = useMemo(() => totalGeral(resumoConsultores), [resumoConsultores]);
+
   const contratoDoGrupo = (grupo: GrupoProdutor): string | undefined => {
     const doCadastro = grupo.clienteId
       ? (clientesById.get(grupo.clienteId) as any)?.numero_contrato
@@ -1085,6 +1126,10 @@ const Pedidos = () => {
         </Card>
       ) : (
         <div className="space-y-3">
+          {resumoConsultores.length > 0 && (
+            <ResumoPorConsultor resumos={resumoConsultores} total={totaisResumo} />
+          )}
+
           {/* Nivel 1: o produtor, identificado pelo CNPJ contratante. */}
           {gruposProdutores.map((grupo) => {
             const whatsappUrl = buildWhatsappUrl(
@@ -1106,6 +1151,15 @@ const Pedidos = () => {
                       <p className="text-xs text-muted-foreground">
                         {grupo.cnpj ? `CNPJ ${grupo.cnpj}` : 'Sem CNPJ cadastrado'}
                       </p>
+                      {grupo.consultores.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          <UserRound className="mr-1 inline h-3 w-3" />
+                          {grupo.consultores.length > 1 ? 'Consultores: ' : 'Consultor: '}
+                          <span className="font-medium text-foreground">
+                            {grupo.consultores.join(' · ')}
+                          </span>
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {whatsappUrl ? (
