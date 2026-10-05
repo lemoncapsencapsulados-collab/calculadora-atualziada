@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
  * A ordem dos campos segue a leitura: primeiro QUEM se analisa, depois QUANDO.
  */
 
-export type Preset = 'mes_passado' | 'ultimos_30' | 'ultimos_90' | 'personalizado';
+export type Preset = 'mes_com_dados' | 'mes_passado' | 'ultimos_30' | 'ultimos_90' | 'personalizado';
 
 export interface Pesquisa {
   usuarioId: string;
@@ -29,7 +29,23 @@ export interface Pesquisa {
 interface Props {
   consultores: { usuario_id: string; consultor: string }[];
   carregando: boolean;
+  /**
+   * Mês com mais atendimento, 'yyyy-MM'. O filtro abre nele quando não é o mês
+   * passado -- ver abaixo por que isso importa.
+   */
+  mesComMaisDados?: string | null;
   onPesquisar: (p: Pesquisa) => void;
+}
+
+/** 'yyyy-MM' para a janela daquele mês inteiro, em horário local. */
+function janelaDoMes(aaaaMm: string): { inicio: Date; fim: Date; rotulo: string } {
+  const [ano, mes] = aaaaMm.split('-').map(Number);
+  const base = new Date(ano, (mes || 1) - 1, 1);
+  return {
+    inicio: startOfMonth(base),
+    fim: endOfMonth(base),
+    rotulo: format(base, "MMMM 'de' yyyy", { locale: ptBR }),
+  };
 }
 
 /**
@@ -37,9 +53,19 @@ interface Props {
  * meia-noite UTC e deslocaria o recorte em três horas, cortando o começo ou o
  * fim do expediente.
  */
-function janelaDoPreset(preset: Preset, de: string, ate: string): { inicio: Date; fim: Date; rotulo: string } {
+function janelaDoPreset(
+  preset: Preset,
+  de: string,
+  ate: string,
+  mesComMaisDados?: string | null,
+): { inicio: Date; fim: Date; rotulo: string } {
   const hoje = new Date();
-  if (preset === 'mes_passado') {
+  if (preset === 'mes_com_dados' && mesComMaisDados) {
+    return janelaDoMes(mesComMaisDados);
+  }
+  // 'mes_com_dados' sem valor cai aqui: o atalho existe mas a consulta ainda
+  // não respondeu, e o mês passado é o palpite menos surpreendente.
+  if (preset === 'mes_passado' || preset === 'mes_com_dados') {
     const base = subMonths(hoje, 1);
     return {
       inicio: startOfMonth(base),
@@ -60,11 +86,18 @@ function janelaDoPreset(preset: Preset, de: string, ate: string): { inicio: Date
   return { inicio: ini, fim, rotulo: `${format(ini, 'dd/MM/yyyy')} a ${format(fim, 'dd/MM/yyyy')}` };
 }
 
-export default function FiltroPesquisa({ consultores, carregando, onPesquisar }: Props) {
+export default function FiltroPesquisa({
+  consultores,
+  carregando,
+  mesComMaisDados,
+  onPesquisar,
+}: Props) {
   const [usuarioId, setUsuarioId] = useState<string>('');
   const [preset, setPreset] = useState<Preset>('mes_passado');
   const [de, setDe] = useState(() => format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'));
   const [ate, setAte] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  // Depois que a pessoa escolhe um atalho, a tela para de escolher por ela.
+  const [presetTocado, setPresetTocado] = useState(false);
 
   // Pré-seleciona o primeiro consultor assim que a lista chega, para o botão de
   // pesquisa já nascer utilizável.
@@ -72,13 +105,45 @@ export default function FiltroPesquisa({ consultores, carregando, onPesquisar }:
     if (!usuarioId && consultores.length) setUsuarioId(consultores[0].usuario_id);
   }, [consultores, usuarioId]);
 
+  /**
+   * Abre no último mês com atendimento, não no mês passado.
+   *
+   * O padrão era "mês passado" -- e com a ingestão do WhatsApp parada em
+   * 01/09/2026, o mês passado é exatamente o mês vazio. Foi assim que a
+   * pesquisa do EVERTON abriu mostrando "1 conversa" quando ele tem 192
+   * contatos em agosto: o filtro apontava para o único mês sem dado.
+   *
+   * Só sobrescreve enquanto ninguém tocou nos atalhos.
+   */
+  const mesPassado = format(subMonths(new Date(), 1), 'yyyy-MM');
+  useEffect(() => {
+    if (presetTocado) return;
+    if (mesComMaisDados && mesComMaisDados !== mesPassado) setPreset('mes_com_dados');
+  }, [mesComMaisDados, mesPassado, presetTocado]);
+
+  const escolher = (id: Preset) => {
+    setPresetTocado(true);
+    setPreset(id);
+  };
+
   const pesquisar = () => {
     if (!usuarioId) return;
-    const { inicio, fim, rotulo } = janelaDoPreset(preset, de, ate);
+    const { inicio, fim, rotulo } = janelaDoPreset(preset, de, ate, mesComMaisDados);
     onPesquisar({ usuarioId, inicio, fim, rotulo });
   };
 
   const atalhos: { id: Preset; rotulo: string }[] = [
+    // Primeiro na fila porque é o que responde "como ele foi?" com dado de
+    // verdade. Some quando coincide com o mês passado: dois botões para a mesma
+    // janela só confundem.
+    ...(mesComMaisDados && mesComMaisDados !== mesPassado
+      ? [
+          {
+            id: 'mes_com_dados' as Preset,
+            rotulo: `${janelaDoMes(mesComMaisDados).rotulo} (último com dado)`,
+          },
+        ]
+      : []),
     { id: 'mes_passado', rotulo: 'Mês passado' },
     { id: 'ultimos_30', rotulo: 'Últimos 30 dias' },
     { id: 'ultimos_90', rotulo: 'Últimos 90 dias' },
@@ -113,7 +178,7 @@ export default function FiltroPesquisa({ consultores, carregando, onPesquisar }:
                 type="button"
                 variant={preset === a.id ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setPreset(a.id)}
+                onClick={() => escolher(a.id)}
               >
                 {a.id === 'personalizado' && <CalendarRange className="w-3.5 h-3.5 mr-1" />}
                 {a.rotulo}
@@ -146,7 +211,7 @@ export default function FiltroPesquisa({ consultores, carregando, onPesquisar }:
         <span className="text-xs text-muted-foreground">
           {preset === 'personalizado'
             ? 'Digite as datas ou use o calendário de cada campo.'
-            : `Vai analisar ${janelaDoPreset(preset, de, ate).rotulo}.`}
+            : `Vai analisar ${janelaDoPreset(preset, de, ate, mesComMaisDados).rotulo}.`}
         </span>
       </div>
     </div>

@@ -45,6 +45,16 @@ export interface MetricasConsultor {
   contatos_internos_excluidos: number;
 }
 
+/** Até onde a ingestão do WhatsApp trouxe mensagem, por instância. */
+export interface CoberturaSincronizacao {
+  instance_name: string;
+  /** `null` quando a instância não está amarrada a nenhum usuário cadastrado. */
+  usuario_id: string | null;
+  primeira_mensagem: string | null;
+  ultima_mensagem: string | null;
+  mensagens: number;
+}
+
 export interface FaixaResposta {
   faixa: string;
   ordem: number;
@@ -229,6 +239,25 @@ export function useZapInteligencia(
     },
   });
 
+  /**
+   * Até onde o WhatsApp de cada consultor está sincronizado.
+   *
+   * Roda SEMPRE, como a lista de consultores: o aviso de "período sem dado"
+   * precisa aparecer junto com o filtro, antes de alguém pesquisar um mês vazio
+   * e ler o zero como desempenho. É uma linha por instância.
+   */
+  const { data: cobertura = [] } = useQuery({
+    queryKey: ['zap-cobertura-sincronizacao'],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('zap_cobertura_sincronizacao' as never)
+        .select('instance_name, usuario_id, primeira_mensagem, ultima_mensagem, mensagens');
+      if (error) throw new Error(error.message);
+      return (data || []) as CoberturaSincronizacao[];
+    },
+  });
+
   // Escopado ao consultor selecionado: o painel inteiro fala de uma pessoa, e o
   // custo mostrado tem de ser o do trabalho que o botão dali dispara.
   // Sem seleção, mostra quem tem mais atendimento. Mora aqui e não na página
@@ -242,6 +271,24 @@ export function useZapInteligencia(
     () => metricas.find((m) => m.usuario_id === usuarioIdEfetivo) ?? null,
     [metricas, usuarioIdEfetivo]
   );
+
+  /**
+   * Última mensagem sincronizada do consultor da tela.
+   *
+   * Do consultor e não do time: se o WhatsApp de um cair sozinho, o painel tem
+   * de acusar a pesquisa dele e deixar as outras em paz. Sem linha na cobertura
+   * (instância sem cadastro, ou consultor sem mensagem nenhuma) devolve `null`,
+   * e o aviso trata esse caso em vez de supor que está tudo certo.
+   */
+  const ultimaMensagemSincronizada = useMemo(() => {
+    if (!usuarioIdEfetivo) return null;
+    const minhas = cobertura
+      .filter((c) => c.usuario_id === usuarioIdEfetivo && c.ultima_mensagem)
+      .map((c) => c.ultima_mensagem as string);
+    if (!minhas.length) return null;
+    // Mais de uma instância para a mesma pessoa é possível; vale a mais recente.
+    return minhas.reduce((a, b) => (new Date(a) >= new Date(b) ? a : b));
+  }, [cobertura, usuarioIdEfetivo]);
 
   const { data: custo = null } = useQuery({
     ...CACHE,
@@ -412,6 +459,9 @@ export function useZapInteligencia(
     custo,
     parecerSalvo,
     mesComMaisDados,
+    cobertura,
+    /** Última mensagem sincronizada DO consultor da tela, não do time. */
+    ultimaMensagemSincronizada,
     recarregar,
     // `isLoading` e não `isFetching`: o primeiro é "ainda não há dado", o
     // segundo inclui revalidação em segundo plano. Usar o segundo faria a tela

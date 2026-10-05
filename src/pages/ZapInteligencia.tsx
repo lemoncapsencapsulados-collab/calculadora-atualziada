@@ -40,6 +40,8 @@ import {
 } from '@/hooks/useZapInteligencia';
 import Apresentacoes from '@/components/zapinteligencia/Apresentacoes';
 import FiltroPesquisa, { TelaCarregando, type Pesquisa } from '@/components/zapinteligencia/FiltroPesquisa';
+import AvisoCoberturaWhatsapp from '@/components/zapinteligencia/AvisoCobertura';
+import { avisoCobertura } from '@/lib/coberturaWhatsapp';
 import { Glossario, CriteriosSentimento } from '@/components/zapinteligencia/Glossario';
 import {
   GraficoDistribuicao,
@@ -102,6 +104,35 @@ export default function ZapInteligencia() {
   const m = d.selecionado;
 
   const parecerVisivel = parecer ?? d.parecerSalvo;
+
+  /**
+   * O aviso de "este período não tem dado".
+   *
+   * Existe porque um zero no painel tem duas causas opostas -- consultor sem
+   * atendimento e período sem ingestão -- e as duas apareciam idênticas. Fica
+   * acima dos números: lido depois deles, chegaria tarde.
+   */
+  // `cobertura.length` no portão: sem ele, o instante entre abrir a tela e a
+  // consulta responder mostraria "nenhuma mensagem sincronizada" -- um alarme
+  // falso, e um alarme falso ensina a ignorar o verdadeiro.
+  const aviso = pesquisa && d.cobertura.length
+    ? avisoCobertura({
+        inicio: pesquisa.inicio,
+        fim: pesquisa.fim,
+        ultimaMensagem: d.ultimaMensagemSincronizada,
+      })
+    : null;
+
+  /** Reaponta a pesquisa para o mês inteiro da última mensagem que existe. */
+  const verMesComDado = (ate: Date) => {
+    if (!pesquisa) return;
+    aplicarPesquisa({
+      ...pesquisa,
+      inicio: startOfMonth(ate),
+      fim: endOfMonth(ate),
+      rotulo: format(ate, "MMMM 'de' yyyy", { locale: ptBR }),
+    });
+  };
 
   // O nome vem do seletor, não das métricas: durante o carregamento `m` ainda é
   // nulo, e é exatamente aí que o usuário precisa conferir se pediu o certo.
@@ -252,6 +283,7 @@ export default function ZapInteligencia() {
         <FiltroPesquisa
           consultores={d.consultores}
           carregando={carregando}
+          mesComMaisDados={d.mesComMaisDados}
           onPesquisar={aplicarPesquisa}
         />
 
@@ -270,6 +302,8 @@ export default function ZapInteligencia() {
           />
         ) : (
           <>
+        {aviso && <AvisoCoberturaWhatsapp aviso={aviso} onVerPeriodoComDado={verMesComDado} />}
+
         {/* Análise por IA */}
         {custo && (
           <div className="surface p-5 space-y-3">

@@ -11,6 +11,37 @@ import type { LinhaMensagem } from './zapNormalizar.ts';
 const LOTE = 200;
 
 /**
+ * Só as colunas que `zap_mensagens` realmente tem.
+ *
+ * `LinhaMensagem` carrega `telefone` de carona: é atributo do CONTATO, lido do
+ * `remoteJidAlt`, e quem o consome é `atualizarContatos`. Mandar o objeto
+ * inteiro para o upsert fazia a PostgREST recusar o lote com "Could not find
+ * the 'telefone' column of 'zap_mensagens' in the schema cache" — e, como a
+ * mensagem é gravada antes de tudo, a recusa derrubava a ingestão inteira.
+ *
+ * Foi o que parou a sincronização do WhatsApp em 01/09/2026: 447 conversas
+ * foram para a dlq com esse erro e nenhuma mensagem nova entrou por 34 dias. O
+ * painel seguiu mostrando zero, que se lê como consultor sem atendimento.
+ *
+ * Projeção explícita, e não `delete linha.telefone`: assim o próximo campo de
+ * contato que alguém puser em `LinhaMensagem` não derruba a ingestão de novo --
+ * ele simplesmente não chega aqui.
+ */
+function paraColunasDaTabela(l: LinhaMensagem) {
+  return {
+    instance_name: l.instance_name,
+    id: l.id,
+    remote_jid: l.remote_jid,
+    from_me: l.from_me,
+    momento: l.momento,
+    tipo: l.tipo,
+    texto: l.texto,
+    duracao_segundos: l.duracao_segundos,
+    dominios_links: l.dominios_links,
+  };
+}
+
+/**
  * `nomes` mapeia remote_jid -> nome de exibição, extraído do `pushName` das
  * mensagens RECEBIDAS. Vem por fora porque `pushName` não é campo de
  * `zap_mensagens` — é atributo do contato, não da mensagem, e só o cliente o
@@ -33,7 +64,7 @@ export async function salvarMensagens(
   for (let i = 0; i < unicas.length; i += LOTE) {
     const { error } = await supabase
       .from('zap_mensagens')
-      .upsert(unicas.slice(i, i + LOTE), {
+      .upsert(unicas.slice(i, i + LOTE).map(paraColunasDaTabela), {
         onConflict: 'instance_name,id',
         // A mensagem já gravada pode ter transcrição que este lote não traz.
         // Sem `ignoreDuplicates`, o backfill sobrescreveria o texto transcrito
