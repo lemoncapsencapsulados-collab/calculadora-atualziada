@@ -95,13 +95,28 @@ function Glossario() {
   );
 }
 
+/** Períodos que a conversa de gestão usa. */
+const PERIODOS = [
+  { meses: 3, rotulo: '3 meses' },
+  { meses: 6, rotulo: '6 meses' },
+  { meses: 12, rotulo: '12 meses' },
+] as const;
+
 export default function ComparativoVendedores() {
-  const { data, isLoading } = useDesempenhoVendedores(6);
+  const [periodo, setPeriodo] = useState<number>(6);
+  const { data, isLoading } = useDesempenhoVendedores(periodo);
   const [aba, setAba] = useState<'gestao' | 'individual'>('gestao');
   const [vendedorAberto, setVendedorAberto] = useState<string | null>(null);
+  /** Pedido explícito: ver só quem recebeu lead. */
+  const [soComLeads, setSoComLeads] = useState(true);
 
   const meses = data?.meses ?? [];
-  const mesAtual = meses[meses.length - 1] ?? '';
+  /** Mês que a tabela mostra. Começa no último, mas dá para voltar. */
+  const [mesEscolhido, setMesEscolhido] = useState<string | null>(null);
+  const mesAtual = mesEscolhido && meses.includes(mesEscolhido)
+    ? mesEscolhido
+    : meses[meses.length - 1] ?? '';
+  const indiceMes = meses.indexOf(mesAtual);
 
   /** O mês de WhatsApp parou antes do mês comercial? Então leads estão furados. */
   const leadsDesatualizados = useMemo(() => {
@@ -118,7 +133,26 @@ export default function ComparativoVendedores() {
     );
   }
 
-  const vendedores = data?.vendedores ?? [];
+  const todos = data?.vendedores ?? [];
+
+  // Linha totalmente zerada no mês é ruído: o vendedor não trabalhou naquele
+  // mês, ou o nome ficou órfão de um cadastro antigo.
+  const comMovimento = todos.filter((v) => {
+    const r = v.meses[indiceMes];
+    if (!r) return false;
+    return (
+      r.leads > 0 ||
+      r.orcamentos > 0 ||
+      r.vendasNovas > 0 ||
+      r.recompras > 0 ||
+      r.valorPrimeirasVendas > 0 ||
+      r.valorRecompras > 0
+    );
+  });
+
+  const comLeads = comMovimento.filter((v) => (v.meses[indiceMes]?.leads ?? 0) > 0);
+  const filtroEsvaziou = soComLeads && comLeads.length === 0 && comMovimento.length > 0;
+  const vendedores = soComLeads && !filtroEsvaziou ? comLeads : comMovimento;
   const aberto = vendedores.find((v) => v.vendedor === vendedorAberto) ?? vendedores[0];
 
   return (
@@ -126,7 +160,22 @@ export default function ComparativoVendedores() {
       <div className="flex flex-wrap items-center gap-2">
         <Users className="h-4 w-4 text-primary" />
         <h2 className="text-base font-semibold">Desempenho dos vendedores</h2>
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex flex-wrap items-center gap-1">
+          {PERIODOS.map((p) => (
+            <Button
+              key={p.meses}
+              size="sm"
+              variant={periodo === p.meses ? 'secondary' : 'ghost'}
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                setPeriodo(p.meses);
+                setMesEscolhido(null);
+              }}
+            >
+              {p.rotulo}
+            </Button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-border" />
           <Button
             size="sm"
             variant={aba === 'gestao' ? 'default' : 'outline'}
@@ -155,6 +204,45 @@ export default function ComparativoVendedores() {
               Nenhuma conversa de WhatsApp foi gravada depois disso, então a coluna de leads está
               zerada nos meses seguintes — não é que o vendedor não recebeu ninguém. Os números de
               orçamento e venda não dependem do WhatsApp e continuam corretos.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">Mês:</span>
+        {meses.map((m) => (
+          <Button
+            key={m}
+            size="sm"
+            variant={m === mesAtual ? 'secondary' : 'ghost'}
+            className="h-7 px-2 text-xs capitalize"
+            onClick={() => setMesEscolhido(m)}
+          >
+            {nomeDoMes(m).replace(' de ', '/')}
+          </Button>
+        ))}
+        <Button
+          size="sm"
+          variant={soComLeads ? 'secondary' : 'ghost'}
+          className="ml-auto h-7 px-2 text-xs"
+          onClick={() => setSoComLeads((v) => !v)}
+        >
+          {soComLeads ? '✓ ' : ''}Só quem recebeu lead
+        </Button>
+      </div>
+
+      {filtroEsvaziou && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="text-sm text-amber-900 dark:text-amber-100">
+            <p className="font-medium">
+              Ninguém tem lead em {nomeDoMes(mesAtual)} — mostrando todos
+            </p>
+            <p className="text-xs opacity-80">
+              O filtro "Só quem recebeu lead" esconderia a tabela inteira, porque a contagem de
+              leads depende da sincronização do WhatsApp, que está parada. Os números de orçamento
+              e venda abaixo continuam corretos.
             </p>
           </div>
         </div>
@@ -190,8 +278,8 @@ export default function ComparativoVendedores() {
               </thead>
               <tbody>
                 {vendedores.map((v) => {
-                  const r = v.meses[v.meses.length - 1] ?? ({} as ResultadoMes);
-                  const leitura = lerMes(v.meses, v.meses.length - 1);
+                  const r = v.meses[indiceMes] ?? ({} as ResultadoMes);
+                  const leitura = lerMes(v.meses, indiceMes);
                   return (
                     <tr key={v.vendedor} className="border-b last:border-0">
                       <td className="p-2 font-medium">{v.vendedor}</td>
@@ -225,7 +313,7 @@ export default function ComparativoVendedores() {
             </table>
             <p className="border-t px-2 py-1.5 text-[11px] text-muted-foreground">
               Números de {nomeDoMes(mesAtual)}. A seta compara com o mês anterior do próprio
-              vendedor.
+              vendedor. Vendedor sem nenhum movimento no mês não aparece.
             </p>
           </CardContent>
         </Card>

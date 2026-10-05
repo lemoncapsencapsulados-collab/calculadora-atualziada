@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { DesempenhoVendedor, ResultadoMes } from '@/lib/desempenhoVendedor';
+import { type ConsultorCadastrado, resolverConsultor } from '@/lib/nomeConsultor';
 
 /**
  * Números de cada vendedor, mês a mês.
@@ -48,6 +49,21 @@ export function useDesempenhoVendedores(mesesParaTras = 6) {
       desde.setDate(1);
       desde.setHours(0, 0, 0, 0);
 
+      // O cadastro e' o que junta as tres grafias do mesmo vendedor: o nome
+      // digitado no orcamento, o nome da instancia do WhatsApp e o nome do
+      // cadastro. Sem isto a mesma pessoa vira duas linhas, cada uma com
+      // metade dos numeros.
+      const { data: usuarios } = await supabase.from('usuarios').select('id, nome');
+      const { data: instancias } = await supabase
+        .from('zap_instancias')
+        .select('instance_name, usuario_id');
+
+      const cadastro: ConsultorCadastrado[] = (usuarios || []).map((u) => ({
+        nome: (u.nome as string) || '',
+        instancia:
+          (instancias || []).find((i) => i.usuario_id === u.id)?.instance_name ?? null,
+      }));
+
       const { data: orcamentos, error } = await supabase
         .from('orcamentos')
         .select('consultor_responsavel, tipo_orcamento, status, valor_total, created_at')
@@ -71,7 +87,7 @@ export function useDesempenhoVendedores(mesesParaTras = 6) {
       const meses = new Set<string>();
 
       const pegar = (vendedor: string, mes: string): ResultadoMes => {
-        const nome = (vendedor || '').trim() || 'Sem consultor';
+        const nome = resolverConsultor(vendedor, cadastro) || 'Sem consultor';
         if (!porVendedor.has(nome)) porVendedor.set(nome, new Map());
         const doVendedor = porVendedor.get(nome)!;
         if (!doVendedor.has(mes)) doVendedor.set(mes, mesVazio(mes));
