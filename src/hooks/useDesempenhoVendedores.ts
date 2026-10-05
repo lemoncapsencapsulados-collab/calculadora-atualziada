@@ -70,12 +70,18 @@ export function useDesempenhoVendedores(mesesParaTras = 6) {
         .gte('created_at', desde.toISOString());
       if (error) throw error;
 
-      // Leads: contatos novos por vendedor. A instância do WhatsApp é o
-      // vendedor, então o nome dela é a chave de ligação.
-      const { data: contatos } = await supabase
-        .from('zap_contatos')
-        .select('instance_name, created_at')
-        .gte('created_at', desde.toISOString());
+      // Leads: conversas NOVAS no WhatsApp. O funil é um formulário -- o
+      // cliente preenche, deixa o número, e a conversa começa --, então o lead
+      // nasce na primeira mensagem trocada com aquele número.
+      //
+      // Vem da visão `zap_leads_por_mes`, que agrega no banco. Antes isto saía
+      // de `zap_contatos.created_at`, que é a data em que a sincronização
+      // gravou a linha: os 2.259 contatos tinham três datas só, e a coluna
+      // mostrava 1.377 leads num dia de agosto e zero no resto.
+      const { data: leadsPorMes } = await supabase
+        .from('zap_leads_por_mes' as never)
+        .select('instance_name, mes, leads')
+        .gte('mes', desde.toISOString().slice(0, 10));
 
       const { data: ultimaMensagem } = await supabase
         .from('zap_mensagens')
@@ -111,9 +117,13 @@ export function useDesempenhoVendedores(mesesParaTras = 6) {
         }
       }
 
-      for (const c of contatos || []) {
-        const mes = chaveMes(c.created_at as string);
-        pegar(c.instance_name as string, mes).leads += 1;
+      for (const l of (leadsPorMes || []) as unknown as {
+        instance_name: string;
+        mes: string;
+        leads: number;
+      }[]) {
+        // `mes` já vem como o primeiro dia do mês; a chave é AAAA-MM.
+        pegar(l.instance_name, String(l.mes).slice(0, 7)).leads += Number(l.leads) || 0;
       }
 
       const ordenados = Array.from(meses).sort();
