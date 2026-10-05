@@ -46,7 +46,9 @@ export const METRICAS: Metrica[] = [
   {
     chave: 'leads',
     nome: 'Leads recebidos',
-    explicacao: 'Pessoas novas que falaram com este vendedor no WhatsApp no mês.',
+    explicacao:
+      'Conversas novas no WhatsApp no mês. O cliente preenche o formulário e ' +
+      'deixa o número; o lead conta na primeira mensagem trocada com ele.',
     formato: 'numero',
     subirEBom: true,
   },
