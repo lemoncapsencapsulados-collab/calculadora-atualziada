@@ -58,6 +58,7 @@ import type { Orcamento } from '@/types/orcamento';
 import { MSG_PEDIDO_INCOMPLETO, compararPorSequencial, parseNumeroPedido } from '@/lib/numeroPedido';
 import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
 import PreviewPedidoCompraDialog from '@/components/pedidos/PreviewPedidoCompraDialog';
+import { ConfirmarExclusaoPedidoCompraDialog } from '@/components/pedidos/ConfirmarExclusaoPedidoCompraDialog';
 import ResumoPorConsultor from '@/components/pedidos/ResumoPorConsultor';
 import {
   type PedidoParaResumo,
@@ -239,7 +240,7 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra, limparPedidoCompraAsync, limpandoPedidoCompra } = usePedidos();
   const { clientes, atualizarCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
@@ -253,6 +254,10 @@ const Pedidos = () => {
   const [documentosDialogPedidoId, setDocumentosDialogPedidoId] = useState<string | null>(null);
   const [recompraPedido, setRecompraPedido] = useState<any | null>(null);
   const [pedidoParaExcluir, setPedidoParaExcluir] = useState<{ id: string; numero: string } | null>(null);
+  // Separado de `pedidoParaExcluir`: apagar o documento e apagar a venda sao
+  // acoes diferentes, e um estado so' faria os dois dialogos disputarem o mesmo
+  // alvo.
+  const [pedidoCompraParaApagar, setPedidoCompraParaApagar] = useState<{ id: string; numero: string } | null>(null);
   const [pedidoParaEditarPagto, setPedidoParaEditarPagto] = useState<any | null>(null);
   const [rascunhoRecompra, setRascunhoRecompra] = useState<
     { rascunho: Partial<Orcamento>; grupo: GrupoProdutor } | null
@@ -951,11 +956,23 @@ const Pedidos = () => {
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
+          {/* So' aparece quando ha' documento: um "apagar" que nao apaga nada
+              ensina a duvidar do resto do menu. */}
+          {pedido.pedido_compra_dados && (
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setPedidoCompraParaApagar({ id: pedido.id, numero: pedido.numero_pedido })}
+            >
+              <FileSignature className="h-4 w-4 mr-2" /> Apagar Pedido de Compra
+            </DropdownMenuItem>
+          )}
+          {/* "Excluir pedido", e nao "Excluir": a um item de distancia de apagar
+              so' o documento, o rotulo curto nao dizia o que ia embora. */}
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onClick={() => setPedidoParaExcluir({ id: pedido.id, numero: pedido.numero_pedido })}
           >
-            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+            <Trash2 className="h-4 w-4 mr-2" /> Excluir pedido (a venda toda)
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1501,6 +1518,24 @@ const Pedidos = () => {
             setPedidoParaExcluir(null);
           } catch {
             // Mantém o dialog aberto para o usuário ver o erro e tentar de novo
+            return;
+          }
+        }}
+      />
+
+      {/* Apagar so' o Pedido de Compra, mantendo a venda. */}
+      <ConfirmarExclusaoPedidoCompraDialog
+        open={!!pedidoCompraParaApagar}
+        onOpenChange={(o) => { if (!o && !limpandoPedidoCompra) setPedidoCompraParaApagar(null); }}
+        numeroPedido={pedidoCompraParaApagar?.numero ?? ''}
+        loading={limpandoPedidoCompra}
+        onConfirm={async () => {
+          if (!pedidoCompraParaApagar) return;
+          try {
+            await limparPedidoCompraAsync(pedidoCompraParaApagar.id);
+            setPedidoCompraParaApagar(null);
+          } catch {
+            // Dialogo aberto: o erro ja' foi para a tela e da' para tentar de novo.
             return;
           }
         }}

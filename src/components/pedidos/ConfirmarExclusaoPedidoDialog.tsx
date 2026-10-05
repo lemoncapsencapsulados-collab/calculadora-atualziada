@@ -14,8 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { aviso as toast } from '@/lib/avisos';
 import { Loader2 } from 'lucide-react';
-
-const SENHA_EXCLUSAO = '0212';
+import { conferirSenhaAdmin } from '@/lib/senhaAdmin';
 
 interface Props {
   numeroPedido: string;
@@ -43,7 +42,11 @@ export function ConfirmarExclusaoPedidoDialog({ numeroPedido, onConfirm, trigger
 
   const handleConfirm = async () => {
     if (loading) return;
-    if (senha !== SENHA_EXCLUSAO) {
+    // Antes a comparacao era com uma constante escrita neste arquivo, de
+    // quatro digitos -- nao os seis que a empresa usa para apagar. Quem
+    // digitava a senha certa levava "Senha incorreta" e nao excluia nada.
+    // A senha mora em um lugar so', e e' aquele.
+    if (!(await conferirSenhaAdmin(senha))) {
       toast.error('Senha incorreta');
       setSenha('');
       return;

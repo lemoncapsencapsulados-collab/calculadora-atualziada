@@ -341,6 +341,40 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
   });
 
   /**
+   * Apaga SO' o Pedido de Compra, deixando o pedido de pe'.
+   *
+   * Existe porque o mesmo Pedido de Compra foi preenchido mais de uma vez para
+   * a mesma venda -- hoje ha' tres pedidos carregando o contrato 2609 -- e a
+   * unica saida era excluir o pedido inteiro, levando junto a venda, o
+   * orcamento, o pagamento e o historico.
+   *
+   * Volta os quatro campos ao estado dos outros 130 pedidos: documento nulo e
+   * sem status de aprovacao. `numero_pedido` NAO entra na limpeza: e' o que
+   * identifica a venda na lista, e zera-lo deixaria uma linha sem nome.
+   *
+   * `numero_contrato` e `cnpj_contratante` tambem ficam: foram digitados no
+   * formulario, mas descrevem a venda, nao o documento, e preencher de novo os
+   * sobrescreve. Apagar aqui destruiria dado que ninguem pediu para destruir.
+   */
+  const limparPedidoCompra = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('pedidos')
+        .update({ pedido_compra_dados: null, status_aprovacao: null } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast.success('Pedido de Compra apagado. O pedido continua na lista.');
+    },
+    onError: (error: any) => {
+      console.error('Erro ao apagar o Pedido de Compra:', error);
+      toast.error(`Erro ao apagar o Pedido de Compra: ${error?.message || 'erro desconhecido'}`);
+    },
+  });
+
+  /**
    * Vincula um Pedido de Compra ao pedido: numero de contrato, numero definitivo
    * (`contrato-sequencial`) e os campos do documento. O pedido entra como
    * pendente de assinatura -- so' o retorno do ZapSign o move para pre-aprovado.
@@ -647,6 +681,8 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
     deletandoPedido: deletePedido.isPending,
     alterarPagamento: alterarPagamento.mutateAsync,
     vincularPedidoCompra: vincularPedidoCompra.mutateAsync,
+    limparPedidoCompraAsync: limparPedidoCompra.mutateAsync,
+    limpandoPedidoCompra: limparPedidoCompra.isPending,
     toggleParcelaPagaAsync: toggleParcelaPaga.mutateAsync,
     registrarVhsysAsync: registrarVhsys.mutateAsync,
   };
