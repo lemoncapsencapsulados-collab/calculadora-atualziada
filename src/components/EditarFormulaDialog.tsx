@@ -14,6 +14,7 @@ import { useInsumosLeitura } from '@/hooks/useInsumosLeitura';
 import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
+import ConstrucaoPreco from '@/components/ConstrucaoPreco';
 import { cn } from '@/lib/utils';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 import {
@@ -508,9 +509,10 @@ export default function EditarFormulaDialog({
           )}
         </div>
 
-        {/* Rodape enxuto: custo, preco e margem numa linha. E' a decisao do
-            consultor, entao fica sempre visivel -- mas sem roubar altura da
-            lista de insumos, que e' o que ele esta' editando. */}
+        {/* Rodape: custo, preco e margem numa linha, mais a conta aberta.
+            E' a decisao do consultor, entao fica sempre visivel. A conta e'
+            recolhivel para nao roubar altura da lista de insumos quando ele
+            estiver editando formula em vez de conferindo preco. */}
         <div className="shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-6">
             <div className="text-xs text-muted-foreground">
@@ -526,7 +528,12 @@ export default function EditarFormulaDialog({
               <span>Emb {formatCurrency(totalEmbalagem)}</span>
               {resultado && (
                 <>
+                  {/* O overhead entra por configuracao e nao aparecia: MP e
+                      Embalagem davam 14,27 e o Custo dizia 16,27, com os
+                      R$ 2,00 sem explicacao nenhuma na tela. */}
                   <span className="mx-2 opacity-40">·</span>
+                  <span>Overhead {formatCurrency(resultado.custoMaoObraDireta)}</span>
+                  <span className="mx-2 opacity-40">=</span>
                   <span className="font-medium text-foreground">
                     Custo {formatCurrency(resultado.totalCustosProducao)}
                   </span>
@@ -557,6 +564,8 @@ export default function EditarFormulaDialog({
               )}
             </div>
           </div>
+
+          {resultado && <ConstrucaoPreco resultado={resultado} />}
 
           {sugestao !== null && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
