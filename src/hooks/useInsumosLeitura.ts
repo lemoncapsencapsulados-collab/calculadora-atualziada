@@ -17,7 +17,7 @@ import { mapFromDB } from '@/lib/materiaPrima';
  */
 
 export function useInsumosLeitura() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['materias-primas-leitura'],
     // Preço de insumo não muda de minuto em minuto; e quando muda, quem mudou
     // está na tela de inventário, que tem a lista própria e atualizada.
@@ -32,5 +32,16 @@ export function useInsumosLeitura() {
     },
   });
 
-  return { insumos: data ?? [], carregando: isLoading };
+  /**
+   * `erro` sai junto de propósito. Sem ele, uma falha de rede devolve lista
+   * vazia -- e a tela de edição mostra toda matéria-prima da fórmula como
+   * "não encontrada", com custo zero e margem de três dígitos, como se o
+   * produto é que estivesse errado.
+   */
+  return {
+    insumos: data ?? [],
+    carregando: isLoading,
+    erro: error instanceof Error ? error.message : error ? String(error) : null,
+    recarregar: refetch,
+  };
 }

@@ -67,8 +67,8 @@ export default function EditarFormulaDialog({
   // Leitura com cache: o `useInsumos` abre inscricao de tempo real a cada
   // montagem, e este dialogo monta toda vez que alguem clica em "Editar
   // produto". Era o que fazia a abertura travar.
-  const { insumos } = useInsumosLeitura();
-  const { embalagens } = useEmbalagens();
+  const { insumos, erro: erroInsumos, recarregar: recarregarInsumos } = useInsumosLeitura();
+  const { embalagens, erro: erroEmbalagens, refreshEmbalagens } = useEmbalagens();
   const { atualizarPrecificacao } = usePrecificacao();
 
   const [nome, setNome] = useState(nomeFormula);
@@ -84,26 +84,57 @@ export default function EditarFormulaDialog({
    * trigesima parte, e a margem, tres digitos acima da real.
    */
   const [pote, setPote] = useState({ quantidadePorPote: 0, unidadesPorDose: 0, tipo: '' });
+  /**
+   * Falha ao carregar a fórmula.
+   *
+   * Sem este estado, a carga que falha deixa a tela nos valores iniciais --
+   * nenhuma matéria-prima, nenhuma embalagem -- e isso e' indistinguivel de uma
+   * formula realmente vazia. Foi o que aconteceu: "TypeError: Failed to fetch",
+   * e o dialogo abriu mostrando MP R$ 0,00, Emb R$ 0,00 e markup de 1545%, com
+   * o botao de salvar ativo.
+   *
+   * O caminho perigoso nao e' salvar vazio -- isso o `salvar` ja' barra. E'
+   * adicionar UMA materia-prima sobre o estado vazio e salvar: a formula
+   * original inteira, com todas as suas embalagens, vira aquela unica linha.
+   */
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
+  /** Muda para refazer a carga sem fechar e reabrir o diálogo. */
+  const [tentativa, setTentativa] = useState(0);
 
   // Carrega a fórmula ao abrir: a lista não traz os itens, só o resumo.
   useEffect(() => {
     if (!open || !formulaId) return;
     let cancelado = false;
     setCarregando(true);
+    setErroCarregamento(null);
+    // Zera antes de buscar. O estado sobrevive entre aberturas: sem limpar,
+    // uma carga que falha deixa na tela a fórmula ANTERIOR, com o nome da nova
+    // no cabeçalho -- e salvar gravaria a fórmula errada no produto errado.
+    setLinhas([]);
+    setEmbalagensItens([]);
+    setPote({ quantidadePorPote: 0, unidadesPorDose: 0, tipo: '' });
+    setMpOriginal(0);
     (async () => {
-      const { data, error } = await supabase
-        .from('formulas')
-        .select(
-          'itens, embalagens, total_mp, quantidade_por_pote, unidades_por_dose, tipo_produto',
-        )
-        .eq('id', formulaId)
-        .single();
-      if (cancelado) return;
-      if (error) {
-        toast.error('Erro ao carregar a fórmula: ' + error.message);
+      let data: any = null;
+      try {
+        const resposta = await supabase
+          .from('formulas')
+          .select(
+            'itens, embalagens, total_mp, quantidade_por_pote, unidades_por_dose, tipo_produto',
+          )
+          .eq('id', formulaId)
+          .single();
+        if (resposta.error) throw resposta.error;
+        data = resposta.data;
+      } catch (e: any) {
+        if (cancelado) return;
+        // Sem toast: o aviso some em segundos e a tela ficaria mentindo
+        // depois dele. O erro vira painel, e o painel fica.
+        setErroCarregamento(e?.message || 'Não foi possível carregar a fórmula.');
         setCarregando(false);
         return;
       }
+      if (cancelado) return;
       const itens = ((data?.itens || []) as unknown as FormulaItem[]) || [];
       setLinhas(
         itens.map((i, idx) => ({
@@ -129,7 +160,7 @@ export default function EditarFormulaDialog({
       cancelado = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, formulaId]);
+  }, [open, formulaId, tentativa]);
 
   const insumosPorId = useMemo(() => {
     const m = new Map<string, Insumo>();
@@ -214,6 +245,17 @@ export default function EditarFormulaDialog({
     [embalagensItens],
   );
   const temErro = calculadas.some((c) => c.erro);
+
+  /**
+   * As listas de apoio nao chegaram.
+   *
+   * Sem os insumos, toda materia-prima da formula aparece como "nao
+   * encontrada" e custa zero; sem as embalagens, nao ha' o que escolher. Em
+   * qualquer dos dois casos o custo na tela e' menor que o real, e salvar
+   * gravaria essa margem inflada por cima da precificacao boa.
+   */
+  const erroReferencias = erroInsumos || erroEmbalagens || null;
+  const bloqueado = Boolean(erroCarregamento || erroReferencias);
   const diferencaMp = totalMp - mpOriginal;
 
   const resultado = useMemo(() => {
@@ -256,6 +298,12 @@ export default function EditarFormulaDialog({
     setLinhas((prev) => prev.map((l) => (l.chave === chave ? { ...l, ...patch } : l)));
 
   const salvar = async () => {
+    // Antes de tudo: se o que esta' na tela nao veio do banco, gravar escreve
+    // o buraco por cima do que estava certo.
+    if (bloqueado) {
+      toast.error('Os dados não terminaram de carregar. Recarregue antes de salvar.');
+      return;
+    }
     if (temErro) {
       toast.error('Corrija as matérias-primas com erro antes de salvar.');
       return;
@@ -339,8 +387,63 @@ export default function EditarFormulaDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {carregando ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando fórmula...</p>
+          ) : erroCarregamento ? (
+            /* Painel no lugar do formulário, e não um aviso acima dele: um
+               formulário editável por cima de dados que não chegaram convida a
+               editar o vazio. Aqui não há o que editar até a carga voltar. */
+            <div className="space-y-3 py-8 text-center">
+              <AlertTriangle className="mx-auto h-8 w-8 text-destructive" />
+              <div className="space-y-1">
+                <p className="font-medium">Não foi possível carregar a fórmula</p>
+                <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                  {erroCarregamento}
+                </p>
+                <p className="mx-auto max-w-md text-xs text-muted-foreground">
+                  Nada foi alterado. A fórmula continua no banco como estava — o que falhou
+                  foi trazê-la para a tela.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setTentativa((t) => t + 1)}>
+                Tentar de novo
+              </Button>
+            </div>
           ) : (
             <div className="space-y-4">
+              {/* A formula carregou, mas as listas de apoio nao. O formulario
+                  continua de pe' -- da' para ler o que ja' esta' ali -- e o
+                  salvar fica travado, porque os custos na tela estao menores
+                  que os reais. */}
+              {erroReferencias && (
+                <div className="flex items-start gap-2 rounded-lg border-2 border-destructive/60 bg-destructive/10 p-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <div className="min-w-0 space-y-1.5 text-sm">
+                    <p className="font-medium">
+                      {erroInsumos && erroEmbalagens
+                        ? 'As matérias-primas e as embalagens não carregaram'
+                        : erroInsumos
+                          ? 'A lista de matérias-primas não carregou'
+                          : 'A lista de embalagens não carregou'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Os custos abaixo estão menores que os reais e a margem, maior. Salvar
+                      está bloqueado até a lista voltar — gravar agora substituiria a
+                      precificação boa por esta.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        if (erroInsumos) recarregarInsumos();
+                        if (erroEmbalagens) refreshEmbalagens();
+                      }}
+                    >
+                      Carregar de novo
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <Label className="text-xs">Nome da fórmula</Label>
                 <Input value={nome} onChange={(e) => setNome(e.target.value)} />
@@ -513,7 +616,9 @@ export default function EditarFormulaDialog({
             E' a decisao do consultor, entao fica sempre visivel. A conta e'
             recolhivel para nao roubar altura da lista de insumos quando ele
             estiver editando formula em vez de conferindo preco. */}
-        <div className="shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3">
+        {/* Some quando a formula nao carregou: "Custo R$ 2,00, markup 1545%"
+            calculado sobre zeros parece um numero e nao e'. */}
+        <div className={cn('shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3', erroCarregamento && 'hidden')}>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-6">
             <div className="text-xs text-muted-foreground">
               <span>
@@ -597,7 +702,7 @@ export default function EditarFormulaDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>
             Cancelar
           </Button>
-          <Button onClick={salvar} disabled={salvando || carregando || temErro || !resultado}>
+          <Button onClick={salvar} disabled={salvando || carregando || bloqueado || temErro || !resultado}>
             <Save className="mr-1 h-4 w-4" />
             {salvando ? 'Salvando...' : 'Salvar produto e margem'}
           </Button>

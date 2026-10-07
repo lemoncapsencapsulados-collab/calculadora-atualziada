@@ -6,6 +6,12 @@ import { useToast } from '@/hooks/use-toast';
 export function useEmbalagens() {
   const [embalagens, setEmbalagens] = useState<Embalagem[]>([]);
   const [loading, setLoading] = useState(true);
+  /**
+   * Falha de carga, para quem consome poder distinguir "nao ha' embalagem" de
+   * "nao deu para perguntar". O aviso que some em quatro segundos nao basta:
+   * quem olha a tela depois ve' uma lista vazia e acredita nela.
+   */
+  const [erro, setErro] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,8 +67,10 @@ export function useEmbalagens() {
       if (error) throw error;
 
       setEmbalagens(data.map(mapEmbalagemFromDB));
-    } catch (error) {
+      setErro(null);
+    } catch (error: any) {
       console.error('Error fetching embalagens:', error);
+      setErro(error?.message || 'Não foi possível carregar as embalagens');
       toast({
         title: 'Erro ao carregar embalagens',
         description: 'Não foi possível carregar as embalagens do banco de dados',
@@ -151,6 +159,7 @@ export function useEmbalagens() {
   return {
     embalagens,
     loading,
+    erro,
     addEmbalagem,
     updateEmbalagem,
     deleteEmbalagem,

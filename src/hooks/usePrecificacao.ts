@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { invalidarCachesDaFormula } from '@/lib/cachesDaFormula';
 import { Precificacao } from '@/types/precificacao';
 import { aviso as toast } from '@/lib/avisos';
 
@@ -50,7 +51,7 @@ export function usePrecificacao() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+      invalidarCachesDaFormula(queryClient);
       toast.success('Precificação salva com sucesso!');
     },
     onError: (error) => {
@@ -73,7 +74,7 @@ export function usePrecificacao() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+      invalidarCachesDaFormula(queryClient);
       toast.success('Precificação atualizada com sucesso!');
     },
     onError: (error) => {
@@ -92,7 +93,7 @@ export function usePrecificacao() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['precificacoes'] });
+      invalidarCachesDaFormula(queryClient);
       toast.success('Precificação deletada com sucesso!');
     },
     onError: (error) => {

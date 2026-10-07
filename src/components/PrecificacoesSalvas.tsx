@@ -19,6 +19,7 @@ import { aviso as toast } from '@/lib/avisos';
 import { useQueryClient } from '@tanstack/react-query';
 import EditarPrecificacaoDialog from './EditarPrecificacaoDialog';
 import EditarFormulaDialog from './EditarFormulaDialog';
+import { invalidarCachesDaFormula } from '@/lib/cachesDaFormula';
 import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import SenhaAdminDialog from './SenhaAdminDialog';
@@ -674,10 +675,7 @@ export default function PrecificacoesSalvas({
           precoVendaAtual={Number(editandoFormula.preco_venda) || 0}
           margemOriginal={Number(editandoFormula.margem_lucro_percentual) || undefined}
           configuracaoAtiva={configuracaoAtiva}
-          onSalvo={() => {
-            queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] });
-            queryClient.invalidateQueries({ queryKey: ['formulas'] });
-          }}
+          onSalvo={() => invalidarCachesDaFormula(queryClient)}
         />
       )}
 
