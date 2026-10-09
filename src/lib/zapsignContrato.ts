@@ -71,6 +71,9 @@ export interface ZapSignContratoCampos {
   anexo_ativo_2: string;
   anexo_cor_pote: string;
   anexo_cor_tampa: string;
+  /** Pote e tampa fora do catalogo, por extenso. Vazios quando e' do catalogo. */
+  anexo_pote_personalizado: string;
+  anexo_tampa_personalizada: string;
   anexo_cor_gummy: string;
   anexo_sabor_gummy: string;
   anexo_quantidade: string;
@@ -185,6 +188,8 @@ export function montarDadosZapSign(campos: ZapSignContratoCampos): ZapSignReplac
     par('{{ANEXO_ATIVO_2}}', campos.anexo_ativo_2),
     par('{{ANEXO_COR_POTE}}', campos.anexo_cor_pote),
     par('{{ANEXO_COR_TAMPA}}', campos.anexo_cor_tampa),
+    par('{{ANEXO_POTE_PERSONALIZADO}}', campos.anexo_pote_personalizado),
+    par('{{ANEXO_TAMPA_PERSONALIZADA}}', campos.anexo_tampa_personalizada),
     par('{{ANEXO_COR_GUMMY}}', campos.anexo_cor_gummy),
     par('{{ANEXO_SABOR_GUMMY}}', campos.anexo_sabor_gummy),
     par('{{ANEXO_QUANTIDADE}}', campos.anexo_quantidade),

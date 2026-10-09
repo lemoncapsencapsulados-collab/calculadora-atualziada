@@ -27,6 +27,7 @@ import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input'
 import { cadastrarClienteVhSys, type CadastrarVhSysResult } from '@/lib/vhsysCliente';
 import { aviso as sonnerToast } from '@/lib/avisos';
 import CorComPersonalizado from '@/components/CorComPersonalizado';
+import ItemPersonalizado from '@/components/ItemPersonalizado';
 
 interface AprovacaoOrcamentoDialogProps {
   orcamento: Orcamento;
@@ -948,6 +949,29 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                           </>
                         );
                       })()}
+                      {/* Pote e tampa fora do catalogo. Ocupam a linha
+                          inteira: sao descricoes, nao escolhas de uma lista,
+                          e espremidas em meia coluna nao cabe o que se
+                          escreve nelas. */}
+                      {isKnown && (
+                        <div className="sm:col-span-2 grid gap-2 sm:grid-cols-2">
+                          <ItemPersonalizado
+                            label="Potes Personalizados"
+                            descricao="Pote fora do catálogo — descreva por extenso."
+                            valor={d.pote_personalizado || ''}
+                            placeholder="Ex: PET 250ml âmbar, boca larga, com lacre de indução"
+                            onChange={(v) => updateDetalhe(idx, 'pote_personalizado', v)}
+                          />
+                          <ItemPersonalizado
+                            label="Tampas Personalizadas"
+                            descricao="Tampa fora do catálogo — descreva por extenso."
+                            valor={d.tampa_personalizada || ''}
+                            placeholder="Ex: Rosca 63mm branca fosca, com lacre"
+                            onChange={(v) => updateDetalhe(idx, 'tampa_personalizada', v)}
+                          />
+                        </div>
+                      )}
+
                       {/* Sabor e Cor do Conteúdo — Gummy, Solúvel, Líquido */}
                       {isGummy && (
                         <>

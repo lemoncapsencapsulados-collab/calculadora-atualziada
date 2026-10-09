@@ -69,6 +69,9 @@ export interface ProdutoPedido {
   dose_diaria_sugerida?: string;
   cor_pote?: string;
   cor_tampa?: string;
+  /** Pote e tampa fora do catalogo, por extenso. A producao precisa ver. */
+  pote_personalizado?: string;
+  tampa_personalizada?: string;
   preco_unitario?: number;
   insumos?: InsumoProdutoPedido[];
 }

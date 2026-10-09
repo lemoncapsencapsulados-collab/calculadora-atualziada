@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, AlertTriangle, Wallet, Beaker, Plus, Trash2, UserPlus, FileCheck, Users, ShieldCheck } from 'lucide-react';
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
+import ItemPersonalizado from '@/components/ItemPersonalizado';
 import { validarCPF, validarCNPJ, validarEmail, formatarNomeProprio } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
@@ -334,6 +335,8 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       anexo_ativo_2: formatarInsumoContrato(insumos[1]),
       anexo_cor_pote: detalhesFonte.cor_pote || '',
       anexo_cor_tampa: detalhesFonte.cor_tampa || '',
+      anexo_pote_personalizado: detalhesFonte.pote_personalizado || '',
+      anexo_tampa_personalizada: detalhesFonte.tampa_personalizada || '',
       anexo_cor_gummy: naoSeAplicaSeVazio(
         detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido,
         primeiroIsGummy || primeiroIsSoluvel || primeiroIsLiquido,
@@ -1247,6 +1250,14 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         <Input value={zapSignCampos.anexo_cor_tampa} onChange={(e) => updateZapCampo('anexo_cor_tampa', e.target.value)} />
                       </div>
                       <div className="space-y-1">
+                        <Label className="text-xs">Pote personalizado</Label>
+                        <Input value={zapSignCampos.anexo_pote_personalizado} onChange={(e) => updateZapCampo('anexo_pote_personalizado', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Tampa personalizada</Label>
+                        <Input value={zapSignCampos.anexo_tampa_personalizada} onChange={(e) => updateZapCampo('anexo_tampa_personalizada', e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
                         <Label className="text-xs">Cor gummy/conteúdo</Label>
                         <Input value={zapSignCampos.anexo_cor_gummy} onChange={(e) => updateZapCampo('anexo_cor_gummy', e.target.value)} />
                       </div>
@@ -1816,6 +1827,27 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                           </>
                         );
                       })()}
+                      {/* Pote e tampa fora do catalogo. Ocupam a linha
+                          inteira: sao descricoes, nao escolhas de uma lista. */}
+                      {isKnown && (
+                        <div className="col-span-2 grid gap-2 sm:grid-cols-2">
+                          <ItemPersonalizado
+                            label="Potes Personalizados"
+                            descricao="Pote fora do catálogo — descreva por extenso."
+                            valor={d.pote_personalizado || ''}
+                            placeholder="Ex: PET 250ml âmbar, boca larga, com lacre de indução"
+                            onChange={(v) => updateDetalhe(idx, 'pote_personalizado', v)}
+                          />
+                          <ItemPersonalizado
+                            label="Tampas Personalizadas"
+                            descricao="Tampa fora do catálogo — descreva por extenso."
+                            valor={d.tampa_personalizada || ''}
+                            placeholder="Ex: Rosca 63mm branca fosca, com lacre"
+                            onChange={(v) => updateDetalhe(idx, 'tampa_personalizada', v)}
+                          />
+                        </div>
+                      )}
+
                       {isGummy && (
                         <>
                           <div className="space-y-1">

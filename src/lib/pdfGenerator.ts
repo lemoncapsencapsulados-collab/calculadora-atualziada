@@ -138,6 +138,8 @@ export function gerarFichaTecnicaPDFBlob(pedido: any): Blob {
       const prodDetalhes: string[] = [];
       if (dp.cor_tampa) prodDetalhes.push(`Cor tampa: ${dp.cor_tampa}`);
       if (dp.cor_pote) prodDetalhes.push(`Cor pote: ${dp.cor_pote}`);
+      if (dp.pote_personalizado) prodDetalhes.push(`Pote personalizado: ${dp.pote_personalizado}`);
+      if (dp.tampa_personalizada) prodDetalhes.push(`Tampa personalizada: ${dp.tampa_personalizada}`);
       if (dp.sabor_gummy) prodDetalhes.push(`Sabor: ${dp.sabor_gummy}`);
       if (dp.cor_gummy) prodDetalhes.push(`Cor: ${dp.cor_gummy}`);
       if (dp.sabor_soluvel) prodDetalhes.push(`Sabor: ${dp.sabor_soluvel}`);

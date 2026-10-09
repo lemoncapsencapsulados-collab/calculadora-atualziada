@@ -75,6 +75,8 @@ function secaoDemanda(doc: jsPDF, d: DemandaMarca, y: number): number {
       p.quantidade_doses ? `${p.quantidade_doses} doses/pote` : '',
       p.cor_pote ? `Pote: ${p.cor_pote}` : '',
       p.cor_tampa ? `Tampa: ${p.cor_tampa}` : '',
+      p.pote_personalizado ? `Pote personalizado: ${p.pote_personalizado}` : '',
+      p.tampa_personalizada ? `Tampa personalizada: ${p.tampa_personalizada}` : '',
       p.quantidade ? `${p.quantidade} un. contratadas` : '',
     ].filter(Boolean).join(' | ');
     linhas.push([

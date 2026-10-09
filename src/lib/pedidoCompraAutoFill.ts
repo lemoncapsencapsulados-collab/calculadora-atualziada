@@ -142,10 +142,13 @@ function montarEmbalagem(item: ItemProducao | undefined): EmbalagemPedidoCompra 
     capsula_tipo: '',
     capsula_cor: '',
     // O material do pote vem do que foi fechado no orcamento, quando houver.
-    pote_material: txt((item as any)?.embalagem_pote_material),
+    // Sem ele, vale a descricao do pote personalizado: foi o que o consultor
+    // combinou com o cliente e o que o contrato promete. Deixar em branco
+    // mandaria a fabrica montar um pote de catalogo que ninguem pediu.
+    pote_material: txt((item as any)?.embalagem_pote_material) || txt(det.pote_personalizado),
     pote_capacidade: '',
     pote_cor: txt(det.cor_pote),
-    tampa_tipo: '',
+    tampa_tipo: txt(det.tampa_personalizada),
     tampa_cor: txt(det.cor_tampa),
     lacre_inducao: false,
     dosador: '',

@@ -153,6 +153,8 @@ function buildCampos(pedido: Pedido | null, resumo?: any): Campos {
     anexo_ativo_2: formatarInsumoContrato(insumos[1]),
     anexo_cor_pote: detalhesFonte.cor_pote || '',
     anexo_cor_tampa: detalhesFonte.cor_tampa || '',
+    anexo_pote_personalizado: detalhesFonte.pote_personalizado || '',
+    anexo_tampa_personalizada: detalhesFonte.tampa_personalizada || '',
     anexo_cor_gummy: naoSeAplicaSeVazio(
       detalhesFonte.cor_gummy || detalhesFonte.cor_soluvel || detalhesFonte.cor_liquido,
       itemIsGummy || itemIsSoluvel || itemIsLiquido,
@@ -271,6 +273,8 @@ export function EnviarContratoZapSignPedidoDialog({ open, onOpenChange, pedido }
     { k: 'produto_quantidade', label: 'Quantidade' },
     { k: 'anexo_cor_pote', label: 'Cor do pote' },
     { k: 'anexo_cor_tampa', label: 'Cor da tampa' },
+    { k: 'anexo_pote_personalizado', label: 'Pote personalizado', full: true },
+    { k: 'anexo_tampa_personalizada', label: 'Tampa personalizada', full: true },
     { k: 'anexo_cor_gummy', label: 'Cor gummy/conteúdo' },
     { k: 'anexo_sabor_gummy', label: 'Sabor gummy/conteúdo' },
     { k: 'valor_setup', label: 'Valor setup' },

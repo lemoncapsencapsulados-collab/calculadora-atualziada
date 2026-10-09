@@ -454,6 +454,8 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
         const detalhes = [
           dp.cor_pote ? `Cor do Pote: ${dp.cor_pote}` : null,
           dp.cor_tampa ? `Cor da Tampa: ${dp.cor_tampa}` : null,
+          dp.pote_personalizado ? `Pote personalizado: ${dp.pote_personalizado}` : null,
+          dp.tampa_personalizada ? `Tampa personalizada: ${dp.tampa_personalizada}` : null,
           dp.cor_gummy ? `Cor Gummy: ${dp.cor_gummy}` : null,
           dp.sabor_gummy ? `Sabor Gummy: ${dp.sabor_gummy}` : null,
           dp.sabor_soluvel ? `Sabor Solúvel: ${dp.sabor_soluvel}` : null,
@@ -538,6 +540,8 @@ function renderProdutos(doc: jsPDF, orcamento: Orcamento, yPos: number): number 
         const detalhes = [
           dp.cor_pote ? `Cor do Pote: ${dp.cor_pote}` : null,
           dp.cor_tampa ? `Cor da Tampa: ${dp.cor_tampa}` : null,
+          dp.pote_personalizado ? `Pote personalizado: ${dp.pote_personalizado}` : null,
+          dp.tampa_personalizada ? `Tampa personalizada: ${dp.tampa_personalizada}` : null,
           dp.cor_gummy ? `Cor Gummy: ${dp.cor_gummy}` : null,
           dp.sabor_gummy ? `Sabor Gummy: ${dp.sabor_gummy}` : null,
           dp.sabor_soluvel ? `Sabor Solúvel: ${dp.sabor_soluvel}` : null,

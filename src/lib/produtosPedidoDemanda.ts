@@ -33,6 +33,8 @@ export function extrairProdutosPedido(orcamentoSnapshot: any): ProdutoPedido[] {
     dose_diaria_sugerida: i.dose_diaria_sugerida || undefined,
     cor_pote: i.detalhes_producao?.cor_pote || undefined,
     cor_tampa: i.detalhes_producao?.cor_tampa || undefined,
+    pote_personalizado: i.detalhes_producao?.pote_personalizado || undefined,
+    tampa_personalizada: i.detalhes_producao?.tampa_personalizada || undefined,
     preco_unitario: Number(i.preco_unitario) || undefined,
     insumos: Array.isArray(i.insumos_formula)
       ? i.insumos_formula.map((ins: any) => ({

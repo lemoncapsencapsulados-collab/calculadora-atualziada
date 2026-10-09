@@ -7,6 +7,17 @@ export interface InsumoSnapshot {
 export interface DetalhesProducao {
   cor_tampa?: string;
   cor_pote?: string;
+  /**
+   * Pote e tampa fora do catalogo, descritos por extenso pelo consultor --
+   * material, volume, boca, lacre, acabamento. Sao campos SEPARADOS da cor:
+   * "PET 250ml ambar, boca larga, com lacre" nao e' uma cor, e enfiar isso em
+   * `cor_pote` faria o contrato imprimir tudo isso na linha "Cor do pote".
+   *
+   * Vazio ou ausente significa pote/tampa do catalogo. Quem le' nao precisa de
+   * um booleano a mais para saber: ou ha' descricao, ou nao ha'.
+   */
+  pote_personalizado?: string;
+  tampa_personalizada?: string;
   cor_gummy?: string;
   sabor_gummy?: string;
   sabor_soluvel?: string;
