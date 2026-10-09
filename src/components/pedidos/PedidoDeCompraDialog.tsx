@@ -20,6 +20,7 @@ import {
   APRESENTACOES, BULBOS, CAMPO_EMBALAGEM_LABEL, CANULAS, CAPSULA_CORES, CAPSULA_TIPOS,
   CANAIS_FORMAIS, DOSADORES, EMBALAGEM_SECUNDARIA, SIM_NAO, camposDaApresentacao,
   PLANO_MARCA_LABEL, POTE_CORES, ROTULO_ACABAMENTOS, ROTULO_MATERIAIS, TAMPA_CORES, TAMPA_TIPOS,
+  chavePlanoMarca, rotuloPlanoMarca, FORNECIMENTO_EMBALAGEM,
   listarCamposFaltantes,
   type DadosPedidoCompra,
   type EmbalagemPedidoCompra,
@@ -594,24 +595,15 @@ export default function PedidoDeCompraDialog({
 
           <Secao titulo="3. Condições comerciais">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label className="text-xs">Plano de marca</Label>
-                <Select
-                  value={dados.plano_marca}
-                  onValueChange={(v) => set('plano_marca', v as PlanoMarca)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PLANO_MARCA_LABEL).map(([valor, label]) => (
-                      <SelectItem key={valor} value={valor}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* A lista guarda a CHAVE ('branding'), nao o rotulo, porque e'
+                  a chave que o PDF traduz. Plano fora da lista vale pelo
+                  proprio texto -- `rotuloPlanoMarca` cobre os dois casos. */}
+              <CampoLista
+                label="Plano de marca"
+                valor={rotuloPlanoMarca(dados.plano_marca)}
+                opcoes={Object.values(PLANO_MARCA_LABEL)}
+                onChange={(v) => set('plano_marca', chavePlanoMarca(v))}
+              />
               <div className="space-y-1">
                 <Label className="text-xs">Entregáveis do plano</Label>
                 <Input
@@ -848,26 +840,19 @@ export default function PedidoDeCompraDialog({
                   }
 
                   if (campo === 'fornecimento_embalagem') {
+                    // Aceita texto livre como os demais: ha' pedido em que a
+                    // embalagem vem dividida ou de terceiro, e o PDF imprime
+                    // "por conta de <texto>" -- a frase fecha com qualquer
+                    // valor, nao so' com os dois do padrao.
                     return (
-                      <div key={campo} className="space-y-1">
-                        <Label className="text-xs">
-                          {rotulo} <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={esp.embalagem.fornecimento_embalagem}
-                          onValueChange={(v) =>
-                            setEmb(idx, { fornecimento_embalagem: v as 'CONTRATADA' | 'CONTRATANTE' })
-                          }
-                        >
-                          <SelectTrigger className={!valor ? 'border-amber-500' : undefined}>
-                            <SelectValue placeholder="Por conta de..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CONTRATADA">CONTRATADA (Lemoncaps)</SelectItem>
-                            <SelectItem value="CONTRATANTE">CONTRATANTE (produtor)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      <CampoLista
+                        key={campo}
+                        label={rotulo}
+                        valor={esp.embalagem.fornecimento_embalagem}
+                        opcoes={FORNECIMENTO_EMBALAGEM}
+                        onChange={(v) => setEmb(idx, { fornecimento_embalagem: v as any })}
+                        obrigatorio
+                      />
                     );
                   }
 

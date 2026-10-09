@@ -20,6 +20,17 @@ export const STATUS_APROVACAO_CLASSE: Record<StatusAprovacao, string> = {
   aprovado: 'border-green-500 text-green-700 dark:text-green-400',
 };
 
+/**
+ * Quem fornece a embalagem. Os dois casos do padrão; o campo aceita texto
+ * livre para o pedido em que ela vem dividida ou de um terceiro.
+ *
+ * Os valores são os curtos, sem "(Lemoncaps)" e "(produtor)", porque é o que
+ * os pedidos já gravados têm: alargar o rótulo faria cada um deles cair fora
+ * da lista e abrir como se fosse preenchimento personalizado. O PDF escreve
+ * "por conta de CONTRATADA", que é como o documento sempre saiu.
+ */
+export const FORNECIMENTO_EMBALAGEM = ['CONTRATADA', 'CONTRATANTE'] as const;
+
 export type PlanoMarca = 'faca_voce_mesmo' | 'start' | 'branding' | 'premium' | 'nao_contratado';
 
 export const PLANO_MARCA_LABEL: Record<PlanoMarca, string> = {
@@ -29,6 +40,42 @@ export const PLANO_MARCA_LABEL: Record<PlanoMarca, string> = {
   premium: 'Premium',
   nao_contratado: 'Não contratado',
 };
+
+/**
+ * O nome do plano como ele vai para o papel.
+ *
+ * O campo aceita plano fora da lista, digitado pelo consultor, e o que fica
+ * gravado é o texto. Buscar direto em `PLANO_MARCA_LABEL` devolveria
+ * `undefined` para esses -- e o Pedido de Compra sairia com a palavra
+ * "undefined" impressa numa linha que o cliente assina.
+ *
+ * Chave conhecida vira rótulo; qualquer outra coisa vale por si mesma.
+ */
+export function rotuloPlanoMarca(valor: string | null | undefined): string {
+  const v = String(valor ?? '').trim();
+  if (!v) return '';
+  return PLANO_MARCA_LABEL[v as PlanoMarca] ?? v;
+}
+
+/**
+ * O caminho de volta: do que aparece na tela para o que se grava.
+ *
+ * A tela mostra rótulos ("Branding") e o registro guarda chaves ("branding"),
+ * porque é a chave que o PDF sabe traduzir. Sem esta volta, escolher na lista
+ * gravaria o rótulo e a tradução passaria a depender de o texto bater letra
+ * por letra -- um acento trocado no futuro quebraria calado.
+ *
+ * Texto que não corresponde a plano nenhum é plano personalizado, e vai
+ * gravado como foi escrito.
+ */
+export function chavePlanoMarca(rotuloOuTexto: string | null | undefined): string {
+  const v = String(rotuloOuTexto ?? '').trim();
+  if (!v) return '';
+  const achado = (Object.keys(PLANO_MARCA_LABEL) as PlanoMarca[]).find(
+    (k) => PLANO_MARCA_LABEL[k] === v,
+  );
+  return achado ?? v;
+}
 
 export interface ProdutoPedidoCompra {
   descricao: string;
@@ -196,7 +243,8 @@ export interface DadosPedidoCompra {
   // 2. Produtos
   produtos: ProdutoPedidoCompra[];
   // 3. Condicoes comerciais
-  plano_marca: PlanoMarca;
+  /** Um dos planos conhecidos, ou o que o consultor escreveu. */
+  plano_marca: PlanoMarca | (string & {});
   entregaveis: string[];
   valor_setup: number;
   valor_producao: number;

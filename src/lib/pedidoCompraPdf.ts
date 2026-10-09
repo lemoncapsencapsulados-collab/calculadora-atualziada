@@ -18,7 +18,7 @@ import {
   type CampoEmbalagem,
   CONTRATADA,
   PADROES_PEDIDO_COMPRA,
-  PLANO_MARCA_LABEL,
+  rotuloPlanoMarca,
   type DadosPedidoCompra,
 } from '@/types/pedidoCompra';
 
@@ -341,7 +341,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   // 3. Condicoes comerciais
   tituloSecao('2. CONDIÇÕES COMERCIAIS');
   tabelaCampos([
-    ['Plano de marca', PLANO_MARCA_LABEL[dados.plano_marca]],
+    ['Plano de marca', rotuloPlanoMarca(dados.plano_marca)],
     ['Entregáveis do plano', dados.entregaveis.length ? dados.entregaveis.join(' | ') : 'Não se aplica'],
     ['Etapas e valores', `setup/rótulo: ${brl(dados.valor_setup)}  |  produção: ${brl(dados.valor_producao)}`],
     [
