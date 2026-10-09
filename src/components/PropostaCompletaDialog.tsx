@@ -21,6 +21,7 @@ import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, Aler
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import ItemPersonalizado from '@/components/ItemPersonalizado';
+import CorComPersonalizado from '@/components/CorComPersonalizado';
 import { validarCPF, validarCNPJ, validarEmail, formatarNomeProprio } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
@@ -1806,24 +1807,22 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                         const opcoesPote = getOpcoesPote(seg);
                         return (
                           <>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Cor da Tampa</Label>
-                              <Select value={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}>
-                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                <SelectContent>
-                                  {opcoesTampa.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Cor do Pote</Label>
-                              <Select value={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')} onValueChange={(v) => updateDetalhe(idx, 'cor_pote', v)}>
-                                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                <SelectContent>
-                                  {opcoesPote.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                            {/* Mesmo componente da Aprovacao: as duas telas gravam
+                                nos mesmos campos, e uma cor digitada numa delas
+                                tem que aparecer como digitada na outra, nao
+                                como uma lista vazia esperando escolha. */}
+                            <CorComPersonalizado
+                              label="Cor da Tampa"
+                              valor={d.cor_tampa || (opcoesTampa.length === 1 ? opcoesTampa[0] : '')}
+                              opcoes={opcoesTampa}
+                              onChange={(v) => updateDetalhe(idx, 'cor_tampa', v)}
+                            />
+                            <CorComPersonalizado
+                              label="Cor do Pote"
+                              valor={d.cor_pote || (opcoesPote.length === 1 ? opcoesPote[0] : '')}
+                              opcoes={opcoesPote}
+                              onChange={(v) => updateDetalhe(idx, 'cor_pote', v)}
+                            />
                           </>
                         );
                       })()}
