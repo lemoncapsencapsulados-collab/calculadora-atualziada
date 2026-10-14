@@ -984,7 +984,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       toast.error(`Preencha os ${camposPendentes.length} campo(s) obrigatório(s) antes de gerar o Contrato Mãe.`);
       return;
     }
-    await generateOrcamentoPDF(montarOrcamentoAtualizado(), { incluirIntermediador: true });
+    await generateOrcamentoPDF(montarOrcamentoAtualizado(), { incluirIntermediador: true, incluirCondicoesPagamento: true });
   };
 
 

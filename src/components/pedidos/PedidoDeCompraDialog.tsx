@@ -659,7 +659,7 @@ export default function PedidoDeCompraDialog({
             <p className="text-[11px] text-muted-foreground">
               Prazos e entrada mínima seguem o padrão do contrato: rótulo {dados.prazo_rotulo_primeira_versao}/
               {dados.prazo_rotulo_correcao} dias úteis, produção {dados.prazo_producao_dias} dias corridos,
-              entrega até {dados.prazo_entrega_dias} dias úteis, entrada mínima{' '}
+              entrega conforme a transportadora escolhida, entrada mínima{' '}
               {dados.entrada_minima_percentual}%.
             </p>
           </Secao>

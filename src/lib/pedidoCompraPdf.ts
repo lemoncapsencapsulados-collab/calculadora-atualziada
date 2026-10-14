@@ -353,10 +353,11 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       `${dados.prazo_producao_dias} dias corridos após aprovação da arte, até a disponibilização para expedição`,
     ],
     ['Frete', 'opção escolhida pela CONTRATANTE entre as cotações apresentadas'],
-    [
-      'Prazo de entrega',
-      `conforme a transportadora escolhida — acrescido ao prazo de produção, até ${dados.prazo_entrega_dias} dias úteis após o pagamento do frete`,
-    ],
+    // So' o prazo da transportadora. A frase trazia junto "acrescido ao prazo
+    // de producao, ate' N dias uteis apos o pagamento do frete" -- duas
+    // condicoes a mais que o prazo da transportadora nao tem, e que faziam o
+    // produtor ler um prazo maior do que o que ele contratou no frete.
+    ['Prazo de entrega', 'conforme a transportadora escolhida'],
     ['Quantidade', 'entrega integral, conforme tabela do item 1'],
     ['Entrada mínima', `${dados.entrada_minima_percentual}% do valor total — condição para início da produção`],
     [

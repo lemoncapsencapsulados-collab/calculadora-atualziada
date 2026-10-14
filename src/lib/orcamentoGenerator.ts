@@ -1257,6 +1257,20 @@ function renderStatusWatermark(doc: jsPDF, orcamento: Orcamento): void {
 interface OrcamentoPDFOptions {
   /** Inclui a seção interna de Intermediador (Projeto para Contrato). Nunca no PDF do cliente. */
   incluirIntermediador?: boolean;
+  /**
+   * Inclui Condições de Pagamento e Forma de Pagamento.
+   *
+   * Fora no orçamento do cliente, de propósito. Nessa etapa ele está decidindo
+   * O QUE produzir -- fórmulas, quantidades, setup de marca e o investimento
+   * total. Parcelamento, percentual de entrada e meio de pagamento são a
+   * negociação seguinte, e aparecem no Pedido de Compra e no Projeto para
+   * Contrato. Mostrados antes, viram âncora numa conversa que ainda não é
+   * sobre isso -- e um número que muda depois parece recuo.
+   *
+   * O padrão é `false`: quem esquecer de passar a opção gera o documento
+   * seguro, não o que vaza condição comercial.
+   */
+  incluirCondicoesPagamento?: boolean;
   /** Nome do arquivo salvo. Sem isso, usa o padrão do Projeto para Contrato. */
   nomeArquivo?: string;
 }
@@ -1288,8 +1302,10 @@ async function createOrcamentoPDF(orcamento: Orcamento, options: OrcamentoPDFOpt
     yPos = renderServicos(doc, orcamento, yPos);
     yPos = renderFrete(doc, orcamento, yPos);
     yPos = renderTotal(doc, orcamento, yPos);
-    yPos = renderCondicoesPagamento(doc, orcamento, yPos);
-    yPos = renderFormaPagamento(doc, orcamento, yPos);
+    if (options.incluirCondicoesPagamento) {
+      yPos = renderCondicoesPagamento(doc, orcamento, yPos);
+      yPos = renderFormaPagamento(doc, orcamento, yPos);
+    }
     yPos = renderObservacoes(doc, orcamento, yPos);
     if (options.incluirIntermediador) {
       yPos = renderIntermediador(doc, orcamento, yPos);
