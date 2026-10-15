@@ -15,6 +15,7 @@ import { useEmbalagens } from '@/hooks/useEmbalagens';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import InsumoAutocomplete from '@/components/InsumoAutocomplete';
 import ConstrucaoPreco from '@/components/ConstrucaoPreco';
+import { usePropagarPrecoProduto } from '@/hooks/usePropagarPrecoProduto';
 import { cn } from '@/lib/utils';
 import { calcularCustoInsumo, formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
 import {
@@ -70,6 +71,7 @@ export default function EditarFormulaDialog({
   const { insumos, erro: erroInsumos, recarregar: recarregarInsumos } = useInsumosLeitura();
   const { embalagens, erro: erroEmbalagens, refreshEmbalagens } = useEmbalagens();
   const { atualizarPrecificacao } = usePrecificacao();
+  const { propagar } = usePropagarPrecoProduto();
 
   const [nome, setNome] = useState(nomeFormula);
   const [linhas, setLinhas] = useState<Linha[]>([]);
@@ -357,6 +359,18 @@ export default function EditarFormulaDialog({
         margem_lucro_percentual: resultado.margemLucroPercentual,
         margem_lucro_valor: resultado.margemLucroValor,
       } as any);
+
+      // Leva o preço novo aos orçamentos e pedidos ainda em negociação.
+      //
+      // Depois de gravar e fora do `throw`: a edição que o usuário pediu já
+      // está salva, e a propagação é consequência dela. Uma falha aqui não
+      // pode desfazer nem mascarar o salvamento -- o RECALCULAR manual
+      // continua de pé como rede.
+      try {
+        await propagar(precificacaoId, nome.trim() || nomeFormula);
+      } catch (e) {
+        console.error('Falha ao propagar o preço para orçamentos e pedidos:', e);
+      }
 
       toast.success('Fórmula e precificação atualizadas.');
       onSalvo?.();
