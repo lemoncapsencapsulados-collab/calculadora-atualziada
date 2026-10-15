@@ -15,6 +15,13 @@ import {
   selecionarPedidos,
 } from '@/lib/propagacaoPreco';
 import { invalidarCachesDaFormula } from '@/lib/cachesDaFormula';
+import {
+  type InsumoSnapshot,
+  atualizarComposicao,
+  atualizarInsumosDosItens,
+  composicaoDosInsumos,
+  insumosDaFormula,
+} from '@/lib/propagacaoFormula';
 
 /**
  * Leva o preço novo de um produto precificado aos documentos em negociação.
@@ -42,6 +49,31 @@ interface Resultado {
   pedidosAtualizados: number;
   /** Usam o produto mas estão fechados. Não foram tocados. */
   travados: number;
+}
+
+/**
+ * A fórmula de hoje deste produto, no formato que os documentos carregam.
+ *
+ * Sem isto, mudar uma dosagem de 149 mcg para 49 mcg atualizava o preço em
+ * todos os documentos e deixava a dose antiga em todos eles -- o preço vem da
+ * precificação, que é relida; a composição vem de um instantâneo que ninguém
+ * relia.
+ */
+async function insumosAtuais(precificacaoId: string): Promise<InsumoSnapshot[] | null> {
+  const { data: prec, error } = await supabase
+    .from('precificacoes')
+    .select('formula_id')
+    .eq('id', precificacaoId)
+    .maybeSingle();
+  if (error || !prec?.formula_id) return null;
+
+  const { data: formula, error: erroFormula } = await supabase
+    .from('formulas')
+    .select('itens')
+    .eq('id', prec.formula_id)
+    .maybeSingle();
+  if (erroFormula || !formula) return null;
+  return insumosDaFormula(formula.itens);
 }
 
 /** Lê as precificações que os itens usam, para saber o preço de hoje. */
@@ -129,6 +161,11 @@ export function usePropagarPrecoProduto() {
     const vazio: Resultado = { orcamentosAtualizados: 0, pedidosAtualizados: 0, travados: 0 };
     if (!precificacaoId) return vazio;
 
+    // A composição de hoje. `null` quando a precificação não tem fórmula
+    // ligada: aí só o preço se propaga, como antes.
+    const insumos = await insumosAtuais(precificacaoId);
+    const composicao = insumos ? composicaoDosInsumos(insumos) : null;
+
     // Traz só o que pode mudar. Filtrar o status no banco em vez de no
     // navegador evita carregar a base inteira a cada edição de produto.
     //
@@ -138,7 +175,7 @@ export function usePropagarPrecoProduto() {
     // sem ela e segue sem histórico.
     const COLUNAS_ORC =
       'id, status, contrato_assinado_em, contrato_enviado_em, itens_producao, subtotal_servicos';
-    const COLUNAS_PED = 'id, status, status_aprovacao, orcamento_snapshot';
+    const COLUNAS_PED = 'id, status, status_aprovacao, orcamento_snapshot, pedido_compra_dados';
 
     let semHistorico = false;
 
@@ -183,9 +220,24 @@ export function usePropagarPrecoProduto() {
       const itens = ((o.itens_producao || []) as ItemParaRecalculo[]) ?? [];
       const precificacoes = await precificacoesDosItens(itens);
       const antes = recalcularItens(itens, precificacoes);
-      if (antes.semMudanca) continue;
+      const comInsumos = insumos
+        ? atualizarInsumosDosItens(
+            itens as unknown as Record<string, unknown>[],
+            precificacaoId,
+            insumos,
+          )
+        : itens;
+      const formulaMudou = insumos
+        ? JSON.stringify(comInsumos) !== JSON.stringify(itens)
+        : false;
+      // Grava quando o preço OU a formulação mudou. Antes só o preço contava,
+      // e trocar uma dosagem sem mexer no custo não atualizava nada.
+      if (antes.semMudanca && !formulaMudou) continue;
 
-      const { novos, subtotal } = reprecificar(itens, precificacoes);
+      const { novos, subtotal } = reprecificar(
+        comInsumos as unknown as ItemParaRecalculo[],
+        precificacoes,
+      );
       const servicos = Number(o.subtotal_servicos) || 0;
       const registro = registroDaPropagacao({
         precificacaoId,
@@ -226,9 +278,22 @@ export function usePropagarPrecoProduto() {
       const itens = ((snap.itens_producao || []) as ItemParaRecalculo[]) ?? [];
       const precificacoes = await precificacoesDosItens(itens);
       const antes = recalcularItens(itens, precificacoes);
-      if (antes.semMudanca) continue;
+      const comInsumos = insumos
+        ? atualizarInsumosDosItens(
+            itens as unknown as Record<string, unknown>[],
+            precificacaoId,
+            insumos,
+          )
+        : itens;
+      const formulaMudou = insumos
+        ? JSON.stringify(comInsumos) !== JSON.stringify(itens)
+        : false;
+      if (antes.semMudanca && !formulaMudou) continue;
 
-      const { novos, subtotal } = reprecificar(itens, precificacoes);
+      const { novos, subtotal } = reprecificar(
+        comInsumos as unknown as ItemParaRecalculo[],
+        precificacoes,
+      );
       const servicos = Number(snap.subtotal_servicos) || 0;
       const registro = registroDaPropagacao({
         precificacaoId,
@@ -238,6 +303,24 @@ export function usePropagarPrecoProduto() {
         motivos: motivosDoProduto(itens, precificacoes, precificacaoId),
       });
 
+      // O Pedido de Compra ja' preenchido nao se corrige sozinho ao reabrir:
+      // uma vez gravado, ele vale sobre o autopreenchimento -- e' o que
+      // preserva o que o consultor digitou a' mao. Entao a composicao e'
+      // reescrita aqui, e SO' ela: material do pote, cor da tampa, lacre e
+      // quantidade de rotulo continuam como ele escolheu.
+      const doc = (p.pedido_compra_dados || null) as {
+        especificacoes?: { produto_nome?: string; composicao?: unknown }[];
+      } | null;
+      let docAtualizado: typeof doc = null;
+      if (doc && composicao && Array.isArray(doc.especificacoes)) {
+        const nome = String(
+          (itens.find((i) => i.precificacao_id === precificacaoId) as { nome_produto?: string })
+            ?.nome_produto ?? '',
+        );
+        const r = atualizarComposicao(doc.especificacoes as never[], nome, composicao);
+        if (r.alteradas > 0) docAtualizado = { ...doc, especificacoes: r.especificacoes };
+      }
+
       const campos = {
         orcamento_snapshot: {
           ...snap,
@@ -245,6 +328,7 @@ export function usePropagarPrecoProduto() {
           subtotal_producao: subtotal,
           valor_total: subtotal + servicos,
         } as never,
+        ...(docAtualizado ? { pedido_compra_dados: docAtualizado as never } : {}),
       };
       const historico = {
         historico_preco: [

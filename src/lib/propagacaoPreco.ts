@@ -45,6 +45,8 @@ export interface PedidoParaPropagar {
   status_aprovacao?: string | null;
   contrato_assinado_em?: string | null;
   orcamento_snapshot?: { itens_producao?: unknown } | null;
+  /** Documento do Pedido de Compra, quando já foi preenchido. */
+  pedido_compra_dados?: unknown;
 }
 
 export function orcamentoEstaAberto(orc: OrcamentoParaPropagar): boolean {
