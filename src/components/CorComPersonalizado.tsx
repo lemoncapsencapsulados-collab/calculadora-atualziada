@@ -13,6 +13,11 @@ interface Props {
   valor: string;
   opcoes: string[];
   onChange: (v: string) => void;
+  /**
+   * Texto do campo livre. Existe porque o componente deixou de servir so' a
+   * cor: "Digite a cor" num campo de sabor confunde quem preenche.
+   */
+  placeholder?: string;
 }
 
 /**
@@ -23,7 +28,13 @@ interface Props {
  * O valor gravado e' sempre o texto da cor -- quem le' depois nao precisa saber
  * se veio da lista ou foi digitado.
  */
-export default function CorComPersonalizado({ label, valor, opcoes, onChange }: Props) {
+export default function CorComPersonalizado({
+  label,
+  valor,
+  opcoes,
+  onChange,
+  placeholder = 'Digite a cor',
+}: Props) {
   // Valor fora da lista so' pode ter vindo de um preenchimento personalizado.
   const [digitando, setDigitando] = useState(() => !!valor && !opcoes.includes(valor));
 
@@ -39,7 +50,7 @@ export default function CorComPersonalizado({ label, valor, opcoes, onChange }: 
           <Input
             autoFocus
             value={valor}
-            placeholder="Digite a cor"
+            placeholder={placeholder}
             onChange={(e) => onChange(e.target.value)}
           />
           <Button

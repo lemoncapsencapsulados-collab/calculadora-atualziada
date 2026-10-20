@@ -27,6 +27,7 @@ import { DateNumericInput, buildDate } from '@/components/ui/date-numeric-input'
 import { cadastrarClienteVhSys, type CadastrarVhSysResult } from '@/lib/vhsysCliente';
 import { aviso as sonnerToast } from '@/lib/avisos';
 import CorComPersonalizado from '@/components/CorComPersonalizado';
+import { SABORES_GUMMY, SABORES_SOLUVEL_LIQUIDO } from '@/lib/opcoesProducao';
 import ItemPersonalizado from '@/components/ItemPersonalizado';
 
 interface AprovacaoOrcamentoDialogProps {
@@ -975,19 +976,13 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       {/* Sabor e Cor do Conteúdo — Gummy, Solúvel, Líquido */}
                       {isGummy && (
                         <>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Sabor</Label>
-                            <Select value={d.sabor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_gummy', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Frutas vermelhas">Frutas vermelhas</SelectItem>
-                                <SelectItem value="Morango">Morango</SelectItem>
-                                <SelectItem value="Uva">Uva</SelectItem>
-                                <SelectItem value="Limão">Limão</SelectItem>
-                                <SelectItem value="Maçã verde">Maçã verde</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <CorComPersonalizado
+                            label="Sabor"
+                            valor={d.sabor_gummy || ''}
+                            opcoes={SABORES_GUMMY}
+                            placeholder="Digite o sabor"
+                            onChange={(v) => updateDetalhe(idx, 'sabor_gummy', v)}
+                          />
                           <div className="space-y-1">
                             <Label className="text-xs">Cor do Conteúdo</Label>
                             <Select value={d.cor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}>
@@ -1003,18 +998,13 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       )}
                       {isSoluvel && (
                         <>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Sabor</Label>
-                            <Select value={d.sabor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_soluvel', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Limão">Limão</SelectItem>
-                                <SelectItem value="Frutas vermelhas">Frutas vermelhas</SelectItem>
-                                <SelectItem value="Morango">Morango</SelectItem>
-                                <SelectItem value="Uva">Uva</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <CorComPersonalizado
+                            label="Sabor"
+                            valor={d.sabor_soluvel || ''}
+                            opcoes={SABORES_SOLUVEL_LIQUIDO}
+                            placeholder="Digite o sabor"
+                            onChange={(v) => updateDetalhe(idx, 'sabor_soluvel', v)}
+                          />
                           <div className="space-y-1">
                             <Label className="text-xs">Cor do Conteúdo</Label>
                             <Select value={d.cor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_soluvel', v)}>
@@ -1030,18 +1020,13 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                       )}
                       {isLiquido && (
                         <>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Sabor</Label>
-                            <Select value={d.sabor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'sabor_liquido', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Limão">Limão</SelectItem>
-                                <SelectItem value="Frutas vermelhas">Frutas vermelhas</SelectItem>
-                                <SelectItem value="Morango">Morango</SelectItem>
-                                <SelectItem value="Uva">Uva</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <CorComPersonalizado
+                            label="Sabor"
+                            valor={d.sabor_liquido || ''}
+                            opcoes={SABORES_SOLUVEL_LIQUIDO}
+                            placeholder="Digite o sabor"
+                            onChange={(v) => updateDetalhe(idx, 'sabor_liquido', v)}
+                          />
                           <div className="space-y-1">
                             <Label className="text-xs">Cor do Conteúdo</Label>
                             <Select value={d.cor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_liquido', v)}>
