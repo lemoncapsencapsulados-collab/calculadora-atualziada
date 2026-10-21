@@ -343,7 +343,7 @@ export default function CondicoesPagamentoForm({
         {/* Método Principal */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">Método de Pagamento <span className="text-destructive">*</span></Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {METODOS.map((m) => {
               const Icon = m.icon;
               const isSelected = metodo === m.value;

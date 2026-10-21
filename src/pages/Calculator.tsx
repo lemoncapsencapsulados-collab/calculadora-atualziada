@@ -869,8 +869,13 @@ export default function Calculator() {
           {items.map((item, index) => {
             const calculated = calculatedItems[index];
             return <div key={item.id} className="space-y-2">
-                <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-5">
+                {/* No celular a linha quebra em duas: a materia-prima ocupa a
+                    largura toda e quantidade, unidade e o botao de remover
+                    dividem a linha de baixo. Em 12 colunas fixas, o seletor de
+                    materia-prima ficava com ~140px num telefone -- largo
+                    demais para o nome do insumo, estreito demais para usar. */}
+                <div className="grid grid-cols-12 gap-3 sm:gap-4">
+                  <div className="col-span-12 sm:col-span-5">
                     <Label>Matéria-Prima</Label>
                     <InsumoAutocomplete
                       insumos={insumos}
@@ -882,12 +887,12 @@ export default function Calculator() {
                     />
                   </div>
 
-                  <div className="col-span-3">
+                  <div className="col-span-5 sm:col-span-3">
                     <Label>Quantidade</Label>
                     <Input type="number" step="any" value={item.quantidade} onChange={e => updateItem(item.id, 'quantidade', e.target.value)} placeholder="0" />
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="col-span-4 sm:col-span-2">
                     <Label>Unidade</Label>
                     <Select value={item.unidade} onValueChange={value => updateItem(item.id, 'unidade', value as UnitType)}>
                       <SelectTrigger>
@@ -906,7 +911,7 @@ export default function Calculator() {
                     </Select>
                   </div>
 
-                  <div className="col-span-2 flex items-end gap-2">
+                  <div className="col-span-3 sm:col-span-2 flex items-end gap-2">
                     <Button type="button" variant="outline" size="icon" onClick={() => removeItem(item.id)} disabled={items.length === 1}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -1235,7 +1240,7 @@ export default function Calculator() {
                     </div>
                     
                     {/* Legenda */}
-                    <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 bg-gradient-to-r from-green-500 to-green-600 rounded"></div>
                         <div>

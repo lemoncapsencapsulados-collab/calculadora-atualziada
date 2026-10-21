@@ -75,7 +75,7 @@ export function CriativosPainel({ criativos }: { criativos: LinhaCriativo[] }) {
                 </p>
               )}
 
-              <div className="grid grid-cols-4 gap-2 border-t border-border/60 pt-2">
+              <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2 sm:grid-cols-4">
                 <Metrica rotulo="Investido" valor={formatBRL(c.investimento)} />
                 <Metrica rotulo="Leads" valor={c.leads.toLocaleString('pt-BR')} />
                 <Metrica rotulo="CPL" valor={c.cpl != null ? formatBRL(c.cpl) : '—'} />

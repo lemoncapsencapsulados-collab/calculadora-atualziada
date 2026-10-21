@@ -154,8 +154,8 @@ export function PainelEtiquetas({ instancia }: { instancia?: string }) {
               {base.find((b) => b.label_id === aberta)?.etiqueta}
             </span>
           </div>
-          <div className="max-h-80 overflow-y-auto">
-            <table className="w-full text-sm">
+          <div className="max-h-80 overflow-auto">
+            <table className="w-full min-w-[24rem] text-sm">
               <tbody>
                 {contatos.map((c) => (
                   <tr key={c.remote_jid} className="border-b border-border/40 last:border-0">

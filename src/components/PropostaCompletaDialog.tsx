@@ -1616,7 +1616,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
 
                   {/* Totais */}
                   <div className="rounded-md border p-2.5 bg-muted/40">
-                    <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
                       <div>
                         <p className="text-[10px] uppercase text-muted-foreground">Subtotal Produção</p>
                         <p className="font-semibold">{fmt(subtotalProd)}</p>

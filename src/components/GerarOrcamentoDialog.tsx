@@ -1687,7 +1687,7 @@ export default function GerarOrcamentoDialog({
                         })()}
 
                         {item.modelo_negocio !== 'print_on_demand' && (
-                          <div className="grid grid-cols-4 gap-2 pt-2 border-t">
+                          <div className="grid grid-cols-2 gap-2 pt-2 border-t sm:grid-cols-4">
                             <div className="space-y-1">
                               <Label className="text-xs text-muted-foreground">Qtd por Pote</Label>
                               <Input

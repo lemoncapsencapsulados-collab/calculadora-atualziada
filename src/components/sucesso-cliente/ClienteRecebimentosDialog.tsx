@@ -75,7 +75,7 @@ export default function ClienteRecebimentosDialog({ open, onClose, cliente, pedi
         </DialogHeader>
 
         {/* KPIs */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Card className="border-green-200 bg-green-50/50">
             <CardContent className="p-2.5">
               <div className="text-[11px] text-muted-foreground">Recebido</div>

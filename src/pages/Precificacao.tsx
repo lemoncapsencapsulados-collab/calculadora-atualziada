@@ -764,7 +764,7 @@ export default function Precificacao() {
                             <p className="text-4xl font-bold text-primary">R$ {resultado.precoVenda.toFixed(2)}</p>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                             <div className="text-center p-4 bg-muted/50 rounded-lg">
                               <p className="text-xs text-muted-foreground mb-1">Custos Produção</p>
                               <p className="font-bold">R$ {resultado.totalCustosProducao.toFixed(2)}</p>

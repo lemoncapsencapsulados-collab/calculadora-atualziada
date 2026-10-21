@@ -53,8 +53,11 @@ export function EventosMeta({ eventos }: { eventos: EventoMeta[] }) {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border">
-        <table className="w-full text-sm">
+      {/* `overflow-hidden` arredondava o canto E cortava as 5 colunas no
+          celular, sem rolagem: o custo unitario sumia da tela sem aviso.
+          `overflow-x-auto` mantem o canto e devolve a rolagem. */}
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table className="w-full min-w-[32rem] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
               <th className="px-4 py-2 text-left font-medium">Evento</th>

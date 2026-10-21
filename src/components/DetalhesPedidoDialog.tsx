@@ -261,8 +261,8 @@ const DetalhesPedidoDialog = ({
                     {item.insumos_formula && item.insumos_formula.length > 0 && (
                       <div className="pt-1 border-t border-border/50">
                         <p className="text-xs font-semibold text-muted-foreground mb-1">Fórmula / Insumos</p>
-                        <div className="bg-background rounded p-2">
-                          <table className="w-full text-xs">
+                        <div className="bg-background rounded p-2 overflow-x-auto">
+                          <table className="w-full min-w-[20rem] text-xs">
                             <thead>
                               <tr className="text-muted-foreground border-b">
                                 <th className="text-left py-1">Insumo</th>

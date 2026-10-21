@@ -146,7 +146,7 @@ export function DashboardComissoesExternas({ filtros }: { filtros: DashboardFilt
             </p>
             <div className="rounded-md border divide-y">
               {porConsultor.map((c) => (
-                <div key={c.nome} className="grid grid-cols-4 gap-2 px-3 py-2 text-xs items-center">
+                <div key={c.nome} className="grid grid-cols-2 gap-2 px-3 py-2 text-xs items-center sm:grid-cols-4">
                   <span className="font-medium truncate">{c.nome}</span>
                   <span className="text-blue-700 dark:text-blue-300">{fmtBRL(c.monetizze)}</span>
                   <span className="text-orange-700 dark:text-orange-300">{fmtBRL(c.braip)}</span>
