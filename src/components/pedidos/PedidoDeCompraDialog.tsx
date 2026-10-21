@@ -29,6 +29,7 @@ import {
 } from '@/types/pedidoCompra';
 import type { OrcamentoSnapshot } from '@/types/orcamento';
 import { LINHA_PRODUTO_CURTO, linhaDoCliente, type LinhaProduto } from '@/lib/linhaProduto';
+import { acharEspecificacao, apresentacaoDoProduto } from '@/lib/apresentacaoProduto';
 
 interface Props {
   open: boolean;
@@ -569,7 +570,15 @@ export default function PedidoDeCompraDialog({
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">{p.apresentacao}</p>
+                      {/* Mesma regra do PDF: a quantidade vem da especificacao,
+                          que e' onde ela e' editada. Sem isso a tela mostraria
+                          um numero e o documento baixado, outro. */}
+                      <p className="text-xs text-muted-foreground">
+                        {apresentacaoDoProduto(
+                          p,
+                          acharEspecificacao(dados.especificacoes, p, i),
+                        )}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm">

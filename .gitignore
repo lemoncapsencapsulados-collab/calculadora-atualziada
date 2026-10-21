@@ -29,3 +29,9 @@ supabase/.temp/
 
 # workspace do subagent-driven-development
 .superpowers/
+
+# Copias de conflito do iCloud Drive ("arquivo 2.ts"). Sao duplicatas
+# identicas do original; versiona-las quebra o build com modulo duplicado.
+*\ [0-9].ts
+*\ [0-9].tsx
+*\ [0-9].sql

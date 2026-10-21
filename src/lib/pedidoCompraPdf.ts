@@ -13,6 +13,7 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
 import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 import { LIMAO_DATA_URL } from '@/assets/limaoPdf';
+import { acharEspecificacao, apresentacaoDoProduto } from '@/lib/apresentacaoProduto';
 import {
   camposDaApresentacao,
   type CampoEmbalagem,
@@ -323,10 +324,14 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       4: { halign: 'right' },
       5: { halign: 'right' },
     },
-    body: dados.produtos.map((p) => [
+    // A apresentacao e' derivada na hora de imprimir, da especificacao -- que
+    // e' onde a quantidade por frasco e' editada. Imprimir `p.apresentacao`
+    // direto fazia o documento mostrar "60 capsulas" nesta coluna e "30
+    // capsulas" em Quantidade por frasco, logo abaixo.
+    body: dados.produtos.map((p, i) => [
       ou(p.descricao),
       p.linha ? LINHA_PRODUTO_CURTO[p.linha] : '—',
-      ou(p.apresentacao),
+      ou(apresentacaoDoProduto(p, acharEspecificacao(dados.especificacoes || [], p, i))),
       brl(p.preco_unitario),
       String(p.quantidade ?? ''),
       brl((p.preco_unitario || 0) * (p.quantidade || 0)),
