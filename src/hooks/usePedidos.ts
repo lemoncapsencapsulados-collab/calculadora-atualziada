@@ -341,6 +341,45 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
   });
 
   /**
+   * Grava o preenchimento do Pedido de Compra, sem mais nada.
+   *
+   * Separada de `vincularPedidoCompra` de proposito: aquela tambem marca o
+   * pedido como `pendente_assinatura`, e e' o que se quer ao GERAR o
+   * documento. Esta e' o salvamento automatico de quem esta' digitando --
+   * mudar o status de aprovacao a cada tecla moveria o pedido no fluxo sem
+   * ninguem ter pedido.
+   *
+   * Sem ela, a tela de Pedidos nao salvava nada: o que o consultor editava so'
+   * existia enquanto o popup estava aberto.
+   */
+  const salvarPedidoCompraDados = useMutation({
+    mutationFn: async ({
+      id,
+      dados,
+      numeroContrato,
+    }: {
+      id: string;
+      dados: unknown;
+      numeroContrato?: string;
+    }) => {
+      const { error } = await supabase
+        .from('pedidos')
+        .update({
+          pedido_compra_dados: dados as any,
+          ...(numeroContrato?.trim() ? { numero_contrato: numeroContrato.trim() } : {}),
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+    },
+    onError: (error: any) => {
+      console.error('Erro ao salvar o Pedido de Compra:', error);
+    },
+  });
+
+  /**
    * Apaga SO' o Pedido de Compra, deixando o pedido de pe'.
    *
    * Existe porque o mesmo Pedido de Compra foi preenchido mais de uma vez para
@@ -681,6 +720,7 @@ export const usePedidos = (options?: { enabled?: boolean }) => {
     deletandoPedido: deletePedido.isPending,
     alterarPagamento: alterarPagamento.mutateAsync,
     vincularPedidoCompra: vincularPedidoCompra.mutateAsync,
+    salvarPedidoCompraDados: salvarPedidoCompraDados.mutate,
     limparPedidoCompraAsync: limparPedidoCompra.mutateAsync,
     limpandoPedidoCompra: limparPedidoCompra.isPending,
     toggleParcelaPagaAsync: toggleParcelaPaga.mutateAsync,

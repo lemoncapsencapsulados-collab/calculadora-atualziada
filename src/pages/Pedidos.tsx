@@ -240,7 +240,7 @@ const exportarCSV = (pedidos: any[]) => {
 };
 
 const Pedidos = () => {
-  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra, limparPedidoCompraAsync, limpandoPedidoCompra } = usePedidos();
+  const { pedidos, loading, updateStatus, updateObservacoes, deletePedidoAsync, deletandoPedido, alterarPagamento, vincularPedidoCompra, limparPedidoCompraAsync, limpandoPedidoCompra, salvarPedidoCompraDados } = usePedidos();
   const { clientes, atualizarCliente } = useClientes();
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
@@ -1430,6 +1430,22 @@ const Pedidos = () => {
           cliente={getClienteVinculado(pedidoCompraAlvo.pedido)}
           // O numero do Pedido de Compra e' o do orcamento que o originou.
           numeroPedido={pedidoCompraAlvo.pedido.numero_pedido}
+          // Os tres props abaixo faltavam, e era o bug: sem `dadosSalvos`, o
+          // "Editar" da previa reconstruia o documento do zero a partir do
+          // snapshot e descartava o que o consultor tinha digitado -- a
+          // quantidade por frasco, a embalagem, tudo. Sem `onAutoSalvar`, o
+          // que ele digitasse so' existia enquanto o popup estivesse aberto.
+          //
+          // A tela de Orcamentos ja' ligava os tres; esta nao.
+          dadosSalvos={(pedidoCompraAlvo.pedido.pedido_compra_dados as any) ?? null}
+          contratoSalvo={pedidoCompraAlvo.pedido.numero_contrato ?? null}
+          onAutoSalvar={(dados, numeroContrato) =>
+            salvarPedidoCompraDados({
+              id: pedidoCompraAlvo.pedido.id,
+              dados,
+              numeroContrato,
+            })
+          }
           onGerar={async ({ numeroContrato, numeroPedido, dados }) => {
             const cnpjContratante = (pedidoCompraAlvo.grupo.cnpj || '').replace(/\D/g, '');
             const pedidoId = pedidoCompraAlvo.pedido.id;

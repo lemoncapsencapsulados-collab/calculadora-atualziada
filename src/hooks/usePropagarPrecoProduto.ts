@@ -19,8 +19,10 @@ import {
   type InsumoSnapshot,
   atualizarComposicao,
   atualizarInsumosDosItens,
+  atualizarQuantidadePorFrasco,
   composicaoDosInsumos,
   insumosDaFormula,
+  quantidadePorFrasco,
 } from '@/lib/propagacaoFormula';
 
 /**
@@ -59,7 +61,9 @@ interface Resultado {
  * precificação, que é relida; a composição vem de um instantâneo que ninguém
  * relia.
  */
-async function insumosAtuais(precificacaoId: string): Promise<InsumoSnapshot[] | null> {
+async function insumosAtuais(
+  precificacaoId: string,
+): Promise<{ insumos: InsumoSnapshot[]; quantidadePorFrasco: string } | null> {
   const { data: prec, error } = await supabase
     .from('precificacoes')
     .select('formula_id')
@@ -69,11 +73,21 @@ async function insumosAtuais(precificacaoId: string): Promise<InsumoSnapshot[] |
 
   const { data: formula, error: erroFormula } = await supabase
     .from('formulas')
-    .select('itens')
+    .select('itens, tipo_produto, quantidade_por_pote, unidade_soluvel')
     .eq('id', prec.formula_id)
     .maybeSingle();
   if (erroFormula || !formula) return null;
-  return insumosDaFormula(formula.itens);
+  return {
+    insumos: insumosDaFormula(formula.itens),
+    // "60 capsulas", "30 gummies", "30 ml", "300 g": a linha "Quantidade por
+    // frasco" do Pedido de Compra. Vinha do snapshot do orcamento e, uma vez
+    // gravado o documento, nunca mais era relida.
+    quantidadePorFrasco: quantidadePorFrasco(
+      (formula as { quantidade_por_pote?: unknown }).quantidade_por_pote,
+      String((formula as { tipo_produto?: string }).tipo_produto ?? ''),
+      (formula as { unidade_soluvel?: string | null }).unidade_soluvel,
+    ),
+  };
 }
 
 /** Lê as precificações que os itens usam, para saber o preço de hoje. */
@@ -163,8 +177,10 @@ export function usePropagarPrecoProduto() {
 
     // A composição de hoje. `null` quando a precificação não tem fórmula
     // ligada: aí só o preço se propaga, como antes.
-    const insumos = await insumosAtuais(precificacaoId);
+    const daFormula = await insumosAtuais(precificacaoId);
+    const insumos = daFormula?.insumos ?? null;
     const composicao = insumos ? composicaoDosInsumos(insumos) : null;
+    const qtdFrasco = daFormula?.quantidadePorFrasco ?? '';
 
     // Traz só o que pode mudar. Filtrar o status no banco em vez de no
     // navegador evita carregar a base inteira a cada edição de produto.
@@ -318,7 +334,12 @@ export function usePropagarPrecoProduto() {
             ?.nome_produto ?? '',
         );
         const r = atualizarComposicao(doc.especificacoes as never[], nome, composicao);
-        if (r.alteradas > 0) docAtualizado = { ...doc, especificacoes: r.especificacoes };
+        // A quantidade por frasco anda junto: vem da mesma fórmula e ficava
+        // congelada pelo mesmo motivo.
+        const q = atualizarQuantidadePorFrasco(r.especificacoes as never[], nome, qtdFrasco);
+        if (r.alteradas > 0 || q.alteradas > 0) {
+          docAtualizado = { ...doc, especificacoes: q.especificacoes };
+        }
       }
 
       const campos = {

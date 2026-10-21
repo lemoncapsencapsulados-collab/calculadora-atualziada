@@ -146,3 +146,71 @@ export function mesmosInsumos(
       i.unidade === y[idx].unidade,
   );
 }
+
+/**
+ * A unidade que o pote carrega, por tipo de produto.
+ *
+ * Cápsula para encapsulado, goma para gummy, mL para líquido, grama (ou o que
+ * o solúvel definir) para solúvel. Mesmas regras do Gerar Orçamento -- mora
+ * aqui para os dois caminhos não divergirem.
+ */
+export function unidadeDoPote(tipoProduto: string, unidadeSoluvel?: string | null): string {
+  switch (String(tipoProduto || '').trim()) {
+    case 'Encapsulados':
+      return 'capsulas';
+    case 'Gummy':
+      return 'gummies';
+    case 'Líquido':
+      return 'ml';
+    case 'Solúvel':
+      return unidadeSoluvel || 'g';
+    default:
+      return 'capsulas';
+  }
+}
+
+/**
+ * "60 capsulas", "30 gummies", "30 ml", "300 g" -- o que vai na linha
+ * "Quantidade por frasco" do Pedido de Compra.
+ *
+ * Devolve string vazia sem quantidade: um "0 capsulas" impresso no documento
+ * seria pior que a linha em branco, que ao menos mostra que falta preencher.
+ */
+export function quantidadePorFrasco(
+  quantidadePorPote: unknown,
+  tipoProduto: string,
+  unidadeSoluvel?: string | null,
+): string {
+  const qtd = Number(quantidadePorPote);
+  if (!Number.isFinite(qtd) || qtd <= 0) return '';
+  return `${qtd} ${unidadeDoPote(tipoProduto, unidadeSoluvel)}`.trim();
+}
+
+/**
+ * Atualiza a quantidade por frasco das especificações do produto editado.
+ *
+ * Mesmo critério da composição: casa pelo nome, e só mexe no campo que vem da
+ * fórmula. O que o consultor escolheu à mão na embalagem fica.
+ */
+export function atualizarQuantidadePorFrasco<T extends EspecificacaoParaAtualizar>(
+  especificacoes: T[],
+  nomeProduto: string,
+  quantidade: string,
+): { especificacoes: T[]; alteradas: number } {
+  if (!Array.isArray(especificacoes) || !quantidade.trim()) {
+    return { especificacoes: especificacoes ?? [], alteradas: 0 };
+  }
+  const alvo = nomeProduto.trim().toLowerCase();
+  if (!alvo) return { especificacoes, alteradas: 0 };
+
+  let alteradas = 0;
+  const novas = especificacoes.map((esp) => {
+    if (String(esp.produto_nome ?? '').trim().toLowerCase() !== alvo) return esp;
+    if (String((esp as { quantidade_por_frasco?: string }).quantidade_por_frasco ?? '') === quantidade) {
+      return esp;
+    }
+    alteradas++;
+    return { ...esp, quantidade_por_frasco: quantidade };
+  });
+  return { especificacoes: novas, alteradas };
+}
