@@ -21,6 +21,7 @@ import { Loader2, User, Truck, Download, PackageCheck, Search, ShoppingBag, Aler
 import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPagamentoForm';
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import ItemPersonalizado from '@/components/ItemPersonalizado';
+import { useSincronizarPedidoCompra } from '@/hooks/useSincronizarPedidoCompra';
 import CorComPersonalizado from '@/components/CorComPersonalizado';
 import {
   CORES_CONTEUDO_GUMMY,
@@ -179,6 +180,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const { atualizarCliente, criarCliente, buscarPorTelefone, buscarPorId } = useClientes();
   const { data: resumoSalvo, isLoading: loadingResumo } = useResumoContrato(orcamento.id);
   const salvarResumoMutation = useSalvarResumoContrato();
+  const { sincronizar } = useSincronizarPedidoCompra();
   const [viewMode, setViewMode] = useState<'editar' | 'visualizar'>(modo);
   const [resumoAberto, setResumoAberto] = useState(false);
 
@@ -952,6 +954,19 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
         },
       });
       setSalvoEm(new Date());
+
+      // O Pedido de Compra segue este orcamento. Sem isto, editar produto,
+      // quantidade, formula ou dose aqui nao chegava la': o documento, uma vez
+      // preenchido, valia sobre o autopreenchimento e congelava junto tudo que
+      // vinha do orcamento. A embalagem escolhida a' mao nao e' tocada.
+      //
+      // Fora do caminho do salvamento: falhar aqui nao pode fazer o consultor
+      // achar que o que ele digitou se perdeu, porque nao se perdeu.
+      try {
+        await sincronizar(orcamento.id, atual);
+      } catch (e) {
+        console.error('Falha ao levar a edicao ao Pedido de Compra:', e);
+      }
     } catch {
       // Tenta de novo na proxima pausa; avisar a cada falha atrapalharia.
     }

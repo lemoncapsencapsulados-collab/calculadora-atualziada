@@ -30,6 +30,7 @@ import {
 import type { OrcamentoSnapshot } from '@/types/orcamento';
 import { LINHA_PRODUTO_CURTO, linhaDoCliente, type LinhaProduto } from '@/lib/linhaProduto';
 import { acharEspecificacao, apresentacaoDoProduto } from '@/lib/apresentacaoProduto';
+import UltimaEdicao from '@/components/UltimaEdicao';
 
 interface Props {
   open: boolean;
@@ -70,6 +71,8 @@ interface Props {
    * uma vez informado, todos os pedidos de compra dele herdam o mesmo.
    */
   numeroContratoSugerido?: string;
+  /** Histórico de edições do documento, para a data clicável. */
+  historicoEdicoes?: unknown;
 }
 
 /** Uma seção do documento, recolhível para a tela não virar um paredão. */
@@ -244,6 +247,7 @@ export default function PedidoDeCompraDialog({
   dadosSalvos,
   contratoSalvo,
   onAutoSalvar,
+  historicoEdicoes,
 }: Props) {
   const [numeroContrato, setNumeroContrato] = useState(
     numeroContratoSugerido || numeroContratoDoMes(),
@@ -751,6 +755,21 @@ export default function PedidoDeCompraDialog({
                   valor={esp.quantidade_por_frasco}
                   onChange={(v) => setEspec(idx, { quantidade_por_frasco: v })}
                 />
+                {/* Os dois saem calculados do orcamento, mas ficam editaveis:
+                    a fabrica as vezes fecha num numero redondo, e o que vale
+                    para produzir e' o que esta' escrito no documento. */}
+                <Campo
+                  label="Dose diária"
+                  valor={esp.dose_diaria || ''}
+                  onChange={(v) => setEspec(idx, { dose_diaria: v })}
+                  placeholder="Ex: 2 cápsulas ao dia"
+                />
+                <Campo
+                  label="Doses por pote"
+                  valor={esp.doses_por_pote || ''}
+                  onChange={(v) => setEspec(idx, { doses_por_pote: v })}
+                  placeholder="Ex: 30 doses"
+                />
               </div>
 
               <div className="space-y-2">
@@ -932,6 +951,7 @@ export default function PedidoDeCompraDialog({
         </div>
 
         <p className="text-[11px] text-muted-foreground">
+          <UltimaEdicao historico={historicoEdicoes} className="mr-2" />
           {onAutoSalvar ? 'O preenchimento é salvo sozinho. ' : ''}
           O envio automático ao ZapSign ainda não está ligado: baixe o PDF e conduza a assinatura
           normalmente.

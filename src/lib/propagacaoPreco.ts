@@ -1,3 +1,4 @@
+import { type RegistroEdicao, novoRegistro } from '@/lib/historicoEdicao';
 /**
  * Quem pode ser reescrito quando um produto precificado muda.
  *
@@ -117,33 +118,26 @@ export function selecionarPedidos<T extends PedidoParaPropagar>(
   };
 }
 
-/** Uma linha de histórico, gravada no documento atualizado. */
-export interface RegistroPropagacao {
-  atualizado_em: string;
-  /** Qual produto precificado disparou. */
-  precificacao_id: string;
-  nome_produto?: string;
-  valor_anterior: number;
-  valor_novo: number;
-  /** Em texto, o que mudou no custo. Vem de `motivosDaMudanca`. */
-  motivos?: string[];
-  origem: 'edicao_produto';
-}
-
+/**
+ * O registro que fica no histórico do documento.
+ *
+ * Mesmo formato de toda edição -- `{em, origem, mudancas[]}` -- porque as duas
+ * origens escrevem na MESMA coluna e a tela as lê juntas. Formatos diferentes
+ * fariam metade do histórico aparecer em branco.
+ */
 export function registroDaPropagacao(entrada: {
   precificacaoId: string;
   nomeProduto?: string;
   valorAnterior: number;
   valorNovo: number;
   motivos?: string[];
-}): RegistroPropagacao {
-  return {
-    atualizado_em: new Date().toISOString(),
-    precificacao_id: entrada.precificacaoId,
-    nome_produto: entrada.nomeProduto,
-    valor_anterior: entrada.valorAnterior,
-    valor_novo: entrada.valorNovo,
-    motivos: entrada.motivos?.length ? entrada.motivos : undefined,
-    origem: 'edicao_produto',
-  };
+}): RegistroEdicao {
+  const brl = (v: number) =>
+    Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const nome = entrada.nomeProduto || 'Produto';
+  const mudancas = [
+    `${nome} — total do documento: ${brl(entrada.valorAnterior)} → ${brl(entrada.valorNovo)}`,
+    ...(entrada.motivos ?? []),
+  ];
+  return novoRegistro('edicao_produto', mudancas);
 }

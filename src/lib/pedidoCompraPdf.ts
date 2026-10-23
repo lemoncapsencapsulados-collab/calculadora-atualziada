@@ -436,7 +436,8 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     paragrafo(
       [
         `Pote / frasco: ${ou(esp.quantidade_por_frasco, '____')}`,
-        esp.dose_diaria ? `Dose: ${esp.dose_diaria}` : '',
+        esp.dose_diaria ? `Dose diária: ${esp.dose_diaria}` : '',
+        esp.doses_por_pote ? `Rende: ${esp.doses_por_pote}` : '',
       ]
         .filter(Boolean)
         .join('  |  '),

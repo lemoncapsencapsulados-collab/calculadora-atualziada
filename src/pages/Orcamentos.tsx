@@ -1016,6 +1016,7 @@ export default function Orcamentos() {
               ? null
               : pedidoCompraLocal?.contrato ?? (pedidoCompraOrcamento as any).numero_contrato ?? null
           }
+          historicoEdicoes={(pedidoCompraOrcamento as any).historico_edicoes}
           onAutoSalvar={(dados, numeroContrato) => {
             setPedidoCompraLocal({ dados, contrato: numeroContrato });
             salvarPedidoCompra.mutate({ id: pedidoCompraOrcamento.id, dados, numeroContrato });

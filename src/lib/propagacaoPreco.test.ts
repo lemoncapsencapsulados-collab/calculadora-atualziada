@@ -155,17 +155,18 @@ describe('o registro que fica no histórico', () => {
       motivos: ['Matéria-prima: R$ 9,12 → R$ 10,32'],
     });
     expect(r.origem).toBe('edicao_produto');
-    expect(r.valor_anterior).toBe(28);
-    expect(r.valor_novo).toBe(30);
-    expect(r.motivos).toHaveLength(1);
-    expect(Number.isNaN(Date.parse(r.atualizado_em))).toBe(false);
+    expect(r.mudancas[0]).toContain('Creatina 300g');
+    expect(r.mudancas[0]).toContain('28,00');
+    expect(r.mudancas[0]).toContain('30,00');
+    expect(r.mudancas).toContain('Matéria-prima: R$ 9,12 → R$ 10,32');
+    expect(Number.isNaN(Date.parse(r.em))).toBe(false);
   });
 
-  it('sem motivos, não grava uma lista vazia', () => {
-    // Lista vazia no histórico sugere que se tentou explicar e não se achou
-    // nada; ausente diz que não havia o que explicar.
-    expect(registroDaPropagacao({ precificacaoId: P, valorAnterior: 1, valorNovo: 2 }).motivos)
-      .toBeUndefined();
+  it('usa o mesmo formato das outras edições', () => {
+    // As duas origens escrevem na MESMA coluna e a tela as lê juntas.
+    // Formatos diferentes fariam metade do histórico aparecer em branco.
+    const r = registroDaPropagacao({ precificacaoId: P, valorAnterior: 1, valorNovo: 2 });
+    expect(Object.keys(r).sort()).toEqual(['em', 'mudancas', 'origem']);
   });
 });
 

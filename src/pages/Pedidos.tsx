@@ -1438,6 +1438,7 @@ const Pedidos = () => {
           //
           // A tela de Orcamentos ja' ligava os tres; esta nao.
           dadosSalvos={(pedidoCompraAlvo.pedido.pedido_compra_dados as any) ?? null}
+          historicoEdicoes={(pedidoCompraAlvo.pedido as any).historico_edicoes}
           contratoSalvo={pedidoCompraAlvo.pedido.numero_contrato ?? null}
           onAutoSalvar={(dados, numeroContrato) =>
             salvarPedidoCompraDados({

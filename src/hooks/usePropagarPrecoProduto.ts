@@ -146,8 +146,8 @@ function motivosDoProduto(
 }
 
 /**
- * A coluna `historico_preco` pode não existir ainda (migração
- * 20261015120000_historico_preco.sql). Quando falta, grava o preço mesmo
+ * A coluna `historico_edicoes` pode não existir ainda (migração
+ * 20261023120000_historico_edicoes.sql). Quando falta, grava o preço mesmo
  * assim e segue sem o histórico.
  *
  * O contrário -- desistir da gravação porque o log não cabe -- deixaria o
@@ -160,7 +160,7 @@ function colunaDeHistoricoFaltando(erro: unknown): boolean {
   return (
     e?.code === '42703' ||
     e?.code === 'PGRST204' ||
-    /historico_preco/.test(e?.message || '')
+    /historico_edicoes/.test(e?.message || '')
   );
 }
 
@@ -198,12 +198,12 @@ export function usePropagarPrecoProduto() {
     const lerOrcamentos = (comHistorico: boolean) =>
       supabase
         .from('orcamentos')
-        .select(comHistorico ? `${COLUNAS_ORC}, historico_preco` : COLUNAS_ORC)
+        .select(comHistorico ? `${COLUNAS_ORC}, historico_edicoes` : COLUNAS_ORC)
         .in('status', ['rascunho', 'enviado']);
     const lerPedidos = (comHistorico: boolean) =>
       supabase
         .from('pedidos')
-        .select(comHistorico ? `${COLUNAS_PED}, historico_preco` : COLUNAS_PED)
+        .select(comHistorico ? `${COLUNAS_PED}, historico_edicoes` : COLUNAS_PED)
         .eq('status_aprovacao', 'pendente_assinatura');
 
     let [{ data: orcs, error: erroOrc }, { data: peds, error: erroPed }] = await Promise.all([
@@ -221,11 +221,11 @@ export function usePropagarPrecoProduto() {
     if (erroPed) throw erroPed;
 
     const selOrc = selecionarOrcamentos(
-      (orcs || []) as unknown as (OrcamentoParaPropagar & { historico_preco?: unknown })[],
+      (orcs || []) as unknown as (OrcamentoParaPropagar & { historico_edicoes?: unknown })[],
       precificacaoId,
     );
     const selPed = selecionarPedidos(
-      (peds || []) as unknown as (PedidoParaPropagar & { historico_preco?: unknown })[],
+      (peds || []) as unknown as (PedidoParaPropagar & { historico_edicoes?: unknown })[],
       precificacaoId,
     );
 
@@ -268,12 +268,12 @@ export function usePropagarPrecoProduto() {
         subtotal_producao: subtotal,
         valor_total: subtotal + servicos,
         // Reinicia a janela de 5 dias: o preço de hoje passa a valer de hoje.
-        preco_recalculado_em: registro.atualizado_em,
+        preco_recalculado_em: registro.em,
         preco_anterior_recalculo: antes.totalAntes,
       };
       const historico = {
-        historico_preco: [
-          ...(Array.isArray(o.historico_preco) ? o.historico_preco : []),
+        historico_edicoes: [
+          ...(Array.isArray(o.historico_edicoes) ? o.historico_edicoes : []),
           registro,
         ] as never,
       };
@@ -352,8 +352,8 @@ export function usePropagarPrecoProduto() {
         ...(docAtualizado ? { pedido_compra_dados: docAtualizado as never } : {}),
       };
       const historico = {
-        historico_preco: [
-          ...(Array.isArray(p.historico_preco) ? p.historico_preco : []),
+        historico_edicoes: [
+          ...(Array.isArray(p.historico_edicoes) ? p.historico_edicoes : []),
           registro,
         ] as never,
       };

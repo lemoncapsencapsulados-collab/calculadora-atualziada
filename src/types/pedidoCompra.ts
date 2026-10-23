@@ -222,6 +222,14 @@ export interface EspecificacaoProduto {
   quantidade_por_frasco: string;
   /** "5 g/dia", "2 capsulas/dia". Vazio quando o orcamento nao trouxe. */
   dose_diaria?: string;
+  /**
+   * Quantas doses o pote rende: "30 doses".
+   *
+   * Sai da divisao entre o que vai no pote e o que vai na dose, mas fica
+   * editavel porque a fabrica as vezes fecha num numero redondo -- e o que
+   * vale para produzir e' o que esta' escrito no documento, nao a conta.
+   */
+  doses_por_pote?: string;
   /** Ativos e suas doses diarias, em linhas. */
   composicao: AtivoFormula[];
   embalagem: EmbalagemPedidoCompra;

@@ -245,6 +245,16 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
           item.quantidade_por_pote != null
             ? `${item.quantidade_por_pote} ${txt(item.unidade_por_pote) || ''}`.trim()
             : '',
+        // Quantas doses o pote rende. Vem do orcamento quando ele calculou;
+        // senao, da divisao -- e' a mesma conta que a calculadora faz.
+        doses_por_pote: (() => {
+          const doses =
+            Number(item.quantidade_doses) ||
+            (item.quantidade_por_pote && item.quantidade_por_dose
+              ? Math.floor(Number(item.quantidade_por_pote) / Number(item.quantidade_por_dose))
+              : 0);
+          return doses > 0 ? `${doses} doses` : '';
+        })(),
         dose_diaria:
           txt(item.dose_diaria_sugerida) ||
           (item.quantidade_por_dose != null
