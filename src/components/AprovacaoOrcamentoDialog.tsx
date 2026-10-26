@@ -991,6 +991,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                                 <SelectItem value="Vermelho">Vermelho</SelectItem>
                                 <SelectItem value="Roxo">Roxo</SelectItem>
                                 <SelectItem value="Verde">Verde</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1013,6 +1014,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                                 <SelectItem value="Verde">Verde</SelectItem>
                                 <SelectItem value="Vermelho">Vermelho</SelectItem>
                                 <SelectItem value="Roxo">Roxo</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1035,6 +1037,7 @@ export default function AprovacaoOrcamentoDialog({ orcamento, onClose, onSuccess
                                 <SelectItem value="Verde">Verde</SelectItem>
                                 <SelectItem value="Vermelho">Vermelho</SelectItem>
                                 <SelectItem value="Roxo">Roxo</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>

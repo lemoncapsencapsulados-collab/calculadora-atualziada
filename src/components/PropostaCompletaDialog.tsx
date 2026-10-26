@@ -1865,6 +1865,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                                 <SelectItem value="Vermelho">Vermelho</SelectItem>
                                 <SelectItem value="Roxo">Roxo</SelectItem>
                                 <SelectItem value="Verde">Verde</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1887,6 +1888,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                                 <SelectItem value="Verde">Verde</SelectItem>
                                 <SelectItem value="Vermelho">Vermelho</SelectItem>
                                 <SelectItem value="Roxo">Roxo</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1909,6 +1911,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                                 <SelectItem value="Verde">Verde</SelectItem>
                                 <SelectItem value="Vermelho">Vermelho</SelectItem>
                                 <SelectItem value="Roxo">Roxo</SelectItem>
+                                <SelectItem value="Branco">Branco</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
