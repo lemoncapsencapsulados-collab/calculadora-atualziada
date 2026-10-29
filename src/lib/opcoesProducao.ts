@@ -13,3 +13,9 @@ export const SABORES_GUMMY = ['Frutas vermelhas', 'Morango', 'Uva', 'Limão', 'M
 
 /** Solúvel e líquido compartilham a mesma carta. */
 export const SABORES_SOLUVEL_LIQUIDO = ['Limão', 'Frutas vermelhas', 'Morango', 'Uva'];
+
+/** Cor do conteúdo do gummy, na ordem em que a tela sempre mostrou. */
+export const CORES_CONTEUDO_GUMMY = ['Vermelho', 'Roxo', 'Verde', 'Branco'];
+
+/** Cor do conteúdo de solúvel e líquido. */
+export const CORES_CONTEUDO_SOLUVEL_LIQUIDO = ['Verde', 'Vermelho', 'Roxo', 'Branco'];

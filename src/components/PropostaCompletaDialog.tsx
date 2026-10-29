@@ -22,7 +22,12 @@ import CondicoesPagamentoForm, { validarCondicoesPagamento } from './CondicoesPa
 import { ESTADOS_CIVIS, UFS_BRASIL, fetchCidadesPorUF, fetchEnderecoPorCEP, getOpcoesPote, getOpcoesTampa } from '@/lib/brasilData';
 import ItemPersonalizado from '@/components/ItemPersonalizado';
 import CorComPersonalizado from '@/components/CorComPersonalizado';
-import { SABORES_GUMMY, SABORES_SOLUVEL_LIQUIDO } from '@/lib/opcoesProducao';
+import {
+  CORES_CONTEUDO_GUMMY,
+  CORES_CONTEUDO_SOLUVEL_LIQUIDO,
+  SABORES_GUMMY,
+  SABORES_SOLUVEL_LIQUIDO,
+} from '@/lib/opcoesProducao';
 import { validarCPF, validarCNPJ, validarEmail, formatarNomeProprio } from '@/lib/validators';
 import { cadastrarClienteVhSys } from '@/lib/vhsysCliente';
 import { supabase } from '@/integrations/supabase/client';
@@ -1857,18 +1862,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                             placeholder="Digite o sabor"
                             onChange={(v) => updateDetalhe(idx, 'sabor_gummy', v)}
                           />
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor do Conteúdo</Label>
-                            <Select value={d.cor_gummy || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Vermelho">Vermelho</SelectItem>
-                                <SelectItem value="Roxo">Roxo</SelectItem>
-                                <SelectItem value="Verde">Verde</SelectItem>
-                                <SelectItem value="Branco">Branco</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <CorComPersonalizado
+                            label="Cor do Conteúdo"
+                            valor={d.cor_gummy || ''}
+                            opcoes={CORES_CONTEUDO_GUMMY}
+                            onChange={(v) => updateDetalhe(idx, 'cor_gummy', v)}
+                          />
                         </>
                       )}
                       {isSoluvel && (
@@ -1880,18 +1879,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                             placeholder="Digite o sabor"
                             onChange={(v) => updateDetalhe(idx, 'sabor_soluvel', v)}
                           />
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor do Conteúdo</Label>
-                            <Select value={d.cor_soluvel || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_soluvel', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Verde">Verde</SelectItem>
-                                <SelectItem value="Vermelho">Vermelho</SelectItem>
-                                <SelectItem value="Roxo">Roxo</SelectItem>
-                                <SelectItem value="Branco">Branco</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <CorComPersonalizado
+                            label="Cor do Conteúdo"
+                            valor={d.cor_soluvel || ''}
+                            opcoes={CORES_CONTEUDO_SOLUVEL_LIQUIDO}
+                            onChange={(v) => updateDetalhe(idx, 'cor_soluvel', v)}
+                          />
                         </>
                       )}
                       {isLiquido && (
@@ -1903,18 +1896,12 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                             placeholder="Digite o sabor"
                             onChange={(v) => updateDetalhe(idx, 'sabor_liquido', v)}
                           />
-                          <div className="space-y-1">
-                            <Label className="text-xs">Cor do Conteúdo</Label>
-                            <Select value={d.cor_liquido || ''} onValueChange={(v) => updateDetalhe(idx, 'cor_liquido', v)}>
-                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Verde">Verde</SelectItem>
-                                <SelectItem value="Vermelho">Vermelho</SelectItem>
-                                <SelectItem value="Roxo">Roxo</SelectItem>
-                                <SelectItem value="Branco">Branco</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <CorComPersonalizado
+                            label="Cor do Conteúdo"
+                            valor={d.cor_liquido || ''}
+                            opcoes={CORES_CONTEUDO_SOLUVEL_LIQUIDO}
+                            onChange={(v) => updateDetalhe(idx, 'cor_liquido', v)}
+                          />
                         </>
                       )}
                       {isOutro && (
