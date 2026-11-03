@@ -15,6 +15,10 @@ project_id = "njfwoguvfozuaghufcgw"
     verify_jwt = true
   [functions.extract-dose-from-image]
     verify_jwt = false
+  # Chamada por redirecionamento do navegador e pelo retorno do Facebook,
+  # sem token de login. Com a trava ligada, conectar a Meta da 401.
+  [functions.meta-oauth]
+    verify_jwt = false
   [functions.handle-email-suppression]
     verify_jwt = false
   [functions.handle-email-unsubscribe]
