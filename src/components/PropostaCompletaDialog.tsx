@@ -320,7 +320,9 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       telefone_contratante: dadosFonte.telefone || signerPhone,
       nome_representante: formatarNomeProprio(representante.nome || ''),
       cpf_representante: representante.cpf || '',
-      numero_contrato: resumo?.numero_orcamento || orcamento.numero_orcamento || '',
+      // O contrato informado nesta tela (ou no Pedido de Compra) manda; sem ele,
+      // segue o numero do pedido, como sempre foi.
+      numero_contrato: numeroContratoAtual().trim() || numeroPedidoEfetivo() || resumo?.numero_orcamento || '',
       data_contrato: dataPorExtenso(new Date()),
       produto_descricao: produtoDescricao,
       produto_apresentacao: produtoApresentacao,
@@ -900,6 +902,49 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
   const [pedidoCompraLocal, setPedidoCompraLocal] = useState<{ dados: any; contrato: string } | null>(null);
 
   /**
+   * Numeracao dos documentos, editavel aqui e no Pedido de Compra.
+   *
+   * Mora no mesmo lugar que o Pedido de Compra usa -- `numero_contrato` do
+   * orcamento e `numero_pedido` dentro de `pedido_compra_dados` -- para as duas
+   * telas mostrarem sempre o mesmo numero. O numero do pedido editado vale so'
+   * para o papel: o `numero_orcamento` do sistema nao muda.
+   */
+  /** Colunas da numeracao que o tipo `Orcamento` ainda nao declara. */
+  const numeracaoSalva = orcamento as Orcamento & {
+    numero_contrato?: string | null;
+    pedido_compra_dados?: { numero_pedido?: string } | null;
+  };
+  const numeroContratoAtual = (): string =>
+    pedidoCompraLocal?.contrato ?? numeracaoSalva.numero_contrato ?? '';
+  const numeroPedidoEditado = (): string =>
+    (pedidoCompraLocal?.dados ?? numeracaoSalva.pedido_compra_dados)?.numero_pedido ?? '';
+  const numeroPedidoEfetivo = (): string =>
+    numeroPedidoEditado().trim() || orcamento.numero_orcamento || '';
+
+  const numeracaoTocada = useRef(false);
+  const editarNumeracao = (campo: 'contrato' | 'pedido', valor: string) => {
+    numeracaoTocada.current = true;
+    setPedidoCompraLocal((prev) => {
+      const dados = prev?.dados ?? numeracaoSalva.pedido_compra_dados ?? null;
+      const contrato = prev?.contrato ?? numeracaoSalva.numero_contrato ?? '';
+      return campo === 'contrato'
+        ? { dados, contrato: valor }
+        : { dados: { ...(dados || {}), numero_pedido: valor }, contrato };
+    });
+  };
+
+  // Grava pouco depois de parar de digitar, como o Pedido de Compra.
+  useEffect(() => {
+    if (!numeracaoTocada.current || !pedidoCompraLocal) return;
+    const alvo = pedidoCompraLocal;
+    const t = setTimeout(() => {
+      salvarPedidoCompra.mutate({ id: orcamento.id, dados: alvo.dados, numeroContrato: alvo.contrato });
+    }, 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoCompraLocal?.contrato, pedidoCompraLocal?.dados?.numero_pedido]);
+
+  /**
    * Monta o orcamento com tudo que foi preenchido nesta tela. Serve tanto para o
    * PDF do Contrato Mae quanto para o Pedido de Compra -- os dois documentos
    * saem dos mesmos dados, que e' o ponto de coleta-los uma vez so'.
@@ -999,7 +1044,11 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
       toast.error(`Preencha os ${camposPendentes.length} campo(s) obrigatório(s) antes de gerar o Contrato Mãe.`);
       return;
     }
-    await generateOrcamentoPDF(montarOrcamentoAtualizado(), { incluirIntermediador: true, incluirCondicoesPagamento: true });
+    // O numero editado so' vale no papel: troca aqui, nao no orcamento.
+    await generateOrcamentoPDF(
+      { ...montarOrcamentoAtualizado(), numero_orcamento: numeroPedidoEfetivo() },
+      { incluirIntermediador: true, incluirCondicoesPagamento: true },
+    );
   };
 
 
@@ -1446,6 +1495,46 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
             Preencha as informações abaixo para gerar o projeto para contrato. Os dados serão salvos no orçamento.
           </p>
 
+          {/* Numeracao dos documentos: a mesma do Pedido de Compra. */}
+          <div className="grid gap-3 sm:grid-cols-2 rounded-md border p-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Número do contrato</Label>
+              <Input
+                value={numeroContratoAtual()}
+                onChange={(e) => editarNumeracao('contrato', e.target.value)}
+                placeholder="Solicite ao financeiro — ex.: 260922"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Sai no Contrato e no Pedido de Compra.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Número do pedido de compra</Label>
+              <Input
+                value={numeroPedidoEditado()}
+                onChange={(e) => editarNumeracao('pedido', e.target.value)}
+                placeholder={orcamento.numero_orcamento || '—'}
+                className="font-semibold"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {numeroPedidoEditado().trim() ? (
+                  <>
+                    Vale só para os documentos; no sistema continua {orcamento.numero_orcamento || '—'}.{' '}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => editarNumeracao('pedido', '')}
+                    >
+                      Usar o calculado
+                    </button>
+                  </>
+                ) : (
+                  'Calculado: mesmo número do orçamento. Digite outro para trocar nos documentos.'
+                )}
+              </p>
+            </div>
+          </div>
+
           {/* Resumo em tempo real — reflete tudo que já foi preenchido */}
           {(() => {
             const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -1480,7 +1569,7 @@ export default function PropostaCompletaDialog({ orcamento, onClose, modo = 'edi
                       </span>
                     </CardTitle>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-semibold">Nº {orcamento.numero_orcamento}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted font-semibold">Nº {numeroPedidoEfetivo()}</span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-300 font-semibold">
                         {orcamento.tipo_orcamento === 'recompra' ? 'Produtor Experiente / Recompra' : 'Novo Produtor'}
                       </span>

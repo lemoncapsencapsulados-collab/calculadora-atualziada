@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { mesclarComAutoPreenchimento, montarDadosPedidoCompra } from './pedidoCompraAutoFill';
 import { gerarPedidoCompraPDF } from './pedidoCompraPdf';
 import { compararPorSequencial, montarNumeroPedido, parseNumeroPedido } from './numeroPedido';
-import { listarCamposFaltantes } from '@/types/pedidoCompra';
+import {
+  listarCamposFaltantes,
+  numeroPedidoDoDocumento,
+  pedidoCompraPreenchido,
+} from '@/types/pedidoCompra';
 
 /** Snapshot parecido com o que um orcamento aprovado grava no pedido. */
 const snapshotExemplo = {
@@ -337,5 +341,40 @@ describe('reabrir um Pedido de Compra já gravado', () => {
     expect(r.produtos).toHaveLength(1);
     expect(r.produtos[0].descricao).toBe('X');
     expect(r.especificacoes).toEqual(autoPreenchido().especificacoes);
+  });
+});
+
+describe('número do pedido editado só para os documentos', () => {
+  const montado = () => montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null });
+
+  it('sem edição, o documento sai com o número do sistema', () => {
+    expect(numeroPedidoDoDocumento(montado(), '400-01')).toBe('400-01');
+    expect(numeroPedidoDoDocumento({ numero_pedido: '   ' }, '400-01')).toBe('400-01');
+    expect(numeroPedidoDoDocumento(null, '400-01')).toBe('400-01');
+  });
+
+  it('com edição, o documento sai com o número digitado', () => {
+    expect(numeroPedidoDoDocumento({ numero_pedido: ' 2610-07 ' }, '400-01')).toBe('2610-07');
+  });
+
+  it('só o número editado no Projeto para Contrato não conta como Pedido de Compra elaborado', () => {
+    // E' o que a lista de orcamentos usa para mostrar o botao do documento e o
+    // que a sincronizacao usa para reconciliar: um objeto so' com o numero
+    // quebraria os dois.
+    expect(pedidoCompraPreenchido({ numero_pedido: '2610-07' })).toBe(false);
+    expect(pedidoCompraPreenchido(null)).toBe(false);
+    expect(pedidoCompraPreenchido(montado())).toBe(true);
+  });
+
+  it('ao abrir o Pedido de Compra, o número editado sobrevive ao autopreenchimento', () => {
+    const r = mesclarComAutoPreenchimento({ numero_pedido: '2610-07' }, montado());
+    expect(r.numero_pedido).toBe('2610-07');
+    expect(r.produtos.length).toBeGreaterThan(0);
+  });
+
+  it('o PDF continua sendo gerado com o número editado', () => {
+    const dados = { ...completarSelecoes(montado()), numero_pedido: '2610-07' };
+    const doc = gerarPedidoCompraPDF({ numeroPedido: '400-01', numeroContrato: '260922', dados });
+    expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(3);
   });
 });

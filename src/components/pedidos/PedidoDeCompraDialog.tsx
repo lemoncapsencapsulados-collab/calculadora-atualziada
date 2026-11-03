@@ -22,6 +22,7 @@ import {
   PLANO_MARCA_LABEL, POTE_CORES, ROTULO_ACABAMENTOS, ROTULO_MATERIAIS, TAMPA_CORES, TAMPA_TIPOS,
   chavePlanoMarca, rotuloPlanoMarca, FORNECIMENTO_EMBALAGEM,
   listarCamposFaltantes,
+  pedidoCompraPreenchido,
   type DadosPedidoCompra,
   type EmbalagemPedidoCompra,
   type EspecificacaoProduto,
@@ -253,10 +254,16 @@ export default function PedidoDeCompraDialog({
     numeroContratoSugerido || numeroContratoDoMes(),
   );
   // Mescla, nao substitui: campo que nasceu depois da gravacao (consultor,
-  // marca, e-mail) vem do orcamento em vez de abrir em branco.
-  const [dados, setDados] = useState<DadosPedidoCompra>(() =>
-    mesclarComAutoPreenchimento(dadosSalvos, montarDadosPedidoCompra({ snapshot, cliente })),
-  );
+  // marca, e-mail) vem do orcamento em vez de abrir em branco. Vale tambem
+  // quando o salvo e' so' o numero do pedido editado no Projeto para Contrato.
+  const montarInicial = (): DadosPedidoCompra => {
+    const d = mesclarComAutoPreenchimento(dadosSalvos, montarDadosPedidoCompra({ snapshot, cliente }));
+    // O pedido nasce com a copia do orcamento: o numero editado la' vem junto.
+    const herdado = (snapshot as { pedido_compra_dados?: { numero_pedido?: string } })
+      ?.pedido_compra_dados?.numero_pedido;
+    return d.numero_pedido === undefined && herdado ? { ...d, numero_pedido: herdado } : d;
+  };
+  const [dados, setDados] = useState<DadosPedidoCompra>(montarInicial);
   const [salvando, setSalvando] = useState(false);
 
   /**
@@ -302,7 +309,7 @@ export default function PedidoDeCompraDialog({
   // Reabrir o diálogo para outro produtor tem que recomeçar do zero.
   useEffect(() => {
     if (open) {
-      setDados(dadosSalvos ?? montarDadosPedidoCompra({ snapshot, cliente }));
+      setDados(montarInicial());
       setNumeroContrato(contratoSalvo || numeroContratoSugerido || numeroContratoDoMes());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,7 +324,7 @@ export default function PedidoDeCompraDialog({
    * efetivamente vendido.
    */
   useEffect(() => {
-    if (!open || dadosSalvos) return;
+    if (!open || pedidoCompraPreenchido(dadosSalvos)) return;
     const itens = (snapshot.itens_producao || []) as any[];
     const ids = itens.map((i) => i.precificacao_id).filter(Boolean);
     if (ids.length === 0) return;
@@ -446,7 +453,8 @@ export default function PedidoDeCompraDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Numeração: contrato vem do financeiro, o número do pedido é calculado. */}
+        {/* Numeração: contrato vem do financeiro; o número do pedido é calculado,
+            mas pode ser trocado só para os documentos. */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">
@@ -465,12 +473,28 @@ export default function PedidoDeCompraDialog({
             </p>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Número do pedido (calculado)</Label>
-            <div className="h-10 flex items-center rounded-md border bg-muted/40 px-3 text-sm font-semibold">
-              {numeroPedido || '—'}
-            </div>
+            <Label className="text-xs">Número do pedido</Label>
+            <Input
+              value={dados.numero_pedido ?? ''}
+              onChange={(e) => set('numero_pedido', e.target.value)}
+              placeholder={numeroPedido || '—'}
+              className="font-semibold"
+            />
             <p className="text-[11px] text-muted-foreground">
-              Mesmo número do orçamento que originou este pedido.
+              {dados.numero_pedido?.trim() ? (
+                <>
+                  Vale só para os documentos; no sistema continua {numeroPedido || '—'}.{' '}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-foreground"
+                    onClick={() => set('numero_pedido', '')}
+                  >
+                    Usar o calculado
+                  </button>
+                </>
+              ) : (
+                'Calculado: mesmo número do orçamento. Digite outro para trocar nos documentos.'
+              )}
             </p>
           </div>
         </div>

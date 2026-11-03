@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { montarDadosPedidoCompra } from './pedidoCompraAutoFill';
 import { montarDadosZapSign, type ZapSignContratoCampos } from './zapsignContrato';
-import { chavePlanoMarca, rotuloPlanoMarca } from '@/types/pedidoCompra';
+import { chavePlanoMarca, descricaoPlanoMarca, rotuloPlanoMarca } from '@/types/pedidoCompra';
 
 const POTE = 'PET 250ml âmbar, boca larga, com lacre de indução';
 const TAMPA = 'Rosca 63mm branca fosca';
@@ -123,5 +123,37 @@ describe('plano de marca fora da lista', () => {
     expect(rotuloPlanoMarca(null)).toBe('');
     expect(rotuloPlanoMarca(undefined)).toBe('');
     expect(chavePlanoMarca(undefined)).toBe('');
+  });
+});
+
+describe('plano de marca sem nome', () => {
+  it('a coluna de resposta imprime "Plano Personalizado"', () => {
+    // Celula vazia num documento que o cliente assina se le' como
+    // esquecimento, nao como escolha.
+    expect(descricaoPlanoMarca('')).toBe('Plano Personalizado');
+    expect(descricaoPlanoMarca(null)).toBe('Plano Personalizado');
+    expect(descricaoPlanoMarca(undefined)).toBe('Plano Personalizado');
+    expect(descricaoPlanoMarca('   ')).toBe('Plano Personalizado');
+  });
+
+  it('plano conhecido continua saindo pelo nome dele', () => {
+    expect(descricaoPlanoMarca('branding')).toBe('Branding');
+    expect(descricaoPlanoMarca('premium')).toBe('Premium');
+  });
+
+  it('"Nao contratado" NAO vira personalizado', () => {
+    // Ali houve a decisao de nao contratar marca. Trocar por "Plano
+    // Personalizado" diria que ha' servico contratado onde nao ha'.
+    expect(descricaoPlanoMarca('nao_contratado')).toBe('Não contratado');
+  });
+
+  it('plano escrito a mao vale pelo proprio texto', () => {
+    expect(descricaoPlanoMarca('Setup — Rótulos')).toBe('Setup — Rótulos');
+  });
+
+  it('o formulario continua mostrando vazio', () => {
+    // `rotuloPlanoMarca` e' o do campo editavel: devolver o texto ali o faria
+    // parecer digitado, e seria gravado assim.
+    expect(rotuloPlanoMarca('')).toBe('');
   });
 });

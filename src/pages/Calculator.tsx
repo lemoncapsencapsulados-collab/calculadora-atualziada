@@ -921,7 +921,7 @@ export default function Calculator() {
                 {calculated?.error && <p className="text-sm text-destructive font-medium">{calculated.error}</p>}
                 {calculated && !calculated.error && calculated.custo > 0 && <div className="text-sm space-y-1">
                     <p className="text-primary font-medium">
-                      Custo: {formatCurrencyDetailed(calculated.custo)}
+                      Custo: {formatCurrencyPrecise(calculated.custo)}
                     </p>
                     
                     {/* Conversões de unidades para Pó */}

@@ -58,6 +58,27 @@ export function rotuloPlanoMarca(valor: string | null | undefined): string {
 }
 
 /**
+ * O que a coluna de resposta imprime na linha "Plano de marca".
+ *
+ * Plano em branco saía como célula vazia no documento que o cliente assina --
+ * e célula vazia num contrato se lê como esquecimento, não como escolha.
+ * Quando não há plano nomeado, o que foi combinado é um plano fora da tabela,
+ * e é isso que o papel passa a dizer.
+ *
+ * Diferente de "Não contratado", que continua saindo como está: ali houve uma
+ * decisão de não contratar marca, e trocá-la por "Plano Personalizado" diria
+ * que há um serviço contratado onde não há.
+ *
+ * Só para impressão. No formulário o campo vazio continua vazio, senão o
+ * texto apareceria como se tivesse sido digitado e seria gravado assim.
+ */
+export const PLANO_PERSONALIZADO = 'Plano Personalizado';
+
+export function descricaoPlanoMarca(valor: string | null | undefined): string {
+  return rotuloPlanoMarca(valor) || PLANO_PERSONALIZADO;
+}
+
+/**
  * O caminho de volta: do que aparece na tela para o que se grava.
  *
  * A tela mostra rótulos ("Branding") e o registro guarda chaves ("branding"),
@@ -274,6 +295,36 @@ export interface DadosPedidoCompra {
   // Assinatura
   representante_nome: string;
   representante_cpf: string;
+  /**
+   * Numero do pedido impresso nos documentos, quando o consultor troca o
+   * calculado. Vale so' para o papel: o `numero_orcamento`/`numero_pedido` do
+   * sistema nao muda, porque e' por ele que Asaas, VHSys, ZapSign e ClickUp
+   * acham o registro e e' dele que sai a sequencia dos proximos pedidos.
+   * Vazio ou ausente: vale o calculado.
+   */
+  numero_pedido?: string;
+}
+
+/**
+ * O numero que sai no documento: o editado, se houver, senao o do sistema.
+ */
+export function numeroPedidoDoDocumento(
+  dados: Partial<DadosPedidoCompra> | null | undefined,
+  numeroDoSistema: string,
+): string {
+  return dados?.numero_pedido?.trim() || numeroDoSistema;
+}
+
+/**
+ * O Pedido de Compra ja' foi elaborado?
+ *
+ * Nao basta existir `pedido_compra_dados`: o Projeto para Contrato grava ali so'
+ * o numero do pedido editado, antes de o documento ser montado. Documento de
+ * verdade tem produtos e especificacoes.
+ */
+export function pedidoCompraPreenchido(dados: unknown): dados is DadosPedidoCompra {
+  const d = dados as Partial<DadosPedidoCompra> | null | undefined;
+  return !!d && Array.isArray(d.produtos) && Array.isArray(d.especificacoes);
 }
 
 /** Padroes que o documento v3 ja' traz impressos. */

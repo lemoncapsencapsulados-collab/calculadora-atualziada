@@ -38,7 +38,7 @@ import PedidoDeCompraDialog from '@/components/pedidos/PedidoDeCompraDialog';
 import PreviewPedidoCompraDialog from '@/components/pedidos/PreviewPedidoCompraDialog';
 import RecalcularPrecoDialog from '@/components/RecalcularPrecoDialog';
 import { BORDA_PRAZO, CLASSES_PRAZO, avisoPrazo, situacaoPrazo, tomDoPrazo } from '@/lib/prazoRecalculo';
-import { listarCamposFaltantes } from '@/types/pedidoCompra';
+import { listarCamposFaltantes, pedidoCompraPreenchido } from '@/types/pedidoCompra';
 import PropostaCompletaDialog from '@/components/PropostaCompletaDialog';
 import AprovacaoOrcamentoDialog from '@/components/AprovacaoOrcamentoDialog';
 import OrcamentoKanbanView from '@/components/OrcamentoKanbanView';
@@ -630,7 +630,7 @@ export default function Orcamentos() {
                               {aviso}
                               {/* Quem ja' montou o Pedido de Compra precisa
                                   refazer os dois: o documento sai do orcamento. */}
-                              {(orcamento as any).pedido_compra_dados && prazo.vencido
+                              {pedidoCompraPreenchido((orcamento as any).pedido_compra_dados) && prazo.vencido
                                 ? ' e o Pedido de Compra'
                                 : ''}
                             </span>
@@ -820,7 +820,7 @@ export default function Orcamentos() {
                                   precisar, sem refazer o preenchimento. */}
                               {(() => {
                                 const salvos = (orcamento as any).pedido_compra_dados;
-                                if (!salvos) return null;
+                                if (!pedidoCompraPreenchido(salvos)) return null;
                                 const pendentes = listarCamposFaltantes(
                                   salvos,
                                   (orcamento as any).numero_contrato || '',

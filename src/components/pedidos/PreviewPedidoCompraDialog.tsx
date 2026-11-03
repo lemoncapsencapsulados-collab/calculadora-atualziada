@@ -11,7 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Download, ExternalLink, FileSignature, Loader2, Pencil } from 'lucide-react';
 import { gerarPedidoCompraPDF, baixarPedidoCompraPDF } from '@/lib/pedidoCompraPdf';
-import { listarCamposFaltantes, type DadosPedidoCompra } from '@/types/pedidoCompra';
+import {
+  listarCamposFaltantes,
+  numeroPedidoDoDocumento,
+  type DadosPedidoCompra,
+} from '@/types/pedidoCompra';
 
 interface Props {
   open: boolean;
@@ -91,7 +95,7 @@ export default function PreviewPedidoCompraDialog({
         <DialogHeader className="shrink-0 border-b px-4 py-3 sm:px-6">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
             <FileSignature className="h-5 w-5 text-primary" />
-            Pedido de Compra nº {numeroPedido || '—'}
+            Pedido de Compra nº {numeroPedidoDoDocumento(dados, numeroPedido) || '—'}
             {faltantes.length > 0 ? (
               <Badge
                 variant="outline"

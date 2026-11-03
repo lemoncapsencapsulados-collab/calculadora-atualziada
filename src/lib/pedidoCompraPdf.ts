@@ -18,8 +18,9 @@ import {
   camposDaApresentacao,
   type CampoEmbalagem,
   CONTRATADA,
+  numeroPedidoDoDocumento,
   PADROES_PEDIDO_COMPRA,
-  rotuloPlanoMarca,
+  descricaoPlanoMarca,
   type DadosPedidoCompra,
 } from '@/types/pedidoCompra';
 
@@ -265,7 +266,9 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
   y += 7;
   doc.setFont(FONTE, 'bold').setFontSize(15).setTextColor(...VERDE_ESCURO);
-  doc.text(`PEDIDO DE COMPRA Nº ${ou(numeroPedido)}`, meioPagina, y, { align: 'center' });
+  // O numero editado no documento vale sobre o do sistema.
+  const numeroImpresso = numeroPedidoDoDocumento(dados, numeroPedido);
+  doc.text(`PEDIDO DE COMPRA Nº ${ou(numeroImpresso)}`, meioPagina, y, { align: 'center' });
   y += 6;
   doc.setFontSize(11).setTextColor(...PRETO);
   doc.text(
@@ -346,7 +349,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
   // 3. Condicoes comerciais
   tituloSecao('2. CONDIÇÕES COMERCIAIS');
   tabelaCampos([
-    ['Plano de marca', rotuloPlanoMarca(dados.plano_marca)],
+    ['Plano de marca', descricaoPlanoMarca(dados.plano_marca)],
     ['Entregáveis do plano', dados.entregaveis.length ? dados.entregaveis.join(' | ') : 'Não se aplica'],
     ['Etapas e valores', `setup/rótulo: ${brl(dados.valor_setup)}  |  produção: ${brl(dados.valor_producao)}`],
     [

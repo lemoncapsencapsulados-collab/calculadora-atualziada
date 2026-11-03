@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { montarDadosPedidoCompra } from '@/lib/pedidoCompraAutoFill';
+import { pedidoCompraPreenchido } from '@/types/pedidoCompra';
 import { houveMudanca, reconciliarPedidoCompra } from '@/lib/reconciliarPedidoCompra';
 import { novoRegistro, resumirDiferencas } from '@/lib/historicoEdicao';
 
@@ -68,8 +69,9 @@ export function useSincronizarPedidoCompra() {
     ): Promise<void> => {
       const salvo = salvoRow?.pedido_compra_dados;
       // Documento ainda não preenchido não precisa de reconciliação: ele será
-      // montado do orçamento na hora em que alguém abrir.
-      if (!salvo) return;
+      // montado do orçamento na hora em que alguém abrir. Só o número do pedido
+      // editado no Projeto para Contrato também não é documento.
+      if (!pedidoCompraPreenchido(salvo)) return;
       const novo = reconciliarPedidoCompra(salvo as never, doOrcamento);
       if (!houveMudanca(salvo as never, novo)) return;
 
