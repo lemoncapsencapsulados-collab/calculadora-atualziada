@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { ficaAtiva } from '../_shared/metaReconexao.ts';
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
@@ -83,6 +84,13 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // O que estava ligado antes desta conexão. Sem isto cada renovação do
+    // token (a cada 60 dias) religava todas as contas da Business Manager, e o
+    // painel passava a somar gasto de contas desligadas de propósito.
+    const { data: existentes } = await supabase
+      .from('meta_ad_accounts')
+      .select('ad_account_id, ativo, last_sync_status');
+
     for (const c of contas) {
       const adAccountId = `act_${c.account_id}`;
       await supabase.from('meta_ad_accounts').upsert(
@@ -91,7 +99,7 @@ Deno.serve(async (req) => {
           nome: c.name || adAccountId,
           access_token: accessToken,
           token_expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
-          ativo: true,
+          ativo: ficaAtiva(existentes || [], adAccountId),
           last_sync_status: 'conectado',
           last_sync_error: null,
         },

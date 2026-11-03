@@ -13,7 +13,9 @@ import {
   FileText,
   Download,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
+import { statusConexaoMeta } from '@/lib/statusConexaoMeta';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,6 +108,8 @@ export default function InvestimentoAnuncios() {
   );
 
   const contaAtiva = (contasMeta as any[]).find((c) => c.ativo);
+  const conexao = contaAtiva ? statusConexaoMeta(contaAtiva) : null;
+  const precisaReconectar = conexao?.estado === 'expirada' || conexao?.estado === 'expirando';
 
   const conectarMeta = async () => {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meta-oauth?action=start&return=${encodeURIComponent(
@@ -178,11 +182,34 @@ export default function InvestimentoAnuncios() {
             )}
             {contaAtiva ? (
               <div className="surface px-3 py-2 flex items-center gap-2 text-xs">
-                <span className="w-2 h-2 rounded-full bg-success pulse-dot" />
+                {/* Cor pelo estado real. Era verde fixo, e o painel ficou duas
+                    semanas zerado com a conexão vencida sem ninguém notar. */}
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    conexao?.estado === 'ok'
+                      ? 'bg-success pulse-dot'
+                      : conexao?.estado === 'expirando'
+                        ? 'bg-amber-500'
+                        : 'bg-destructive'
+                  }`}
+                />
                 <span className="text-muted-foreground">
                   Meta Ads · {contaAtiva.nome || contaAtiva.ad_account_id}
-                  {contaAtiva.last_sync_at ? ` · última sync ${new Date(contaAtiva.last_sync_at).toLocaleString('pt-BR')}` : ''}
+                  {conexao && conexao.estado !== 'ok' ? (
+                    <span className={conexao.estado === 'expirando' ? 'text-amber-600' : 'text-destructive'}>
+                      {' '}· {conexao.resumo}
+                    </span>
+                  ) : contaAtiva.last_sync_at ? (
+                    ` · última sync ${new Date(contaAtiva.last_sync_at).toLocaleString('pt-BR')}`
+                  ) : (
+                    ''
+                  )}
                 </span>
+                {precisaReconectar && (
+                  <Button size="sm" variant="outline" className="h-7" onClick={conectarMeta}>
+                    <Link2 className="w-3.5 h-3.5 mr-1" /> Reconectar
+                  </Button>
+                )}
 
                 <Button size="sm" variant="ghost" onClick={sincronizar} disabled={sincronizando}>
                   {sincronizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -229,6 +256,37 @@ export default function InvestimentoAnuncios() {
           </div>
         </div>
 
+        {/* A conexão caiu: os números da Meta pararam. Diz isso onde se vê,
+            e não só numa bolinha. */}
+        {conexao && (conexao.estado === 'expirada' || conexao.estado === 'erro') && (
+          <div className="surface p-4 flex items-start gap-3 text-sm border border-destructive/40">
+            <AlertTriangle className="w-4 h-4 mt-0.5 text-destructive shrink-0" />
+            <div className="flex-1 space-y-1">
+              {conexao.estado === 'expirada' ? (
+                <p>
+                  <strong>Os dados da Meta pararam de chegar</strong>: a conexão expirou
+                  {conexao.data ? ` em ${conexao.data.toLocaleDateString('pt-BR')}` : ''}. Investimento, leads e CPL
+                  ficam zerados desde então.
+                </p>
+              ) : (
+                <p>
+                  <strong>A última sincronização com a Meta falhou.</strong>{' '}
+                  <span className="text-muted-foreground">{contaAtiva?.last_sync_error}</span>
+                </p>
+              )}
+              <p className="text-muted-foreground">
+                Depois de reconectar, escolha o mês que ficou faltando e clique em sincronizar (
+                <RefreshCw className="inline w-3 h-3" />) para puxar os dias perdidos.
+              </p>
+            </div>
+            {conexao.estado === 'expirada' && (
+              <Button size="sm" onClick={conectarMeta}>
+                <Link2 className="w-4 h-4 mr-1" /> Reconectar Meta Ads
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Filtros */}
         <div className="surface p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
           <div>
@@ -264,10 +322,12 @@ export default function InvestimentoAnuncios() {
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os canais</SelectItem>
+                {/* Os dois nomes diziam "Meta Ads" e só um traz a Meta: o
+                    primeiro soma apenas o que foi lançado em "Novo registro". */}
                 {CANAIS_VENDAS.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>{c.label} (lançamentos manuais)</SelectItem>
                 ))}
-                <SelectItem value="meta_api">Meta Ads (API)</SelectItem>
+                <SelectItem value="meta_api">Meta Ads (API — automático)</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -98,6 +98,17 @@ function intersecta(ini: string, fim: string, di: Date, df: Date): boolean {
   return a <= df && b >= di;
 }
 
+/** Uma linha de `meta_insights`: gasto e leads de uma campanha num dia. */
+interface LinhaMeta {
+  data: string;
+  campaign_id: string;
+  campaign_name: string | null;
+  spend: number;
+  leads: number;
+  consultor_nome: string | null;
+  ad_account_id: string;
+}
+
 export function useAnunciosDados(filtros: FiltrosAnuncios) {
   const { data: registros = [], isLoading: loadingRegistros, excluir } = useAdInvestments();
 
@@ -112,12 +123,25 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
   const { data: metaRows = [], isLoading: loadingMeta } = useQuery({
     queryKey: ['meta-insights', iso(di), iso(df)],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('meta_insights' as any)
-        .select('data, campaign_id, campaign_name, spend, leads, consultor_nome, ad_account_id')
-        .gte('data', iso(prevIni))
-        .lte('data', iso(df));
-      return (data as any[]) || [];
+      // Em páginas de 1000: é o teto do banco por consulta, e sem paginar o
+      // excedente sumia em silêncio — o período anterior e o atual vêm juntos,
+      // de todas as contas, e uma linha por campanha por dia passa disso rápido.
+      const PAGINA = 1000;
+      const linhas: LinhaMeta[] = [];
+      for (let de = 0; ; de += PAGINA) {
+        const { data, error } = await supabase
+          .from('meta_insights' as any)
+          .select('data, campaign_id, campaign_name, spend, leads, consultor_nome, ad_account_id')
+          .gte('data', iso(prevIni))
+          .lte('data', iso(df))
+          .order('data', { ascending: true })
+          .order('id', { ascending: true })
+          .range(de, de + PAGINA - 1);
+        if (error) throw error;
+        linhas.push(...((data as unknown as LinhaMeta[]) || []));
+        if (!data || data.length < PAGINA) break;
+      }
+      return linhas;
     },
   });
 
@@ -126,7 +150,7 @@ export function useAnunciosDados(filtros: FiltrosAnuncios) {
     queryFn: async () => {
       const { data } = await supabase
         .from('meta_ad_accounts' as any)
-        .select('id, ad_account_id, nome, ativo, last_sync_at, last_sync_status, last_sync_error')
+        .select('id, ad_account_id, nome, ativo, last_sync_at, last_sync_status, last_sync_error, token_expires_at')
         .order('nome', { ascending: true });
       return (data as any[]) || [];
     },
