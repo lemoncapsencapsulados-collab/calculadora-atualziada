@@ -4,6 +4,28 @@ import { ficaAtiva } from '../_shared/metaReconexao.ts';
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
+/**
+ * Para onde voltar depois do Facebook — só para a própria calculadora.
+ *
+ * O destino vem da URL (`return`, depois `state`), então qualquer um monta o
+ * link. Aceitando "qualquer https", um link de login legítimo do Facebook da
+ * Lemon Caps podia terminar num site falso. O padrão também era um caminho
+ * relativo, que resolvia contra o domínio do Supabase e não levava a lugar
+ * nenhum.
+ */
+const DOMINIOS_APP = ['calculadora.lemoncaps.com.br', 'calculadora.lemoncapsauto.com'];
+const DESTINO_PADRAO = 'https://calculadora.lemoncaps.com.br/investimento-anuncios';
+
+function destinoSeguro(bruto: string): string {
+  try {
+    const u = new URL(bruto);
+    if (u.protocol === 'https:' && DOMINIOS_APP.includes(u.hostname)) return u.toString();
+  } catch {
+    // não é URL: cai no padrão
+  }
+  return DESTINO_PADRAO;
+}
+
 function html(msg: string, redirect?: string) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Meta Business</title>
   <style>body{font-family:system-ui;background:#0A0A0F;color:#F0F0F5;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
@@ -27,8 +49,7 @@ Deno.serve(async (req) => {
     : `/functions/v1/${url.pathname.replace(/^\/+/, '')}`;
   const redirectUri = `https://${host}${path}`;
   const rawReturn = url.searchParams.get('return') || url.searchParams.get('state') || '';
-  // Aceita apenas URLs absolutas https do app; caso contrário usa fallback relativo
-  const appReturn = /^https:\/\//.test(rawReturn) ? rawReturn : '/investimento-anuncios';
+  const appReturn = destinoSeguro(rawReturn);
 
   if (!appId || !appSecret) {
     return new Response(html('Integração Meta não configurada: faltam as credenciais do app.'), {
@@ -107,8 +128,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(html(`Meta Business conectada (${contas.length} conta(s)). Redirecionando...`, appReturn), {
-      headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
+    // Redirecionamento direto, não página: o Supabase entrega HTML de função
+    // como texto puro, e quem reconectava via o código-fonte da página de
+    // sucesso em vez de voltar para a calculadora.
+    console.log(`meta-oauth: ${contas.length} conta(s) da Business Manager`);
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, Location: appReturn },
     });
   } catch (e) {
     return new Response(html(`Erro ao conectar: ${(e as Error).message}`, appReturn), {
