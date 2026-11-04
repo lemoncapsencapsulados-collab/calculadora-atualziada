@@ -23,6 +23,8 @@ import { invalidarCachesDaFormula } from '@/lib/cachesDaFormula';
 import PrecoVendaInline from './PrecoVendaInline';
 import GerarOrcamentoDialog from './GerarOrcamentoDialog';
 import SenhaAdminDialog from './SenhaAdminDialog';
+import { autorizacaoDaPrateleira } from '@/lib/autorizacaoPrateleira';
+import { CLIENTE_CATALOGO_2026 } from '@/lib/linhaProduto';
 import MoverDepartamentoDialog from './MoverDepartamentoDialog';
 import { cn } from '@/lib/utils';
 import { type Departamento, ehCatalogo } from '@/lib/linhaProduto';
@@ -84,7 +86,10 @@ export default function PrecificacoesSalvas({
 }: PrecificacoesSalvasProps) {
   // O catalogo e a selecao compartilham a organizacao por nicho e o nome da
   // loja; Private Label nao tem nicho nenhum.
-  const temNichos = departamento === 'white_label' || departamento === 'selecao_lemoncaps';
+  const temNichos =
+    departamento === 'white_label' ||
+    departamento === 'selecao_lemoncaps' ||
+    departamento === 'catalogo_2026';
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { deletarPrecificacao } = usePrecificacao();
@@ -323,6 +328,12 @@ export default function PrecificacoesSalvas({
 
   const typedPrecificacoes = precificacoes as PrecificacaoComFormula[];
 
+  // A aba inteira: o nicho e' trocado na prateleira, nao numa formula so'.
+  const autorizacaoDoDepartamento =
+    departamento === 'catalogo_2026'
+      ? autorizacaoDaPrateleira(CLIENTE_CATALOGO_2026)
+      : autorizacaoDaPrateleira('Catálogo Lemon');
+
   const precificacaoEhCatalogo = (p: PrecificacaoComFormula) =>
     temNichos || ehCatalogo(p.formulas?.cliente);
 
@@ -511,6 +522,7 @@ export default function PrecificacoesSalvas({
                         <PrecoVendaInline
                           precificacao={precificacao}
                           ehDoCatalogo={precificacaoEhCatalogo(precificacao)}
+                          clienteDaFormula={precificacao.formulas?.cliente}
                           configuracaoAtiva={configuracaoAtiva}
                           onSalvo={() =>
                             queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] })
@@ -831,7 +843,10 @@ export default function PrecificacoesSalvas({
       <SenhaAdminDialog
         open={!!nichoPendente}
         onOpenChange={(o) => { if (!o) setNichoPendente(null); }}
-        descricao={`Mudar "${nichoPendente?.nome || 'esta fórmula'}" de nicho reorganiza o Catálogo Lemon, que precisa de senha de administrador.`}
+        conferir={autorizacaoDoDepartamento.conferir}
+        titulo={autorizacaoDoDepartamento.titulo}
+        rotuloCampo={autorizacaoDoDepartamento.rotuloCampo}
+        descricao={`Mudar "${nichoPendente?.nome || 'esta fórmula'}" de nicho reorganiza o ${autorizacaoDoDepartamento.nomeDaPrateleira}, que precisa do ${autorizacaoDoDepartamento.comoChamar}.`}
         onConfirmar={() => {
           const pendente = nichoPendente;
           setNichoPendente(null);
@@ -856,7 +871,13 @@ export default function PrecificacoesSalvas({
       <SenhaAdminDialog
         open={!!edicaoPendente}
         onOpenChange={(o) => { if (!o) setEdicaoPendente(null); }}
-        descricao={`"${edicaoPendente?.formulas?.nome_formula || 'Esta fórmula'}" é do Catálogo Lemon. Editar muda o produto para todos os clientes que o usam, então precisa de senha de administrador.`}
+        conferir={autorizacaoDaPrateleira(edicaoPendente?.formulas?.cliente).conferir}
+        titulo={autorizacaoDaPrateleira(edicaoPendente?.formulas?.cliente).titulo}
+        rotuloCampo={autorizacaoDaPrateleira(edicaoPendente?.formulas?.cliente).rotuloCampo}
+        descricao={(() => {
+          const a = autorizacaoDaPrateleira(edicaoPendente?.formulas?.cliente);
+          return `"${edicaoPendente?.formulas?.nome_formula || 'Esta fórmula'}" é do ${a.nomeDaPrateleira}. Editar muda o produto para todos os clientes que o usam, então precisa do ${a.comoChamar}.`;
+        })()}
         onConfirmar={() => {
           const pendente = edicaoPendente;
           setEdicaoPendente(null);
@@ -867,7 +888,13 @@ export default function PrecificacoesSalvas({
       <SenhaAdminDialog
         open={!!duplicacaoPendente}
         onOpenChange={(o) => { if (!o) setDuplicacaoPendente(null); }}
-        descricao={`Duplicar "${duplicacaoPendente?.origem.formulas?.nome_formula || 'esta fórmula'}" mexe no Catálogo Lemon, que precisa de senha de administrador.`}
+        conferir={autorizacaoDaPrateleira(duplicacaoPendente?.origem.formulas?.cliente).conferir}
+        titulo={autorizacaoDaPrateleira(duplicacaoPendente?.origem.formulas?.cliente).titulo}
+        rotuloCampo={autorizacaoDaPrateleira(duplicacaoPendente?.origem.formulas?.cliente).rotuloCampo}
+        descricao={(() => {
+          const a = autorizacaoDaPrateleira(duplicacaoPendente?.origem.formulas?.cliente);
+          return `Duplicar "${duplicacaoPendente?.origem.formulas?.nome_formula || 'esta fórmula'}" mexe no ${a.nomeDaPrateleira}, que precisa do ${a.comoChamar}.`;
+        })()}
         onConfirmar={() => {
           const pendente = duplicacaoPendente;
           setDuplicacaoPendente(null);

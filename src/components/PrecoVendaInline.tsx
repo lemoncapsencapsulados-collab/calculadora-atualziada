@@ -9,6 +9,7 @@ import { formatCurrency } from '@/lib/unitConversion';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { ConfiguracaoCustos } from '@/types/precificacao';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
+import { autorizacaoDaPrateleira } from '@/lib/autorizacaoPrateleira';
 
 interface Props {
   precificacao: {
@@ -23,6 +24,8 @@ interface Props {
   onSalvo?: () => void;
   /** Formula do catalogo: mexer no preco muda o padrao de todo mundo. */
   ehDoCatalogo?: boolean;
+  /** Cliente da fórmula: decide QUAL tranca pede o preço. */
+  clienteDaFormula?: string | null;
 }
 
 /**
@@ -36,10 +39,13 @@ export default function PrecoVendaInline({
   configuracaoAtiva,
   onSalvo,
   ehDoCatalogo,
+  clienteDaFormula,
 }: Props) {
   const { atualizarPrecificacao } = usePrecificacao();
   const [editando, setEditando] = useState(false);
   const [pedindoSenha, setPedindoSenha] = useState(false);
+  // A prateleira decide a tranca: o CATÁLOGO 2026 tem código próprio.
+  const autorizacao = autorizacaoDaPrateleira(clienteDaFormula);
   const [valor, setValor] = useState(String(Number(precificacao.preco_venda) || 0));
   const [salvando, setSalvando] = useState(false);
 
@@ -100,7 +106,11 @@ export default function PrecoVendaInline({
         type="button"
         onClick={() => (ehDoCatalogo ? setPedindoSenha(true) : setEditando(true))}
         className="group flex items-baseline gap-1 text-left"
-        title={ehDoCatalogo ? 'Editar preço padrão do catálogo (pede senha)' : 'Editar preço de venda'}
+        title={
+          ehDoCatalogo
+            ? `Editar preço padrão do catálogo (pede ${autorizacao.comoChamar})`
+            : 'Editar preço de venda'
+        }
       >
         <span className="text-lg font-bold text-primary">
           {formatCurrency(Number(precificacao.preco_venda) || 0)}
@@ -110,7 +120,10 @@ export default function PrecoVendaInline({
       <SenhaAdminDialog
         open={pedindoSenha}
         onOpenChange={setPedindoSenha}
-        descricao="Este é o preço padrão de uma fórmula do Catálogo Lemon. Mudar aqui muda para todos os clientes, então precisa de senha de administrador."
+        conferir={autorizacao.conferir}
+        titulo={autorizacao.titulo}
+        rotuloCampo={autorizacao.rotuloCampo}
+        descricao={`Este é o preço padrão de uma fórmula do ${autorizacao.nomeDaPrateleira}. Mudar aqui muda para todos os clientes, então precisa do ${autorizacao.comoChamar}. No orçamento o preço continua ajustável por pedido.`}
         onConfirmar={() => setEditando(true)}
       />
       </>

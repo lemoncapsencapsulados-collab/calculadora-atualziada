@@ -23,7 +23,7 @@ import {
   departamentoDoCliente,
 } from '@/lib/linhaProduto';
 import { CLIENTE_CATALOGO } from '@/components/SalvarCalculoDialog';
-import { conferirCodigoCatalogo2026 } from '@/lib/codigoCatalogo2026';
+import { autorizacaoDaMudanca } from '@/lib/autorizacaoPrateleira';
 import { NICHOS, NICHO_TEMA, type NichoLoja } from '@/lib/catalogoLoja';
 
 interface Props {
@@ -90,6 +90,11 @@ export default function MoverDepartamentoDialog({
   const faltaCliente = destino === 'private_label' && !cliente;
   const faltaNicho = vaiParaCasa && !nicho;
   const semMudanca = destino === atual;
+  // Sair do CATÁLOGO 2026 pede o código, como entrar: tirar uma fórmula da
+  // curadoria é decisão de quem a montou, não de quem administra o sistema.
+  // Sem isto, a senha de administrador esvaziaria a prateleira sem passar
+  // por ela.
+  const autorizacao = autorizacaoDaMudanca(clienteAtual, destino);
 
   const mover = async () => {
     setSalvando(true);
@@ -239,13 +244,13 @@ export default function MoverDepartamentoDialog({
         <SenhaAdminDialog
           open={pedindoSenha}
           onOpenChange={setPedindoSenha}
-          conferir={destino === 'catalogo_2026' ? conferirCodigoCatalogo2026 : undefined}
-          titulo={destino === 'catalogo_2026' ? 'Código do CATÁLOGO 2026' : undefined}
-          rotuloCampo={destino === 'catalogo_2026' ? 'Código' : undefined}
+          conferir={autorizacao.conferir}
+          titulo={autorizacao.titulo}
+          rotuloCampo={autorizacao.rotuloCampo}
           descricao={
             destino === 'catalogo_2026'
-              ? `Incluir "${nomeFormula}" no CATÁLOGO 2026 precisa do código do catálogo.`
-              : `Mover "${nomeFormula}" de ${DEPARTAMENTO_LABEL[atual]} para ${DEPARTAMENTO_LABEL[destino]} muda o que os consultores enxergam, e precisa de senha de administrador.`
+              ? `Incluir "${nomeFormula}" no CATÁLOGO 2026 precisa do ${autorizacao.comoChamar}.`
+              : `Mover "${nomeFormula}" de ${DEPARTAMENTO_LABEL[atual]} para ${DEPARTAMENTO_LABEL[destino]} muda o que os consultores enxergam, e precisa do ${autorizacao.comoChamar}.`
           }
           onConfirmar={() => void mover()}
         />
