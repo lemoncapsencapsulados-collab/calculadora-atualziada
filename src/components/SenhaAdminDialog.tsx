@@ -13,6 +13,17 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   /** O que está sendo liberado, para a pessoa saber o que autorizou. */
   descricao?: string;
+  /**
+   * Quem confere o que foi digitado. O padrão é a senha de administrador.
+   *
+   * Existe porque nem toda tranca é a mesma: o CATÁLOGO 2026 tem código
+   * próprio, já que montar a curadoria do ano é trabalho comercial e não de
+   * quem administra o sistema.
+   */
+  conferir?: (valor: string) => Promise<boolean>;
+  /** Cabeçalho e rótulo do campo, quando não é a senha de administrador. */
+  titulo?: string;
+  rotuloCampo?: string;
   onConfirmar: () => void;
 }
 
@@ -23,7 +34,15 @@ interface Props {
  * vale para todos os clientes, e uma fórmula errada lá dentro aparece em
  * orçamento de gente que nunca pediu por ela.
  */
-export default function SenhaAdminDialog({ open, onOpenChange, descricao, onConfirmar }: Props) {
+export default function SenhaAdminDialog({
+  open,
+  onOpenChange,
+  descricao,
+  conferir,
+  titulo,
+  rotuloCampo,
+  onConfirmar,
+}: Props) {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState(false);
   const [conferindo, setConferindo] = useState(false);
@@ -38,7 +57,7 @@ export default function SenhaAdminDialog({ open, onOpenChange, descricao, onConf
 
   const confirmar = async () => {
     setConferindo(true);
-    const certa = await conferirSenhaAdmin(senha);
+    const certa = await (conferir ?? conferirSenhaAdmin)(senha);
     setConferindo(false);
     if (!certa) {
       setErro(true);
@@ -55,7 +74,7 @@ export default function SenhaAdminDialog({ open, onOpenChange, descricao, onConf
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" />
-            Senha de administrador
+            {titulo || 'Senha de administrador'}
           </DialogTitle>
           <DialogDescription>
             {descricao || 'Esta ação precisa de autorização.'}
@@ -63,7 +82,7 @@ export default function SenhaAdminDialog({ open, onOpenChange, descricao, onConf
         </DialogHeader>
 
         <div className="space-y-2">
-          <Label htmlFor="senha-admin">Senha</Label>
+          <Label htmlFor="senha-admin">{rotuloCampo || 'Senha'}</Label>
           <Input
             id="senha-admin"
             type="password"

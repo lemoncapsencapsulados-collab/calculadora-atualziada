@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { BookmarkCheck, FileText, Lock, Save, Star } from 'lucide-react';
+import { BookmarkCheck, CalendarCheck, FileText, Lock, Save, Star } from 'lucide-react';
+import { conferirCodigoCatalogo2026 } from '@/lib/codigoCatalogo2026';
+import { CLIENTE_CATALOGO_2026 } from '@/lib/linhaProduto';
 import { arredondarReais } from '@/lib/utils';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { PrecificacaoCalculada } from '@/types/precificacao';
@@ -88,7 +90,11 @@ export default function SalvarCalculoDialog({
   const escolherDepartamento = (valor: Departamento) => {
     // Catalogo e Selecao sao as duas prateleiras da casa: as duas mudam o que
     // todo cliente ve', entao as duas pedem a senha.
-    if (valor === 'white_label' || valor === 'selecao_lemoncaps') {
+    // Catalogo, Selecao e Catalogo 2026 sao as prateleiras da casa: as tres
+    // mudam o que todo cliente ve', entao as tres pedem autorizacao. O 2026
+    // tem codigo proprio -- montar a curadoria do ano e' trabalho comercial,
+    // nao de quem administra o sistema.
+    if (valor === 'white_label' || valor === 'selecao_lemoncaps' || valor === 'catalogo_2026') {
       setPedindoSenha(valor);
       return;
     }
@@ -123,7 +129,10 @@ export default function SalvarCalculoDialog({
     : null;
 
   // Sem nicho a formula cairia em "Fora da loja" sem ninguem ter decidido isso.
-  const precisaNicho = departamento === 'white_label' || departamento === 'selecao_lemoncaps';
+  const precisaNicho =
+    departamento === 'white_label' ||
+    departamento === 'selecao_lemoncaps' ||
+    departamento === 'catalogo_2026';
   const faltaNicho = precisaNicho && !nicho;
   const podeSalvar = !!resultado && !salvando && !faltaNicho;
 
@@ -145,6 +154,12 @@ export default function SalvarCalculoDialog({
       titulo: 'Seleção LemonCaps',
       descricao: 'Prateleira escolhida a dedo, separada do catálogo. Pede senha.',
       icone: BookmarkCheck,
+    },
+    {
+      valor: 'catalogo_2026',
+      titulo: 'CATÁLOGO 2026',
+      descricao: 'Curadoria do ano. Pede o código do catálogo.',
+      icone: CalendarCheck,
     },
   ];
 
@@ -180,7 +195,7 @@ export default function SalvarCalculoDialog({
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <Icone className="h-4 w-4" />
                     {titulo}
-                    {valor === 'white_label' && departamento !== 'white_label' && (
+                    {valor !== 'private_label' && departamento !== valor && (
                       <Lock className="h-3 w-3 text-muted-foreground" />
                     )}
                   </span>
@@ -192,7 +207,11 @@ export default function SalvarCalculoDialog({
               <p className="text-xs text-muted-foreground">
                 A fórmula será salva como{' '}
                 <strong>
-                  {departamento === 'white_label' ? CLIENTE_CATALOGO : CLIENTE_SELECAO}
+                  {departamento === 'white_label'
+                    ? CLIENTE_CATALOGO
+                    : departamento === 'catalogo_2026'
+                      ? CLIENTE_CATALOGO_2026
+                      : CLIENTE_SELECAO}
                 </strong>
                 , e não no nome do cliente digitado na calculadora.
               </p>
@@ -311,10 +330,15 @@ export default function SalvarCalculoDialog({
       <SenhaAdminDialog
         open={!!pedindoSenha}
         onOpenChange={(aberto) => { if (!aberto) setPedindoSenha(null); }}
+        conferir={pedindoSenha === 'catalogo_2026' ? conferirCodigoCatalogo2026 : undefined}
+        titulo={pedindoSenha === 'catalogo_2026' ? 'Código do CATÁLOGO 2026' : undefined}
+        rotuloCampo={pedindoSenha === 'catalogo_2026' ? 'Código' : undefined}
         descricao={
-          pedindoSenha === 'selecao_lemoncaps'
-            ? 'Mandar esta fórmula para a Seleção LemonCaps precisa de senha de administrador.'
-            : 'Mandar esta fórmula para o Catálogo Lemon (White Label) precisa de senha de administrador.'
+          pedindoSenha === 'catalogo_2026'
+            ? 'Incluir esta fórmula no CATÁLOGO 2026 precisa do código do catálogo.'
+            : pedindoSenha === 'selecao_lemoncaps'
+              ? 'Mandar esta fórmula para a Seleção LemonCaps precisa de senha de administrador.'
+              : 'Mandar esta fórmula para o Catálogo Lemon (White Label) precisa de senha de administrador.'
         }
         onConfirmar={() => {
           if (pedindoSenha) setDepartamento(pedindoSenha);

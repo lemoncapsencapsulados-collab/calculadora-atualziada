@@ -9,19 +9,21 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, ArrowRightLeft, BookmarkCheck, FileText, Loader2, Star } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, BookmarkCheck, CalendarCheck, FileText, Loader2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import ClienteSelector from '@/components/ClienteSelector';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import type { Cliente } from '@/hooks/useClientes';
 import {
+  CLIENTE_CATALOGO_2026,
   CLIENTE_SELECAO,
   type Departamento,
   DEPARTAMENTO_LABEL,
   departamentoDoCliente,
 } from '@/lib/linhaProduto';
 import { CLIENTE_CATALOGO } from '@/components/SalvarCalculoDialog';
+import { conferirCodigoCatalogo2026 } from '@/lib/codigoCatalogo2026';
 import { NICHOS, NICHO_TEMA, type NichoLoja } from '@/lib/catalogoLoja';
 
 interface Props {
@@ -48,6 +50,11 @@ const OPCOES: { valor: Departamento; icone: typeof FileText; descricao: string }
     valor: 'selecao_lemoncaps',
     icone: BookmarkCheck,
     descricao: 'Prateleira escolhida a dedo, separada do catálogo.',
+  },
+  {
+    valor: 'catalogo_2026',
+    icone: CalendarCheck,
+    descricao: 'Curadoria do ano. Pede o código do catálogo.',
   },
 ];
 
@@ -76,7 +83,10 @@ export default function MoverDepartamentoDialog({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const vaiParaCasa = destino === 'white_label' || destino === 'selecao_lemoncaps';
+  // As tres prateleiras da casa pedem nicho: sem ele a formula cai em "Fora
+  // da loja" sem ninguem ter decidido isso.
+  const vaiParaCasa =
+    destino === 'white_label' || destino === 'selecao_lemoncaps' || destino === 'catalogo_2026';
   const faltaCliente = destino === 'private_label' && !cliente;
   const faltaNicho = vaiParaCasa && !nicho;
   const semMudanca = destino === atual;
@@ -90,7 +100,9 @@ export default function MoverDepartamentoDialog({
           ? CLIENTE_CATALOGO
           : destino === 'selecao_lemoncaps'
             ? CLIENTE_SELECAO
-            : cliente?.nome || '';
+            : destino === 'catalogo_2026'
+              ? CLIENTE_CATALOGO_2026
+              : cliente?.nome || '';
 
       const { error } = await supabase
         .from('formulas')
@@ -227,7 +239,14 @@ export default function MoverDepartamentoDialog({
         <SenhaAdminDialog
           open={pedindoSenha}
           onOpenChange={setPedindoSenha}
-          descricao={`Mover "${nomeFormula}" de ${DEPARTAMENTO_LABEL[atual]} para ${DEPARTAMENTO_LABEL[destino]} muda o que os consultores enxergam, e precisa de senha de administrador.`}
+          conferir={destino === 'catalogo_2026' ? conferirCodigoCatalogo2026 : undefined}
+          titulo={destino === 'catalogo_2026' ? 'Código do CATÁLOGO 2026' : undefined}
+          rotuloCampo={destino === 'catalogo_2026' ? 'Código' : undefined}
+          descricao={
+            destino === 'catalogo_2026'
+              ? `Incluir "${nomeFormula}" no CATÁLOGO 2026 precisa do código do catálogo.`
+              : `Mover "${nomeFormula}" de ${DEPARTAMENTO_LABEL[atual]} para ${DEPARTAMENTO_LABEL[destino]} muda o que os consultores enxergam, e precisa de senha de administrador.`
+          }
           onConfirmar={() => void mover()}
         />
       </DialogContent>

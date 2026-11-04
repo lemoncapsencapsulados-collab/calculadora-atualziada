@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { BookmarkCheck, Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
+import { BookmarkCheck, CalendarCheck, Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
 import { aviso as toast } from '@/lib/avisos';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
@@ -380,7 +380,7 @@ export default function Precificacao() {
       </div>
 
       <Tabs value={abaAtiva} onValueChange={setAbaAtiva} className="w-full">
-        <TabsList className="grid h-auto w-full max-w-4xl grid-cols-1 sm:grid-cols-4">
+        <TabsList className="grid h-auto w-full max-w-5xl grid-cols-1 sm:grid-cols-3 lg:grid-cols-5">
           <TabsTrigger value="produtos" className="flex items-center gap-2">
             <Package className="w-4 h-4" />
             Produtos Criados
@@ -396,6 +396,10 @@ export default function Precificacao() {
           <TabsTrigger value="selecao" className="flex h-auto items-center gap-2 whitespace-normal py-2 text-center">
             <BookmarkCheck className="w-4 h-4" />
             Seleção LemonCaps
+          </TabsTrigger>
+          <TabsTrigger value="catalogo2026" className="flex h-auto items-center gap-2 whitespace-normal py-2 text-center">
+            <CalendarCheck className="w-4 h-4" />
+            CATÁLOGO 2026
           </TabsTrigger>
         </TabsList>
 
@@ -612,6 +616,15 @@ export default function Precificacao() {
             configuracaoAtiva={configuracaoAtiva}
             margens={margens}
             departamento="selecao_lemoncaps"
+          />
+        </TabsContent>
+
+        {/* ===== ABA 5: CATÁLOGO 2026 ===== */}
+        <TabsContent value="catalogo2026" className="mt-6">
+          <PrecificacoesSalvas
+            configuracaoAtiva={configuracaoAtiva}
+            margens={margens}
+            departamento="catalogo_2026"
           />
         </TabsContent>
       </Tabs>

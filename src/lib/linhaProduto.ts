@@ -42,18 +42,48 @@ export function ehSelecao(clienteDaFormula: string | null | undefined): boolean 
   return c.includes('selecao lemoncaps') || c.includes('selecao lemon caps');
 }
 
+/**
+ * Quarta prateleira: a curadoria do ano.
+ *
+ * Marcada pelo nome do cliente, como as outras -- e' o mecanismo que o sistema
+ * inteiro ja' entende.
+ *
+ * ATENCAO a' ordem de verificacao: este nome CONTEM a palavra "catalogo",
+ * entao `ehCatalogo` casa com ele tambem. Quem decide o departamento precisa
+ * perguntar por este ANTES, senao toda formula do Catalogo 2026 cai em White
+ * Label e some da prateleira nova. A Selecao escapou disso por ter nome sem a
+ * palavra; esta nao tem como escapar, porque o nome foi pedido assim.
+ */
+export const CLIENTE_CATALOGO_2026 = 'CATÁLOGO 2026';
+
+export function ehCatalogo2026(clienteDaFormula: string | null | undefined): boolean {
+  const c = (clienteDaFormula || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return /catalogo\s*2026/.test(c);
+}
+
 /** Departamento da formula: onde ela aparece na tela de Precificacao. */
-export type Departamento = 'private_label' | 'white_label' | 'selecao_lemoncaps';
+export type Departamento =
+  | 'private_label'
+  | 'white_label'
+  | 'selecao_lemoncaps'
+  | 'catalogo_2026';
 
 export const DEPARTAMENTO_LABEL: Record<Departamento, string> = {
   private_label: 'Private Label (Fórmulas Personalizadas)',
   white_label: 'White Label (Fórmulas do Catálogo)',
   selecao_lemoncaps: 'Seleção LemonCaps',
+  catalogo_2026: 'CATÁLOGO 2026',
 };
 
 export function departamentoDoCliente(
   clienteDaFormula: string | null | undefined,
 ): Departamento {
+  // O 2026 vem ANTES do catalogo generico: o nome dele contem "catalogo", e
+  // perguntar na ordem inversa jogaria a prateleira inteira em White Label.
+  if (ehCatalogo2026(clienteDaFormula)) return 'catalogo_2026';
   if (ehSelecao(clienteDaFormula)) return 'selecao_lemoncaps';
   return ehCatalogo(clienteDaFormula) ? 'white_label' : 'private_label';
 }
@@ -61,10 +91,11 @@ export function departamentoDoCliente(
 /**
  * Linha do produto no orcamento e nos documentos.
  *
- * A Selecao conta como White Label aqui de proposito: comercialmente ela e' o
- * que o catalogo e' -- formula da casa, oferecida a qualquer cliente, sem teste
- * de estabilidade por conta do produtor. A prateleira separada e' organizacao
- * interna da tela de Precificacao, nao um terceiro tipo de venda.
+ * A Selecao e o CATALOGO 2026 contam como White Label aqui de proposito:
+ * comercialmente os dois sao o que o catalogo e' -- formula da casa, oferecida
+ * a qualquer cliente, sem teste de estabilidade por conta do produtor. As
+ * prateleiras separadas sao organizacao interna da tela de Precificacao, nao
+ * tipos de venda diferentes.
  */
 export function linhaDoCliente(clienteDaFormula: string | null | undefined): LinhaProduto {
   const dep = departamentoDoCliente(clienteDaFormula);

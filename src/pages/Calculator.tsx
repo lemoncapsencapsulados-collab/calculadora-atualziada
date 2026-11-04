@@ -21,7 +21,7 @@ import SalvarCalculoDialog, {
 } from '@/components/SalvarCalculoDialog';
 import { saveCalculatorState, getCalculatorState, clearCalculatorState } from '@/lib/localStorage';
 import { Formula, FormulaItem, EmbalagemItem, UnitType, Insumo } from '@/types/formula';
-import { CLIENTE_SELECAO, ehCatalogo, ehSelecao } from '@/lib/linhaProduto';
+import { CLIENTE_CATALOGO_2026, CLIENTE_SELECAO, ehCatalogo, ehSelecao } from '@/lib/linhaProduto';
 import {
   CAPACIDADE_CAPSULA_GRAMAS,
   custoMpPorPote,
@@ -585,12 +585,15 @@ export default function Calculator() {
     // cliente que estava na tela.
     const vaiParaCatalogo = departamento === 'white_label';
     const vaiParaSelecao = departamento === 'selecao_lemoncaps';
-    const daCasa = vaiParaCatalogo || vaiParaSelecao;
+    const vaiParaCatalogo2026 = departamento === 'catalogo_2026';
+    const daCasa = vaiParaCatalogo || vaiParaSelecao || vaiParaCatalogo2026;
     const clienteFormula = vaiParaCatalogo
       ? CLIENTE_CATALOGO
       : vaiParaSelecao
         ? CLIENTE_SELECAO
-        : clienteSelecionado?.nome || cliente;
+        : vaiParaCatalogo2026
+          ? CLIENTE_CATALOGO_2026
+          : clienteSelecionado?.nome || cliente;
 
     // O sistema inteiro reconhece o catalogo pelo nome do cliente CONTER
     // "catalogo". Entao Private Label com esse nome tambem cairia no catalogo,

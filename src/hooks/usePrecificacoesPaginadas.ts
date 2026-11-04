@@ -44,7 +44,10 @@ export function usePrecificacoesPaginadas({
   nicho,
 }: UsePrecificacoesPaginadasParams) {
   const trimmed = searchTerm.trim();
-  const daCasa = departamento === 'white_label' || departamento === 'selecao_lemoncaps';
+  const daCasa =
+    departamento === 'white_label' ||
+    departamento === 'selecao_lemoncaps' ||
+    departamento === 'catalogo_2026';
 
   // ---------------------------------------------------------------------------
   // Prateleiras da casa: UMA busca, guardada em cache.
@@ -73,6 +76,10 @@ export function usePrecificacoesPaginadas({
       });
 
       // Filtra no banco em vez de trazer tudo e descartar quase todas.
+      // O CATALOGO 2026 cai no mesmo `ilike` do catalogo, porque o nome dele
+      // contem "catalogo". E' de proposito: traz os dois conjuntos numa
+      // consulta so', e a conferencia abaixo -- que usa o mesmo criterio do
+      // resto do sistema -- separa um do outro.
       q =
         departamento === 'selecao_lemoncaps'
           ? q.ilike('formulas.cliente', '%sele%o lemon%')
