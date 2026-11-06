@@ -14,7 +14,7 @@ import { arredondarReais } from '@/lib/utils';
 import { calcularPrecificacaoPorPreco, validarMargemPorTipo } from '@/lib/precificacaoCalculator';
 import type { PrecificacaoCalculada } from '@/types/precificacao';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
-import { NICHOS, NICHO_TEMA, NichoLoja } from '@/lib/catalogoLoja';
+import { NICHOS, NICHO_TEMA, NichoLoja, prateleiraUsaNichos } from '@/lib/catalogoLoja';
 import { CLIENTE_SELECAO, type Departamento as DepartamentoDaLinha } from '@/lib/linhaProduto';
 
 /**
@@ -128,11 +128,16 @@ export default function SalvarCalculoDialog({
     ? validarMargemPorTipo(resultado.margemLucroPercentual, tipoProduto)
     : null;
 
-  // Sem nicho a formula cairia em "Fora da loja" sem ninguem ter decidido isso.
-  const precisaNicho =
+  // As tres prateleiras da casa sao salvas no nome da prateleira, nao no do
+  // cliente digitado -- e o aviso abaixo precisa dizer isso nas tres.
+  const ehPrateleiraDaCasa =
     departamento === 'white_label' ||
     departamento === 'selecao_lemoncaps' ||
     departamento === 'catalogo_2026';
+  // Mas so' duas usam nicho. Sem nicho, nelas, a formula cairia em "Fora da
+  // loja" sem ninguem ter decidido isso; no CATALOGO 2026 nao ha onde cair,
+  // porque a prateleira e' uma lista unica.
+  const precisaNicho = prateleiraUsaNichos(departamento);
   const faltaNicho = precisaNicho && !nicho;
   const podeSalvar = !!resultado && !salvando && !faltaNicho;
 
@@ -203,7 +208,7 @@ export default function SalvarCalculoDialog({
                 </button>
               ))}
             </div>
-            {precisaNicho && (
+            {ehPrateleiraDaCasa && (
               <p className="text-xs text-muted-foreground">
                 A fórmula será salva como{' '}
                 <strong>

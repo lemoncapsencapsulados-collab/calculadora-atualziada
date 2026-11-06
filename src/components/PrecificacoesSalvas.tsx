@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { type Departamento, ehCatalogo } from '@/lib/linhaProduto';
 import {
   AbaCatalogo, NICHOS, NICHO_NOME, NICHO_TEMA, NichoLoja, SEM_LOJA, TODAS,
-  abasDaFormula, nomeDeExibicao, produtoDaLoja,
+  abasDaFormula, nomeDeExibicao, prateleiraUsaNichos, produtoDaLoja,
 } from '@/lib/catalogoLoja';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -84,12 +84,17 @@ export default function PrecificacoesSalvas({
   margens,
   departamento,
 }: PrecificacoesSalvasProps) {
-  // O catalogo e a selecao compartilham a organizacao por nicho e o nome da
-  // loja; Private Label nao tem nicho nenhum.
-  const temNichos =
+  // Prateleira da casa: formula que a LemonCaps oferece a qualquer cliente.
+  // As tres travam o preco no cartao e mostram o nome que o produto tem na
+  // loja. Private Label nao e' nenhuma das coisas.
+  const daCasa =
     departamento === 'white_label' ||
     departamento === 'selecao_lemoncaps' ||
     departamento === 'catalogo_2026';
+  // Organizada por nicho: so' as duas que espelham as colecoes da loja. O
+  // CATALOGO 2026 e' lista unica -- ver `prateleiraUsaNichos`. Sao perguntas
+  // diferentes, e juntar as duas foi o que encheu o 2026 de subpaginas.
+  const temNichos = prateleiraUsaNichos(departamento);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { deletarPrecificacao } = usePrecificacao();
@@ -335,7 +340,7 @@ export default function PrecificacoesSalvas({
       : autorizacaoDaPrateleira('Catálogo Lemon');
 
   const precificacaoEhCatalogo = (p: PrecificacaoComFormula) =>
-    temNichos || ehCatalogo(p.formulas?.cliente);
+    daCasa || ehCatalogo(p.formulas?.cliente);
 
   /** Abas do catalogo: os nichos da loja e, no fim, o que nao esta' nela. */
   const abasCatalogo: AbaCatalogo[] = [...NICHOS.map((n) => n.id), SEM_LOJA, TODAS];
@@ -425,11 +430,11 @@ export default function PrecificacoesSalvas({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="font-semibold text-lg text-foreground">
-                          {temNichos
+                          {daCasa
                             ? nomeDeExibicao(precificacao.formulas?.nome_formula)
                             : precificacao.formulas?.nome_formula || 'Fórmula não encontrada'}
                         </h3>
-                        {temNichos && produtoDaLoja(precificacao.formulas?.nome_formula) && (
+                        {daCasa && produtoDaLoja(precificacao.formulas?.nome_formula) && (
                           // O consultor ainda precisa achar a formula pelo nome
                           // que ela tem no sistema -- e' por ele que a fabrica fala.
                           <p className="text-xs text-muted-foreground">

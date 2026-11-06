@@ -24,7 +24,7 @@ import {
 } from '@/lib/linhaProduto';
 import { CLIENTE_CATALOGO } from '@/components/SalvarCalculoDialog';
 import { autorizacaoDaMudanca } from '@/lib/autorizacaoPrateleira';
-import { NICHOS, NICHO_TEMA, type NichoLoja } from '@/lib/catalogoLoja';
+import { NICHOS, NICHO_TEMA, type NichoLoja, prateleiraUsaNichos } from '@/lib/catalogoLoja';
 
 interface Props {
   formulaId: string;
@@ -83,12 +83,12 @@ export default function MoverDepartamentoDialog({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  // As tres prateleiras da casa pedem nicho: sem ele a formula cai em "Fora
-  // da loja" sem ninguem ter decidido isso.
-  const vaiParaCasa =
-    destino === 'white_label' || destino === 'selecao_lemoncaps' || destino === 'catalogo_2026';
+  // So' as prateleiras organizadas por nicho pedem um: sem ele a formula cai
+  // em "Fora da loja" sem ninguem ter decidido isso. O CATALOGO 2026 e' lista
+  // unica e nao pergunta -- ver `prateleiraUsaNichos`.
+  const pedeNicho = prateleiraUsaNichos(destino);
   const faltaCliente = destino === 'private_label' && !cliente;
-  const faltaNicho = vaiParaCasa && !nicho;
+  const faltaNicho = pedeNicho && !nicho;
   const semMudanca = destino === atual;
   // Sair do CATÁLOGO 2026 pede o código, como entrar: tirar uma fórmula da
   // curadoria é decisão de quem a montou, não de quem administra o sistema.
@@ -115,7 +115,11 @@ export default function MoverDepartamentoDialog({
           cliente: nomeCliente,
           // Prateleira da casa não pertence a cliente nenhum; Private Label sim.
           cliente_id: destino === 'private_label' ? cliente?.id ?? null : null,
-          nicho: vaiParaCasa ? nicho : null,
+          // Private Label nao tem nicho. As da casa guardam o que tiverem:
+          // no CATALOGO 2026 o nicho nao aparece em lugar nenhum, mas apagar
+          // faria a formula voltar ao White Label sem nicho, e quem a movesse
+          // de volta teria de adivinhar onde ela estava.
+          nicho: destino === 'private_label' ? null : nicho,
         })
         .eq('id', formulaId);
       if (error) throw error;
@@ -186,7 +190,7 @@ export default function MoverDepartamentoDialog({
             </div>
           )}
 
-          {vaiParaCasa && (
+          {pedeNicho && (
             <div className="space-y-2">
               <Label className="text-sm font-semibold">
                 Nicho <span className="text-destructive">*</span>

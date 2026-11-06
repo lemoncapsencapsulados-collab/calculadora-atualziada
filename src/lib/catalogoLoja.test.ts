@@ -9,6 +9,7 @@ import {
   abasDaFormula,
   nichoValido,
   nomeDeExibicao,
+  prateleiraUsaNichos,
   produtoDaLoja,
 } from './catalogoLoja';
 
@@ -161,5 +162,36 @@ describe('tema do cartão', () => {
         expect(valor.trim()).not.toBe('');
       }
     }
+  });
+});
+
+describe('que prateleira se organiza por nicho', () => {
+  it('White Label e Seleção se organizam por nicho', () => {
+    // As duas espelham as coleções de loja.lemoncaps.com.br.
+    expect(prateleiraUsaNichos('white_label')).toBe(true);
+    expect(prateleiraUsaNichos('selecao_lemoncaps')).toBe(true);
+  });
+
+  it('o CATÁLOGO 2026 é lista única, sem nicho', () => {
+    // O pedido: na curadoria do ano se quer ver os produtos de uma vez, não
+    // repartidos em cinco subpáginas e numa aba "Todas".
+    expect(prateleiraUsaNichos('catalogo_2026')).toBe(false);
+  });
+
+  it('Private Label nunca teve nicho', () => {
+    expect(prateleiraUsaNichos('private_label')).toBe(false);
+    expect(prateleiraUsaNichos(undefined)).toBe(false);
+  });
+
+  it('usar nicho não é o mesmo que ser prateleira da casa', () => {
+    // A distinção que o código precisa manter: as TRÊS prateleiras da casa
+    // travam o preço e mostram o nome da loja, mas só DUAS usam nicho.
+    // Colapsar as duas perguntas numa só foi o que encheu o 2026 de
+    // subpáginas e o fez exigir um nicho que nenhuma tela lia.
+    const daCasa = ['white_label', 'selecao_lemoncaps', 'catalogo_2026'] as const;
+    const comNicho = daCasa.filter(prateleiraUsaNichos);
+    expect(daCasa).toHaveLength(3);
+    expect(comNicho).toHaveLength(2);
+    expect(comNicho).not.toContain('catalogo_2026');
   });
 });

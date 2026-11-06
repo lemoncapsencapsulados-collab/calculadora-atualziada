@@ -13,6 +13,8 @@
  * vermelhas. Na duvida, nao mapeie.
  */
 
+import type { Departamento } from './linhaProduto';
+
 export type NichoLoja = 'vitalidade' | 'energia' | 'performance' | 'sono' | 'beleza';
 
 /** Sem correspondente na loja: continua como esta' no sistema. */
@@ -284,4 +286,26 @@ export function abasDaFormula(
   if (nichoValido(nichoEscolhido)) return [nichoEscolhido];
   const produto = produtoDaLoja(nomeFormula);
   return produto ? produto.nichos : [SEM_LOJA];
+}
+
+/**
+ * Esta prateleira se organiza pelos nichos da loja?
+ *
+ * White Label e Selecao espelham as colecoes de loja.lemoncaps.com.br, entao
+ * se dividem nos mesmos nichos. O CATALOGO 2026 nao: e' a curadoria do ano, e
+ * a leitura que ela existe para dar e' "o que entrou neste ano", de uma vez
+ * so'. Quebrar isso em cinco subpaginas escondia a lista atras de um clique e
+ * obrigava a escolher um nicho que nenhuma tela usava.
+ *
+ * Mora aqui, e nao espalhado, porque a mesma pergunta e' feita em quatro
+ * lugares -- a prateleira, o dialogo de salvar, o de mover e a consulta.
+ * Decidida em cada um, bastava esquecer um para a tela exigir um nicho que
+ * ninguem le', e o esquecimento nao apareceria em teste nenhum: a tela
+ * continuaria funcionando, so' que pedindo o que nao usa.
+ *
+ * Note que isto NAO e' o mesmo que "prateleira da casa". As tres prateleiras
+ * da casa travam o preco e mostram o nome da loja; so' duas usam nicho.
+ */
+export function prateleiraUsaNichos(departamento: Departamento | undefined): boolean {
+  return departamento === 'white_label' || departamento === 'selecao_lemoncaps';
 }
