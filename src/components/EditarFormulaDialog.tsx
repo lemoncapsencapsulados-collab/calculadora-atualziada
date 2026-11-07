@@ -384,11 +384,33 @@ export default function EditarFormulaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b px-6 py-4">
-          <DialogTitle>Editar produto</DialogTitle>
-          <DialogDescription>
-            {nomeFormula} — ajuste matérias-primas e embalagens, e veja a margem se refazer na hora.
+      {/* `h-[92dvh]`, e nao so' o `max-h` que a base ja' da': com teto apenas,
+          o dialogo se ajustava ao conteudo e a area da formula ficava do
+          tamanho que sobrasse. Com altura definida ele abre sempre do tamanho
+          da janela, e a lista fica com tudo que as outras tres partes nao
+          usarem -- que e' pouco, de proposito.
+
+          `sm:p-0` nao e' redundante com `p-0`. O `cn` usa tailwind-merge, que
+          resolve `p-0` contra o `p-4` da base, mas NAO contra o `sm:p-6`:
+          modificadores diferentes sao chaves diferentes para ele. Sem o
+          `sm:p-0`, da' 640px para cima o dialogo voltava a ter 24px de
+          respiro por fora, somados aos `px-6` de cada secao por dentro.
+
+          Largura em `max-w-5xl`: a grade insumo/quantidade/unidade/custo
+          apertava em `max-w-3xl` e quebrava linha, o que tambem cortava. */}
+      <DialogContent className="flex h-[92dvh] w-[96vw] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:p-0">
+        {/* Cada pixel daqui sai da lista de materias-primas, que e' o que se
+            veio editar. Dai o titulo menor e a descricao numa linha so'. */}
+        {/* Uma linha so'. O nome da formula entra no titulo, e a descricao
+            vira texto de leitor de tela: visivel, ela custava uma linha
+            inteira. Cabecalho, barra de preco e rodape juntos precisam caber
+            em 20% da altura para a lista de insumos ficar com os 80%. */}
+        <DialogHeader className="shrink-0 space-y-0 border-b px-4 py-2 sm:px-6">
+          <DialogTitle className="truncate text-sm font-semibold sm:text-base">
+            Editar produto — {nomeFormula}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Ajuste matérias-primas e embalagens; a margem se refaz na hora.
           </DialogDescription>
         </DialogHeader>
 
@@ -398,7 +420,7 @@ export default function EditarFormulaDialog({
             nao altura. Resultado: o miolo crescia ate o tamanho da lista e
             era cortado sem rolar. Um div com overflow-y rola pelo proprio
             tamanho que o flex lhe da, sem depender de porcentagem. */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
           {carregando ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Carregando fórmula...</p>
           ) : erroCarregamento ? (
@@ -632,9 +654,12 @@ export default function EditarFormulaDialog({
             estiver editando formula em vez de conferindo preco. */}
         {/* Some quando a formula nao carregou: "Custo R$ 2,00, markup 1545%"
             calculado sobre zeros parece um numero e nao e'. */}
-        <div className={cn('shrink-0 space-y-2 border-t bg-muted/20 px-6 py-3', erroCarregamento && 'hidden')}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:gap-x-6">
-            <div className="text-xs text-muted-foreground">
+        <div className={cn('shrink-0 space-y-1 border-t bg-muted/20 px-4 py-1.5 sm:px-6', erroCarregamento && 'hidden')}>
+          {/* Uma linha so'. Antes eram dois blocos empilhados com rotulo em
+              cima de cada campo, e a linha ainda quebrava em duas: 103px de
+              altura que saiam da lista de insumos. Medido. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="text-[11px] leading-tight text-muted-foreground">
               <span>
                 MP {formatCurrency(totalMp)} <span className="opacity-60">/ pote</span>
               </span>
@@ -660,31 +685,37 @@ export default function EditarFormulaDialog({
               )}
             </div>
 
-            <div className="flex items-end gap-3 sm:ml-auto">
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Preço de venda</Label>
-                <Input
-                  type="number"
-                  step="0.00001"
-                  className="h-9 w-32"
-                  value={precoVenda}
-                  onChange={(e) => setPrecoVenda(e.target.value)}
-                />
-              </div>
+            {/* Rotulo ao lado, nao em cima: empilhar dobrava a altura. */}
+            <div className="ml-auto flex items-center gap-2">
+              <Label className="shrink-0 text-[11px] text-muted-foreground">Preço</Label>
+              <Input
+                type="number"
+                step="0.00001"
+                className="h-7 w-24 text-sm"
+                value={precoVenda}
+                onChange={(e) => setPrecoVenda(e.target.value)}
+              />
               {resultado && (
-                <div className="pb-1 text-right">
-                  <Badge variant="outline" className={cn('text-sm', validacao?.color, validacao?.borderColor)}>
+                <>
+                  <Badge variant="outline" className={cn('text-xs', validacao?.color, validacao?.borderColor)}>
                     {resultado.margemLucroPercentual.toFixed(1)}%
                   </Badge>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  <span className="whitespace-nowrap text-[11px] text-muted-foreground">
                     {formatCurrency(resultado.margemLucroValor)} / un.
-                  </p>
-                </div>
+                  </span>
+                </>
               )}
             </div>
           </div>
 
-          {resultado && <ConstrucaoPreco resultado={resultado} />}
+          {resultado && (
+            // Teto para quando o consultor ABRE a conta: sem ele, o painel
+            // aberto devolve a lista de insumos a uma faixa. Com teto, a
+            // conta rola dentro de si mesma e a lista nao perde mais que isto.
+            <div className="max-h-[30dvh] overflow-y-auto">
+              <ConstrucaoPreco resultado={resultado} />
+            </div>
+          )}
 
           {sugestao !== null && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -712,11 +743,14 @@ export default function EditarFormulaDialog({
           )}
         </div>
 
-        <DialogFooter className="border-t px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>
+        {/* `flex-row` porque a base do DialogFooter empilha os botoes no
+            celular: eram 97px de rodape num dialogo de 748px -- 13% da altura
+            so' para dois botoes que cabem lado a lado. Medido. */}
+        <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t px-4 py-2 sm:px-6">
+          <Button size="sm" variant="outline" onClick={() => onOpenChange(false)} disabled={salvando}>
             Cancelar
           </Button>
-          <Button onClick={salvar} disabled={salvando || carregando || bloqueado || temErro || !resultado}>
+          <Button size="sm" onClick={salvar} disabled={salvando || carregando || bloqueado || temErro || !resultado}>
             <Save className="mr-1 h-4 w-4" />
             {salvando ? 'Salvando...' : 'Salvar produto e margem'}
           </Button>

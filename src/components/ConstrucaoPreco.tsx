@@ -11,16 +11,25 @@ import {
 } from '@/lib/construcaoPreco';
 import type { PrecificacaoCalculada } from '@/types/precificacao';
 
-/** Lembra se o painel fica aberto. Quem confere margem confere toda vez. */
-const CHAVE = 'construcao-preco-aberta';
+/**
+ * Lembra se o painel fica aberto.
+ *
+ * Chave nova (-v2) de propósito. A versão anterior abria por padrão, então
+ * quase todo mundo tem "aberta" gravado -- e aberto o painel come metade da
+ * altura do diálogo, que é exatamente a altura de que a lista de
+ * matérias-primas precisa. Trocar a chave é o que faz o padrão novo valer;
+ * manter a antiga deixaria o pedido sem efeito para quem já usou a tela.
+ */
+const CHAVE = 'construcao-preco-aberta-v2';
 
 function lerPreferencia(): boolean {
   try {
-    // Aberto por padrão: a conta existe para ser vista, e quem não quiser
-    // fecha uma vez e a tela lembra.
-    return localStorage.getItem(CHAVE) !== 'fechada';
+    // Fechado por padrão: fechado o painel ainda mostra custo, imposto e
+    // markup na própria linha do título, que é o que se confere de relance.
+    // Quem quiser a conta inteira abre uma vez e a tela lembra.
+    return localStorage.getItem(CHAVE) === 'aberta';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -62,7 +71,9 @@ export default function ConstrucaoPreco({
         <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !aberta && '-rotate-90')} />
         Como o preço se forma
         {!aberta && (
-          <span className="ml-1 normal-case tracking-normal opacity-70">
+          // No celular o resumo nao cabe na linha do titulo e quebra,
+          // custando mais altura que a propria conta economiza fechada.
+          <span className="ml-1 hidden normal-case tracking-normal opacity-70 sm:inline">
             custo {formatCurrency(resultado.totalCustosProducao)} · imposto{' '}
             {formatCurrency(resultado.totalImpostos)} · markup {markup.toFixed(1)}%
           </span>
