@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ComparativoVendedores from '@/components/zapinteligencia/ComparativoVendedores';
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -450,36 +450,79 @@ export default function ZapInteligencia() {
                   errado é o processo de marcação ou o critério da IA — e quem
                   lê precisa saber disso antes de tirar conclusão da conversão. */}
               {(() => {
-                const f = d.fechamentoEtiqueta;
-                if (!f) return null;
-                const inferidos = d.funil.find((e) => !e.deterministica)?.valor ?? 0;
-                const marcados = Number(f.marcados_pago) || 0;
-                const etiquetados = Number(f.contatos_com_alguma_etiqueta) || 0;
-                const totais = Number(f.contatos_totais) || 0;
-                const cobertura = totais > 0 ? (etiquetados / totais) * 100 : 0;
-                if (marcados >= inferidos * 0.5) return null;
-
-                return (
+                const p = d.marcadosPago;
+                if (!p) return null;
+                const caixa = (titulo: string, corpo: ReactNode) => (
                   <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
-                    <p className="font-medium">
-                      A etiqueta de pagamento não acompanha o que a IA identifica.
-                    </p>
+                    <p className="font-medium">{titulo}</p>
+                    {corpo}
+                  </div>
+                );
+
+                // Zero por falta de dado não é zero de venda. Cada caso tem uma
+                // ação diferente, e dizer qual é poupa a investigação que
+                // começaria pela suspeita errada: a de que ninguém fechou.
+                if (p.estado === 'sem_instancia') {
+                  return caixa(
+                    'Este consultor não tem número de WhatsApp vinculado.',
                     <p className="mt-1">
-                      A IA reconhece{' '}
-                      <span className="num font-semibold">{inferidos}</span> conversas que
-                      chegaram a reunião, proposta ou fechamento, mas apenas{' '}
-                      <span className="num font-semibold">{marcados}</span>{' '}
-                      {marcados === 1 ? 'contato está marcado' : 'contatos estão marcados'} como
-                      pago. Só{' '}
-                      <span className="num font-semibold">{cobertura.toFixed(0)}%</span> da
-                      carteira tem alguma etiqueta.
+                      Sem linha em Instâncias, não há como atribuir etiqueta a ele — a etapa
+                      "Marcado como pago" fica fora do funil. Vincule o número em ZapVendas →
+                      Instâncias e ela volta sozinha.
+                    </p>,
+                  );
+                }
+
+                if (p.estado === 'sem_etiqueta') {
+                  return caixa(
+                    'Nenhuma etiqueta de pagamento chegou das contas deste consultor.',
+                    <p className="mt-1">
+                      A carga das etiquetas roda a cada 30 minutos, a partir do banco da Evolution
+                      na VPS. Se a etiqueta PAGO existe no WhatsApp e não aparece aqui, o que
+                      parou foi a carga — não a marcação. Enquanto isso, o funil termina no que a
+                      IA infere.
+                    </p>,
+                  );
+                }
+
+                const f = d.fechamentoEtiqueta;
+                const inferidos = d.funil.find((e) => !e.deterministica)?.valor ?? 0;
+                const etiquetados = Number(f?.contatos_com_alguma_etiqueta) || 0;
+                const totais = Number(f?.contatos_totais) || 0;
+                const cobertura = totais > 0 ? (etiquetados / totais) * 100 : 0;
+                if (p.marcados >= inferidos * 0.5) return null;
+
+                return caixa(
+                  'A etiqueta de pagamento não acompanha o que a IA identifica.',
+                  <>
+                    <p className="mt-1">
+                      A IA reconhece <span className="num font-semibold">{inferidos}</span>{' '}
+                      conversas que chegaram a reunião, proposta ou fechamento, mas apenas{' '}
+                      <span className="num font-semibold">{p.marcados}</span>{' '}
+                      {p.marcados === 1 ? 'contato está marcado' : 'contatos estão marcados'} como
+                      pago
+                      {p.nomes.length > 0 && (
+                        <>
+                          {' '}
+                          em <span className="font-medium">{p.nomes.join(' · ')}</span>
+                        </>
+                      )}
+                      .
+                      {cobertura > 0 && (
+                        <>
+                          {' '}Só <span className="num font-semibold">
+                            {cobertura.toFixed(0)}%
+                          </span>{' '}
+                          da carteira tem alguma etiqueta.
+                        </>
+                      )}
                     </p>
                     <p className="mt-1 text-amber-700/80 dark:text-amber-300/80">
                       Enquanto a marcação não for rotina, o número da etiqueta mede disciplina de
                       registro, não venda. A etapa continua na tela por ser a única medida por
                       pessoa, e não por inferência.
                     </p>
-                  </div>
+                  </>,
                 );
               })()}
             </Bloco>

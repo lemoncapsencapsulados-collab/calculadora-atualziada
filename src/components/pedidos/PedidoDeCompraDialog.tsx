@@ -23,6 +23,7 @@ import {
   chavePlanoMarca, rotuloPlanoMarca, FORNECIMENTO_EMBALAGEM,
   listarCamposFaltantes,
   pedidoCompraPreenchido,
+  PADROES_PEDIDO_COMPRA,
   type DadosPedidoCompra,
   type EmbalagemPedidoCompra,
   type EspecificacaoProduto,
@@ -693,11 +694,35 @@ export default function PedidoDeCompraDialog({
               onChange={(v) => set('contato_local', v)}
               obrigatorio
             />
+            {/* As duas datas do recesso. Ficam editaveis porque mudam todo ano
+                -- deixa-las no codigo faria o documento de dezembro que vem
+                sair com a parada deste ano. Apagar as duas tira a linha do
+                documento; apagar so' uma trava o download, porque e' assim que
+                a lacuna chegaria impressa no papel que o cliente assina. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Recesso de fim de ano — início</Label>
+                <Input
+                  type="date"
+                  value={dados.recesso_inicio ?? PADROES_PEDIDO_COMPRA.recesso_inicio}
+                  onChange={(e) => set('recesso_inicio', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Recesso de fim de ano — fim</Label>
+                <Input
+                  type="date"
+                  value={dados.recesso_fim ?? PADROES_PEDIDO_COMPRA.recesso_fim}
+                  onChange={(e) => set('recesso_fim', e.target.value)}
+                />
+              </div>
+            </div>
             <p className="text-[11px] text-muted-foreground">
               Prazos e entrada mínima seguem o padrão do contrato: rótulo {dados.prazo_rotulo_primeira_versao}/
               {dados.prazo_rotulo_correcao} dias úteis, produção {dados.prazo_producao_dias} dias corridos,
               entrega conforme a transportadora escolhida, entrada mínima{' '}
-              {dados.entrada_minima_percentual}%.
+              {dados.entrada_minima_percentual}%. O documento imprime o recesso logo abaixo do
+              prazo de produção, dizendo que o prazo já está ajustado a ele.
             </p>
           </Secao>
 

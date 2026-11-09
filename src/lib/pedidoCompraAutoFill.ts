@@ -231,6 +231,8 @@ export function montarDadosPedidoCompra({ snapshot, cliente }: AutoFillEntrada):
     prazo_rotulo_correcao: PADROES_PEDIDO_COMPRA.prazo_rotulo_correcao,
     prazo_producao_dias: PADROES_PEDIDO_COMPRA.prazo_producao_dias,
     prazo_entrega_dias: PADROES_PEDIDO_COMPRA.prazo_entrega_dias,
+    recesso_inicio: PADROES_PEDIDO_COMPRA.recesso_inicio,
+    recesso_fim: PADROES_PEDIDO_COMPRA.recesso_fim,
     entrada_minima_percentual: PADROES_PEDIDO_COMPRA.entrada_minima_percentual,
     // O endereco do cadastro e' o fiscal; a entrega costuma ser outro lugar,
     // entao entra como sugestao e o consultor confirma.

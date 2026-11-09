@@ -281,6 +281,19 @@ export interface DadosPedidoCompra {
   prazo_rotulo_correcao: number;
   prazo_producao_dias: number;
   prazo_entrega_dias: number;
+  /**
+   * Recesso de fim de ano da fabrica, em datas e nao em numero de dias.
+   *
+   * E' parada de calendario: nao desloca com a data do pedido, nem conta dia
+   * util. O prazo de producao acima ja' sai ajustado a ela -- por isso a linha
+   * do documento diz isso em vez de somar dias a frente.
+   *
+   * Editavel porque a data muda todo ano. Campo ausente e' pedido gravado
+   * antes de a linha existir: vale o padrao, ja' que a fabrica para para ele
+   * igual. Campo em branco e' decisao de quem editou, e tira a linha do papel.
+   */
+  recesso_inicio?: string;
+  recesso_fim?: string;
   entrada_minima_percentual: number;
   endereco_entrega: string;
   contato_local: string;
@@ -333,9 +346,32 @@ export const PADROES_PEDIDO_COMPRA = {
   prazo_rotulo_correcao: 4,
   prazo_producao_dias: 40,
   prazo_entrega_dias: 7,
+  recesso_inicio: '2026-12-18',
+  recesso_fim: '2027-01-06',
   entrada_minima_percentual: 45,
   local_assinatura: 'Cuiabá/MT',
 } as const;
+
+/**
+ * O recesso que o documento imprime, ou nada.
+ *
+ * Ausente (`undefined`) cai no padrao; em branco (`''`) e' escolha de quem
+ * editou e tira a linha. A diferenca importa: sem ela, todo pedido gravado
+ * antes desta linha existir sairia sem o aviso do recesso -- e sao justamente
+ * os pedidos em producao agora, que a parada atinge.
+ *
+ * Com uma data so', devolve o par assim mesmo. A lacuna aparece na previa e a
+ * tela cobra a outra data antes de liberar o download; sumir com a linha
+ * inteira esconderia o meio preenchimento de quem o fez.
+ */
+export function periodoRecesso(
+  dados: Pick<DadosPedidoCompra, 'recesso_inicio' | 'recesso_fim'> | null | undefined,
+): { inicio: string; fim: string } | null {
+  const inicio = (dados?.recesso_inicio ?? PADROES_PEDIDO_COMPRA.recesso_inicio).trim();
+  const fim = (dados?.recesso_fim ?? PADROES_PEDIDO_COMPRA.recesso_fim).trim();
+  if (!inicio && !fim) return null;
+  return { inicio, fim };
+}
 
 /** A CONTRATADA e' sempre a mesma; vem impressa no rodape do documento. */
 export const CONTRATADA = {
@@ -391,6 +427,13 @@ export function listarCamposFaltantes(
   });
   // Campos livres que tambem viram lacuna impressa quando ficam em branco.
   exigir(!!dados.faturamento_em?.trim(), 'faturamento_em', 'Faturamento em');
+  // Recesso pela metade. Sem recesso nenhum a linha some do documento e nada
+  // falta; com uma ponta so', o cliente assina "de 18/12/2026 a __/__/____".
+  const recesso = periodoRecesso(dados);
+  if (recesso) {
+    exigir(!!recesso.inicio, 'recesso_inicio', 'Início do recesso de fim de ano');
+    exigir(!!recesso.fim, 'recesso_fim', 'Fim do recesso de fim de ano');
+  }
   (dados.especificacoes ?? []).forEach((e, i) => {
     const qual = (dados.especificacoes!.length > 1)
       ? ` — ${e.produto_nome?.trim() || `produto ${i + 1}`}`

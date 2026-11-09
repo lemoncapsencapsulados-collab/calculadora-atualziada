@@ -21,6 +21,7 @@ import {
   numeroPedidoDoDocumento,
   PADROES_PEDIDO_COMPRA,
   descricaoPlanoMarca,
+  periodoRecesso,
   type DadosPedidoCompra,
 } from '@/types/pedidoCompra';
 
@@ -348,6 +349,7 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
 
   // 3. Condicoes comerciais
   tituloSecao('2. CONDIÇÕES COMERCIAIS');
+  const recesso = periodoRecesso(dados);
   tabelaCampos([
     ['Plano de marca', descricaoPlanoMarca(dados.plano_marca)],
     ['Entregáveis do plano', dados.entregaveis.length ? dados.entregaveis.join(' | ') : 'Não se aplica'],
@@ -360,6 +362,15 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
       'Prazo de produção',
       `${dados.prazo_producao_dias} dias corridos após aprovação da arte, até a disponibilização para expedição`,
     ],
+    // Logo abaixo do prazo, porque e' do prazo que ela fala. Numa linha solta
+    // no fim da tabela, o produtor leria o recesso como parada A MAIS, e
+    // chegaria a dezembro achando que o pedido atrasou.
+    ...(recesso
+      ? ([[
+          'Recesso de fim de ano',
+          `de ${dataBr(recesso.inicio)} a ${dataBr(recesso.fim)} — prazo de produção acima já ajustado a esse período`,
+        ]] as [string, string][])
+      : []),
     ['Frete', 'opção escolhida pela CONTRATANTE entre as cotações apresentadas'],
     // So' o prazo da transportadora. A frase trazia junto "acrescido ao prazo
     // de producao, ate' N dias uteis apos o pagamento do frete" -- duas

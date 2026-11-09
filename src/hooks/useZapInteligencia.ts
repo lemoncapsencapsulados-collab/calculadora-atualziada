@@ -1,6 +1,12 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  contarMarcadosPago,
+  etiquetasDePagamento,
+  type EtiquetaNomeada,
+  type VinculoEtiqueta,
+} from '@/lib/etiquetaPago';
 
 /**
  * Dados do painel de inteligência do ZapVendas — visão individual do consultor.
@@ -140,6 +146,21 @@ export interface FechamentoEtiquetado {
   contatos_com_alguma_etiqueta: number;
   contatos_totais: number;
 }
+
+/**
+ * O resultado da contagem de etiquetados como pagos — e, quando é zero, por quê.
+ *
+ * Zero sozinho é a pior resposta possível nesta tela: ele se parece com
+ * "ninguém fechou", e o aviso ao lado passa a acusar o time de não etiquetar.
+ * As causas de zero são três, e cada uma pede uma ação diferente — vincular o
+ * número do consultor, verificar a carga das etiquetas, ou começar a marcar.
+ */
+export type ContagemPago =
+  /** O consultor não tem número em `zap_instancias`: não há como atribuir etiqueta a ele. */
+  | { estado: 'sem_instancia' }
+  /** Nenhuma etiqueta de pagamento chegou do WhatsApp dessas contas. */
+  | { estado: 'sem_etiqueta' }
+  | { estado: 'ok'; marcados: number; nomes: string[] };
 
 export interface EtapaFunil {
   rotulo: string;
@@ -397,7 +418,83 @@ export function useZapInteligencia(
    * A última etapa do funil é julgamento da IA; a etiqueta PAGO é fato marcado
    * por quem estava na conversa. Onde existe, vale mais — por isso entra como
    * etapa determinística.
+   *
+   * SOBROU SÓ A COBERTURA. O número de marcados como pago passou para
+   * `marcadosPago`, acima: este RPC exige `zap_instancias.ativo`, e devolvia
+   * zero para conta oculta. A cobertura que ele ainda entrega tem o mesmo
+   * viés, então a tela só a mostra quando vem maior que zero. Corrigir a
+   * função exige migration aplicada em produção.
    */
+  /**
+   * Os marcados como pago, contados aqui e não pelo RPC.
+   *
+   * POR QUE SAIU DO BANCO: `zap_fechamento_etiquetado` só enxerga instância com
+   * `ativo = true` — a coluna que quer dizer "aparece na lista do ZapVendas", e
+   * que o operador desliga para esconder uma conta sem apagá-la. Todo o resto
+   * do painel (`zap_metricas_consultor`) ignora essa coluna. Um consultor com
+   * duas contas, uma delas oculta, tinha o funil inteiro de uma e zero
+   * marcados como pago da outra. Além disso a comparação lá é igualdade exata
+   * com 'PAGO': um emoji no nome da etiqueta zerava a conta sem avisar.
+   *
+   * Corrigir no banco exige migration aplicada em produção, e o deploy daqui
+   * sobe só o front. As três tabelas já são legíveis pelo papel `zapvendas`, o
+   * volume é de centenas de linhas, e a regra de nome fica coberta por teste.
+   */
+  const marcadosPago = useQuery<ContagemPago>({
+    ...CACHE,
+    queryKey: ['zap-marcados-pago', usuarioIdEfetivo],
+    enabled: ativo && Boolean(usuarioIdEfetivo),
+    queryFn: async (): Promise<ContagemPago> => {
+      // Sem `.eq('ativo', true)`: conta oculta continua sendo trabalho feito.
+      const { data: inst, error: erroInst } = await supabase
+        .from('zap_instancias' as any)
+        .select('instance_name')
+        .eq('usuario_id', usuarioIdEfetivo);
+      if (erroInst) throw new Error(erroInst.message);
+      const contas = ((inst || []) as any[]).map((i) => i.instance_name).filter(Boolean);
+      if (contas.length === 0) return { estado: 'sem_instancia' };
+
+      const { data: etq, error: erroEtq } = await supabase
+        .from('zap_etiquetas' as any)
+        .select('instance_name, label_id, nome')
+        .in('instance_name', contas);
+      if (erroEtq) throw new Error(erroEtq.message);
+      const pagas = etiquetasDePagamento((etq || []) as unknown as EtiquetaNomeada[]);
+      if (pagas.length === 0) return { estado: 'sem_etiqueta' };
+
+      // Em páginas: o PostgREST corta em 1.000 linhas por requisição, e um
+      // corte silencioso aqui viraria "metade da carteira fechou".
+      const PAGINA = 1000;
+      const ids = Array.from(new Set(pagas.map((p) => p.label_id)));
+      const vinculos: VinculoEtiqueta[] = [];
+      for (let de = 0; ; de += PAGINA) {
+        const { data, error } = await supabase
+          .from('zap_contato_etiquetas' as any)
+          .select('instance_name, remote_jid, label_id')
+          .in('instance_name', contas)
+          .in('label_id', ids)
+          // Ordem explícita: paginar sem ordenar deixa o banco livre para
+          // devolver a mesma linha em duas páginas e nenhuma vez a outra.
+          .order('instance_name')
+          .order('remote_jid')
+          .order('label_id')
+          .range(de, de + PAGINA - 1);
+        if (error) throw new Error(error.message);
+        const lote = (data || []) as unknown as VinculoEtiqueta[];
+        vinculos.push(...lote);
+        if (lote.length < PAGINA) break;
+      }
+
+      return {
+        estado: 'ok',
+        // `contarMarcadosPago` confere o par instância+label_id: o filtro
+        // acima casa só o id, que se repete entre contas.
+        marcados: contarMarcadosPago(pagas, vinculos),
+        nomes: Array.from(new Set(pagas.map((p) => p.nome))),
+      };
+    },
+  });
+
   const fechamentoEtiqueta = useQuery({
     ...CACHE,
     queryKey: ['zap-fechamento-etiqueta', usuarioIdEfetivo, ...janela],
@@ -424,15 +521,20 @@ export function useZapInteligencia(
       // Etiqueta PAGO: fato marcado por pessoa, não inferência. Entra como
       // etapa própria em vez de substituir a anterior — a distância entre as
       // duas é informação, não erro a esconder.
-      ...(fechamentoEtiqueta.data
+      //
+      // A etapa só entra quando dá para contar. Sem número vinculado ou sem
+      // etiqueta carregada, um zero desenhado no funil seria lido como "nenhum
+      // cliente pagou" — e ainda zeraria a conversão ponta a ponta no rodapé.
+      // Nesses casos a tela explica a lacuna em vez de desenhá-la como dado.
+      ...(marcadosPago.data?.estado === 'ok'
         ? [{
             rotulo: 'Marcado como pago',
-            valor: Number(fechamentoEtiqueta.data.marcados_pago) || 0,
+            valor: marcadosPago.data.marcados,
             deterministica: true,
           }]
         : []),
     ];
-  }, [selecionado, fechamentoEtiqueta.data]);
+  }, [selecionado, marcadosPago.data]);
 
   /**
    * Cobertura da análise por IA. Existe para o painel dizer "cobre 167 de 192
@@ -451,6 +553,8 @@ export function useZapInteligencia(
     selecionado,
     funil,
     fechamentoEtiqueta: fechamentoEtiqueta.data ?? null,
+    /** Contagem própria da etiqueta de pagamento, e o motivo quando dá zero. */
+    marcadosPago: marcadosPago.data ?? null,
     coberturaIA,
     distribuicao,
     heatmap,

@@ -378,3 +378,68 @@ describe('número do pedido editado só para os documentos', () => {
     expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('recesso de fim de ano', () => {
+  const completo = () => {
+    const base = completarSelecoes(
+      montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null }),
+    );
+    return {
+      ...base,
+      endereco_entrega: base.endereco_entrega || 'Rua X, 1 - Centro - Cuiabá/MT',
+      contato_local: base.contato_local || 'Maria - (65) 99999-8888',
+    };
+  };
+
+  const pdf = (dados: any) =>
+    textoDoPdf(gerarPedidoCompraPDF({ numeroPedido: '400-01', numeroContrato: '2609', dados }));
+
+  it('o pedido novo já nasce com as datas do recesso', () => {
+    const d = montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null });
+    expect(d.recesso_inicio).toBe('2026-12-18');
+    expect(d.recesso_fim).toBe('2027-01-06');
+  });
+
+  it('o documento traz as datas no formato do papel', () => {
+    const texto = pdf(completo());
+    expect(texto).toContain('Recesso de fim de ano');
+    expect(texto).toContain('18/12/2026');
+    expect(texto).toContain('06/01/2027');
+  });
+
+  it('a linha fica abaixo do prazo de produção, não solta no fim', () => {
+    // Lida longe do prazo, a parada vira atraso aos olhos de quem assina.
+    const texto = pdf(completo());
+    expect(texto.indexOf('Recesso de fim de ano')).toBeGreaterThan(texto.indexOf('dias corridos'));
+    expect(texto.indexOf('Recesso de fim de ano')).toBeLessThan(texto.indexOf('Frete'));
+  });
+
+  it('pedido gravado antes desta linha existir também sai com o recesso', () => {
+    // E' o caso que importa: os pedidos em producao agora sao os que a parada
+    // de dezembro atinge, e nenhum deles tem o campo gravado.
+    const { recesso_inicio, recesso_fim, ...semRecesso } = completo() as any;
+    expect(recesso_inicio).toBeDefined();
+    expect(pdf(semRecesso)).toContain('18/12/2026');
+  });
+
+  it('apagar as duas datas tira a linha do documento', () => {
+    const texto = pdf({ ...completo(), recesso_inicio: '', recesso_fim: '' });
+    expect(texto).not.toContain('Recesso de fim de ano');
+  });
+
+  it('sem recesso nenhum, nada falta para baixar', () => {
+    const d = { ...completo(), recesso_inicio: '', recesso_fim: '' };
+    expect(listarCamposFaltantes(d as any, '260922')).toEqual([]);
+  });
+
+  it('com uma ponta só, a tela cobra a outra antes do download', () => {
+    const d = { ...completo(), recesso_inicio: '2026-12-18', recesso_fim: '' };
+    expect(listarCamposFaltantes(d as any, '260922').map((c) => c.campo)).toContain('recesso_fim');
+  });
+
+  it('o período editado é o que vai para o papel', () => {
+    const texto = pdf({ ...completo(), recesso_inicio: '2027-12-20', recesso_fim: '2028-01-05' });
+    expect(texto).toContain('20/12/2027');
+    expect(texto).not.toContain('18/12/2026');
+  });
+});
