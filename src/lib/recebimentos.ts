@@ -1,10 +1,7 @@
 import { Pedido } from '@/types/formula';
 import { CondicoesPagamento, ParcelaPixBoleto, CartaoPagamento } from '@/types/orcamento';
 import { arredondarReais } from '@/lib/utils';
-
-const JUROS_PARCELAS: Record<number, number> = {
-  1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09,
-};
+import { taxaDoCartao } from '@/lib/jurosParcelas';
 
 export type StatusRecebimento = 'pago' | 'pendente' | 'futuro' | 'sem_data';
 
@@ -39,8 +36,7 @@ const calcularValorParcela = (p: ParcelaPixBoleto, valorTotal: number): number =
 
 const calcularValorCartao = (c: CartaoPagamento, valorTotal: number): number => {
   const base = c.tipo_valor === 'percentual' ? (c.valor / 100) * valorTotal : c.valor;
-  const taxa = JUROS_PARCELAS[c.parcelas] || 0;
-  return arredondarReais(base * (1 + taxa));
+  return arredondarReais(base * (1 + taxaDoCartao(c)));
 };
 
 const statusFromData = (data: string | null, pago?: boolean): StatusRecebimento => {

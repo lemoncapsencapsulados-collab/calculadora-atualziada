@@ -1,5 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CondicoesPagamento, MetodoPagamentoPrincipal, ParcelaPixBoleto, CartaoPagamento } from '@/types/orcamento';
+import SenhaAdminDialog from '@/components/SenhaAdminDialog';
+import { conferirCodigoJuros } from '@/lib/codigoJuros';
+import {
+  calcularComJuros,
+  jurosDoCartaoPercentual,
+  jurosPadraoPercentual,
+  rotuloJurosCurto,
+} from '@/lib/jurosParcelas';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -17,6 +25,8 @@ import {
   DollarSign,
   CheckCircle2,
   AlertTriangle,
+  Lock,
+  RotateCcw,
 } from 'lucide-react';
 
 interface CondicoesPagamentoFormProps {
@@ -26,16 +36,16 @@ interface CondicoesPagamentoFormProps {
   isRequired?: boolean;
 }
 
-const JUROS_PARCELAS: Record<number, number> = {
-  1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09,
-};
+/** Cartao recem-criado ja' nasce com a taxa gravada -- ver `jurosParcelas.ts`. */
+const cartaoNovo = (): CartaoPagamento => ({
+  tipo_valor: 'fixo',
+  valor: 0,
+  parcelas: 1,
+  juros_percentual: jurosPadraoPercentual(1),
+});
 
-function calcularComJuros(valor: number, parcelas: number) {
-  const taxa = JUROS_PARCELAS[parcelas] || 0;
-  const totalComJuros = valor * (1 + taxa);
-  const valorParcela = totalComJuros / parcelas;
-  return { totalComJuros, valorParcela, taxa };
-}
+/** "5" e "7,5", nao "5.00%" -- a taxa e' digitada por gente. */
+const pct = (v: number) => Number(v.toFixed(2)).toLocaleString('pt-BR');
 
 const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -150,12 +160,32 @@ function CartaoSection({
   onChange: (c: CartaoPagamento[]) => void;
   valorTotal: number;
 }) {
-  const addCartao = () => onChange([...cartoes, { tipo_valor: 'fixo', valor: 0, parcelas: 1 }]);
+  const addCartao = () => onChange([...cartoes, cartaoNovo()]);
   const removeCartao = () => { if (cartoes.length > 1) onChange(cartoes.slice(0, -1)); };
   const updateCartao = (i: number, updates: Partial<CartaoPagamento>) => {
     const next = cartoes.map((c, idx) => idx === i ? { ...c, ...updates } : c);
     onChange(next);
   };
+
+  /**
+   * Trocar o parcelamento traz junto a taxa daquele numero de parcelas.
+   *
+   * A taxa combinada para 3x nao vale para 4x -- manter o que estava escrito
+   * faria o cartao sair com 5% em 4 parcelas sem ninguem ter escolhido isso.
+   * Quem quer outra taxa destranca e digita depois.
+   */
+  const trocarParcelas = (i: number, parcelas: number) =>
+    updateCartao(i, { parcelas, juros_percentual: jurosPadraoPercentual(parcelas) });
+
+  /**
+   * A taxa e' termo do contrato que o cliente assina: mexer nela pede codigo.
+   *
+   * Destrava a secao inteira, e nao um cartao so': com dois cartoes no mesmo
+   * pagamento, pedir o codigo duas vezes nao protege mais nada -- quem tem o
+   * codigo digita duas vezes -- e so' atrapalha quem esta' montando a proposta.
+   */
+  const [jurosLiberado, setJurosLiberado] = useState(false);
+  const [pedindoCodigo, setPedindoCodigo] = useState(false);
 
   return (
     <div className="space-y-3 p-3 rounded-lg bg-muted/30 border">
@@ -175,7 +205,9 @@ function CartaoSection({
         const valorBase = cartao.tipo_valor === 'percentual'
           ? valorTotal * cartao.valor / 100
           : cartao.valor;
-        const { totalComJuros, valorParcela, taxa } = calcularComJuros(valorBase, cartao.parcelas);
+        const { totalComJuros, taxa, acrescimo } = calcularComJuros(valorBase, cartao);
+        const taxaAtual = jurosDoCartaoPercentual(cartao);
+        const taxaPadrao = jurosPadraoPercentual(cartao.parcelas);
 
         return (
           <div key={i} className="space-y-2 p-2 rounded border bg-background">
@@ -219,27 +251,89 @@ function CartaoSection({
               )}
             </div>
             <div className="pl-16">
-              <Select value={cartao.parcelas.toString()} onValueChange={(v) => updateCartao(i, { parcelas: parseInt(v) })}>
+              <Select value={cartao.parcelas.toString()} onValueChange={(v) => trocarParcelas(i, parseInt(v))}>
                 <SelectTrigger className="h-8">
                   <SelectValue placeholder="Parcelas" />
                 </SelectTrigger>
                 <SelectContent>
                   {[1, 2, 3, 4, 5, 6].map(p => {
-                    const { valorParcela: vp, taxa: t } = calcularComJuros(valorBase, p);
-                    const jurosLabel = t > 0 ? ` (+${(t * 100).toFixed(0)}%)` : ' (s/ juros)';
+                    // A previa de cada opcao usa a taxa PADRAO daquele numero
+                    // de parcelas, que e' a que escolher a opcao vai gravar.
+                    const { valorParcela: vp, taxa: t } = calcularComJuros(valorBase, {
+                      parcelas: p,
+                      juros_percentual: jurosPadraoPercentual(p),
+                    });
                     return (
                       <SelectItem key={p} value={p.toString()}>
-                        {p}x de {formatCurrency(vp)}{jurosLabel}
+                        {p}x de {formatCurrency(vp)}{rotuloJurosCurto(t)}
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
-              {taxa > 0 && valorBase > 0 && (
-                <div className="text-xs text-destructive mt-1">
-                  Juros: +{formatCurrency(totalComJuros - valorBase)} — Total cartão: {formatCurrency(totalComJuros)}
-                </div>
-              )}
+              {/* A taxa fica a' vista mesmo em zero: "sem juros" e' informacao
+                  que o cliente cobra depois, e um campo so' visivel quando ha'
+                  juros esconde justamente a hora de conferir que nao ha'. */}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
+                <Label className="text-[11px] text-muted-foreground shrink-0">Juros</Label>
+                {jurosLiberado ? (
+                  <>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={taxaAtual}
+                      onChange={(e) =>
+                        updateCartao(i, {
+                          juros_percentual: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)),
+                        })
+                      }
+                      className="h-7 w-20 text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">%</span>
+                    {taxaAtual !== taxaPadrao && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-muted-foreground"
+                        onClick={() => updateCartao(i, { juros_percentual: taxaPadrao })}
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        Voltar ao padrão ({pct(taxaPadrao)}%)
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-xs font-medium">{pct(taxaAtual)}%</span>
+                    {/* Cartao gravado antes de a taxa ser guardada mantem a que
+                        foi combinada. Dizer qual e' o padrao de hoje evita a
+                        leitura errada de que a tela esta' desatualizada. */}
+                    {taxaAtual !== taxaPadrao && (
+                      <span className="text-[11px] text-muted-foreground">
+                        padrão hoje para {cartao.parcelas}x: {pct(taxaPadrao)}%
+                      </span>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] text-muted-foreground"
+                      onClick={() => setPedindoCodigo(true)}
+                    >
+                      <Lock className="w-3 h-3 mr-1" />
+                      Editar
+                    </Button>
+                  </>
+                )}
+                {taxa > 0 && valorBase > 0 && (
+                  <span className="text-xs text-destructive">
+                    +{formatCurrency(acrescimo)} — Total cartão: {formatCurrency(totalComJuros)}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2 mt-2">
                 <Label className="text-[11px] text-muted-foreground shrink-0">1ª parcela em</Label>
                 <Input
@@ -261,6 +355,16 @@ function CartaoSection({
           </div>
         );
       })}
+
+      <SenhaAdminDialog
+        open={pedindoCodigo}
+        onOpenChange={setPedindoCodigo}
+        conferir={conferirCodigoJuros}
+        titulo="Código para editar os juros"
+        rotuloCampo="Código"
+        descricao="A taxa de juros é termo do pedido que o cliente assina. Editar libera o campo até fechar esta tela."
+        onConfirmar={() => setJurosLiberado(true)}
+      />
     </div>
   );
 }
@@ -313,10 +417,10 @@ export default function CondicoesPagamentoForm({
   const setMetodo = (m: MetodoPagamentoPrincipal) => {
     const base: CondicoesPagamento = { metodo_principal: m };
     if (m === 'pix_boleto') base.parcelas_pix_boleto = [{ tipo_valor: 'fixo', valor: 0 }];
-    if (m === 'cartao_credito') base.cartoes = [{ tipo_valor: 'fixo', valor: 0, parcelas: 1 }];
+    if (m === 'cartao_credito') base.cartoes = [cartaoNovo()];
     if (m === 'misto') {
       base.misto_parcelas_pix_boleto = [{ tipo_valor: 'fixo', valor: 0 }];
-      base.misto_cartoes = [{ tipo_valor: 'fixo', valor: 0, parcelas: 1 }];
+      base.misto_cartoes = [cartaoNovo()];
     }
     onChange(base);
   };
@@ -414,8 +518,7 @@ export default function CondicoesPagamentoForm({
           const allCartoes = metodo === 'cartao_credito' ? (value.cartoes || []) : (value.misto_cartoes || []);
           const totalJuros = allCartoes.reduce((acc, c) => {
             const base = c.tipo_valor === 'percentual' ? valorTotal * c.valor / 100 : c.valor;
-            const { totalComJuros } = calcularComJuros(base, c.parcelas);
-            return acc + (totalComJuros - base);
+            return acc + calcularComJuros(base, c).acrescimo;
           }, 0);
 
           if (totalJuros > 0) {

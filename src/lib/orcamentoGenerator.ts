@@ -8,6 +8,7 @@ import { fetchFreteCotacaoByOrcamento, fetchFreteCotacoesByOrcamento } from '@/h
 import { linhaPdfFrete, blocoPdfFrete } from '@/lib/freteHelpers';
 import type { FreteCotacao } from '@/types/frete';
 import { LINHA_PRODUTO_CURTO } from '@/lib/linhaProduto';
+import { taxaDoCartao } from '@/lib/jurosParcelas';
 import { nomeArquivoDocumento } from '@/lib/nomeArquivo';
 
 // ========== LAYOUT PREMIUM - ALTO PADRÃO ==========
@@ -936,7 +937,6 @@ function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number
   if (hasNewFormat) {
     // === NOVO FORMATO ===
     const metodo = condicoes.metodo_principal;
-    const JUROS: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09 };
 
     const formatDateBR = (iso?: string) => {
       if (!iso) return '';
@@ -993,7 +993,7 @@ function renderCondicoesPagamento(doc: jsPDF, orcamento: Orcamento, yPos: number
       doc.setTextColor(...COLORS.textDark);
       cartoes.forEach((c: any, i: number) => {
         const base = c.tipo_valor === 'percentual' ? orcamento.valor_total * c.valor / 100 : c.valor;
-        const taxa = JUROS[c.parcelas] || 0;
+        const taxa = taxaDoCartao(c);
         const total = base * (1 + taxa);
         const vp = total / c.parcelas;
         const pctLabel = c.tipo_valor === 'percentual' ? ` (${c.valor}%)` : '';

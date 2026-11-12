@@ -139,6 +139,18 @@ export interface CartaoPagamento {
   tipo_valor: 'percentual' | 'fixo';
   valor: number;
   parcelas: number;
+  /**
+   * Juros deste cartão, em percentual (5 = 5%).
+   *
+   * Guardado, e não deduzido da tabela na hora de exibir: a taxa combinada faz
+   * parte do que o cliente assinou. Sem gravá-la, mudar a tabela recalcularia
+   * pedido fechado — o total do contrato diria uma coisa e a previsão de
+   * recebimento, outra.
+   *
+   * Ausente é cartão gravado antes de a taxa passar a ser guardada; `0` é
+   * escolha de quem montou. Ver `src/lib/jurosParcelas.ts`.
+   */
+  juros_percentual?: number;
   data_primeira_parcela?: string; // YYYY-MM-DD
   pago?: boolean;
   data_pagamento?: string; // YYYY-MM-DD — data em que foi efetivamente pago

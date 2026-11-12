@@ -1,6 +1,7 @@
 import { Pedido } from '@/types/formula';
 import { CondicoesPagamento, ParcelaPixBoleto, CartaoPagamento } from '@/types/orcamento';
 import { arredondarReais } from '@/lib/utils';
+import { taxaDoCartao } from '@/lib/jurosParcelas';
 
 export type StatusParcelaComissao = 'pago' | 'pendente' | 'vencido' | 'sem_data';
 
@@ -24,9 +25,6 @@ export interface ItemComissao {
   pago: boolean;
 }
 
-const JUROS_PARCELAS: Record<number, number> = {
-  1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09,
-};
 
 const hojeStr = () => new Date().toISOString().slice(0, 10);
 
@@ -109,8 +107,7 @@ function expandirCartoes(
   let idx = startIdx;
   cartoes.forEach((c, ci) => {
     const base = c.tipo_valor === 'percentual' ? (c.valor / 100) * valorTotal : c.valor;
-    const taxa = JUROS_PARCELAS[c.parcelas] || 0;
-    const totalBruto = base * (1 + taxa);
+    const totalBruto = base * (1 + taxaDoCartao(c));
     const valorParcelaBruto = arredondarReais(totalBruto / c.parcelas);
     const valorParcelaLiquido = arredondarReais(base / c.parcelas);
     const baseData = c.data_primeira_parcela || baseDataRef;

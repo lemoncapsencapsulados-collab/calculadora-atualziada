@@ -1,8 +1,6 @@
 // Utility to format payment conditions into human-readable strings
 
-const JUROS_PARCELAS: Record<number, number> = {
-  1: 0, 2: 0, 3: 0, 4: 0.07, 5: 0.08, 6: 0.09,
-};
+import { calcularComJuros, rotuloJurosExtenso } from '@/lib/jurosParcelas';
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -27,11 +25,8 @@ export function formatarCondicoesPagamento(condicoes: any, valorTotal?: number):
       const val = c.tipo_valor === 'percentual' && valorTotal
         ? (c.valor / 100) * valorTotal
         : c.valor;
-      const taxa = JUROS_PARCELAS[c.parcelas] || 0;
-      const jurosLabel = taxa > 0 ? ` (juros de ${(taxa * 100).toFixed(0)}%)` : ' (sem juros)';
-      const totalComJuros = val * (1 + taxa);
-      const valorParcela = totalComJuros / c.parcelas;
-      lines.push(`  Cartão ${i + 1}: ${c.parcelas}x de ${fmt(valorParcela)}${jurosLabel} — Total: ${fmt(totalComJuros)}`);
+      const { taxa, totalComJuros, valorParcela } = calcularComJuros(val, c);
+      lines.push(`  Cartão ${i + 1}: ${c.parcelas}x de ${fmt(valorParcela)}${rotuloJurosExtenso(taxa)} — Total: ${fmt(totalComJuros)}`);
     });
   } else if (metodo === 'misto') {
     lines.push('Método: Misto (Pix/Boleto + Cartão)');
@@ -52,11 +47,8 @@ export function formatarCondicoesPagamento(condicoes: any, valorTotal?: number):
         const val = c.tipo_valor === 'percentual' && valorTotal
           ? (c.valor / 100) * valorTotal
           : c.valor;
-        const taxa = JUROS_PARCELAS[c.parcelas] || 0;
-        const jurosLabel = taxa > 0 ? ` (juros de ${(taxa * 100).toFixed(0)}%)` : ' (sem juros)';
-        const totalComJuros = val * (1 + taxa);
-        const valorParcela = totalComJuros / c.parcelas;
-        lines.push(`    Cartão ${i + 1}: ${c.parcelas}x de ${fmt(valorParcela)}${jurosLabel} — Total: ${fmt(totalComJuros)}`);
+        const { taxa, totalComJuros, valorParcela } = calcularComJuros(val, c);
+        lines.push(`    Cartão ${i + 1}: ${c.parcelas}x de ${fmt(valorParcela)}${rotuloJurosExtenso(taxa)} — Total: ${fmt(totalComJuros)}`);
       });
     }
   } else if (condicoes.valor_entrada || condicoes.valor_termino) {
@@ -96,11 +88,8 @@ export function formatarCondicoesParaContrato(condicoes: any, valorTotal?: numbe
   const formatarCartoes = (cartoes: any[]) => {
     return cartoes.map((c: any, i: number) => {
       const val = c.tipo_valor === 'percentual' && valorTotal ? (c.valor / 100) * valorTotal : c.valor;
-      const taxa = JUROS_PARCELAS[c.parcelas] || 0;
-      const totalComJuros = val * (1 + taxa);
-      const valorParcela = totalComJuros / c.parcelas;
-      const juros = taxa > 0 ? ` (juros de ${(taxa * 100).toFixed(0)}%)` : ' (sem juros)';
-      return `Cartão ${i + 1}: ${c.parcelas}x de ${fmt(valorParcela)}${juros} — Total: ${fmt(totalComJuros)}`;
+      const { taxa, totalComJuros, valorParcela } = calcularComJuros(val, c);
+      return `Cartão ${i + 1}: ${c.parcelas}x de ${fmt(valorParcela)}${rotuloJurosExtenso(taxa)} — Total: ${fmt(totalComJuros)}`;
     });
   };
 
