@@ -718,11 +718,11 @@ export default function PedidoDeCompraDialog({
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Prazos e entrada mínima seguem o padrão do contrato: rótulo {dados.prazo_rotulo_primeira_versao}/
+              Prazos seguem o padrão do contrato: rótulo {dados.prazo_rotulo_primeira_versao}/
               {dados.prazo_rotulo_correcao} dias úteis, produção {dados.prazo_producao_dias} dias corridos,
-              entrega conforme a transportadora escolhida, entrada mínima{' '}
-              {dados.entrada_minima_percentual}%. O documento imprime o recesso logo abaixo do
-              prazo de produção, dizendo que o prazo já está ajustado a ele.
+              entrega conforme a transportadora escolhida. O documento imprime o recesso logo abaixo do
+              prazo de produção, dizendo que o prazo já está ajustado a ele. O pedido não declara
+              entrada mínima: o que vale é o que estiver nas parcelas abaixo.
             </p>
           </Secao>
 

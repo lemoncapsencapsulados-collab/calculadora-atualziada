@@ -35,7 +35,6 @@ Tabela: DESCRIÇÃO | APRESENTAÇÃO | PREÇO UNIT. | QTD. | TOTAL, mais VALOR T
 - Prazo de produção: 40 dias corridos após aprovação da arte
 - Prazo de entrega: até 7 dias úteis após o pagamento do frete
 - Quantidade: entrega integral, conforme tabela do item 1
-- Entrada mínima: 45% do valor total — condição para início da produção
 - Armazenagem: 90 dias corridos sem custo; após, 10% ao mês sobre o valor da nota
 - Endereço de entrega (completo, com complemento e ponto de referência)
 - Contato no local (nome e telefone)

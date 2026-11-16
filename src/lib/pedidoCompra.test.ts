@@ -155,7 +155,6 @@ describe('preenchimento automático', () => {
 
   it('aplica os padrões impressos no documento v3', () => {
     expect(dados.prazo_producao_dias).toBe(40);
-    expect(dados.entrada_minima_percentual).toBe(45);
   });
 });
 
@@ -441,5 +440,45 @@ describe('recesso de fim de ano', () => {
     const texto = pdf({ ...completo(), recesso_inicio: '2027-12-20', recesso_fim: '2028-01-05' });
     expect(texto).toContain('20/12/2027');
     expect(texto).not.toContain('18/12/2026');
+  });
+});
+
+describe('o pedido não declara entrada mínima', () => {
+  const completo = () => {
+    const base = completarSelecoes(
+      montarDadosPedidoCompra({ snapshot: snapshotExemplo as any, cliente: null }),
+    );
+    return {
+      ...base,
+      endereco_entrega: base.endereco_entrega || 'Rua X, 1 - Centro - Cuiabá/MT',
+      contato_local: base.contato_local || 'Maria - (65) 99999-8888',
+    };
+  };
+
+  const pdf = (dados: any) =>
+    textoDoPdf(gerarPedidoCompraPDF({ numeroPedido: '400-01', numeroContrato: '2609', dados }));
+
+  it('a linha some da tabela de condições comerciais', () => {
+    // Declarar um piso atrapalha a negociação: o cliente que ia dar 60% lê
+    // "mínimo 45%" e passa a dar 45%.
+    expect(pdf(completo())).not.toContain('Entrada m');
+  });
+
+  it('a cláusula que prevalece sobre o contrato fala só de prazo', () => {
+    const texto = pdf(completo());
+    expect(texto).toContain('prevalece');
+    expect(texto).not.toContain('por cento');
+  });
+
+  it('pedido antigo, gravado com o campo, também sai sem a linha', () => {
+    // O documento é gerado na hora a partir do que está salvo: o campo
+    // antigo continua no JSON de quem já tem, e não pode voltar ao papel.
+    expect(pdf({ ...completo(), entrada_minima_percentual: 45 })).not.toContain('Entrada m');
+  });
+
+  it('o que o cliente paga de fato continua no documento', () => {
+    // A primeira parcela sai com o percentual real daquele pedido. Tirar o
+    // piso não pode ter tirado junto a entrada que foi combinada.
+    expect(pdf(completo())).toContain('Entrada');
   });
 });

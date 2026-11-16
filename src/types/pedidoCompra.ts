@@ -294,7 +294,6 @@ export interface DadosPedidoCompra {
    */
   recesso_inicio?: string;
   recesso_fim?: string;
-  entrada_minima_percentual: number;
   endereco_entrega: string;
   contato_local: string;
   // 4. Condicoes de pagamento
@@ -348,7 +347,6 @@ export const PADROES_PEDIDO_COMPRA = {
   prazo_entrega_dias: 7,
   recesso_inicio: '2026-12-18',
   recesso_fim: '2027-01-06',
-  entrada_minima_percentual: 45,
   local_assinatura: 'Cuiabá/MT',
 } as const;
 

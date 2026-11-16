@@ -378,7 +378,6 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     // produtor ler um prazo maior do que o que ele contratou no frete.
     ['Prazo de entrega', 'conforme a transportadora escolhida'],
     ['Quantidade', 'entrega integral, conforme tabela do item 1'],
-    ['Entrada mínima', `${dados.entrada_minima_percentual}% do valor total — condição para início da produção`],
     [
       'Taxa do meio de pagamento',
       'taxas do meio de pagamento escolhido pela CONTRATANTE, já acrescidas ao valor das parcelas',
@@ -388,12 +387,15 @@ export function gerarPedidoCompraPDF({ numeroPedido, numeroContrato, dados }: Op
     ['Contato no local', ou(dados.contato_local)],
   ]);
 
+  // A entrada minima saiu daqui junto com a linha da tabela. Declarar um
+  // piso atrapalha a negociacao: o cliente que ia dar 60% le "minimo 45%" e
+  // passa a dar 45%. O que o cliente de fato paga continua no documento, na
+  // tabela de parcelas do item 3, onde a primeira linha sai com o percentual
+  // real daquele pedido.
   paragrafo(
     `Condições específicas deste Pedido. O prazo de produção de ${dados.prazo_producao_dias} ` +
-      `(${porExtenso(dados.prazo_producao_dias)}) dias corridos e a entrada mínima de ` +
-      `${dados.entrada_minima_percentual}% (${porExtenso(dados.entrada_minima_percentual)} por cento) ` +
-      'prevalecem, para este Pedido, sobre os prazos e percentuais gerais do Contrato de Fabricação ' +
-      'de Produtos, na forma de sua Cláusula 2.4.',
+      `(${porExtenso(dados.prazo_producao_dias)}) dias corridos prevalece, para este Pedido, ` +
+      'sobre os prazos gerais do Contrato de Fabricação de Produtos, na forma de sua Cláusula 2.4.',
   );
 
   // 4. Condicoes de pagamento
