@@ -55,6 +55,7 @@ import {
 } from 'lucide-react';
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
+import EscadaVolumeAviso from './EscadaVolumeAviso';
 import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
@@ -1615,6 +1616,24 @@ export default function GerarOrcamentoDialog({
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
+
+                        {/* A escada de volume na hora da decisao. O preco de
+                            catalogo e' a faixa de 300 a 499; abaixo disso o
+                            produtor paga a tabela de entrada, 15% acima, e
+                            quase nunca sabe disso. */}
+                        {item.modelo_negocio !== 'print_on_demand' && (() => {
+                          const aux = item.precificacao_id ? itemPrecoAux[item.precificacao_id] : null;
+                          if (!aux || !(aux.precoOriginal > 0)) return null;
+                          return (
+                            <EscadaVolumeAviso
+                              quantidade={item.quantidade}
+                              precoCatalogo={aux.precoOriginal}
+                              tipoProduto={item.segmento}
+                              precoCobrado={item.preco_unitario}
+                              onAplicarPreco={(p) => aplicarPrecoNoItem(index, p)}
+                            />
+                          );
+                        })()}
 
                         {(() => {
                           const info = getItemMargemInfo(index);
