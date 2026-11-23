@@ -562,22 +562,15 @@ export default function PrecificacoesSalvas({
                       })()}
                     </div>
 
-                    {/* A escada de volume. O preco acima e' a faixa de 300 a
-                        499; as outras cinco saem dele por regra, entao nao ha'
-                        o que gravar nem o que desatualizar. */}
-                    <details className="group">
-                      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                        <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
-                        Escada de preço por volume
-                      </summary>
-                      <div className="mt-2">
-                        <EscadaVolumeTabela
-                          precoCatalogo={Number(precificacao.preco_venda) || 0}
-                          tipoProduto={precificacao.formulas?.tipo_produto}
-                          custoPorPote={Number(precificacao.total_custos_producao) || 0}
-                        />
-                      </div>
-                    </details>
+                    {/* A escada de volume, em linha. O preco acima e' a faixa
+                        de 300 a 499; as outras cinco saem dele por regra, entao
+                        nao ha' o que gravar nem o que desatualizar. */}
+                    <EscadaVolumeTabela
+                      variante="linha"
+                      precoCatalogo={Number(precificacao.preco_venda) || 0}
+                      tipoProduto={precificacao.formulas?.tipo_produto}
+                      custoPorPote={Number(precificacao.total_custos_producao) || 0}
+                    />
                   </div>
 
                   {/* Ações */}

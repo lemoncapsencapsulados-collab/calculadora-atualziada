@@ -23,6 +23,12 @@ interface Props {
   /** Quantidade em negociação, para destacar a faixa em que ela cai. */
   quantidadeEmFoco?: number | null;
   compacta?: boolean;
+  /**
+   * `linha` imprime os degraus numa linha corrida, sem moldura nem cabeçalho.
+   * É o formato para o card, onde a escada é referência de leitura rápida e
+   * uma tabela com borda rouba a atenção do que o card existe para mostrar.
+   */
+  variante?: 'tabela' | 'linha';
   className?: string;
 }
 
@@ -32,6 +38,7 @@ export default function EscadaVolumeTabela({
   custoPorPote,
   quantidadeEmFoco,
   compacta,
+  variante = 'tabela',
   className,
 }: Props) {
   if (!temEscada(tipoProduto)) {
@@ -45,6 +52,44 @@ export default function EscadaVolumeTabela({
   const degraus = escadaDoProduto(precoCatalogo, tipoProduto, custoPorPote);
   const emFoco = quantidadeEmFoco ? indiceDaFaixa(quantidadeEmFoco) : null;
   const mostrarMargem = degraus.some((d) => d.margemPercentual != null);
+
+  if (variante === 'linha') {
+    return (
+      <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs', className)}>
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <Layers className="h-3 w-3" /> Por volume
+        </span>
+        {degraus.map((d) => {
+          const atual = emFoco === d.indice;
+          const catalogo = d.indice === 1;
+          return (
+            <span
+              key={d.indice}
+              className={cn(
+                'whitespace-nowrap',
+                atual && 'text-primary',
+                catalogo && !atual && 'text-foreground',
+                !catalogo && !atual && 'text-muted-foreground',
+              )}
+              title={
+                d.margemPercentual == null
+                  ? `${d.faixa.rotulo} potes`
+                  : `${d.faixa.rotulo} potes · margem ${d.margemPercentual.toFixed(1)}%`
+              }
+            >
+              <span className="num">
+                {d.faixa.de.toLocaleString('pt-BR')}
+                {d.faixa.ate ? '' : '+'}
+              </span>{' '}
+              <span className={cn('num', (catalogo || atual) && 'font-medium')}>
+                {formatCurrency(d.precoPote)}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className={cn('overflow-x-auto rounded-md border border-border', className)}>
