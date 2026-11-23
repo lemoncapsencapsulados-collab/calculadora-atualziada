@@ -7,7 +7,7 @@ import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { validarMargemPorTipo, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import { arredondarReais } from '@/lib/utils';
-import { linhaDoCliente } from '@/lib/linhaProduto';
+import { ehCatalogo2026, linhaDoCliente } from '@/lib/linhaProduto';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,6 +56,12 @@ import {
 import { DadosCliente, DetalhamentoFrete } from '@/types/orcamento';
 import CondicoesPagamentoForm from './CondicoesPagamentoForm';
 import EscadaVolumeAviso from './EscadaVolumeAviso';
+import EscadaVolumeSeletor from './EscadaVolumeSeletor';
+import {
+  indiceDaFaixa,
+  INDICE_FAIXA_ENTRADA,
+  precoDaFaixa,
+} from '@/lib/escadaVolume';
 import ClienteSelector from '@/components/ClienteSelector';
 import { Cliente, useClientes } from '@/hooks/useClientes';
 import SetupPlanosStep, { buildPlanosSelecionados, PlanoSelecionado } from '@/components/orcamento/SetupPlanosStep';
@@ -195,7 +201,13 @@ export default function GerarOrcamentoDialog({
 
   // ── Edição de preço por item (negociação) ──
   // Dados auxiliares por precificacao_id (custo unitário e preço original do catálogo)
-  const [itemPrecoAux, setItemPrecoAux] = useState<Record<string, { custoUnit: number; precoOriginal: number }>>({});
+  // `precoOriginal` e' o preco de venda GRAVADO -- a faixa de 300 a 499 --, e
+  // continua sendo a base de onde a escada calcula as outras faixas. Nao
+  // confundir com o preco padrao do item, que no CATALOGO 2026 e' o da faixa
+  // da quantidade (ver `precoProgramadoDoItem`).
+  const [itemPrecoAux, setItemPrecoAux] = useState<
+    Record<string, { custoUnit: number; precoOriginal: number; escadaDeVolume: boolean }>
+  >({});
   // Intermediador (comissão interna — não aparece no PDF do cliente)
   const [intermediadorAtivo, setIntermediadorAtivo] = useState(false);
   const [intermediadorNome, setIntermediadorNome] = useState('');
@@ -223,7 +235,36 @@ export default function GerarOrcamentoDialog({
     if (!aux || aux.custoUnit <= 0) return null;
     const margem = calcMargemItem(item.preco_unitario, aux.custoUnit);
     const validacao = validarMargemPorTipo(margem, item.segmento || 'Encapsulados');
-    return { margem, validacao, custoUnit: aux.custoUnit, precoOriginal: aux.precoOriginal };
+    return {
+      margem,
+      validacao,
+      custoUnit: aux.custoUnit,
+      precoOriginal: aux.precoOriginal,
+      // O que a tela chama de "preço padrão": no 2026 muda com o volume.
+      precoPadrao: precoProgramadoDoItem(item) ?? aux.precoOriginal,
+      escadaDeVolume: aux.escadaDeVolume,
+    };
+  };
+
+  /**
+   * O preço que a escada manda cobrar no item, na quantidade de agora.
+   *
+   * No CATÁLOGO 2026 não existe "o preço" do produto: existe um por faixa de
+   * volume. Fora dessa prateleira o padrão segue sendo o preço de venda
+   * gravado, porque a escada é a tabela do 2026 e não vale para fórmula
+   * personalizada.
+   */
+  const precoProgramadoDoItem = (item: ItemProducao | undefined): number | null => {
+    if (!item?.precificacao_id) return null;
+    const aux = itemPrecoAux[item.precificacao_id];
+    if (!aux || !(aux.precoOriginal > 0)) return null;
+    if (!aux.escadaDeVolume) return aux.precoOriginal;
+    return precoDaFaixa(
+      aux.precoOriginal,
+      item.segmento,
+      indiceDaFaixa(item.quantidade || 0),
+      aux.custoUnit,
+    );
   };
 
   const aplicarPrecoNoItem = (index: number, novoPreco: number) => {
@@ -264,7 +305,9 @@ export default function GerarOrcamentoDialog({
     if (!item?.precificacao_id) return;
     const aux = itemPrecoAux[item.precificacao_id];
     if (!aux) return;
-    aplicarPrecoNoItem(index, aux.precoOriginal);
+    // Restaurar devolve o preço programado DA FAIXA ATUAL, não o de catálogo:
+    // num item de 100 potes o preço de catálogo é desconto que ninguém deu.
+    aplicarPrecoNoItem(index, precoProgramadoDoItem(item) ?? aux.precoOriginal);
     setPrecoLiberadoIdxs(prev => prev.filter(i => i !== index));
     setPrecoDraft(prev => {
       const n = { ...prev }; delete n[index]; return n;
@@ -739,15 +782,30 @@ export default function GerarOrcamentoDialog({
           }
         }
 
+        // O item do CATALOGO 2026 entra pelo preco de 100 potes, nao pelo de
+        // catalogo (300 a 499). Antes entrava no de catalogo: quem montava um
+        // orcamento de 100 potes ja' comecava dando 15% de desconto sem ter
+        // decidido dar.
+        const precoGravado = Number(prec?.preco_venda) || 0;
+        const naEscada = ehCatalogo2026(prec?.formulas?.cliente);
+        const precoInicial = naEscada
+          ? precoDaFaixa(
+              precoGravado,
+              prec?.formulas?.tipo_produto,
+              INDICE_FAIXA_ENTRADA,
+              Number(prec?.total_custos_producao) || 0,
+            )
+          : precoGravado;
+
         return {
           tipo: 'precificacao' as const,
           precificacao_id: precId,
           linha_produto: linhaDoCliente(prec?.formulas?.cliente),
           nome_produto: prec?.formulas?.nome_formula || 'Produto',
           segmento: prec?.formulas?.tipo_produto || '',
-          preco_unitario: Number(prec?.preco_venda) || 0,
+          preco_unitario: precoInicial,
           quantidade: 1,
-          subtotal: Number(prec?.preco_venda) || 0,
+          subtotal: precoInicial,
           insumos_formula,
           ...formulaData,
         } as ItemProducao;
@@ -764,6 +822,7 @@ export default function GerarOrcamentoDialog({
           next[precId] = {
             custoUnit: Number(prec.total_custos_producao) || 0,
             precoOriginal: Number(prec.preco_venda) || 0,
+            escadaDeVolume: ehCatalogo2026(prec.formulas?.cliente),
           };
         }
       });
@@ -775,15 +834,50 @@ export default function GerarOrcamentoDialog({
 
   const handleUpdateItemQuantidade = (index: number, quantidade: number) => {
     setItensProducao(prev => prev.map((item, i) => {
-      if (i === index) {
+      if (i !== index) return item;
+      const aux = item.precificacao_id ? itemPrecoAux[item.precificacao_id] : null;
+      const pod = item.modelo_negocio === 'print_on_demand';
+
+      // Fora do CATALOGO 2026 nada muda: o preco e' o que estiver digitado.
+      if (!aux?.escadaDeVolume || pod || !(aux.precoOriginal > 0)) {
         return {
           ...item,
           quantidade,
-          subtotal: item.modelo_negocio === 'print_on_demand' ? 0 : item.preco_unitario * quantidade,
+          subtotal: pod ? 0 : item.preco_unitario * quantidade,
         };
       }
-      return item;
+
+      // No 2026, mudar o volume E' mudar de faixa, e cada faixa tem preco
+      // programado. Antes a quantidade subia e o preco ficava no da faixa
+      // antiga: o vendedor cobrava 5.000 potes ao preco de 100, ou deixava de
+      // dar o desconto que o volume tinha comprado.
+      const preco = arredondarReais(
+        precoDaFaixa(aux.precoOriginal, item.segmento, indiceDaFaixa(quantidade), aux.custoUnit),
+      );
+      return {
+        ...item,
+        quantidade,
+        preco_unitario: preco,
+        subtotal: arredondarReais(preco * quantidade),
+      };
     }));
+  };
+
+  /**
+   * Aplica um degrau da escada: quantidade e preço de uma vez.
+   *
+   * Clicar no degrau em que o item JÁ está é pedir o preço programado de
+   * volta, e não voltar a quantidade para o mínimo da faixa -- quem tem 450
+   * potes e clica em "300" quer o preço certo de 450, não perder 150 potes.
+   */
+  const aplicarFaixaNoItem = (index: number, potes: number, preco: number) => {
+    const item = itensProducao[index];
+    if (!item) return;
+    if (indiceDaFaixa(item.quantidade || 0) === indiceDaFaixa(potes)) {
+      aplicarPrecoNoItem(index, preco);
+      return;
+    }
+    handleUpdateItemQuantidade(index, potes);
   };
 
   const handleUpdateModeloNegocio = (index: number, modelo: 'estoque' | 'print_on_demand') => {
@@ -1617,22 +1711,39 @@ export default function GerarOrcamentoDialog({
                           </Button>
                         </div>
 
-                        {/* A escada de volume na hora da decisao. O preco de
-                            catalogo e' a faixa de 300 a 499; abaixo disso o
-                            produtor paga a tabela de entrada, 15% acima, e
-                            quase nunca sabe disso. */}
+                        {/* A escada de volume na hora da decisao, e so' no
+                            CATALOGO 2026: a tabela de degraus e' daquela
+                            prateleira, e oferecer esses descontos numa formula
+                            personalizada prometeria o que a fabrica nao
+                            combinou para ela.
+
+                            O seletor vem antes do aviso de proposito: primeiro
+                            as opcoes com preco de cada uma, depois a conta do
+                            que se perde por nao subir. */}
                         {item.modelo_negocio !== 'print_on_demand' && (() => {
                           const aux = item.precificacao_id ? itemPrecoAux[item.precificacao_id] : null;
-                          if (!aux || !(aux.precoOriginal > 0)) return null;
+                          if (!aux || !aux.escadaDeVolume || !(aux.precoOriginal > 0)) return null;
                           return (
-                            <EscadaVolumeAviso
-                              quantidade={item.quantidade}
-                              precoCatalogo={aux.precoOriginal}
-                              tipoProduto={item.segmento}
-                              custoPorPote={aux.custoUnit}
-                              precoCobrado={item.preco_unitario}
-                              onAplicarPreco={(p) => aplicarPrecoNoItem(index, p)}
-                            />
+                            <>
+                              <EscadaVolumeSeletor
+                                precoCatalogo={aux.precoOriginal}
+                                tipoProduto={item.segmento}
+                                custoPorPote={aux.custoUnit}
+                                quantidade={item.quantidade}
+                                precoCobrado={item.preco_unitario}
+                                onEscolherFaixa={(potes, preco) =>
+                                  aplicarFaixaNoItem(index, potes, preco)
+                                }
+                              />
+                              <EscadaVolumeAviso
+                                quantidade={item.quantidade}
+                                precoCatalogo={aux.precoOriginal}
+                                tipoProduto={item.segmento}
+                                custoPorPote={aux.custoUnit}
+                                precoCobrado={item.preco_unitario}
+                                onAplicarPreco={(p) => aplicarPrecoNoItem(index, p)}
+                              />
+                            </>
                           );
                         })()}
 
@@ -1640,7 +1751,8 @@ export default function GerarOrcamentoDialog({
                           const info = getItemMargemInfo(index);
                           if (!info) return null;
                           const liberada = precoLiberadoIdxs.includes(index);
-                          const precoAlterado = arredondarReais(item.preco_unitario) !== arredondarReais(info.precoOriginal);
+                          const precoAlterado =
+                            arredondarReais(item.preco_unitario) !== arredondarReais(info.precoPadrao);
                           return (
                             <div className={cn(
                               'flex flex-wrap items-center gap-2 px-2 py-1.5 rounded border text-xs',
@@ -1659,7 +1771,8 @@ export default function GerarOrcamentoDialog({
                                 </Badge>
                               )}
                               <span className="text-[11px] text-muted-foreground ml-auto">
-                                Preço padrão: {formatCurrency(info.precoOriginal)}
+                                {info.escadaDeVolume ? 'Preço desta faixa: ' : 'Preço padrão: '}
+                                {formatCurrency(info.precoPadrao)}
                               </span>
                               {precoAlterado && (
                                 <Button

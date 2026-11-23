@@ -28,7 +28,7 @@ import { autorizacaoDaPrateleira } from '@/lib/autorizacaoPrateleira';
 import { CLIENTE_CATALOGO_2026 } from '@/lib/linhaProduto';
 import MoverDepartamentoDialog from './MoverDepartamentoDialog';
 import { cn } from '@/lib/utils';
-import { type Departamento, ehCatalogo } from '@/lib/linhaProduto';
+import { type Departamento, ehCatalogo, ehCatalogo2026 } from '@/lib/linhaProduto';
 import {
   AbaCatalogo, NICHOS, NICHO_NOME, NICHO_TEMA, NichoLoja, SEM_LOJA, TODAS,
   abasDaFormula, nomeDeExibicao, prateleiraUsaNichos, produtoDaLoja,
@@ -537,14 +537,17 @@ export default function PrecificacoesSalvas({
                         {/* O preco acima e' a faixa de 300 a 499; as outras
                             cinco saem dele pela regra da planilha. Ficam aqui,
                             colados nele, porque "preco de venda" deixou de ser
-                            um numero so'. */}
-                        <EscadaVolumeTabela
-                          variante="coluna"
-                          className="mt-1.5 border-t border-border/60 pt-1.5"
-                          precoCatalogo={Number(precificacao.preco_venda) || 0}
-                          tipoProduto={precificacao.formulas?.tipo_produto}
-                          custoPorPote={Number(precificacao.total_custos_producao) || 0}
-                        />
+                            um numero so' -- mas so' no CATALOGO 2026, que e' a
+                            prateleira de quem essa tabela e'. */}
+                        {ehCatalogo2026(precificacao.formulas?.cliente) && (
+                          <EscadaVolumeTabela
+                            variante="coluna"
+                            className="mt-1.5 border-t border-border/60 pt-1.5"
+                            precoCatalogo={Number(precificacao.preco_venda) || 0}
+                            tipoProduto={precificacao.formulas?.tipo_produto}
+                            custoPorPote={Number(precificacao.total_custos_producao) || 0}
+                          />
+                        )}
                       </div>
                       {(() => {
                         const styles = getMargemStyles(

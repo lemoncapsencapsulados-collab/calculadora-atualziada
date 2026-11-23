@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency, formatCurrencyPrecise } from '@/lib/unitConversion';
-import { ehCatalogo } from '@/lib/linhaProduto';
+import { ehCatalogo, ehCatalogo2026 } from '@/lib/linhaProduto';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { arredondarReais } from '@/lib/utils';
@@ -777,20 +777,26 @@ export default function Precificacao() {
                             <div className="text-center">
                               <p className="text-sm text-muted-foreground mb-2">💵 Preço de Venda</p>
                               <p className="text-4xl font-bold text-primary">R$ {resultado.precoVenda.toFixed(2)}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                de 300 a 499 potes por SKU
-                              </p>
+                              {ehCatalogo2026(formulaSelecionada?.cliente) && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  de 300 a 499 potes por SKU
+                                </p>
+                              )}
                             </div>
-                            {/* O valor acima e' a faixa de catalogo. O preco
-                                deixou de ser unico: as outras cinco faixas
-                                saem dele pela regra da planilha de escada. */}
-                            <EscadaVolumeTabela
-                              variante="coluna"
-                              className="mt-3 border-t border-border/60 pt-3"
-                              precoCatalogo={resultado.precoVenda}
-                              tipoProduto={formulaSelecionada?.tipo_produto}
-                              custoPorPote={resultado.totalCustosProducao}
-                            />
+                            {/* A escada e' a tabela do CATALOGO 2026. Fora dela
+                                o preco de venda e' um numero so' mesmo, e
+                                mostrar degraus numa formula personalizada
+                                prometeria desconto por volume que a fabrica
+                                nao combinou para ela. */}
+                            {ehCatalogo2026(formulaSelecionada?.cliente) && (
+                              <EscadaVolumeTabela
+                                variante="coluna"
+                                className="mt-3 border-t border-border/60 pt-3"
+                                precoCatalogo={resultado.precoVenda}
+                                tipoProduto={formulaSelecionada?.tipo_produto}
+                                custoPorPote={resultado.totalCustosProducao}
+                              />
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">

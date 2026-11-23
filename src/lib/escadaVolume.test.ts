@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { calcularMargemLiquida, validarMargemPorTipo } from './precificacaoCalculator';
 import {
   BONUS_MARGEM_VOLUME_TOPO,
   categoriaDoTipo,
@@ -7,6 +8,7 @@ import {
   FAIXAS_VOLUME,
   indiceDaFaixa,
   INDICE_FAIXA_CATALOGO,
+  INDICE_FAIXA_ENTRADA,
   INDICE_FAIXA_TOPO,
   limitesDaFaixa,
   LIMITES_MARGEM,
@@ -368,5 +370,43 @@ describe('a faixa é por SKU, e as faixas cobrem a reta toda', () => {
       expect(FAIXAS_VOLUME[i].ate! + 1).toBe(FAIXAS_VOLUME[i + 1].de);
     }
     expect(FAIXAS_VOLUME[FAIXAS_VOLUME.length - 1].ate).toBeNull();
+  });
+});
+
+describe('o orçamento começa na faixa de entrada', () => {
+  it('a faixa de entrada é a tabela de 100 potes, acima do preço de catálogo', () => {
+    // O padrão de um item novo. Entrar pelo preço de catálogo seria dar 15%
+    // de desconto a quem leva 100 potes, sem ninguém ter decidido dar.
+    for (const [nome, tipo, preco] of CATALOGO_2026) {
+      const entrada = precoDaFaixa(preco, tipo, INDICE_FAIXA_ENTRADA);
+      if (tipo === 'Gummy') {
+        // A goma não tem tabela de entrada: sem desconto nos degraus do meio,
+        // o preço de 100 potes é o próprio preço de catálogo.
+        expect(entrada, nome).toBe(preco);
+      } else {
+        expect(entrada, nome).toBe(tabelaCemPotes(preco));
+        expect(entrada, nome).toBeGreaterThan(preco);
+      }
+    }
+  });
+
+  it('a quantidade inicial de 1 pote cai na faixa de entrada', () => {
+    // O item entra no orçamento com quantidade 1, e o preço tem de ser o
+    // mesmo da faixa de 100: senão o padrão da tela e a regra divergem.
+    expect(indiceDaFaixa(1)).toBe(INDICE_FAIXA_ENTRADA);
+  });
+});
+
+describe('nenhum preço programado dispara a senha de margem', () => {
+  // O vendedor escolhe um degrau e o preço é aplicado direto. Se algum degrau
+  // caísse abaixo da margem mínima, a tela pediria senha no meio da conversa
+  // com o cliente -- por usar um preço que a própria fábrica programou.
+  it.each(CATALOGO_2026)('%s, nos seis degraus', (_nome, tipo, preco, custo) => {
+    for (let i = 0; i < FAIXAS_VOLUME.length; i++) {
+      const p = precoDaFaixa(preco, tipo, i, custo);
+      const margem = calcularMargemLiquida(p, custo);
+      const status = validarMargemPorTipo(margem, tipo).status;
+      expect(status, `${FAIXAS_VOLUME[i].rotulo} potes a ${p}`).not.toBe('baixa');
+    }
   });
 });

@@ -54,6 +54,16 @@ export const FAIXAS_VOLUME: FaixaVolume[] = [
 export const INDICE_FAIXA_CATALOGO = 1; // 300 a 499
 
 /**
+ * A faixa de entrada -- e o padrão de um orçamento novo.
+ *
+ * Um item entra no orçamento pelo preço de 100 potes, não pelo de catálogo: o
+ * padrão tem de ser o do menor volume. Ao contrário, o vendedor que fecha 100
+ * potes cobra o preço de 300 e a fábrica paga a diferença sem que ninguém
+ * tenha decidido isso.
+ */
+export const INDICE_FAIXA_ENTRADA = 0; // 100 a 299
+
+/**
  * Desconto sobre a tabela de 100 potes, por categoria e faixa.
  *
  * Os números são da planilha. O desconto de 300 (15%) é o que define a tabela
