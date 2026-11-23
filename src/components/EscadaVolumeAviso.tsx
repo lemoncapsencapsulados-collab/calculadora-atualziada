@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
 import {
+  BONUS_MARGEM_VOLUME_TOPO,
   compararComProximoDegrau,
   indiceDaFaixa,
   precoDaFaixa,
@@ -23,6 +24,11 @@ import {
  * A conta vem em três ângulos porque é assim que o produtor pergunta:
  * "quanto eu economizo?", "quanto eu gasto a mais?" e "quanto estou pagando a
  * mais agora?".
+ *
+ * O degrau de 5.000 é anunciado à parte: ele não é só o próximo da fila, traz
+ * dois pontos de margem que a fábrica abriu de propósito para o pedido
+ * grande. É o único argumento da escada que o vendedor não consegue deduzir
+ * da tabela, então precisa estar escrito.
  */
 
 interface Props {
@@ -32,6 +38,11 @@ interface Props {
   precoCatalogo: number;
   /** `tipo_produto`: Encapsulados, Líquido, Solúvel ou Gummy. */
   tipoProduto: string | null | undefined;
+  /**
+   * Custo de produção por pote. O degrau de 5.000 é definido em margem, então
+   * sem o custo ele cai no desconto medido da linha, um décimo de ponto fora.
+   */
+  custoPorPote?: number | null;
   /** O que está sendo cobrado no item agora. */
   precoCobrado?: number | null;
   /** Aplica o preço da faixa no item. Sem isto, o aviso só informa. */
@@ -43,17 +54,23 @@ export default function EscadaVolumeAviso({
   quantidade,
   precoCatalogo,
   tipoProduto,
+  custoPorPote,
   precoCobrado,
   onAplicarPreco,
   className,
 }: Props) {
-  const c = compararComProximoDegrau(quantidade, precoCatalogo, tipoProduto);
+  const c = compararComProximoDegrau(quantidade, precoCatalogo, tipoProduto, custoPorPote);
   if (!c) return null;
 
   // O preco que a faixa manda cobrar nesta quantidade. Abaixo de 300 ele e'
   // MAIOR que o do catalogo -- a tabela de entrada e' 15% acima --, entao
   // cobrar o preco de catalogo num pedido pequeno tira margem da fabrica.
-  const precoDaVez = precoDaFaixa(precoCatalogo, tipoProduto, indiceDaFaixa(quantidade));
+  const precoDaVez = precoDaFaixa(
+    precoCatalogo,
+    tipoProduto,
+    indiceDaFaixa(quantidade),
+    custoPorPote,
+  );
   const cobrado = Number(precoCobrado);
   const precisaAjustar =
     Number.isFinite(cobrado) && cobrado > 0 && Math.abs(cobrado - precoDaVez) >= 0.005;
@@ -84,7 +101,9 @@ export default function EscadaVolumeAviso({
         )}
         {alerta
           ? 'O produtor está perdendo dinheiro'
-          : `Falta pouco para o próximo degrau (${num(c.potesProximo)} potes)`}
+          : c.proximoTemBonusDeVolume
+            ? `Acima de 4.999 potes a fábrica abre mais ${(BONUS_MARGEM_VOLUME_TOPO * 100).toFixed(0)} pontos de margem`
+            : `Falta pouco para o próximo degrau (${num(c.potesProximo)} potes)`}
       </p>
 
       <p className="mt-1 text-foreground/90">

@@ -1,15 +1,59 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BONUS_MARGEM_VOLUME_TOPO,
   categoriaDoTipo,
   compararComProximoDegrau,
   escadaDoProduto,
   FAIXAS_VOLUME,
   indiceDaFaixa,
+  INDICE_FAIXA_CATALOGO,
+  INDICE_FAIXA_TOPO,
+  limitesDaFaixa,
+  LIMITES_MARGEM,
+  precoBaseDaFaixa,
   precoDaFaixa,
   tabelaCemPotes,
-  temEscada,
   tetoCentavo,
 } from './escadaVolume';
+
+/**
+ * Os 30 produtos do CATÁLOGO 2026 como estão gravados no banco, com o custo
+ * de produção por pote. Servem para provar o bônus de volume no dado real:
+ * a regra promete dois pontos de margem, e quem decide se ela cumpriu é o
+ * custo de cada produto, não um exemplo escolhido a dedo.
+ */
+const CATALOGO_2026: [string, string, number, number][] = [
+  ['ARTIFLEX GLUCOSAMINA + MSM  COMPLEX', 'Encapsulados', 9.8, 6.367943],
+  ['ATENTO COLINA', 'Encapsulados', 10.92, 7.095956],
+  ['B-DOZE', 'Encapsulados', 8.04, 5.22788],
+  ['BIOPRINCESS', 'Encapsulados', 15.86, 10.310474],
+  ['CAFEÍNA', 'Encapsulados', 8.54, 5.549894],
+  ['CÁLCIO + D3', 'Encapsulados', 11.92, 7.746738],
+  ['CÁLCIO + MAGNÉSIO + D3', 'Encapsulados', 11.85, 7.700521],
+  ['COENZIMA Q10', 'Encapsulados', 13.38, 8.694639],
+  ['COMPLEXO B', 'Encapsulados', 8.12, 5.278048],
+  ['DERMA COMPLEX', 'Encapsulados', 11.97, 7.78308],
+  ['FOCUS COLINA Q10', 'Encapsulados', 18.07, 11.748417],
+  ['LCM COMPLEX', 'Encapsulados', 12.22, 7.943514],
+  ['MAG + INOSITOL', 'Encapsulados', 11.9, 7.737395],
+  ['MELATON', 'Encapsulados', 8.07, 5.244821],
+  ['METABOLIC COMPLEX 30 CÁPSULAS', 'Encapsulados', 9.51, 6.181695],
+  ['METABOLIC COMPLEX 60 CÁPSULAS', 'Encapsulados', 10.45, 6.795667],
+  ['MSM D3 COMPLEX', 'Encapsulados', 8.87, 5.765738],
+  ['MULTIPLUS', 'Encapsulados', 12.12, 7.880727],
+  ['MULTIVITAMÍNICO', 'Encapsulados', 9.44, 6.133187],
+  ['NAC 750', 'Encapsulados', 12.27, 7.973393],
+  ['VITAL COMPLEX', 'Encapsulados', 10.53, 6.846179],
+  ['BELLA GUMMY (30 Unidades)', 'Gummy', 19.5, 11.161232],
+  ['CREATINA EM GUMMY (30 Unidades)', 'Gummy', 21.4, 12.385],
+  ['DREAM GUMMY (30 Unidades)', 'Gummy', 24.9, 14.249656],
+  ['MORO COMPLEX GOTAS', 'Líquido', 11.52, 7.775125],
+  ['SERENA', 'Líquido', 9.48, 6.402027],
+  ['CREATINA MONOHIDRATADA', 'Solúvel', 23.69, 14.924],
+  ['PRÉ-TREINO', 'Solúvel', 56.87, 35.82923],
+  ['PRÉ-TREINO COM CREATINA', 'Solúvel', 48.12, 30.313973],
+  ['SHOT MATINAL', 'Solúvel', 28.04, 17.667557],
+];
 
 /**
  * Gabarito tirado da planilha "Escada de Preços por Volume · White Label
@@ -30,10 +74,22 @@ const PLANILHA: [string, string, number, number[]][] = [
 ];
 
 describe('a escada reproduz a planilha', () => {
+  // O último degrau saiu da planilha em 23/11/2026, quando passou a carregar
+  // dois pontos de margem a mais. Os cinco primeiros seguem valendo como o
+  // documento os publicou, e é isso que estes casos protegem.
   it.each(PLANILHA)('%s', (_nome, tipo, preco, esperados) => {
-    esperados.forEach((esperado, i) => {
+    esperados.slice(0, INDICE_FAIXA_TOPO).forEach((esperado, i) => {
+      expect(precoBaseDaFaixa(preco, tipo, i)).toBe(esperado);
       expect(precoDaFaixa(preco, tipo, i)).toBe(esperado);
     });
+  });
+
+  it('o topo da planilha virou o preço-base do degrau do bônus', () => {
+    // A planilha ainda define de onde o bônus parte; ela só não dá mais a
+    // palavra final sobre o preço de 5.000.
+    for (const [, tipo, preco, esperados] of PLANILHA) {
+      expect(precoBaseDaFaixa(preco, tipo, INDICE_FAIXA_TOPO)).toBe(esperados[INDICE_FAIXA_TOPO]);
+    }
   });
 
   it('a faixa do catálogo é o preço gravado, sem recalcular', () => {
@@ -65,16 +121,110 @@ describe('arredondamento para cima no centavo', () => {
   });
 });
 
-describe('gomas ficam fora da escada', () => {
-  it('preço único em todas as faixas', () => {
-    expect(temEscada('Gummy')).toBe(false);
-    for (let i = 0; i < 6; i++) {
-      expect(precoDaFaixa(19.5, 'Gummy', i)).toBe(19.5);
+describe('gomas entram na escada só no topo', () => {
+  const CUSTO_GOMA = 11.161232; // BELLA GUMMY
+
+  it('preço único até 4.999 potes', () => {
+    for (let i = 0; i < INDICE_FAIXA_TOPO; i++) {
+      expect(precoDaFaixa(19.5, 'Gummy', i, CUSTO_GOMA)).toBe(19.5);
     }
   });
 
-  it('e não tem degrau para comparar', () => {
-    expect(compararComProximoDegrau(100, 19.5, 'Gummy')).toBeNull();
+  it('mas o pedido grande também ganha os dois pontos', () => {
+    // Antes a goma era preço único de ponta a ponta: quem fechava 5.000 potes
+    // de gummy pagava o mesmo que quem fechava 100.
+    const topo = precoDaFaixa(19.5, 'Gummy', INDICE_FAIXA_TOPO, CUSTO_GOMA);
+    expect(topo).toBeLessThan(19.5);
+    expect(topo).toBe(18.85);
+  });
+
+  it('nos degraus de baixo não há degrau para comparar', () => {
+    // Prometer economia de R$ 0,00 queimaria o aviso onde ele tem algo real
+    // a dizer.
+    expect(compararComProximoDegrau(100, 19.5, 'Gummy', CUSTO_GOMA)).toBeNull();
+    expect(compararComProximoDegrau(1000, 19.5, 'Gummy', CUSTO_GOMA)).toBeNull();
+  });
+
+  it('e de 2.500 em diante o gancho aponta para o bônus', () => {
+    const c = compararComProximoDegrau(2500, 19.5, 'Gummy', CUSTO_GOMA)!;
+    expect(c.potesProximo).toBe(5000);
+    expect(c.proximoTemBonusDeVolume).toBe(true);
+    expect(c.quedaPorPote).toBeCloseTo(0.65, 2);
+  });
+});
+
+describe('o bônus de margem acima de 4.999 potes', () => {
+  it.each(CATALOGO_2026)('%s devolve dois pontos de margem', (_nome, tipo, preco, custo) => {
+    const base = precoBaseDaFaixa(preco, tipo, INDICE_FAIXA_TOPO);
+    const comBonus = precoDaFaixa(preco, tipo, INDICE_FAIXA_TOPO, custo);
+    const margemBase = (1 - custo / base) * 100;
+    const margemBonus = (1 - custo / comBonus) * 100;
+    const queda = margemBase - margemBonus;
+
+    // Nunca mais de dois pontos: o arredondamento do centavo é para cima, e a
+    // sobra fica com a fábrica. Nunca menos de 1,90, que é o pior caso do
+    // centavo no produto mais barato do catálogo.
+    expect(queda).toBeLessThanOrEqual(BONUS_MARGEM_VOLUME_TOPO * 100);
+    expect(queda).toBeGreaterThan(1.9);
+    expect(comBonus).toBeLessThan(base);
+  });
+
+  it('não mexe em nenhum dos cinco degraus de baixo', () => {
+    // A mudança é cirúrgica: se um dia ela escorrer para os outros degraus, o
+    // catálogo inteiro muda de preço sem ninguém pedir.
+    for (const [, tipo, preco, custo] of CATALOGO_2026) {
+      for (let i = 0; i < INDICE_FAIXA_TOPO; i++) {
+        expect(precoDaFaixa(preco, tipo, i, custo)).toBe(precoBaseDaFaixa(preco, tipo, i));
+      }
+    }
+  });
+
+  it('sem custo, nunca desconta mais do que a regra exata daria', () => {
+    // Sem custo não há como honrar os dois pontos. O desconto medido da linha
+    // entra como rede, e tem de errar para o lado da fábrica.
+    for (const [, tipo, preco, custo] of CATALOGO_2026) {
+      const semCusto = precoDaFaixa(preco, tipo, INDICE_FAIXA_TOPO);
+      const comCusto = precoDaFaixa(preco, tipo, INDICE_FAIXA_TOPO, custo);
+      expect(semCusto).toBeGreaterThanOrEqual(comCusto);
+      expect(semCusto / comCusto).toBeLessThan(1.01);
+    }
+  });
+
+  it('produto sem dois pontos de sobra não recebe o bônus', () => {
+    // Custo acima do preço do degrau: aplicar o bônus aqui venderia mais
+    // barato um produto que já não fecha. Fica no preço da escada.
+    const base = precoBaseDaFaixa(10, 'Encapsulados', INDICE_FAIXA_TOPO);
+    expect(precoDaFaixa(10, 'Encapsulados', INDICE_FAIXA_TOPO, 9.99)).toBe(base);
+    // E não se confunde com custo desconhecido, que tem desconto próprio.
+    expect(precoDaFaixa(10, 'Encapsulados', INDICE_FAIXA_TOPO)).toBeLessThan(base);
+  });
+
+  it('o piso de margem do topo é dois pontos mais baixo', () => {
+    for (const categoria of ['Encapsulados', 'Líquidos', 'Solúveis', 'Gummies'] as const) {
+      const base = LIMITES_MARGEM[categoria];
+      expect(limitesDaFaixa(categoria, INDICE_FAIXA_CATALOGO).minima).toBe(base.minima);
+      expect(limitesDaFaixa(categoria, INDICE_FAIXA_TOPO).minima).toBe(base.minima - 2);
+      // O teto não muda: o bônus só abre espaço para baixo.
+      expect(limitesDaFaixa(categoria, INDICE_FAIXA_TOPO).maxima).toBe(base.maxima);
+    }
+  });
+
+  it('e nenhum produto do catálogo fica fora dos limites por causa dele', () => {
+    for (const [nome, tipo, preco, custo] of CATALOGO_2026) {
+      const escada = escadaDoProduto(preco, tipo, custo);
+      expect(escada[INDICE_FAIXA_TOPO].bonusDeVolume, nome).toBe(true);
+      expect(escada[INDICE_FAIXA_TOPO].foraDaFaixaDeMargem, nome).toBe(false);
+    }
+  });
+
+  it('a coluna de desconto mostra o desconto real do topo, não o da tabela', () => {
+    // No topo a constante publicada (20%) deixou de descrever o preço.
+    const escada = escadaDoProduto(10.92, 'Encapsulados', 7.095956);
+    expect(escada[INDICE_FAIXA_TOPO].descontoPercentual).toBeGreaterThan(20);
+    expect(escada[INDICE_FAIXA_TOPO].descontoPercentual).toBeCloseTo(22.18, 1);
+    // Os de baixo seguem a constante, para a tela não exibir 14,97% onde o
+    // documento diz 15%.
+    expect(escada[1].descontoPercentual).toBe(15);
   });
 });
 
@@ -130,11 +280,17 @@ describe('a escada inteira de um produto', () => {
   it('calcula a margem de cada degrau', () => {
     // Planilha: ATENTO COLINA vai de 34,58% em 100 potes a 18,23% em 5.000.
     expect(escada[0].margemPercentual).toBeCloseTo(34.58, 1);
-    expect(escada[5].margemPercentual).toBeCloseTo(18.23, 1);
+    // O 5.000 não é mais os 18,23% da planilha: o bônus de volume desceu dois
+    // pontos de propósito. Se este número voltar para 18,23, o bônus sumiu.
+    expect(escada[5].margemPercentual).toBeCloseTo(16.27, 1);
+    expect(escada[0].margemPercentual! - escada[5].margemPercentual!).toBeGreaterThan(18);
   });
 
-  it('nenhum degrau estoura os limites da categoria', () => {
+  it('nenhum degrau estoura os limites da faixa', () => {
+    // O topo só passa porque o piso dele é dois pontos mais baixo: com o piso
+    // antigo (18%) este produto sairia vermelho seguindo a regra nova.
     expect(escada.some((d) => d.foraDaFaixaDeMargem)).toBe(false);
+    expect(escada[5].margemPercentual!).toBeLessThan(LIMITES_MARGEM.Encapsulados.minima);
   });
 
   it('sem custo, mostra preço e omite margem', () => {

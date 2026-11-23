@@ -2,10 +2,10 @@ import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
 import {
+  BONUS_MARGEM_VOLUME_TOPO,
   escadaDoProduto,
   indiceDaFaixa,
   INDICE_FAIXA_CATALOGO as INDICE_CATALOGO,
-  temEscada,
 } from '@/lib/escadaVolume';
 
 /**
@@ -16,8 +16,12 @@ import {
  * resposta exigia abrir a planilha.
  *
  * A margem de cada degrau aparece quando se sabe o custo: é ela que diz até
- * onde dá para descer. Degrau fora dos limites da categoria sai em vermelho,
+ * onde dá para descer. Degrau fora dos limites da faixa sai em vermelho,
  * como na planilha.
+ *
+ * O degrau de 5.000 vem marcado: ele carrega dois pontos de margem que a
+ * fábrica abriu para o pedido grande, e um degrau que parece só "o último da
+ * lista" não vende esse diferencial.
  */
 
 interface Props {
@@ -46,14 +50,6 @@ export default function EscadaVolumeTabela({
   variante = 'tabela',
   className,
 }: Props) {
-  if (!temEscada(tipoProduto)) {
-    return (
-      <p className={cn('text-xs text-muted-foreground', className)}>
-        Preço único, fora da escada de volume — a margem da goma já está no mínimo da categoria.
-      </p>
-    );
-  }
-
   const degraus = escadaDoProduto(precoCatalogo, tipoProduto, custoPorPote);
   const emFoco = quantidadeEmFoco ? indiceDaFaixa(quantidadeEmFoco) : null;
   const mostrarMargem = degraus.some((d) => d.margemPercentual != null);
@@ -68,26 +64,32 @@ export default function EscadaVolumeTabela({
         {degraus.map((d) => {
           const atual = emFoco === d.indice;
           const catalogo = d.indice === INDICE_CATALOGO;
+          const bonus = d.bonusDeVolume;
           return (
             <div
               key={d.indice}
               className={cn(
                 'flex items-baseline justify-between gap-2 tabular-nums',
                 atual && 'text-primary',
-                !atual && catalogo && 'text-foreground',
-                !atual && !catalogo && 'text-muted-foreground',
+                !atual && bonus && 'text-emerald-700 dark:text-emerald-400',
+                !atual && !bonus && catalogo && 'text-foreground',
+                !atual && !bonus && !catalogo && 'text-muted-foreground',
               )}
-              title={
-                d.margemPercentual == null
-                  ? `${d.faixa.rotulo} potes por SKU`
-                  : `${d.faixa.rotulo} potes por SKU · margem ${d.margemPercentual.toFixed(1)}%`
-              }
+              title={[
+                `${d.faixa.rotulo} potes por SKU`,
+                d.margemPercentual == null ? null : `margem ${d.margemPercentual.toFixed(1)}%`,
+                bonus
+                  ? `inclui ${(BONUS_MARGEM_VOLUME_TOPO * 100).toFixed(0)} pontos de margem que a fábrica abre acima de 4.999 potes`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             >
               <span className="num">
                 {d.faixa.de.toLocaleString('pt-BR')}
                 {d.faixa.ate ? '' : '+'}
               </span>
-              <span className={cn('num', (catalogo || atual) && 'font-semibold')}>
+              <span className={cn('num', (catalogo || atual || bonus) && 'font-semibold')}>
                 {formatCurrency(d.precoPote)}
               </span>
             </div>
@@ -115,11 +117,15 @@ export default function EscadaVolumeTabela({
                 catalogo && !atual && 'text-foreground',
                 !catalogo && !atual && 'text-muted-foreground',
               )}
-              title={
-                d.margemPercentual == null
-                  ? `${d.faixa.rotulo} potes`
-                  : `${d.faixa.rotulo} potes · margem ${d.margemPercentual.toFixed(1)}%`
-              }
+              title={[
+                `${d.faixa.rotulo} potes`,
+                d.margemPercentual == null ? null : `margem ${d.margemPercentual.toFixed(1)}%`,
+                d.bonusDeVolume
+                  ? `inclui ${(BONUS_MARGEM_VOLUME_TOPO * 100).toFixed(0)} pontos de margem do volume`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             >
               <span className="num">
                 {d.faixa.de.toLocaleString('pt-BR')}
@@ -170,6 +176,11 @@ export default function EscadaVolumeTabela({
                   {atual && (
                     <span className="ml-1.5 text-[10px] text-primary">nesta negociação</span>
                   )}
+                  {d.bonusDeVolume && (
+                    <span className="ml-1.5 text-[10px] text-emerald-700 dark:text-emerald-400">
+                      +{(BONUS_MARGEM_VOLUME_TOPO * 100).toFixed(0)} pts de margem
+                    </span>
+                  )}
                 </td>
                 <td className="num px-2 py-1.5 text-right">{formatCurrency(d.precoPote)}</td>
                 {!compacta && (
@@ -194,6 +205,8 @@ export default function EscadaVolumeTabela({
       </table>
       <p className="border-t border-border bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
         A faixa vale por SKU: três produtos com 100 potes cada pagam a faixa de 100 a 299 nos três.
+        Acima de 4.999 potes a fábrica abre mais {(BONUS_MARGEM_VOLUME_TOPO * 100).toFixed(0)} pontos
+        de margem.
       </p>
     </div>
   );

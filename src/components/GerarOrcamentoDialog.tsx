@@ -1629,6 +1629,7 @@ export default function GerarOrcamentoDialog({
                               quantidade={item.quantidade}
                               precoCatalogo={aux.precoOriginal}
                               tipoProduto={item.segmento}
+                              custoPorPote={aux.custoUnit}
                               precoCobrado={item.preco_unitario}
                               onAplicarPreco={(p) => aplicarPrecoNoItem(index, p)}
                             />
