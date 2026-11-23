@@ -1,7 +1,12 @@
 import { Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/unitConversion';
-import { escadaDoProduto, indiceDaFaixa, temEscada } from '@/lib/escadaVolume';
+import {
+  escadaDoProduto,
+  indiceDaFaixa,
+  INDICE_FAIXA_CATALOGO as INDICE_CATALOGO,
+  temEscada,
+} from '@/lib/escadaVolume';
 
 /**
  * A escada de preço por volume de um produto, em tabela.
@@ -28,7 +33,7 @@ interface Props {
    * É o formato para o card, onde a escada é referência de leitura rápida e
    * uma tabela com borda rouba a atenção do que o card existe para mostrar.
    */
-  variante?: 'tabela' | 'linha';
+  variante?: 'tabela' | 'linha' | 'coluna';
   className?: string;
 }
 
@@ -53,6 +58,45 @@ export default function EscadaVolumeTabela({
   const emFoco = quantidadeEmFoco ? indiceDaFaixa(quantidadeEmFoco) : null;
   const mostrarMargem = degraus.some((d) => d.margemPercentual != null);
 
+  if (variante === 'coluna') {
+    // Formato para o campo "Preço de Venda", que é estreito: uma linha por
+    // degrau, potes à esquerda e preço à direita. A faixa do catálogo fica
+    // marcada porque é dela que as outras descem -- e é a única que alguém
+    // edita.
+    return (
+      <div className={cn('space-y-0.5 text-xs', className)}>
+        {degraus.map((d) => {
+          const atual = emFoco === d.indice;
+          const catalogo = d.indice === INDICE_CATALOGO;
+          return (
+            <div
+              key={d.indice}
+              className={cn(
+                'flex items-baseline justify-between gap-2 tabular-nums',
+                atual && 'text-primary',
+                !atual && catalogo && 'text-foreground',
+                !atual && !catalogo && 'text-muted-foreground',
+              )}
+              title={
+                d.margemPercentual == null
+                  ? `${d.faixa.rotulo} potes por SKU`
+                  : `${d.faixa.rotulo} potes por SKU · margem ${d.margemPercentual.toFixed(1)}%`
+              }
+            >
+              <span className="num">
+                {d.faixa.de.toLocaleString('pt-BR')}
+                {d.faixa.ate ? '' : '+'}
+              </span>
+              <span className={cn('num', (catalogo || atual) && 'font-semibold')}>
+                {formatCurrency(d.precoPote)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (variante === 'linha') {
     return (
       <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs', className)}>
@@ -61,7 +105,7 @@ export default function EscadaVolumeTabela({
         </span>
         {degraus.map((d) => {
           const atual = emFoco === d.indice;
-          const catalogo = d.indice === 1;
+          const catalogo = d.indice === INDICE_CATALOGO;
           return (
             <span
               key={d.indice}
@@ -109,7 +153,7 @@ export default function EscadaVolumeTabela({
         <tbody>
           {degraus.map((d) => {
             const atual = emFoco === d.indice;
-            const catalogo = d.indice === 1;
+            const catalogo = d.indice === INDICE_CATALOGO;
             return (
               <tr
                 key={d.indice}

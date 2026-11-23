@@ -38,6 +38,7 @@ import {
 import { BookmarkCheck, CalendarCheck, Lock, Save, Search, Package, Calculator, FileText, Sparkles, Star, Trash2, Download, DollarSign, Copy, Edit } from 'lucide-react';
 import { aviso as toast } from '@/lib/avisos';
 import PrecificacoesSalvas from '@/components/PrecificacoesSalvas';
+import EscadaVolumeTabela from '@/components/EscadaVolumeTabela';
 import { VerFormulaDialog } from '@/components/VerFormulaDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -772,9 +773,24 @@ export default function Precificacao() {
                           <CardTitle>✅ Precificação Final</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <div className="text-center p-6 bg-primary/5 rounded-lg">
-                            <p className="text-sm text-muted-foreground mb-2">💵 Preço de Venda</p>
-                            <p className="text-4xl font-bold text-primary">R$ {resultado.precoVenda.toFixed(2)}</p>
+                          <div className="p-6 bg-primary/5 rounded-lg">
+                            <div className="text-center">
+                              <p className="text-sm text-muted-foreground mb-2">💵 Preço de Venda</p>
+                              <p className="text-4xl font-bold text-primary">R$ {resultado.precoVenda.toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                de 300 a 499 potes por SKU
+                              </p>
+                            </div>
+                            {/* O valor acima e' a faixa de catalogo. O preco
+                                deixou de ser unico: as outras cinco faixas
+                                saem dele pela regra da planilha de escada. */}
+                            <EscadaVolumeTabela
+                              variante="coluna"
+                              className="mt-3 border-t border-border/60 pt-3"
+                              precoCatalogo={resultado.precoVenda}
+                              tipoProduto={formulaSelecionada?.tipo_produto}
+                              custoPorPote={resultado.totalCustosProducao}
+                            />
                           </div>
 
                           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">

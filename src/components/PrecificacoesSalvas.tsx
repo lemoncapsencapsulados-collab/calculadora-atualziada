@@ -534,6 +534,17 @@ export default function PrecificacoesSalvas({
                             queryClient.invalidateQueries({ queryKey: ['precificacoes-paginadas'] })
                           }
                         />
+                        {/* O preco acima e' a faixa de 300 a 499; as outras
+                            cinco saem dele pela regra da planilha. Ficam aqui,
+                            colados nele, porque "preco de venda" deixou de ser
+                            um numero so'. */}
+                        <EscadaVolumeTabela
+                          variante="coluna"
+                          className="mt-1.5 border-t border-border/60 pt-1.5"
+                          precoCatalogo={Number(precificacao.preco_venda) || 0}
+                          tipoProduto={precificacao.formulas?.tipo_produto}
+                          custoPorPote={Number(precificacao.total_custos_producao) || 0}
+                        />
                       </div>
                       {(() => {
                         const styles = getMargemStyles(
@@ -562,15 +573,6 @@ export default function PrecificacoesSalvas({
                       })()}
                     </div>
 
-                    {/* A escada de volume, em linha. O preco acima e' a faixa
-                        de 300 a 499; as outras cinco saem dele por regra, entao
-                        nao ha' o que gravar nem o que desatualizar. */}
-                    <EscadaVolumeTabela
-                      variante="linha"
-                      precoCatalogo={Number(precificacao.preco_venda) || 0}
-                      tipoProduto={precificacao.formulas?.tipo_produto}
-                      custoPorPote={Number(precificacao.total_custos_producao) || 0}
-                    />
                   </div>
 
                   {/* Ações */}
