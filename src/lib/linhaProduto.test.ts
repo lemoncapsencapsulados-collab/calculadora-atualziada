@@ -8,6 +8,7 @@ import {
   ehCatalogo2026,
   ehSelecao,
   linhaDoCliente,
+  listaDoOrcamento,
 } from './linhaProduto';
 
 describe('as três prateleiras', () => {
@@ -102,5 +103,53 @@ describe('CATÁLOGO 2026', () => {
 
   it('tem rótulo próprio na tela', () => {
     expect(DEPARTAMENTO_LABEL.catalogo_2026).toBe('CATÁLOGO 2026');
+  });
+});
+
+describe('o que entra num orçamento novo', () => {
+  it('Private Label entra, na lista dele', () => {
+    expect(listaDoOrcamento('Padaria do Zé')).toBe('private_label');
+    expect(listaDoOrcamento('')).toBe('private_label');
+    expect(listaDoOrcamento(null)).toBe('private_label');
+  });
+
+  it('CATÁLOGO 2026 entra, na lista dele', () => {
+    expect(listaDoOrcamento('CATÁLOGO 2026')).toBe('catalogo_2026');
+    expect(listaDoOrcamento('catalogo 2026')).toBe('catalogo_2026');
+  });
+
+  it('o White Label antigo não entra mais', () => {
+    // 39 precificações continuam gravadas e valendo nos orçamentos que já as
+    // têm; elas só não são oferecidas em orçamento novo. O preço delas é um
+    // número fixo, e o catálogo passou a ser vendido por volume.
+    expect(listaDoOrcamento('Catálogo')).toBeNull();
+    expect(listaDoOrcamento('Catálogo Lemon')).toBeNull();
+    expect(listaDoOrcamento('Catálogo 2027')).toBeNull();
+  });
+
+  it('Seleção LemonCaps também não', () => {
+    expect(listaDoOrcamento('Seleção LemonCaps')).toBeNull();
+  });
+
+  it('as duas listas são disjuntas e nenhuma prateleira cai nas duas', () => {
+    // A garantia de ter a regra num lugar só: cada fórmula cai em exatamente
+    // uma lista, ou em nenhuma. Repartida em duas condições, uma prateleira
+    // nova apareceria nas duas ou sumiria sem ninguém notar.
+    const exemplos = [
+      'Padaria do Zé',
+      'CATÁLOGO 2026',
+      'Catálogo',
+      'Seleção LemonCaps',
+      'Catálogo 2027',
+    ];
+    for (const cliente of exemplos) {
+      const lista = listaDoOrcamento(cliente);
+      const emPrivate = lista === 'private_label';
+      const emCatalogo = lista === 'catalogo_2026';
+      expect(emPrivate && emCatalogo, cliente).toBe(false);
+      // E a lista, quando existe, é o próprio departamento -- não uma
+      // tradução que possa divergir dele.
+      if (lista) expect(lista, cliente).toBe(departamentoDoCliente(cliente));
+    }
   });
 });

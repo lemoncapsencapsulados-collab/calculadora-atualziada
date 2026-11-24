@@ -7,7 +7,12 @@ import { useOrcamentos } from '@/hooks/useOrcamentos';
 import { usePrecificacao } from '@/hooks/usePrecificacao';
 import { validarMargemPorTipo, calcularMargemLiquida } from '@/lib/precificacaoCalculator';
 import { arredondarReais } from '@/lib/utils';
-import { ehCatalogo2026, linhaDoCliente } from '@/lib/linhaProduto';
+import {
+  CLIENTE_CATALOGO_2026,
+  ehCatalogo2026,
+  linhaDoCliente,
+  listaDoOrcamento,
+} from '@/lib/linhaProduto';
 import SenhaAdminDialog from '@/components/SenhaAdminDialog';
 import { Orcamento, ItemProducao, ServicoMarca, OrcamentoInsert, InsumoSnapshot, DetalhamentoEnvio, CondicoesPagamento, TipoOrcamento, Entregavel } from '@/types/orcamento';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,6 +65,7 @@ import EscadaVolumeSeletor from './EscadaVolumeSeletor';
 import {
   indiceDaFaixa,
   INDICE_FAIXA_ENTRADA,
+  INDICE_FAIXA_TOPO,
   precoDaFaixa,
 } from '@/lib/escadaVolume';
 import ClienteSelector from '@/components/ClienteSelector';
@@ -1134,10 +1140,14 @@ export default function GerarOrcamentoDialog({
     });
   }, [itensProducao, precificacoes]);
 
-  // Precificações disponíveis (excluindo catálogo)
+  // Precificações que entram num orçamento novo: SO' Private Label.
+  //
+  // Antes era "tudo o que nao e' catalogo", o que deixava passar qualquer
+  // prateleira futura sem a palavra "catalogo" no nome. Agora a regra e'
+  // positiva: private label aqui, CATALOGO 2026 na outra lista, e nada mais.
   const precificacoesDisponiveis = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
-    if (isCatalogo(p.formulas?.cliente || '')) return false;
+    if (listaDoOrcamento(p.formulas?.cliente) !== 'private_label') return false;
     
     if (buscaPrecificacao.trim()) {
       const termo = buscaPrecificacao.toLowerCase();
@@ -1148,10 +1158,16 @@ export default function GerarOrcamentoDialog({
     return true;
   }) || [];
 
-  // Precificações do catálogo
+  // Precificações de catálogo que entram num orçamento novo: SO' o 2026.
+  //
+  // O White Label antigo (cliente "Catalogo") saiu da selecao: o preco dele e'
+  // um numero fixo, e a casa passou a vender catalogo por volume. Oferecer as
+  // duas tabelas na mesma lista fazia o vendedor escolher entre duas politicas
+  // de preco sem saber que eram duas. As formulas antigas continuam gravadas e
+  // nos orcamentos que ja' as tem; so' nao entram em orcamento novo.
   const precificacoesCatalogo = (precificacoes as any[])?.filter(p => {
     if (itensProducao.some(item => item.precificacao_id === p.id)) return false;
-    if (!isCatalogo(p.formulas?.cliente || '')) return false;
+    if (listaDoOrcamento(p.formulas?.cliente) !== 'catalogo_2026') return false;
     
     if (buscaPrecificacao.trim()) {
       const termo = buscaPrecificacao.toLowerCase();
@@ -1194,16 +1210,20 @@ export default function GerarOrcamentoDialog({
         toast.error('Nenhuma fórmula vinculada às precificações selecionadas.');
         return;
       }
+      // Vai para o CATALOGO 2026, e nao para o "Catalogo" antigo: aquele
+      // deixou de ser selecionavel em orcamento, e importar para la' seria
+      // promover a formula para uma prateleira de onde ninguem consegue
+      // vende-la.
       const { error } = await supabase
         .from('formulas')
-        .update({ cliente: 'Catálogo' })
+        .update({ cliente: CLIENTE_CATALOGO_2026 })
         .in('id', formulaIds);
       if (error) throw error;
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['precificacoes'] }),
         qc.invalidateQueries({ queryKey: ['formulas'] }),
       ]);
-      toast.success(`${formulaIds.length} fórmula(s) importada(s) para o Catálogo!`);
+      toast.success(`${formulaIds.length} fórmula(s) importada(s) para o CATÁLOGO 2026!`);
       setSelectedParaCatalogo([]);
       setBuscaImportarCatalogo('');
       setShowImportarCatalogo(false);
@@ -1381,7 +1401,7 @@ export default function GerarOrcamentoDialog({
                     className="border-amber-500 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
                   >
                     <Star className="w-4 h-4 mr-1" />
-                    White Label (Fórmulas do Catálogo)
+                    CATÁLOGO 2026
                   </Button>
                 </div>
               </div>
@@ -1469,12 +1489,24 @@ export default function GerarOrcamentoDialog({
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-amber-500" />
-                        White Label (Fórmulas do Catálogo)
+                        CATÁLOGO 2026
                       </Label>
                       <Button variant="ghost" size="sm" onClick={() => { setShowCatalogoSelector(false); setBuscaPrecificacao(''); }}>
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
+
+                    {/* A regra de volume dita antes da escolha, nao depois.
+                        Quem le' um preco so' na lista monta o orcamento
+                        achando que o produto tem "um preco" -- e a escada
+                        aparecia quando o item ja' estava dentro. */}
+                    <p className="rounded border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-900 dark:text-amber-200">
+                      Aqui o preço é <strong>por volume</strong>, não um valor fixo: o item entra
+                      pelo preço de 100 potes e cai a cada degrau, até 5.000 ou mais, onde a
+                      fábrica abre 2 pontos de margem. A faixa vale <strong>por SKU</strong> — três
+                      produtos de 100 potes pagam a faixa de 100 nos três. Depois de adicionar, o
+                      degrau se escolhe no próprio item.
+                    </p>
 
                     <Button
                       variant="outline"
@@ -1483,7 +1515,9 @@ export default function GerarOrcamentoDialog({
                       onClick={() => setShowImportarCatalogo(v => !v)}
                     >
                       <Plus className="w-4 h-4 mr-1" />
-                      {showImportarCatalogo ? 'Fechar importação' : 'Importar precificação para o Catálogo'}
+                      {showImportarCatalogo
+                        ? 'Fechar importação'
+                        : 'Importar precificação para o CATÁLOGO 2026'}
                     </Button>
 
                     {showImportarCatalogo && (
@@ -1545,7 +1579,9 @@ export default function GerarOrcamentoDialog({
                     />
                     
                     {precificacoesCatalogo.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Nenhuma fórmula do catálogo disponível.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Nenhuma fórmula do CATÁLOGO 2026 disponível.
+                      </p>
                     ) : (
                       <div className="max-h-48 overflow-y-auto space-y-2">
                         {precificacoesCatalogo.map((prec: any) => {
@@ -1585,7 +1621,33 @@ export default function GerarOrcamentoDialog({
                                 <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">Liberada</Badge>
                               )}
                               <Badge variant="secondary">{prec.formulas?.tipo_produto}</Badge>
-                              <span className="font-semibold">{formatCurrency(Number(prec.preco_venda))}</span>
+                              {/* O preco de venda gravado e' a faixa de 300 a
+                                  499, e nao e' o que vai ser cobrado: o item
+                                  entra pela faixa de entrada. Mostrar o numero
+                                  gravado aqui contava uma coisa e o orcamento
+                                  fazia outra. */}
+                              {(() => {
+                                const base = Number(prec.preco_venda) || 0;
+                                const custo = Number(prec.total_custos_producao) || 0;
+                                const tipo = prec.formulas?.tipo_produto;
+                                const entrada = precoDaFaixa(base, tipo, INDICE_FAIXA_ENTRADA, custo);
+                                const topo = precoDaFaixa(base, tipo, INDICE_FAIXA_TOPO, custo);
+                                return (
+                                  <div className="text-right">
+                                    <span className="num block font-semibold leading-tight">
+                                      {formatCurrency(entrada)}
+                                    </span>
+                                    <span className="block text-[10px] leading-tight text-muted-foreground">
+                                      100 potes
+                                    </span>
+                                    {topo < entrada && (
+                                      <span className="num block text-[10px] leading-tight text-emerald-700 dark:text-emerald-400">
+                                        até {formatCurrency(topo)} em 5.000+
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </label>
                           );
                         })}

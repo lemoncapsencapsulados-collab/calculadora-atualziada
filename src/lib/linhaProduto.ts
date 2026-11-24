@@ -89,6 +89,35 @@ export function departamentoDoCliente(
 }
 
 /**
+ * Em qual lista do orcamento a formula aparece -- `null` quando em nenhuma.
+ *
+ * O orcamento oferece DUAS prateleiras, e so' duas: Private Label (formula
+ * personalizada, preco proprio) e CATALOGO 2026 (preco por volume). O White
+ * Label antigo saiu da selecao em 24/11/2026: o preco dele e' um numero fixo,
+ * e a casa passou a vender catalogo por escada de volume. Oferecer as duas
+ * tabelas na mesma lista fazia o vendedor escolher entre duas politicas de
+ * preco sem saber que eram duas.
+ *
+ * As formulas de fora continuam gravadas, e nos orcamentos que ja' as tem --
+ * so' nao entram em orcamento novo.
+ *
+ * Existe aqui, e nao como duas condicoes soltas na tela, porque as duas listas
+ * precisam ser disjuntas e cobrir exatamente o que se pode vender: com a regra
+ * repartida em dois lugares, uma prateleira nova aparece nas duas listas ou em
+ * nenhuma, e ninguem percebe.
+ */
+export type ListaDeOrcamento = 'private_label' | 'catalogo_2026';
+
+export function listaDoOrcamento(
+  clienteDaFormula: string | null | undefined,
+): ListaDeOrcamento | null {
+  const departamento = departamentoDoCliente(clienteDaFormula);
+  return departamento === 'private_label' || departamento === 'catalogo_2026'
+    ? departamento
+    : null;
+}
+
+/**
  * Linha do produto no orcamento e nos documentos.
  *
  * A Selecao e o CATALOGO 2026 contam como White Label aqui de proposito:
