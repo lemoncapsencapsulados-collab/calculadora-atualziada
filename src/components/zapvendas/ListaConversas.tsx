@@ -11,10 +11,14 @@ import {
   ehGrupo,
   invokeZap,
   jidParaTelefone,
+  buscarContatosConhecidos,
+  CHAVE_CONTATOS_IDENTIDADE,
+  type ContatoConhecido,
   tipoMidia,
 } from '@/hooks/useZapVendas';
 import { ZapChat, ZapInstanciaCombinada } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
+import { identidadeDoContato, textoDeBusca } from '@/lib/identidadeContato';
 import { Search, Users } from 'lucide-react';
 
 import {
@@ -139,6 +143,23 @@ export function ListaConversas({
     })),
   });
 
+  // Telefone e nome já descobertos, por instância. Mesma chave de cache de
+  // `useZapContatos`, então a janela da conversa aproveita o que já veio.
+  // Uma falha aqui não esconde conversa nenhuma: sem o mapa, a identificação
+  // cai para o nome público e, na falta dele, para "Contato ·NNNN".
+  const contatos = useQueries({
+    queries: instanciasRelevantes.map((inst) => ({
+      queryKey: [CHAVE_CONTATOS_IDENTIDADE, inst.instanceName],
+      staleTime: 60_000,
+      queryFn: () => buscarContatosConhecidos(inst.instanceName),
+    })),
+  });
+
+  const contatoDe = (instanceName: string, jid: string): ContatoConhecido | undefined => {
+    const idx = instanciasRelevantes.findIndex((i) => i.instanceName === instanceName);
+    return idx >= 0 ? contatos[idx]?.data?.get(jid) : undefined;
+  };
+
   // `carregandoTudo` só é `true` enquanto NENHUMA instância respondeu ainda —
   // é o único caso em que faz sentido esconder a lista atrás do skeleton de
   // tela cheia. Com `some(isLoading)`, uma única instância lenta escondia as
@@ -162,11 +183,18 @@ export function ListaConversas({
     });
 
     const porBusca = busca.trim()
-      ? lista.filter(({ chat }) => {
+      ? lista.filter(({ chat, instanceName }) => {
           const termo = busca.trim().toLowerCase();
-          const nome = (chat.pushName || '').toLowerCase();
-          const telefone = jidParaTelefone(chat.remoteJid);
-          return nome.includes(termo) || telefone.includes(termo.replace(/\D/g, '') || termo);
+          // O texto de busca inclui o telefone descoberto em `zap_contatos` e
+          // tambem o identificador bruto: quem cola um `@lid` de outro lugar
+          // continua achando a conversa.
+          const texto = textoDeBusca({
+            remoteJid: chat.remoteJid,
+            pushName: chat.pushName,
+            telefoneConhecido: contatoDe(instanceName, chat.remoteJid)?.telefone,
+          });
+          const digitos = termo.replace(/\D/g, '');
+          return texto.includes(termo) || (!!digitos && texto.includes(digitos));
         })
       : lista;
 
@@ -184,6 +212,7 @@ export function ListaConversas({
   }, [
     instanciasRelevantes,
     resultados.map((r) => r.dataUpdatedAt).join(','),
+    contatos.map((r) => r.dataUpdatedAt).join(','),
     busca,
     usuariosMapa,
     etiquetaFiltro,
@@ -283,7 +312,15 @@ export function ListaConversas({
         {!carregandoTudo &&
           conversas.map(({ chat, instanceName, vendedor }) => {
             const grupo = ehGrupo(chat.remoteJid);
-            const nome = chat.pushName || jidParaTelefone(chat.remoteJid) || 'Contato';
+            // O identificador `@lid` nao e' telefone: quem decide o rotulo e'
+            // `identidadeDoContato`, que so' mostra numero quando ha' numero.
+            const identidade = identidadeDoContato({
+              remoteJid: chat.remoteJid,
+              pushName: chat.pushName,
+              telefoneConhecido: contatoDe(instanceName, chat.remoteJid)?.telefone,
+              nomeCliente: contatoDe(instanceName, chat.remoteJid)?.nome,
+            });
+            const nome = identidade.titulo;
             const ativo =
               selecionado?.instanceName === instanceName && selecionado?.remoteJid === chat.remoteJid;
 
@@ -324,6 +361,11 @@ export function ListaConversas({
                     </span>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{rotuloUltimaMensagem(chat)}</p>
+                  {!grupo && identidade.temTelefone && identidade.detalhe !== 'Telefone' && (
+                    <p className="num truncate text-[11px] text-muted-foreground">
+                      {identidade.detalhe}
+                    </p>
+                  )}
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
                       {vendedor}

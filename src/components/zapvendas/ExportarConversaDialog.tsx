@@ -13,7 +13,14 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { ehGrupo, jidParaTelefone, mensagemDeErro, useZapInstancias } from '@/hooks/useZapVendas';
+import {
+  ehGrupo,
+  jidParaTelefone,
+  mensagemDeErro,
+  useZapContatos,
+  useZapInstancias,
+} from '@/hooks/useZapVendas';
+import { identidadeDoContato } from '@/lib/identidadeContato';
 import {
   EtapaExportacao,
   ExportacaoCancelada,
@@ -98,7 +105,17 @@ export function ExportarConversaDialog({ chat, aberto, onAbertoChange }: Exporta
 
   const sinalRef = useRef({ cancelado: false });
 
-  const nomeContato = chat.pushName || jidParaTelefone(chat.remoteJid) || 'Contato';
+  // O PDF leva o nome do contato no cabecalho. Imprimir o `@lid` ali
+  // entregaria ao cliente um documento com um codigo interno no lugar do nome.
+  const { data: contatos } = useZapContatos(chat.instanceName);
+  const conhecido = contatos?.get(chat.remoteJid);
+  const identidade = identidadeDoContato({
+    remoteJid: chat.remoteJid,
+    pushName: chat.pushName,
+    telefoneConhecido: conhecido?.telefone,
+    nomeCliente: conhecido?.nome,
+  });
+  const nomeContato = identidade.titulo;
   const grupo = ehGrupo(chat.remoteJid);
 
   // Cada abertura começa do zero — inclusive depois de um erro ou de um cancelamento.
@@ -184,10 +201,10 @@ export function ExportarConversaDialog({ chat, aberto, onAbertoChange }: Exporta
           <DialogTitle>Exportar conversa</DialogTitle>
           <DialogDescription>
             {grupo ? 'Grupo' : 'Contato'} <span className="font-medium text-foreground">{nomeContato}</span>
-            {!grupo && (
+            {!grupo && identidade.temTelefone && (
               <>
                 {' '}
-                — <span className="num">{jidParaTelefone(chat.remoteJid)}</span>
+                — <span className="num">{identidade.detalhe}</span>
               </>
             )}
           </DialogDescription>

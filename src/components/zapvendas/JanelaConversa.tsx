@@ -9,6 +9,7 @@ import {
   ehGrupo,
   extrairTexto,
   jidParaTelefone,
+  useZapContatos,
   mensagemDeErro,
   tipoMidia,
   useEnviarMensagem,
@@ -16,6 +17,7 @@ import {
 } from '@/hooks/useZapVendas';
 import { ZapMensagem } from '@/types/zapvendas';
 import { cn } from '@/lib/utils';
+import { identidadeDoContato } from '@/lib/identidadeContato';
 import { FileDown, MessageCircleOff, RefreshCw, Send, Users } from 'lucide-react';
 import type { ChatSelecionado } from './ListaConversas';
 import { ExportarConversaDialog } from './ExportarConversaDialog';
@@ -65,6 +67,9 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
     isFetching,
   } = useZapMensagens(chat?.instanceName, chat?.remoteJid);
 
+  // Telefone e nome descobertos desta instância (ver `buscarContatosConhecidos`).
+  const { data: contatos } = useZapContatos(chat?.instanceName);
+
   const enviarMensagem = useEnviarMensagem();
 
   useEffect(() => {
@@ -81,7 +86,17 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
   }
 
   const grupo = ehGrupo(chat.remoteJid);
-  const nome = chat.pushName || jidParaTelefone(chat.remoteJid) || 'Contato';
+  // O cabecalho mostrava o `remoteJid` como se fosse telefone. Num contato
+  // `@lid` aquilo e' um identificador interno de 15 digitos, que nao serve
+  // para ligar nem para achar o cliente no CRM.
+  const conhecido = contatos?.get(chat.remoteJid);
+  const identidade = identidadeDoContato({
+    remoteJid: chat.remoteJid,
+    pushName: chat.pushName,
+    telefoneConhecido: conhecido?.telefone,
+    nomeCliente: conhecido?.nome,
+  });
+  const nome = identidade.titulo;
   const podeEnviar = statusInstancia === 'open';
 
   const motivoDesabilitado = !podeEnviar
@@ -128,7 +143,12 @@ export function JanelaConversa({ chat, statusInstancia }: JanelaConversaProps) {
               </Badge>
             )}
           </p>
-          <p className="num text-xs text-muted-foreground">{jidParaTelefone(chat.remoteJid)}</p>
+          <p
+            className={cn('text-xs text-muted-foreground', identidade.temTelefone && 'num')}
+            title={identidade.anonimo ? `Identificador interno: ${chat.remoteJid}` : undefined}
+          >
+            {identidade.detalhe}
+          </p>
         </div>
         <Button
           variant="outline"

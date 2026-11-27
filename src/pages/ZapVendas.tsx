@@ -3,7 +3,14 @@ import { PainelInstancias } from '@/components/zapvendas/PainelInstancias';
 import { ListaConversas, type ChatSelecionado } from '@/components/zapvendas/ListaConversas';
 import { JanelaConversa } from '@/components/zapvendas/JanelaConversa';
 import { CadastrarClienteDialog } from '@/components/zapvendas/CadastrarClienteDialog';
-import { useZapInstancias, jidParaTelefone, normalizarTelefone, ehGrupo } from '@/hooks/useZapVendas';
+import {
+  useZapInstancias,
+  useZapContatos,
+  jidParaTelefone,
+  normalizarTelefone,
+  ehGrupo,
+} from '@/hooks/useZapVendas';
+import { identidadeDoContato } from '@/lib/identidadeContato';
 import { useTemPapel } from '@/hooks/useTemPapel';
 import { useClientes, type Cliente } from '@/hooks/useClientes';
 import { useOrcamentos } from '@/hooks/useOrcamentos';
@@ -67,11 +74,19 @@ function chaveComparacaoTelefone(telefoneNormalizado: string): string | null {
  */
 function encontrarClientePorJid(
   remoteJid: string | undefined | null,
-  clientes: Cliente[]
+  clientes: Cliente[],
+  telefoneConhecido?: string | null
 ): ClienteEncontrado | null {
   if (ehGrupo(remoteJid)) return null;
 
-  const telefoneJid = normalizarTelefone(jidParaTelefone(remoteJid));
+  // Num contato `@lid` o `remoteJid` NAO e' telefone -- sao 15 digitos de um
+  // identificador interno. Casar o CRM por ele nunca encontrava nada, mesmo
+  // com o cliente cadastrado. O telefone de verdade vem de `zap_contatos`,
+  // que a ingestao extrai do `key.remoteJidAlt`; so' na falta dele voltamos a
+  // olhar o proprio JID, que ainda serve nos contatos `@s.whatsapp.net`.
+  const telefoneJid = normalizarTelefone(
+    telefoneConhecido || jidParaTelefone(remoteJid)
+  );
   if (!telefoneJid) return null;
 
   const exato = clientes.find((c) => normalizarTelefone(c.telefone) === telefoneJid);
@@ -121,11 +136,23 @@ function classeStatusPedido(status: StatusPedido): string {
  */
 function PainelCliente({ chat }: { chat: ChatSelecionado | null }) {
   const { clientes, isLoading: carregandoClientes } = useClientes();
+  const { data: contatos } = useZapContatos(chat?.instanceName);
+
+  const conhecido = chat ? contatos?.get(chat.remoteJid) : undefined;
 
   const encontrado = useMemo(
-    () => (chat ? encontrarClientePorJid(chat.remoteJid, clientes) : null),
-    [chat, clientes]
+    () => (chat ? encontrarClientePorJid(chat.remoteJid, clientes, conhecido?.telefone) : null),
+    [chat, clientes, conhecido?.telefone]
   );
+
+  const identidade = chat
+    ? identidadeDoContato({
+        remoteJid: chat.remoteJid,
+        pushName: chat.pushName,
+        telefoneConhecido: conhecido?.telefone,
+        nomeCliente: conhecido?.nome,
+      })
+    : null;
 
   const clienteId = encontrado?.cliente.id;
 
@@ -183,10 +210,18 @@ function PainelCliente({ chat }: { chat: ChatSelecionado | null }) {
 
         {chat && !carregandoClientes && !encontrado && !ehGrupo(chat.remoteJid) && (
           <div className="mt-2 space-y-3 rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-            <p>
-              Nenhum cliente encontrado para o número{' '}
-              <span className="num">{jidParaTelefone(chat.remoteJid)}</span>.
-            </p>
+            {identidade?.temTelefone ? (
+              <p>
+                Nenhum cliente encontrado para o número{' '}
+                <span className="num">{identidade.detalhe}</span>.
+              </p>
+            ) : (
+              <p>
+                Este contato não expõe o telefone: o WhatsApp identifica{' '}
+                <b>{identidade?.titulo}</b> por um código interno, não por número.
+                Cadastre para amarrar a conversa a um cliente.
+              </p>
+            )}
             <CadastrarClienteDialog remoteJid={chat.remoteJid} pushName={chat.pushName} />
           </div>
         )}

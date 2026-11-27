@@ -340,6 +340,61 @@ export function useZapChats(instanceName: string | undefined | null) {
   });
 }
 
+/**
+ * Telefone e nome já descobertos para os contatos de uma instância.
+ *
+ * O `remoteJid` de um contato `@lid` não carrega o número -- ele chega em
+ * `key.remoteJidAlt` e a ingestão o grava em `zap_contatos.telefone`. Sem
+ * consultar essa tabela, a tela só tem o identificador interno e acaba
+ * exibindo-o como se fosse telefone.
+ *
+ * A cobertura é parcial por natureza (o `remoteJidAlt` só vem em mensagens
+ * recentes). Contato que ainda não tem número continua aparecendo: quem decide
+ * o que mostrar é `identidadeDoContato`, não esta consulta.
+ */
+export interface ContatoConhecido {
+  nome: string | null;
+  telefone: string | null;
+}
+
+/** A chave de cache, para a lista e a janela dividirem a mesma consulta. */
+export const CHAVE_CONTATOS_IDENTIDADE = 'zap-contatos-identidade';
+
+export async function buscarContatosConhecidos(
+  instanceName: string
+): Promise<Map<string, ContatoConhecido>> {
+  const mapa = new Map<string, ContatoConhecido>();
+  // Paginado: uma instância passa de 1.500 contatos e o PostgREST corta em
+  // 1.000 sem avisar -- o corte apagaria telefones que existem.
+  const PAGINA = 1000;
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await supabase
+      .from('zap_contatos')
+      .select('remote_jid, nome, telefone')
+      .eq('instance_name', instanceName)
+      .order('remote_jid')
+      .range(de, de + PAGINA - 1);
+    if (error) throw error;
+    for (const c of data || []) {
+      mapa.set(c.remote_jid as string, {
+        nome: (c.nome as string) || null,
+        telefone: (c.telefone as string) || null,
+      });
+    }
+    if (!data || data.length < PAGINA) break;
+  }
+  return mapa;
+}
+
+export function useZapContatos(instanceName: string | undefined | null) {
+  return useQuery({
+    queryKey: [CHAVE_CONTATOS_IDENTIDADE, instanceName],
+    enabled: !!instanceName,
+    staleTime: 60_000,
+    queryFn: () => buscarContatosConhecidos(instanceName as string),
+  });
+}
+
 /** Mensagens de uma conversa (`messages.list`). Só busca com os dois parâmetros presentes. */
 export function useZapMensagens(
   instanceName: string | undefined | null,
